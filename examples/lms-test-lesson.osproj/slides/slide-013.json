@@ -1,0 +1,160 @@
+{
+  "id": "slide-013",
+  "name": "Knowledge check",
+  "duration": null,
+  "layout": "section",
+  "background": "theme:bg.accent",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0045",
+        "geometry": {
+          "x": 120,
+          "y": 230,
+          "width": 160,
+          "height": 8,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.onAccentStrong"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0043",
+        "geometry": {
+          "x": 120,
+          "y": 270,
+          "width": 1040,
+          "height": 110,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Now check what you have learned. There are five questions. You need four right to pass.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Section title",
+        "content": {
+          "html": "<h1>Knowledge check</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 56,
+          "color": "theme:color.onAccentStrong"
+        },
+        "accessibility": {
+          "altText": "Knowledge check",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0044",
+        "geometry": {
+          "x": 120,
+          "y": 390,
+          "width": 1040,
+          "height": 60,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Section note",
+        "content": {
+          "html": "<p>Five questions. You need 80 percent to pass.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.onAccentStrong"
+        },
+        "accessibility": {
+          "altText": "Five questions. You need 80 percent to pass.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

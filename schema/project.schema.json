@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstage.example/schema/project.schema.json",
+  "title": "OpenStage project.json",
+  "description": "The project manifest. See docs/format-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "meta", "stage", "variables", "theme", "credits", "completion", "scenes"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/semver" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "author", "language", "created", "modified"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "author": { "type": "string" },
+        "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$" },
+        "created": { "type": "string", "format": "date" },
+        "modified": { "type": "string", "format": "date" }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "variables": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/variable" }
+    },
+    "credits": { "type": "boolean" },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slides"],
+      "properties": {
+        "slides": {
+          "enum": ["all", "last"],
+          "description": "all: the learner has seen every slide. last: the learner has reached the last slide. Either way every quiz must also be finished."
+        }
+      }
+    },
+    "theme": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref"],
+          "properties": { "ref": { "const": "theme.json" } }
+        }
+      ]
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "slides"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string", "minLength": 1 },
+          "slides": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/id" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "semver": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "initial"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["number", "boolean", "string"] },
+        "initial": { "type": ["number", "boolean", "string"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "number" } } },
+          "then": { "properties": { "initial": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "boolean" } } },
+          "then": { "properties": { "initial": { "type": "boolean" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "string" } } },
+          "then": { "properties": { "initial": { "type": "string" } } }
+        }
+      ]
+    }
+  }
+}

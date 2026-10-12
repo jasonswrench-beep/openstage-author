@@ -1,0 +1,219 @@
+{
+  "id": "slide-005",
+  "name": "What is a channel",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0017",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0016",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Every message has a sender, a message, a channel and a receiver. Select each card to turn it over.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>What is a channel?</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "What is a channel?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0018",
+        "geometry": {
+          "x": 80,
+          "y": 175,
+          "width": 1120,
+          "height": 320,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Flip cards",
+        "content": {
+          "kind": "flipCards",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Sender",
+              "body": "<p>The person who has something to say.</p>",
+              "image": null,
+              "narration": {
+                "script": "Sender. The person who has something to say.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-2",
+              "title": "Message",
+              "body": "<p>The idea, request or information being shared.</p>",
+              "image": null,
+              "narration": {
+                "script": "Message. The idea, request or information being shared.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-3",
+              "title": "Channel",
+              "body": "<p>The route the message travels, such as a conversation, a call, a chat or an email.</p>",
+              "image": null,
+              "narration": {
+                "script": "Channel. The route the message travels, such as a conversation, a call, a chat or an email.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-4",
+              "title": "Receiver",
+              "body": "<p>The person who gets the message and makes sense of it.</p>",
+              "image": null,
+              "narration": {
+                "script": "Receiver. The person who gets the message and makes sense of it.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Four cards: sender, message, channel and receiver. Select a card to read what it means.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

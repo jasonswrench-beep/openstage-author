@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "0.14.0",
+  "meta": {
+    "title": "Choosing the Right Channel at Work",
+    "author": "OpenStage Author sample lesson",
+    "language": "en-US",
+    "created": "2026-10-12",
+    "modified": "2026-10-12"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "confidence",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-2",
+      "name": "workplace",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-3",
+      "name": "clarity",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-4",
+      "name": "interest",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-5",
+      "name": "difficulty",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-6",
+      "name": "wants_writing",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-7",
+      "name": "wants_meetings",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-8",
+      "name": "wants_feedback",
+      "type": "boolean",
+      "initial": false
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007",
+        "slide-008",
+        "slide-009",
+        "slide-010",
+        "slide-011",
+        "slide-012",
+        "slide-013",
+        "slide-014",
+        "slide-015",
+        "slide-016",
+        "slide-017",
+        "slide-018",
+        "slide-019",
+        "slide-020",
+        "slide-021",
+        "slide-023",
+        "slide-024",
+        "slide-022"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "id": "slide-002",
+  "name": "Learning objectives",
+  "duration": null,
+  "layout": "objectives",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Learning objectives</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Learning objectives",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 60,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Introduction",
+        "content": {
+          "html": "<p>By the end of this lesson you will be able to:</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "By the end of this lesson you will be able to:",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 80,
+          "y": 250,
+          "width": 1120,
+          "height": 380,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "By the end of this lesson you will be able to explain what a communication channel is, compare common workplace channels, and choose a suitable channel by asking four questions.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Content",
+        "content": {
+          "html": "<ul><li>Explain what a communication channel is.</li><li>Compare common workplace channels by richness, speed and record.</li><li>Choose a suitable channel for a message by asking four questions.</li></ul>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 28,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Explain what a communication channel is. Compare common workplace channels by richness, speed and record. Choose a suitable channel for a message by asking four questions.",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

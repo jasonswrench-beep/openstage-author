@@ -1,0 +1,20 @@
+{
+  "name": "openstage-player",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Renders an OpenStage project to accessible HTML.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/runtime.test.ts src/narration.test.ts src/scorm.test.ts src/theme.test.ts src/inputs.test.ts src/branching.test.ts src/publish-cli.test.ts src/results.test.ts src/downloads.test.ts src/timeline.test.ts src/animation.test.ts",
+    "publish": "node publish.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "0.14.0",
+  "meta": {
+    "title": "Branching demo",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-11",
+    "modified": "2026-10-11"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "choice",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-2",
+      "name": "attempts",
+      "type": "number",
+      "initial": 3
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "last"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003"
+      ]
+    }
+  ]
+}

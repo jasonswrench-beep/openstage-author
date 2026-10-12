@@ -1,0 +1,241 @@
+{
+  "id": "slide-004",
+  "name": "A quick question first",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0013",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0012",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Before we begin, answer two quick questions about yourself. Your answers decide whether you see some extra help later in this lesson. There are no right or wrong answers.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>A quick question first</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "A quick question first",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0014",
+        "geometry": {
+          "x": 80,
+          "y": 165,
+          "width": 1120,
+          "height": 230,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "input",
+        "name": "Likert scale",
+        "content": {
+          "kind": "likert",
+          "prompt": "How much do you agree with this statement?",
+          "report": true,
+          "scale": [
+            "Strongly disagree",
+            "Disagree",
+            "Neutral",
+            "Agree",
+            "Strongly agree"
+          ],
+          "rows": [
+            {
+              "id": "row-1",
+              "label": "I usually choose the right channel for each message.",
+              "variable": "var-1"
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "How much do you agree with this statement? I usually choose the right channel for each message.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0015",
+        "geometry": {
+          "x": 80,
+          "y": 420,
+          "width": 1120,
+          "height": 230,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "input",
+        "name": "Radio buttons",
+        "content": {
+          "kind": "radio",
+          "prompt": "Where do you do most of your work?",
+          "report": true,
+          "variable": "var-2",
+          "options": [
+            {
+              "id": "opt-1",
+              "label": "In an office",
+              "value": "office"
+            },
+            {
+              "id": "opt-2",
+              "label": "Remotely",
+              "value": "remote"
+            },
+            {
+              "id": "opt-3",
+              "label": "A mix of both",
+              "value": "mixed"
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Where do you do most of your work?",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

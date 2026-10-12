@@ -1,0 +1,619 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstage.example/schema/object.schema.json",
+  "title": "OpenStage object",
+  "description": "The envelope every object carries. `type` decides what is valid in `content`. See docs/format-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "type", "name", "geometry", "content", "style",
+    "accessibility", "states", "triggers", "timing", "animation", "narration", "provenance", "simulation"
+  ],
+  "properties": {
+    "id": { "$ref": "project.schema.json#/$defs/id" },
+    "type": {
+      "enum": ["text", "image", "shape", "button", "hotspot", "video", "audio", "quizQuestion", "interaction", "table", "scrollingText", "input", "embed", "results", "certificate", "download"]
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height", "rotation", "z"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 },
+        "rotation": { "type": "number" },
+        "z": { "type": "integer" }
+      }
+    },
+    "content": { "type": "object" },
+    "style": { "type": "object" },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["altText", "role", "tabOrder", "decorative"],
+      "properties": {
+        "altText": { "type": "string" },
+        "role": { "type": "string", "minLength": 1 },
+        "tabOrder": { "type": ["integer", "null"], "minimum": 0 },
+        "decorative": { "type": "boolean" }
+      }
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/state" }
+    },
+    "triggers": { "type": "array", "items": { "$ref": "#/$defs/trigger" } },
+    "timing": { "$ref": "#/$defs/timing" },
+    "animation": { "$ref": "#/$defs/animation" },
+    "narration": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
+    },
+    "provenance": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/provenance" }]
+    },
+    "simulation": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/simulation" }]
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Non-decorative objects need real alt text.",
+      "if": {
+        "required": ["accessibility"],
+        "properties": {
+          "accessibility": { "required": ["decorative"], "properties": { "decorative": { "const": false } } }
+        }
+      },
+      "then": {
+        "properties": { "accessibility": { "properties": { "altText": { "pattern": "\\S" } } } }
+      }
+    },
+    {
+      "$comment": "Decorative objects must not carry alt text.",
+      "if": {
+        "required": ["accessibility"],
+        "properties": {
+          "accessibility": { "required": ["decorative"], "properties": { "decorative": { "const": true } } }
+        }
+      },
+      "then": {
+        "properties": { "accessibility": { "properties": { "altText": { "maxLength": 0 } } } }
+      }
+    },
+    {
+      "$comment": "Interactive objects must be reachable by keyboard: tabOrder 1 or more.",
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "enum": ["button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download"] } }
+      },
+      "then": {
+        "properties": {
+          "accessibility": { "properties": { "tabOrder": { "type": "integer", "minimum": 1 } } }
+        }
+      }
+    },
+    {
+      "$comment": "Video needs a caption track or a narration script.",
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "video" } }
+      },
+      "then": {
+        "anyOf": [
+          {
+            "required": ["content"],
+            "properties": {
+              "content": {
+                "required": ["captions"],
+                "properties": { "captions": { "type": "string", "minLength": 1 } }
+              }
+            }
+          },
+          {
+            "required": ["narration"],
+            "properties": { "narration": { "type": "object" } }
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "Audio needs a caption track, a narration script or a transcript. A transcript is what an audio-only clip needs.",
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "audio" } }
+      },
+      "then": {
+        "anyOf": [
+          {
+            "required": ["content"],
+            "properties": {
+              "content": {
+                "required": ["captions"],
+                "properties": { "captions": { "type": "string", "minLength": 1 } }
+              }
+            }
+          },
+          {
+            "required": ["content"],
+            "properties": {
+              "content": {
+                "required": ["transcript"],
+                "properties": { "transcript": { "type": "string", "pattern": "\\S" } }
+              }
+            }
+          },
+          {
+            "required": ["narration"],
+            "properties": { "narration": { "type": "object" } }
+          }
+        ]
+      }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "text" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentText" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "image" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentImage" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "shape" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentShape" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "button" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentButton" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "enum": ["video", "audio"] } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentMedia" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "quizQuestion" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentQuiz" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "interaction" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentInteraction" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "table" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentTable" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "scrollingText" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentText" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "input" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentInput" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "embed" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentEmbed" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "results" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentResults" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "certificate" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentCertificate" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "download" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentDownload" } } }
+    }
+  ],
+  "$defs": {
+    "ref": { "$ref": "project.schema.json#/$defs/id" },
+    "assetPath": { "type": "string", "pattern": "^assets/.+" },
+
+    "timing": {
+      "$comment": "When the object appears and disappears, counted from when its layer is shown (the slide opening, for the base layer). Milliseconds, like a slide's duration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appear", "start", "visibleFor"],
+      "properties": {
+        "appear": { "enum": ["time", "narration"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts." },
+        "start": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+        "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends." }
+      }
+    },
+    "animation": {
+      "$comment": "How an object arrives and leaves when its timing shows and hides it. An entrance plays when the object appears (including when the slide opens, for an object that is there from the start). An exit plays when it disappears at the end of its time.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enter", "exit"],
+      "properties": {
+        "enter": { "$ref": "#/$defs/effect" },
+        "exit": { "$ref": "#/$defs/effect" }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect", "duration"],
+      "properties": {
+        "effect": { "enum": ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "zoom"], "description": "none: no effect. fade: opacity only. slideLeft, slideRight, slideTop, slideBottom: arrives from that side, or leaves toward it. zoom: grows from slightly smaller, or shrinks to it." },
+        "duration": { "type": "integer", "minimum": 100, "maximum": 2000, "description": "Milliseconds. Short on purpose: a longer movement is a distraction and a barrier." }
+      }
+    },
+    "contentDownload": {
+      "$comment": "A file the learner can save to their own device. The description says what the file is, so learners know before they download it, and the author confirms the file is accessible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src", "title", "description", "accessibleConfirmed"],
+      "properties": {
+        "src": { "$ref": "#/$defs/assetPath" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "accessibleConfirmed": { "type": "boolean" }
+      }
+    },
+    "contentResults": {
+      "$comment": "The learner's score, whether they passed, and optionally each question. Filled in by the player from the quiz.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["heading", "passMessage", "failMessage", "review"],
+      "properties": {
+        "heading": { "type": "string", "minLength": 1 },
+        "passMessage": { "type": "string" },
+        "failMessage": { "type": "string" },
+        "review": { "type": "boolean" }
+      }
+    },
+    "contentCertificate": {
+      "$comment": "A certificate for a learner who passed. The learner types their own name, then prints it or saves it as a PDF.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "statement", "achievement", "issuedBy", "showScore", "showDate"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string" },
+        "achievement": { "type": "string" },
+        "issuedBy": { "type": "string" },
+        "showScore": { "type": "boolean" },
+        "showDate": { "type": "boolean" }
+      }
+    },
+
+    "contentText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["html"],
+      "properties": { "html": { "type": "string", "minLength": 1 } }
+    },
+    "contentImage": {
+      "type": "object",
+      "required": ["src"],
+      "properties": { "src": { "$ref": "#/$defs/assetPath" } }
+    },
+    "contentShape": {
+      "type": "object",
+      "required": ["shape"],
+      "properties": { "shape": { "type": "string", "minLength": 1 } }
+    },
+    "contentButton": {
+      "type": "object",
+      "required": ["label"],
+      "properties": { "label": { "type": "string", "minLength": 1 } }
+    },
+    "contentMedia": {
+      "type": "object",
+      "required": ["src"],
+      "properties": {
+        "src": { "$ref": "#/$defs/assetPath" },
+        "captions": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/assetPath" }] },
+        "transcript": { "type": "string" }
+      }
+    },
+    "contentEmbed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id", "hash", "transcript", "captionsConfirmed"],
+      "properties": {
+        "provider": { "enum": ["youtube", "vimeo"] },
+        "id": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string" },
+        "transcript": { "type": "string" },
+        "captionsConfirmed": { "type": "boolean" }
+      }
+    },
+    "contentInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "prompt", "report"],
+      "properties": {
+        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic"] },
+        "prompt": { "type": "string", "minLength": 1 },
+        "report": { "type": "boolean" },
+        "variable": { "$ref": "project.schema.json#/$defs/id" },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "value"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "value": { "type": "string" }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "variable"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "variable": { "$ref": "project.schema.json#/$defs/id" }
+            }
+          }
+        },
+        "scale": { "type": "array", "minItems": 2, "maxItems": 9, "items": { "type": "string", "minLength": 1 } },
+        "points": { "type": "integer", "minimum": 3, "maximum": 9 },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "variable"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "right": { "type": "string" },
+              "variable": { "$ref": "project.schema.json#/$defs/id" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "required": ["kind"], "properties": { "kind": { "enum": ["radio", "dropdown", "list"] } } }, "then": { "required": ["variable", "options"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "checkbox" } } }, "then": { "required": ["items"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "likert" } } }, "then": { "required": ["scale", "rows"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "semantic" } } }, "then": { "required": ["points", "rows"] } }
+      ]
+    },
+    "contentTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caption", "headerRow", "headerColumn", "rows"],
+      "properties": {
+        "caption": { "type": "string" },
+        "headerRow": { "type": "boolean" },
+        "headerColumn": { "type": "boolean" },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string" } }
+        }
+      }
+    },
+    "contentInteraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "orientation", "allowMultiple", "items"],
+      "properties": {
+        "kind": { "enum": ["clickReveal", "flipCards", "tabs", "accordion", "carousel", "steps", "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix"] },
+        "orientation": { "enum": ["horizontal", "vertical"] },
+        "allowMultiple": { "type": "boolean" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "body", "image", "narration"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "body": { "type": "string" },
+              "narration": {
+                "$comment": "What the learner hears when this item is opened. Same shape as an object's narration.",
+                "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
+              },
+              "image": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["src", "alt", "decorative"],
+                    "properties": {
+                      "src": { "$ref": "#/$defs/assetPath" },
+                      "alt": { "type": "string" },
+                      "decorative": { "type": "boolean" }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "contentQuiz": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionType", "choices", "scoring", "feedback"],
+      "properties": {
+        "questionType": { "enum": ["multipleChoice"] },
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "correct"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "correct": { "type": "boolean" }
+            }
+          }
+        },
+        "scoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["points", "attemptsAllowed"],
+          "properties": {
+            "points": { "type": "number", "minimum": 0 },
+            "attemptsAllowed": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["correct", "incorrect"],
+          "properties": {
+            "correct": { "$ref": "project.schema.json#/$defs/id" },
+            "incorrect": { "$ref": "project.schema.json#/$defs/id" }
+          }
+        }
+      }
+    },
+
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "style": { "type": "object" },
+        "content": { "type": "object" }
+      }
+    },
+
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "event", "action", "target", "conditions"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "event": {
+          "enum": ["click", "keyActivate", "slideStart", "slideEnd", "mediaComplete", "variableChange"]
+        },
+        "action": {
+          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "changeState"]
+        },
+        "target": { "$ref": "project.schema.json#/$defs/id" },
+        "value": { "type": ["number", "boolean", "string"] },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["variable", "operator", "value"],
+            "properties": {
+              "variable": { "$ref": "project.schema.json#/$defs/id" },
+              "operator": {
+                "enum": ["equals", "notEquals", "lessThan", "lessThanOrEqual", "greaterThan", "greaterThanOrEqual"]
+              },
+              "value": { "type": ["number", "boolean", "string"] }
+            }
+          }
+        }
+      }
+    },
+
+    "narration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["script", "voice", "speed", "lang", "pronunciations", "audioCache"],
+      "properties": {
+        "script": { "type": "string", "pattern": "\\S" },
+        "voice": { "type": "string", "minLength": 1 },
+        "speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 4 },
+        "lang": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$" },
+        "pronunciations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["term", "ipa"],
+            "properties": {
+              "term": { "type": "string", "minLength": 1 },
+              "ipa": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "audioCache": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["hash", "path"],
+              "properties": {
+                "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]+$" },
+                "path": { "type": "string", "pattern": "^\\.cache/narration/.+" }
+              }
+            }
+          ]
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceDeck", "slideIndex", "shapeId", "importedAt"],
+      "properties": {
+        "sourceDeck": { "type": "string", "minLength": 1 },
+        "slideIndex": { "type": "integer", "minimum": 0 },
+        "shapeId": { "type": "string", "minLength": 1 },
+        "importedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "simulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepIndex", "interaction", "correctTarget", "expectedText", "feedback", "attemptsAllowed", "mode"],
+      "properties": {
+        "stepIndex": { "type": "integer", "minimum": 0 },
+        "interaction": { "type": "string", "minLength": 1 },
+        "correctTarget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "width": { "type": "number", "minimum": 0 },
+            "height": { "type": "number", "minimum": 0 }
+          }
+        },
+        "expectedText": { "type": ["string", "null"] },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["correct", "incorrect"],
+          "properties": {
+            "correct": { "$ref": "project.schema.json#/$defs/id" },
+            "incorrect": { "$ref": "project.schema.json#/$defs/id" }
+          }
+        },
+        "attemptsAllowed": { "type": "integer", "minimum": 1 },
+        "mode": { "enum": ["demo", "practice", "assessment"] }
+      }
+    }
+  }
+}

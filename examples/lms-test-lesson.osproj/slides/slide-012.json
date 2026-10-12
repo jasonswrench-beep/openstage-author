@@ -1,0 +1,203 @@
+{
+  "id": "slide-012",
+  "name": "Embedded video test",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0040",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0039",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Watch a video (embed test)</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Watch a video (embed test)",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0041",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 760,
+          "height": 520,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "embed",
+        "name": "YouTube video",
+        "content": {
+          "provider": "youtube",
+          "id": "hbPvZvpu9KU",
+          "hash": "",
+          "transcript": "<p>Text alternative. This is a short description written for this test. It is not a transcript of the whole video.</p><p>The video is a nine minute tutorial on making animated charts and explainer videos with Claude Motion. It shows how to tie graphics to moments in a video, how to work from screenshots, and how to make small targeted edits.</p><p>The video's own captions are YouTube's automatic English captions. Turn them on with the CC button in the player.</p>",
+          "captionsConfirmed": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 16
+        },
+        "accessibility": {
+          "altText": "YouTube video: The New Claude Motion Is Awesome, a nine minute tutorial by Paul J Lipsky",
+          "role": "video",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0042",
+        "geometry": {
+          "x": 880,
+          "y": 190,
+          "width": 320,
+          "height": 300,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<p>This slide tests an embedded YouTube video. The video has nothing to do with channels, and it is not part of what the lesson teaches.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "This slide tests an embedded YouTube video. The video has nothing to do with channels, and it is not part of what the lesson teaches.",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

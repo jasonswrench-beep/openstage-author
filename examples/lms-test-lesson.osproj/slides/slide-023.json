@@ -1,0 +1,225 @@
+{
+  "id": "slide-023",
+  "name": "Take-home guides",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0081",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0080",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Take-home guides. Two guides you can save to your own computer are on this slide. Each one has a description, so you know what it is before you download it.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Take-home guides</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Take-home guides",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0082",
+        "geometry": {
+          "x": 80,
+          "y": 200,
+          "width": 540,
+          "height": 360,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Channel checklist. A one page checklist of the four questions to ask before you choose a channel, with a table that compares face to face talk, calls, chat and email. It is made to print. Type of file: PDF document. Selecting Download saves this file to your computer. You can then open it with your own programs, including a screen reader.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "download",
+        "name": "Download",
+        "content": {
+          "src": "assets/documents/channel-checklist.pdf",
+          "title": "Channel checklist",
+          "description": "A one page checklist of the four questions to ask before you choose a channel, with a table that compares face to face talk, calls, chat and email. It is made to print.",
+          "accessibleConfirmed": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Channel checklist, a PDF to download",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0083",
+        "geometry": {
+          "x": 660,
+          "y": 200,
+          "width": 540,
+          "height": 360,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Channel guide. The same checklist as a Word document you can type your own notes into. It uses real headings, so it is easy to move around with a screen reader. Type of file: Word document. Selecting Download saves this file to your computer. You can then open it with your own programs, including a screen reader.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "download",
+        "name": "Download",
+        "content": {
+          "src": "assets/documents/channel-guide.docx",
+          "title": "Channel guide",
+          "description": "The same checklist as a Word document you can type your own notes into. It uses real headings, so it is easy to move around with a screen reader.",
+          "accessibleConfirmed": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Channel guide, a Word document to download",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

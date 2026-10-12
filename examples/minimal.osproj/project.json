@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "0.14.0",
+  "meta": {
+    "title": "What Is Organizational Communication?",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-10",
+    "modified": "2026-10-10"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-attempts",
+      "name": "attempts",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-answered",
+      "name": "answered",
+      "type": "boolean",
+      "initial": false
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002"
+      ]
+    }
+  ]
+}

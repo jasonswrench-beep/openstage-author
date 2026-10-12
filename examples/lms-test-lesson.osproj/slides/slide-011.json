@@ -1,0 +1,257 @@
+{
+  "id": "slide-011",
+  "name": "Key terms",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0037",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0036",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "These key terms come up often. Asynchronous communication means the other person does not need to respond right away.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [
+            {
+              "term": "Asynchronous",
+              "ipa": "eɪˈsɪŋkɹənəs"
+            }
+          ],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Key terms</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Key terms",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0038",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 450,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Glossary",
+        "content": {
+          "kind": "glossary",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Asynchronous",
+              "body": "<p>Communication in which the other person does not need to respond right away, such as email.</p>",
+              "image": null,
+              "narration": {
+                "script": "Asynchronous. Communication in which the other person does not need to respond right away, such as email.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [
+                  {
+                    "term": "Asynchronous",
+                    "ipa": "eɪˈsɪŋkɹənəs"
+                  }
+                ],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-2",
+              "title": "Synchronous",
+              "body": "<p>Communication in which people respond in real time, such as a call or a face to face talk.</p>",
+              "image": null,
+              "narration": {
+                "script": "Synchronous. Communication in which people respond in real time, such as a call or a face to face talk.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-3",
+              "title": "Channel",
+              "body": "<p>The route a message travels from sender to receiver.</p>",
+              "image": null,
+              "narration": {
+                "script": "Channel. The route a message travels from sender to receiver.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-4",
+              "title": "Channel overload",
+              "body": "<p>Receiving more messages through a channel than a person can process.</p>",
+              "image": null,
+              "narration": {
+                "script": "Channel overload. Receiving more messages through a channel than a person can process.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-5",
+              "title": "Media richness",
+              "body": "<p>How many cues, such as tone and expression, a channel can carry, and how quickly it supports feedback.</p>",
+              "image": null,
+              "narration": {
+                "script": "Media richness. How many cues, such as tone and expression, a channel can carry, and how quickly it supports feedback.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-6",
+              "title": "Noise",
+              "body": "<p>Anything that distorts or interrupts a message on its way to the receiver.</p>",
+              "image": null,
+              "narration": {
+                "script": "Noise. Anything that distorts or interrupts a message on its way to the receiver.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Glossary of six terms about workplace channels. Search or choose a letter, then select a term.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "ocean",
+  "name": "Ocean",
+  "colors": {
+    "background": "#f3f9fd",
+    "surface": "#d6e8f5",
+    "text": "#0b2239",
+    "muted": "#36506a",
+    "accent": "#1996d5",
+    "accentStrong": "#0b5c8e",
+    "onAccentStrong": "#ffffff",
+    "dark": "#0b3a5a",
+    "onDark": "#f3f9fd",
+    "good": "#0f5132",
+    "bad": "#842029",
+    "line": "#bcd5e8"
+  },
+  "fonts": {
+    "heading": "Verdana, Geneva, sans-serif",
+    "body": "Verdana, Geneva, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

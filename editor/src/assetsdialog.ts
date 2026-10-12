@@ -1,0 +1,450 @@
+// The Assets dialog. Three tabs: "This project" lists everything the project keeps under assets/ (what
+// is in the project is also what is exported), "Find stock images" searches Pixabay and Unsplash with the
+// author's own free key, and "Settings" holds those keys. A native <dialog>, so focus moves in, Tab stays
+// inside, Escape closes it and focus returns to the button that opened it. Each tab is a real tab (arrow
+// keys move between them) and each list of assets is one group of radio buttons.
+
+import type { CreditEntry } from "../../player/src/types.ts";
+import type { AssetFile, AssetKindName, Backend } from "./backend.ts";
+import { errorText } from "./backend.ts";
+import type { Model } from "./model.ts";
+import { clock, creditFor, KEYED, KINDS, LINK_SOURCES, nameFor, parseSettings, searchStock, serializeSettings, SOURCES, sourceById, sourcesFor, trackDownload, type KeyedProvider, type MediaKind, type Provider, type Settings, type StockHit } from "./stock.ts";
+
+export interface AssetsContext {
+  model: Model;
+  backend: Backend;
+  announce(message: string): void;
+  /** Put a picture on the slide being edited. `suggestion` is what a stock service says it shows, if anything. */
+  insertImage(path: string, suggestion?: string): Promise<void>;
+  insertMedia(kind: "video" | "audio", path: string): void;
+  /** Offer a file from the project for download on the slide. */
+  insertDownload(path: string): void;
+  /** Use a captions file for the selected video or audio clip. */
+  useCaptions(path: string): void;
+  tab?: "project" | "stock" | "settings";
+}
+
+type Attrs = Record<string, string | boolean>;
+function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === false) continue;
+    if (k === "class") e.className = String(v);
+    else if (k === "text") e.textContent = String(v);
+    else e.setAttribute(k, v === true ? "" : String(v));
+  }
+  e.append(...kids);
+  return e;
+}
+
+const KIND_LABELS: Record<AssetKindName, string> = { image: "Image", video: "Video", audio: "Audio", captions: "Captions", document: "File to download" };
+const ASSET_KINDS: AssetKindName[] = ["image", "video", "audio", "captions", "document"];
+const FILTERS: { value: "all" | AssetKindName; label: string }[] = [
+  { value: "all", label: "All assets" }, { value: "image", label: "Images" }, { value: "video", label: "Video" }, { value: "audio", label: "Audio" }, { value: "captions", label: "Captions" }, { value: "document", label: "Files to download" },
+];
+
+export function sizeText(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** The sentence that says where an asset came from. */
+export function creditSentence(c: CreditEntry | undefined): string {
+  if (!c) return "No credit recorded. OpenStage treats this as your own file.";
+  const s = c.source;
+  const where = s.provider === "other" ? "" : ` from ${PROVIDER_NAMES[s.provider] ?? s.provider}`;
+  return `${c.title || "Untitled"}${s.creator ? `, by ${s.creator}` : ""}${where}. ${s.licence ? `${s.licence}.` : ""}${s.requiresCredit ? " Credit is required." : ""}`.trim();
+}
+
+/** Where an asset can have come from, as the credit editor and the credits page name them. */
+export const PROVIDER_NAMES: Record<string, string> = {
+  pixabay: "Pixabay", unsplash: "Unsplash", pexels: "Pexels", openverse: "Openverse", wikimedia: "Wikimedia Commons", freesound: "Freesound",
+  mixkit: "Mixkit", svgrepo: "SVG Repo", libreshot: "Libreshot", vecteezy: "Vecteezy",
+};
+
+/** Ask for the credit details of one asset. Resolves to the entry, or null if cancelled. */
+function askCredit(path: string, kind: AssetKindName, current: CreditEntry | undefined): Promise<CreditEntry | null> {
+  return new Promise((resolve) => {
+    const dialog = h("dialog", { class: "dialog", "aria-labelledby": "cr-heading" });
+    const field = (id: string, label: string, value: string) => {
+      const input = h("input", { id: `cr-${id}`, type: "text" });
+      input.value = value;
+      return { input, row: h("div", { class: "field" }, h("label", { for: `cr-${id}`, text: label }), input) };
+    };
+    const s = current?.source;
+    const title = field("title", "Title", current?.title ?? "");
+    const creator = field("creator", "Creator", s?.creator ?? "");
+    const creatorUrl = field("creator-url", "Creator's page", s?.creatorUrl ?? "");
+    const url = field("url", "Source link", s?.url ?? "");
+    const licence = field("licence", "Licence", s?.licence ?? "");
+    const provider = h("select", { id: "cr-provider" }, ...[["other", "Somewhere else"], ...Object.entries(PROVIDER_NAMES).filter(([id]) => id !== "vecteezy" || current?.source.provider === "vecteezy")].map(([v, l]) => h("option", { value: v!, text: l! })));
+    provider.value = s?.provider ?? "other";
+    const required = h("input", { id: "cr-required", type: "checkbox", ...(s?.requiresCredit ? { checked: true } : {}) });
+    const error = h("p", { class: "dialog-error", role: "alert" });
+    const ok = h("button", { type: "submit", text: "Save credit" });
+    const cancel = h("button", { type: "button", text: "Cancel" });
+    const form = h("form", { method: "dialog" },
+      h("h2", { id: "cr-heading", text: "Where did this come from?" }),
+      h("p", { class: "note", text: `${path}. Leave everything empty for a file that is your own.` }),
+      title.row, creator.row, creatorUrl.row, url.row, licence.row,
+      h("div", { class: "field" }, h("label", { for: "cr-provider", text: "Found on" }), provider),
+      h("div", { class: "field check" }, required, h("label", { for: "cr-required", text: "The licence requires credit" })),
+      error, h("div", { class: "dialog-actions" }, ok, cancel));
+    dialog.appendChild(form);
+    document.body.appendChild(dialog);
+    let result: CreditEntry | null = null;
+    const finish = () => { dialog.close(); dialog.remove(); resolve(result); };
+    cancel.addEventListener("click", finish);
+    dialog.addEventListener("cancel", (e) => { e.preventDefault(); finish(); });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (required.checked && !(creator.input.value.trim() && url.input.value.trim() && licence.input.value.trim())) {
+        error.textContent = "When credit is required, give the creator, the source link and the licence.";
+        creator.input.focus();
+        return;
+      }
+      result = {
+        path, kind: kind === "captions" ? "video" : kind, title: title.input.value.trim(),
+        source: { provider: provider.value as CreditEntry["source"]["provider"], url: url.input.value.trim(), creator: creator.input.value.trim(), creatorUrl: creatorUrl.input.value.trim(), licence: licence.input.value.trim(), requiresCredit: required.checked },
+      };
+      finish();
+    });
+    dialog.showModal();
+    title.input.focus();
+  });
+}
+
+export function openAssets(ctx: AssetsContext): Promise<void> {
+  return new Promise((resolve) => {
+    const m = ctx.model;
+    const b = ctx.backend;
+    const dialog = h("dialog", { class: "dialog wide assets-dialog", "aria-labelledby": "as-title" });
+
+    // ---- tabs
+    const tabNames: { id: "project" | "stock" | "settings"; label: string }[] = [
+      { id: "project", label: "This project" }, { id: "stock", label: "Find media" }, { id: "settings", label: "Settings" },
+    ];
+    const tablist = h("div", { class: "as-tabs", role: "tablist", "aria-label": "Assets" });
+    const tabs = tabNames.map((t) => h("button", { type: "button", role: "tab", id: `as-tab-${t.id}`, "aria-controls": `as-panel-${t.id}`, text: t.label }));
+    tablist.append(...tabs);
+    const panels = tabNames.map((t) => h("div", { class: "as-panel", role: "tabpanel", id: `as-panel-${t.id}`, "aria-labelledby": `as-tab-${t.id}` }));
+    const select = (i: number, focus: boolean) => {
+      tabs.forEach((tab, j) => { tab.setAttribute("aria-selected", String(j === i)); tab.tabIndex = j === i ? 0 : -1; panels[j]!.hidden = j !== i; });
+      if (focus) tabs[i]!.focus();
+    };
+    tabs.forEach((tab, i) => tab.addEventListener("click", () => select(i, false)));
+    tablist.addEventListener("keydown", (e) => {
+      const at = tabs.findIndex((t) => t === document.activeElement);
+      if (at === -1) return;
+      const to = e.key === "ArrowRight" ? (at + 1) % tabs.length : e.key === "ArrowLeft" ? (at - 1 + tabs.length) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+      if (to < 0) return;
+      e.preventDefault();
+      select(to, true);
+    });
+
+    const status = h("p", { class: "as-status", role: "status" });
+    const say = (text: string) => { status.textContent = text; };
+
+    // ================================================================ this project
+    let assets: AssetFile[] = [];
+    let filter: "all" | AssetKindName = "all";
+    let chosen: string | null = null;
+
+    const listEl = h("div", { class: "as-grid", role: "radiogroup", "aria-label": "Project assets" });
+    const detail = h("div", { class: "as-detail", "aria-live": "polite" });
+    const filterSel = h("select", { id: "as-filter" }, ...FILTERS.map((f) => h("option", { value: f.value, text: f.label })));
+    filterSel.addEventListener("change", () => { filter = filterSel.value as typeof filter; renderList(); });
+
+    const addButtons = ASSET_KINDS.map((kind) =>
+      h("button", { type: "button", class: "small", text: kind === "document" ? "Add a file to download..." : `Add ${kind === "captions" ? "captions" : kind}...` }));
+    addButtons.forEach((btn, i) => btn.addEventListener("click", async () => {
+      const kind = ASSET_KINDS[i]!;
+      try {
+        const picked = await b.pickFile(kind);
+        if (!picked) return;
+        const path = await b.importAsset(m.dir, picked, kind);
+        await reload(path);
+        say(`Added ${path.split("/").pop()} to the project. If it came from a website, choose Edit credit to record where.`);
+      } catch (err) {
+        say(`Could not add the file. ${errorText(err)}`);
+      }
+    }));
+
+    const creditsBox = h("input", { id: "as-credits", type: "checkbox", ...(m.credits ? { checked: true } : {}) });
+    creditsBox.addEventListener("change", () => { const msg = m.setCredits(creditsBox.checked); if (msg) say(msg); });
+
+    async function reload(select_?: string): Promise<void> {
+      assets = await b.listAssets(m.dir);
+      if (select_) chosen = select_;
+      renderList();
+    }
+
+    function renderList(): void {
+      const shown = assets.filter((a) => filter === "all" || a.kind === filter);
+      listEl.replaceChildren();
+      if (shown.length === 0) {
+        listEl.appendChild(h("p", { class: "note", text: assets.length === 0 ? "Nothing here yet. Add files from your computer, or find stock images." : "Nothing of that kind." }));
+      }
+      for (const a of shown) {
+        const radio = h("input", { type: "radio", name: "as-asset", value: a.path, ...(a.path === chosen ? { checked: true } : {}) });
+        radio.addEventListener("change", () => { chosen = a.path; renderDetail(); });
+        const thumb = h("span", { class: "as-thumb", "aria-hidden": "true" });
+        if (a.kind === "image") {
+          const img = h("img", { alt: "" });
+          void b.assetUrl(m.dir, a.path).then((url) => { img.src = url; }).catch(() => undefined);
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = KIND_LABELS[a.kind];
+        }
+        const name = a.path.split("/").pop() ?? a.path;
+        listEl.appendChild(h("label", { class: "layout-card as-card" }, radio, h("span", { class: "card-body" }, thumb, h("span", { class: "card-title", text: name }), h("span", { class: "card-desc", text: `${KIND_LABELS[a.kind]}, ${sizeText(a.size)}` }))));
+      }
+      renderDetail();
+    }
+
+    function renderDetail(): void {
+      detail.replaceChildren();
+      const a = assets.find((x) => x.path === chosen);
+      if (!a) { detail.appendChild(h("p", { class: "note", text: "Select an asset to see where it is used and where it came from." })); return; }
+      const uses = m.usageOf(a.path);
+      const insertLabel = a.kind === "captions" ? "Use as captions for the selected video or audio" : a.kind === "document" ? "Offer for download on this slide" : "Insert on this slide";
+      const insert = h("button", { type: "button", text: insertLabel });
+      insert.addEventListener("click", () => {
+        close();
+        if (a.kind === "image") void ctx.insertImage(a.path);
+        else if (a.kind === "captions") ctx.useCaptions(a.path);
+        else if (a.kind === "document") ctx.insertDownload(a.path);
+        else ctx.insertMedia(a.kind, a.path);
+      });
+      const edit = h("button", { type: "button", text: "Edit credit..." });
+      edit.addEventListener("click", async () => {
+        const entry = await askCredit(a.path, a.kind, m.creditOf(a.path));
+        if (!entry) return;
+        const empty = !entry.title && !entry.source.creator && !entry.source.url && !entry.source.licence && entry.source.provider === "other";
+        if (empty) m.dropCredit(a.path); else m.setCredit(entry);
+        renderDetail();
+      });
+      const del = h("button", { type: "button", text: "Delete from project" });
+      if (uses.length > 0) { del.setAttribute("aria-disabled", "true"); del.setAttribute("aria-describedby", "as-del-note"); }
+      del.addEventListener("click", async () => {
+        if (uses.length > 0) { say("This asset is used on a slide, so it cannot be deleted. Remove it from the slide first."); return; }
+        if (!(await b.confirm(`Delete ${a.path} from the project? This cannot be undone.`))) return;
+        try {
+          await b.deleteAsset(m.dir, a.path);
+          m.dropCredit(a.path);
+          chosen = null;
+          await reload();
+          say(`Deleted ${a.path}.`);
+        } catch (err) {
+          say(`Could not delete it. ${errorText(err)}`);
+        }
+      });
+      detail.append(
+        h("h3", { text: a.path.split("/").pop() ?? a.path }),
+        h("p", { text: `${KIND_LABELS[a.kind]}, ${sizeText(a.size)}. ${a.path}` }),
+        h("p", { text: creditSentence(m.creditOf(a.path)) }),
+        h("p", { text: uses.length === 0 ? "Not used on any slide." : `Used on: ${uses.map((u) => `${u.object} on ${u.slide}`).join("; ")}.` }),
+        h("div", { class: "btn-row" }, insert, edit, del),
+        h("p", { id: "as-del-note", class: "note", text: uses.length > 0 ? "It cannot be deleted while a slide uses it." : "" }),
+      );
+    }
+
+    panels[0]!.append(
+      h("div", { class: "as-toolbar" }, h("label", { for: "as-filter", text: "Show" }), filterSel, ...addButtons),
+      h("div", { class: "as-split" }, listEl, detail),
+      h("div", { class: "field check" }, creditsBox, h("label", { for: "as-credits", text: "Show a credits page in the published course (only for assets that need credit)" })),
+      h("p", { class: "note", text: "Everything in this list is part of the project, and is included in the published course and the SCORM package." }),
+    );
+
+    // ================================================================ find media
+    let settings: Settings = parseSettings("");
+    let kind: MediaKind = "image";
+    let provider: Provider = "pexels";
+    let query = "";
+    let page = 0;
+    let hits: StockHit[] = [];
+    let hasMore = false;
+    let picked: StockHit | null = null;
+
+    const kindSel = h("select", { id: "st-kind" }, ...KINDS.map((k) => h("option", { value: k.id, text: k.label })));
+    const provSel = h("select", { id: "st-provider" });
+    const fillSources = () => {
+      provSel.replaceChildren(...sourcesFor(kind).map((src) => h("option", { value: src.id, text: `${src.name} (search needs a key)` })));
+      if (!sourcesFor(kind).some((src) => src.id === provider)) provider = sourcesFor(kind)[0]!.id;
+      provSel.value = provider;
+    };
+    const reset = () => { hits = []; picked = null; hasMore = false; renderStock(); keyNote(); renderLinks(); };
+    kindSel.addEventListener("change", () => { kind = kindSel.value as MediaKind; fillSources(); reset(); });
+    provSel.addEventListener("change", () => { provider = provSel.value as Provider; reset(); });
+    const queryInput = h("input", { id: "st-query", type: "search", autocomplete: "off" });
+    const searchBtn = h("button", { type: "submit", text: "Search" });
+    const form = h("form", { class: "as-toolbar", role: "search" }, h("label", { for: "st-kind", text: "Find" }), kindSel, h("label", { for: "st-provider", text: "On" }), provSel, h("label", { for: "st-query", text: "Search for" }), queryInput, searchBtn);
+    const keyMsg = h("p", { class: "note" });
+    const stockGrid = h("div", { class: "as-grid", role: "radiogroup", "aria-label": "Search results" });
+    const stockDetail = h("div", { class: "as-detail", "aria-live": "polite" });
+    const more = h("button", { type: "button", text: "More results" });
+    more.hidden = true;
+    const links = h("div", {});
+
+    const get = (url: string, headers: [string, string][]) => b.httpGet(url, headers);
+    const keyOf = (id: Provider): string => (KEYED as string[]).includes(id) ? settings.keys[id as KeyedProvider] : "";
+    function keyNote(): void {
+      const src = sourceById(provider);
+      keyMsg.textContent = keyOf(provider).trim() === ""
+        ? `Searching ${src.name} from here needs its free key, which you add in Settings. Without one, use the button below to open ${src.name} in your browser. ${src.blurb}`
+        : src.blurb;
+    }
+    function renderLinks(): void {
+      links.replaceChildren(...LINK_SOURCES.filter((l) => l.kinds.includes(kind)).map((l) => {
+        const open = h("button", { type: "button", class: "small", text: `Open ${l.name} in your browser` });
+        open.addEventListener("click", () => void b.openUrl(l.url));
+        const here = l.searchId === undefined ? "It cannot be searched from here." : keyOf(l.searchId).trim() === "" ? "To search it from here, add its free key in Settings." : "You can search it here too.";
+        return h("div", { class: "as-links" }, open, h("span", { class: "note", text: `${l.note} ${here}` }));
+      }));
+    }
+
+    async function search(next: boolean): Promise<void> {
+      try {
+        if (!next) { query = queryInput.value; page = 0; hits = []; picked = null; }
+        say("Searching...");
+        const result = await searchStock(provider, kind, query, page + 1, keyOf(provider), get);
+        page = result.page;
+        hits = [...hits, ...result.hits];
+        hasMore = result.hasMore;
+        say(hits.length === 0 ? "Nothing found. Try other words." : `${hits.length} ${hits.length === 1 ? "result" : "results"} shown${hasMore ? ". There are more." : "."}`);
+        renderStock();
+      } catch (err) {
+        say(errorText(err));
+      }
+    }
+    form.addEventListener("submit", (e) => { e.preventDefault(); void search(false); });
+    more.addEventListener("click", () => void search(true));
+
+    function renderStock(): void {
+      stockGrid.replaceChildren();
+      for (const hit of hits) {
+        const radio = h("input", { type: "radio", name: "st-hit", value: `${hit.provider}-${hit.id}`, ...(picked === hit ? { checked: true } : {}) });
+        radio.addEventListener("change", () => { picked = hit; renderStockDetail(); });
+        const thumb = h("span", { class: "as-thumb", "aria-hidden": "true" });
+        if (hit.preview) thumb.appendChild(h("img", { alt: "", src: hit.preview, loading: "lazy" }));
+        else thumb.textContent = hit.kind === "audio" ? "Sound" : "Video";
+        const extra = [hit.creator ? `By ${hit.creator}` : "", hit.duration ? clock(hit.duration) : ""].filter(Boolean).join(", ");
+        stockGrid.appendChild(h("label", { class: "layout-card as-card" }, radio, h("span", { class: "card-body" }, thumb, h("span", { class: "card-title", text: hit.title }), h("span", { class: "card-desc", text: extra }))));
+      }
+      more.hidden = !hasMore;
+      renderStockDetail();
+    }
+
+    function renderStockDetail(): void {
+      stockDetail.replaceChildren();
+      if (!picked) { stockDetail.appendChild(h("p", { class: "note", text: hits.length ? "Select a result to see its details." : "Search, then select a result." })); return; }
+      const hit = picked;
+      const noun = hit.kind === "image" ? "picture" : hit.kind;
+      const addOnly = h("button", { type: "button", text: "Add to project" });
+      const addInsert = h("button", { type: "button", text: "Add and insert on this slide" });
+      const run = async (insert: boolean) => {
+        try {
+          say(`Adding the ${noun}... a video can take a little while.`);
+          const path = await b.downloadAsset(m.dir, hit.downloadUrl, nameFor(hit), hit.kind);
+          await trackDownload(hit, keyOf(hit.provider), get);
+          m.setCredit({ path, title: hit.title, kind: hit.kind, source: creditFor(hit) });
+          await reload(path);
+          if (insert) {
+            close();
+            if (hit.kind === "image") await ctx.insertImage(path, hit.suggestedAlt || undefined);
+            else ctx.insertMedia(hit.kind, path);
+            return;
+          }
+          say(`Added to the project as ${path.split("/").pop()}, with its credit saved. Find it in "This project".`);
+        } catch (err) {
+          say(`Could not add the ${noun}. ${errorText(err)}`);
+        }
+      };
+      addOnly.addEventListener("click", () => void run(false));
+      addInsert.addEventListener("click", () => void run(true));
+      const web = h("button", { type: "button", class: "small", text: `Open on ${sourceById(hit.provider).name}` });
+      web.addEventListener("click", () => void b.openUrl(hit.pageUrl));
+      const facts = [hit.creator ? `By ${hit.creator}.` : "", `${hit.licence}.`, hit.requiresCredit ? "Credit is required, and OpenStage will save it and show it on the credits page." : "", hit.duration ? `Length ${clock(hit.duration)}.` : ""].filter(Boolean).join(" ");
+      stockDetail.append(
+        h("h3", { text: hit.title }),
+        ...(hit.kind === "audio" && hit.listenUrl ? [h("audio", { class: "as-listen", controls: true, preload: "none", src: hit.listenUrl, "aria-label": `Listen to ${hit.title}` })] : []),
+        ...(hit.preview ? [h("img", { class: "as-preview", alt: "", src: hit.preview })] : []),
+        h("p", { text: facts }),
+        ...(hit.suggestedAlt && hit.kind !== "audio" ? [h("p", { class: "note", text: `The service describes this as: "${hit.suggestedAlt}". You still write the alt text yourself, and can use this as a start.` })] : []),
+        ...(hit.kind !== "image" ? [h("p", { class: "note", text: hit.kind === "video" ? "A video needs captions before the course can be published. You add them after it is in the project." : "A sound needs captions or a transcript. You add one after it is in the project." })] : []),
+        h("div", { class: "btn-row" }, addOnly, addInsert, web),
+      );
+    }
+
+    panels[1]!.append(
+      h("p", { class: "note", text: "You do not need a key to use these sites. Open one in your browser (the buttons below), download what you want, then add the file on the \"This project\" tab and use Edit credit to say where it came from. A free key lets you search Pexels, Pixabay, Unsplash and Freesound from here instead." }),
+      form, keyMsg,
+      h("div", { class: "as-split" }, h("div", {}, stockGrid, more), stockDetail),
+      h("p", { class: "note", text: "Files are copied into the project, so the course never depends on the website afterwards." }),
+      links,
+    );
+    fillSources();
+    renderLinks();
+
+    // ================================================================ settings
+    const keyField = (id: KeyedProvider) => {
+      const src = sourceById(id);
+      const input = h("input", { id: `se-${id}`, type: "password", autocomplete: "off", spellcheck: "false" });
+      const show = h("button", { type: "button", class: "small", text: "Show" });
+      show.addEventListener("click", () => { const shown = input.type === "text"; input.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide"; });
+      const getKey = h("button", { type: "button", class: "small", text: `Get a free ${src.name} key` });
+      getKey.addEventListener("click", () => void b.openUrl(src.keyUrl));
+      const what = src.kinds.map((k) => (k === "image" ? "images" : k)).join(", ");
+      return { id, input, row: h("div", { class: "field" }, h("label", { for: `se-${id}`, text: `${src.name} ${src.keyName} (${what})` }), h("span", { class: "as-keyrow" }, input, show, getKey)) };
+    };
+    const keyFields = KEYED.map(keyField);
+    const save = h("button", { type: "button", text: "Save keys" });
+    save.addEventListener("click", async () => {
+      try {
+        settings = { ...settings, keys: Object.fromEntries(keyFields.map((k) => [k.id, k.input.value.trim()])) as Settings["keys"] };
+        await b.writeSettings(serializeSettings(settings));
+        keyNote();
+        say("Keys saved.");
+      } catch (err) {
+        say(`Could not save the keys. ${errorText(err)}`);
+      }
+    });
+    panels[2]!.append(
+      h("p", { text: `To search a library from here you need that library's own free key. Each has a page where you sign up and copy it: ${SOURCES.map((x) => x.name).join(", ")}.` }),
+      ...keyFields.map((k) => k.row),
+      h("div", { class: "btn-row" }, save),
+      h("p", { class: "note", text: "The keys are kept on this computer only, in OpenStage's own settings. They are never saved in a project, so they are not shared when you share one." }),
+    );
+
+    // ================================================================ the dialog
+    const closeBtn = h("button", { type: "button", text: "Close" });
+    const form2 = h("div", {}, h("h2", { id: "as-title", text: "Assets" }), tablist, ...panels, status, h("div", { class: "dialog-actions" }, closeBtn));
+    dialog.appendChild(form2);
+    document.body.appendChild(dialog);
+
+    const close = () => { if (dialog.open) dialog.close(); dialog.remove(); resolve(); };
+    closeBtn.addEventListener("click", close);
+    dialog.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
+
+    select(tabNames.findIndex((t) => t.id === (ctx.tab ?? "project")), false);
+    dialog.showModal();
+    tabs[tabNames.findIndex((t) => t.id === (ctx.tab ?? "project"))]!.focus();
+    keyNote();
+    renderStock();
+    void (async () => {
+      try {
+        settings = parseSettings(await b.readSettings());
+        for (const k of keyFields) k.input.value = settings.keys[k.id];
+        keyNote();
+      } catch {
+        // no settings yet
+      }
+      try {
+        await reload();
+      } catch (err) {
+        say(`Could not list the project's assets. ${errorText(err)}`);
+      }
+    })();
+  });
+}

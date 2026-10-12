@@ -1,0 +1,274 @@
+{
+  "id": "slide-001",
+  "name": "Choose",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0001",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Which path?</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Branching demo",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 408,
+          "y": 238,
+          "width": 560,
+          "height": 230,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "input",
+        "name": "Radio buttons",
+        "content": {
+          "kind": "radio",
+          "prompt": "Which path do you want?",
+          "report": false,
+          "variable": "var-1",
+          "options": [
+            {
+              "id": "opt-1",
+              "label": "The short path",
+              "value": "the-short-path"
+            },
+            {
+              "id": "opt-2",
+              "label": "The long path",
+              "value": "the-long-path"
+            },
+            {
+              "id": "opt-3",
+              "label": "Option 3",
+              "value": "option-3"
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Which path do you want?",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 232,
+          "y": 332,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "equals",
+                "value": "the-short-path"
+              }
+            ]
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "equals",
+                "value": "the-short-path"
+              }
+            ]
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-003",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "equals",
+                "value": "the-long-path"
+              }
+            ]
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-003",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "equals",
+                "value": "the-long-path"
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Button",
+        "content": {
+          "label": "Continue"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Continue",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

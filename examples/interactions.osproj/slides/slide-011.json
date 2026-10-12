@@ -1,0 +1,191 @@
+{
+  "id": "slide-011",
+  "name": "Timeline",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0034",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0033",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Timeline</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Slide title",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0035",
+        "geometry": {
+          "x": 188,
+          "y": 238,
+          "width": 1000,
+          "height": 380,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Timeline",
+        "content": {
+          "kind": "timeline",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Planning",
+              "body": "<p>This is the text for planning.</p><p>A second paragraph for planning.</p>",
+              "image": null,
+              "narration": null
+            },
+            {
+              "id": "item-2",
+              "title": "Doing",
+              "body": "<p>This is the text for doing.</p><p>A second paragraph for doing.</p>",
+              "image": null,
+              "narration": null
+            },
+            {
+              "id": "item-3",
+              "title": "Reviewing",
+              "body": "<p>This is the text for reviewing.</p><p>A second paragraph for reviewing.</p>",
+              "image": null,
+              "narration": null
+            },
+            {
+              "id": "item-4",
+              "title": "Sharing",
+              "body": "<p>This is the text for sharing.</p><p>A second paragraph for sharing.</p>",
+              "image": null,
+              "narration": null
+            },
+            {
+              "id": "item-5",
+              "title": "Improving",
+              "body": "<p>This is the text for improving.</p><p>A second paragraph for improving.</p>",
+              "image": null,
+              "narration": null
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Timeline demo",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

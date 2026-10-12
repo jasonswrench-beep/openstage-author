@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "high-contrast",
+  "name": "High Contrast",
+  "colors": {
+    "background": "#ffffff",
+    "surface": "#e8e8e8",
+    "text": "#000000",
+    "muted": "#262626",
+    "accent": "#444444",
+    "accentStrong": "#000000",
+    "onAccentStrong": "#ffffff",
+    "dark": "#000000",
+    "onDark": "#ffffff",
+    "good": "#004d1a",
+    "bad": "#7a0000",
+    "line": "#767676"
+  },
+  "fonts": {
+    "heading": "Arial, Helvetica, sans-serif",
+    "body": "Arial, Helvetica, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

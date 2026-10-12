@@ -1,0 +1,206 @@
+{
+  "id": "slide-022",
+  "name": "Summary",
+  "duration": null,
+  "layout": "content",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0078",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0076",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Summary</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Summary",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0077",
+        "geometry": {
+          "x": 80,
+          "y": 165,
+          "width": 1120,
+          "height": 250,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "That is the end of the lesson. Remember to match the channel to the message, not to habit. Close this window to return to your course.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Content",
+        "content": {
+          "html": "<ul><li>A channel is the route a message travels.</li><li>Richer channels carry more cues and faster feedback. Leaner channels leave a record.</li><li>Ask who needs it, how urgent it is, how sensitive it is, and whether you need a record.</li><li>Match the channel to the message, not to habit.</li></ul>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "A channel is the route a message travels. Richer channels carry more cues and faster feedback. Leaner channels leave a record. Ask who needs it, how urgent it is, how sensitive it is, and whether you need a record. Match the channel to the message, not to habit.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0079",
+        "geometry": {
+          "x": 80,
+          "y": 440,
+          "width": 1120,
+          "height": 210,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "scrollingText",
+        "name": "Scrolling text",
+        "content": {
+          "html": "<p>Lesson notes. Scroll to read, or use the arrow keys when this box has focus.</p><p>A channel is the route a message travels from the sender to the receiver. Every message has a sender, the message itself, a channel and a receiver.</p><p>Channels differ in richness. A richer channel carries more cues, such as tone, expression and body language, and supports faster feedback. Face to face is the richest of the four channels in this lesson, and email is the leanest.</p><p>Speed and record matter too. Face to face and calls give immediate feedback but leave no automatic record. Chat is fast and often kept, but hard to search. Email is slower, and it leaves a record.</p><p>Before you send a message, ask four questions. Who needs it? How urgent is it? How sensitive is it? Do you need a record? Your answers point to a channel.</p><p>Common mistakes include using email for urgent news, replying to everyone, and giving sensitive feedback in chat.</p><p>Asynchronous communication does not need an immediate response. Synchronous communication happens in real time. Channel overload happens when more messages arrive than a person can process.</p><p>Match the channel to the message, not to habit.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Lesson notes, a scrolling summary of the whole lesson",
+          "role": "region",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

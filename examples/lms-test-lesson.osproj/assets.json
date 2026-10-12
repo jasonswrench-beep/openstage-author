@@ -1,0 +1,17 @@
+{
+  "assets": [
+    {
+      "path": "assets/images/richness-ladder.svg",
+      "title": "Channel richness ladder",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "",
+        "creator": "OpenStage Author sample lesson",
+        "creatorUrl": "",
+        "licence": "Made for this sample lesson. Free to reuse.",
+        "requiresCredit": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,322 @@
+{
+  "id": "slide-024",
+  "name": "A timed slide",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0085",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0084",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Watch the steps appear. Each one shows as it is spoken. If you need more time, use the timing controls above the slide to pause, or to show everything at once.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Watch the steps appear</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Watch the steps appear",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0086",
+        "geometry": {
+          "x": 120,
+          "y": 210,
+          "width": 1000,
+          "height": 70,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "narration",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "slideLeft",
+            "duration": 600
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Step one. Decide who needs the message.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h2>Step 1. Decide who needs the message.</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Step 1. Decide who needs the message.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0087",
+        "geometry": {
+          "x": 120,
+          "y": 300,
+          "width": 1000,
+          "height": 70,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "narration",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "slideLeft",
+            "duration": 600
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Step two. Decide how urgent it is.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h2>Step 2. Decide how urgent it is.</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Step 2. Decide how urgent it is.",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0088",
+        "geometry": {
+          "x": 120,
+          "y": 390,
+          "width": 1000,
+          "height": 70,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "narration",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "slideLeft",
+            "duration": 600
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Step three. Choose the channel.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h2>Step 3. Choose the channel.</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Step 3. Choose the channel.",
+          "role": "paragraph",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0089",
+        "geometry": {
+          "x": 120,
+          "y": 520,
+          "width": 1000,
+          "height": 60,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 4000,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "fade",
+            "duration": 800
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<p>Tip: you can pause the timing, or show everything now, from the buttons above the slide.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Tip: you can pause the timing, or show everything now, from the buttons above the slide.",
+          "role": "paragraph",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

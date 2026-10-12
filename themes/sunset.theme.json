@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "sunset",
+  "name": "Sunset",
+  "colors": {
+    "background": "#fffaf5",
+    "surface": "#f6e3d6",
+    "text": "#2b1a14",
+    "muted": "#5a3d33",
+    "accent": "#e8590c",
+    "accentStrong": "#9c2f12",
+    "onAccentStrong": "#ffffff",
+    "dark": "#4a1d12",
+    "onDark": "#fff4ea",
+    "good": "#14532d",
+    "bad": "#8a1c1c",
+    "line": "#ecd2c1"
+  },
+  "fonts": {
+    "heading": "'Trebuchet MS', Helvetica, sans-serif",
+    "body": "'Trebuchet MS', Helvetica, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

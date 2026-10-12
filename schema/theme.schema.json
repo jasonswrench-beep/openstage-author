@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstage.example/schema/theme.schema.json",
+  "title": "OpenStage theme.json",
+  "description": "A project's visual design: colours, fonts and backgrounds. See docs/format-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "colors",
+    "fonts",
+    "backgrounds"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "project.schema.json#/$defs/semver"
+    },
+    "id": {
+      "$ref": "project.schema.json#/$defs/id"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "background",
+        "surface",
+        "text",
+        "muted",
+        "accent",
+        "accentStrong",
+        "onAccentStrong",
+        "dark",
+        "onDark",
+        "good",
+        "bad",
+        "line"
+      ],
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/hex"
+        },
+        "surface": {
+          "$ref": "#/$defs/hex"
+        },
+        "text": {
+          "$ref": "#/$defs/hex"
+        },
+        "muted": {
+          "$ref": "#/$defs/hex"
+        },
+        "accent": {
+          "$ref": "#/$defs/hex"
+        },
+        "accentStrong": {
+          "$ref": "#/$defs/hex"
+        },
+        "onAccentStrong": {
+          "$ref": "#/$defs/hex"
+        },
+        "dark": {
+          "$ref": "#/$defs/hex"
+        },
+        "onDark": {
+          "$ref": "#/$defs/hex"
+        },
+        "good": {
+          "$ref": "#/$defs/hex"
+        },
+        "bad": {
+          "$ref": "#/$defs/hex"
+        },
+        "line": {
+          "$ref": "#/$defs/hex"
+        }
+      }
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "heading",
+        "body"
+      ],
+      "properties": {
+        "heading": {
+          "$ref": "#/$defs/font"
+        },
+        "body": {
+          "$ref": "#/$defs/font"
+        }
+      }
+    },
+    "backgrounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default",
+        "dark",
+        "accent"
+      ],
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/background"
+        },
+        "dark": {
+          "$ref": "#/$defs/background"
+        },
+        "accent": {
+          "$ref": "#/$defs/background"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hex": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "font": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[\\w\\s,\"'.-]+$"
+    },
+    "colorRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/hex"
+        },
+        {
+          "enum": [
+            "background",
+            "surface",
+            "text",
+            "muted",
+            "accent",
+            "accentStrong",
+            "onAccentStrong",
+            "dark",
+            "onDark",
+            "good",
+            "bad",
+            "line"
+          ]
+        }
+      ]
+    },
+    "background": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "color"
+          ],
+          "properties": {
+            "type": {
+              "const": "solid"
+            },
+            "color": {
+              "$ref": "#/$defs/colorRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "from",
+            "to",
+            "angle"
+          ],
+          "properties": {
+            "type": {
+              "const": "gradient"
+            },
+            "from": {
+              "$ref": "#/$defs/colorRef"
+            },
+            "to": {
+              "$ref": "#/$defs/colorRef"
+            },
+            "angle": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

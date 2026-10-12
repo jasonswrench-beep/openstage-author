@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "berry",
+  "name": "Berry",
+  "colors": {
+    "background": "#fff6fa",
+    "surface": "#f6dfe9",
+    "text": "#2a1220",
+    "muted": "#5a3447",
+    "accent": "#d6336c",
+    "accentStrong": "#8f1d4d",
+    "onAccentStrong": "#ffffff",
+    "dark": "#3b0f2a",
+    "onDark": "#fff0f6",
+    "good": "#14532d",
+    "bad": "#7a1130",
+    "line": "#efcadb"
+  },
+  "fonts": {
+    "heading": "Georgia, 'Times New Roman', serif",
+    "body": "Arial, Helvetica, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

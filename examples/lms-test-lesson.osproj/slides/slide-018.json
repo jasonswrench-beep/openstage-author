@@ -1,0 +1,247 @@
+{
+  "id": "slide-018",
+  "name": "Question 5",
+  "duration": null,
+  "layout": "blank",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0064",
+        "geometry": {
+          "x": 80,
+          "y": 60,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Question 5 of 5. Your inbox holds hundreds of unread messages, many copied to you just in case. What is this called?",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>Question 5 of 5. Your inbox holds hundreds of unread messages, many copied to you just in case. What is this called?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 30,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Question 5 of 5. Your inbox holds hundreds of unread messages, many copied to you just in case. What is this called?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0065",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 720,
+          "height": 300,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Channel scarcity",
+              "correct": false
+            },
+            {
+              "id": "c2",
+              "label": "Channel overload",
+              "correct": true
+            },
+            {
+              "id": "c3",
+              "label": "Upward distortion",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-1",
+            "incorrect": "layer-2"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices for question 5",
+          "role": "radiogroup",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-1",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0062",
+          "geometry": {
+            "x": 840,
+            "y": 170,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. Too many messages are arriving for one person to process.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. Too many messages are arriving for one person to process.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-2",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0063",
+          "geometry": {
+            "x": 840,
+            "y": 170,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The problem is too many messages, not too few.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The problem is too many messages, not too few.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

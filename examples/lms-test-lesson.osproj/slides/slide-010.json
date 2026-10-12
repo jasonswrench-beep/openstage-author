@@ -1,0 +1,205 @@
+{
+  "id": "slide-010",
+  "name": "Common mistakes",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0034",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0033",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Even experienced people make channel mistakes. Open each heading to read a common one.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Three common mistakes</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Three common mistakes",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0035",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 400,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Accordion",
+        "content": {
+          "kind": "accordion",
+          "orientation": "vertical",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Using email for urgent news",
+              "body": "<p>Email may sit unread for hours. If the message cannot wait, use chat or a call.</p>",
+              "image": null,
+              "narration": {
+                "script": "Using email for urgent news. Email may sit unread for hours. If the message cannot wait, use chat or a call.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-2",
+              "title": "Replying to everyone",
+              "body": "<p>Reply all fills other people's inboxes and adds to channel overload. Reply only to the people who need your answer.</p>",
+              "image": null,
+              "narration": {
+                "script": "Replying to everyone. Reply all fills other people's inboxes and adds to channel overload. Reply only to the people who need your answer.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-3",
+              "title": "Giving sensitive feedback in chat",
+              "body": "<p>Short text strips out tone and invites misreading. Use a private conversation instead.</p>",
+              "image": null,
+              "narration": {
+                "script": "Giving sensitive feedback in chat. Short text strips out tone and invites misreading. Use a private conversation instead.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Three common channel mistakes. Open a heading to read it.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

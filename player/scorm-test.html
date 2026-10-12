@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenStage stand-in LMS</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 12px; color: #1a1a1a; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+  button { font: inherit; padding: 6px 14px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 16px; align-items: start; }
+  iframe { width: 100%; height: 860px; border: 1px solid #888; background: #fff; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; border-bottom: 1px solid #ccc; padding: 3px 6px; vertical-align: top; word-break: break-all; }
+  th { font-weight: 600; width: 45%; }
+  pre { background: #f3f3f3; padding: 8px; font-size: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; }
+  :focus-visible { outline: 3px solid #0b3fb3; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<h1>OpenStage stand-in LMS</h1>
+<p>A test aid, not a real LMS. It pretends to be a SCORM 1.2 system and shows what the course reports. Learner data is kept in this browser, so Relaunch really resumes.</p>
+<div class="bar">
+  <button type="button" id="relaunch">Leave and relaunch</button>
+  <button type="button" id="reset">Reset learner data</button>
+  <label><input type="checkbox" id="review"> Open in review mode (read only)</label>
+</div>
+<div class="layout">
+  <iframe id="course" title="Course" src="about:blank"></iframe>
+  <div>
+    <h2 style="font-size:16px">What the LMS holds</h2>
+    <table><tbody id="data"></tbody></table>
+    <h2 style="font-size:16px">Recent calls</h2>
+    <pre id="calls"></pre>
+  </div>
+</div>
+<script src="_scorm-test.js"></script>
+</body>
+</html>

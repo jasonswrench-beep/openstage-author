@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "midnight",
+  "name": "Midnight",
+  "colors": {
+    "background": "#0f172a",
+    "surface": "#1e293b",
+    "text": "#f1f5f9",
+    "muted": "#cbd5e1",
+    "accent": "#38bdf8",
+    "accentStrong": "#38bdf8",
+    "onAccentStrong": "#0f172a",
+    "dark": "#020617",
+    "onDark": "#f8fafc",
+    "good": "#86efac",
+    "bad": "#fca5a5",
+    "line": "#334155"
+  },
+  "fonts": {
+    "heading": "system-ui",
+    "body": "system-ui"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

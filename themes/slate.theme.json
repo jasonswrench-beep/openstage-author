@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "slate",
+  "name": "Slate",
+  "colors": {
+    "background": "#f4f6f8",
+    "surface": "#dfe4ea",
+    "text": "#1f2933",
+    "muted": "#4b5563",
+    "accent": "#0e9aa7",
+    "accentStrong": "#0b5d66",
+    "onAccentStrong": "#ffffff",
+    "dark": "#1f2933",
+    "onDark": "#f4f6f8",
+    "good": "#14532d",
+    "bad": "#7f1d1d",
+    "line": "#c9d1da"
+  },
+  "fonts": {
+    "heading": "Arial, Helvetica, sans-serif",
+    "body": "Arial, Helvetica, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

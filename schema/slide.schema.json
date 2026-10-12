@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstage.example/schema/slide.schema.json",
+  "title": "OpenStage slide file",
+  "description": "One slide per file, in slides/. See docs/format-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "duration", "layout", "background", "baseLayer", "layers"],
+  "properties": {
+    "id": { "$ref": "project.schema.json#/$defs/id" },
+    "name": { "type": "string", "minLength": 1 },
+    "duration": {
+      "description": "null waits for the learner; a number is milliseconds before auto-advance.",
+      "oneOf": [{ "type": "null" }, { "type": "number", "exclusiveMinimum": 0 }]
+    },
+    "layout": {
+      "description": "The id of the layout the slide was made from, or null. Layouts are built into the editor.",
+      "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }]
+    },
+    "background": {
+      "description": "A theme background such as theme:bg.dark, a hex colour, or null for the theme's default.",
+      "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^(#[0-9a-fA-F]{6}|theme:bg\\.(default|dark|accent))$" }]
+    },
+    "baseLayer": { "$ref": "#/$defs/layer" },
+    "layers": { "type": "array", "items": { "$ref": "#/$defs/layer" } }
+  },
+  "$defs": {
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "objects"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "objects": { "type": "array", "items": { "$ref": "object.schema.json" } }
+      }
+    }
+  }
+}

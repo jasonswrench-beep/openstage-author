@@ -1,0 +1,64 @@
+# Roadmap
+
+Full reasoning lives in the scoping document. This is the short version.
+
+## Phase 1 — Format and player (now)
+
+The published course has to be right before the thing that authors it is worth building.
+
+- [x] JSON Schema for the project format
+- [x] Validator, accessibility rules first
+- [x] Test fixtures: one valid project, one broken fixture per rule
+- [~] Player that renders a project file to accessible HTML (slides, layers, triggers, quiz, narration with captions and transcript)
+- [x] SCORM 1.2 wrapper (checked against a strict stand-in LMS; not yet in a real one)
+- [ ] Tested in Moodle, Canvas and Brightspace, including resume
+
+At the end of Phase 1 there is a working, accessible, publishable course and no editor
+at all. That is the intended order.
+
+## Phase 2 — Editor
+
+First slice built with the Tauri shell: open and save a project, slide list, canvas, properties,
+object list with reading order, live problem list, undo and redo.
+
+- [~] Canvas: place, move, resize, rotate, z-order (select, move, resize, add and delete done for text, buttons, shapes and images)
+- [~] Property panel, slide sorter, layer list (all three exist, with add, delete, rename and reorder for slides, and add, delete and rename for layers)
+- [x] Slide layouts (26, with previews, Change layout and Reset layout)
+- [~] Linked themes (format 0.2.0, 8 built-in themes, theme colours and fonts, slide backgrounds, migration; editing a theme's own colours and fonts is not built)
+- [~] Interactions (format 0.3.0: click and reveal, accordion, flip cards, tabs, step process, carousel; drag and drop, matching, hotspots, text entry and scenarios not built)
+- [x] Table and scrolling text objects (format 0.5.0)
+- [x] Inputs and surveys: checkbox, radio, drop-down, list, Likert, semantic differential (format 0.6.0, answers can go to the LMS)
+- [~] Assets: project library, media search (Pexels, Pixabay, Unsplash, Freesound; Mixkit, SVG Repo and Libreshot as links), credits page, video, audio and YouTube/Vimeo embeds (format 0.8.0). Icons, characters, buttons and slide templates are not built.
+- [ ] A general API for AI generation (pictures, voices, sound) with the author's own key, later. Not Midjourney, which has no official API.
+- [ ] Object states
+- [x] Rules editor (when / do / only if) and Variables dialog; jump ends the rule list; branching on survey answers
+- [x] Files to download (format 0.12.0): a PDF, Word document or other file in the project's assets, offered with a required description of what it is, the kind of file and its size, a Download link that saves it (no pop-up), the author's confirmation that it is accessible, and narration written from the description. Not built: opening a file to read it in the course, reading the document aloud, and checking inside a PDF or Word file for tags and headings.
+- [x] Audio for every item of an interaction (format 0.11.0): each glossary term, flip card, tab, step and accordion heading can have its own narration, read when the learner opens it, with a Listen button. The editor writes it from the item's own text in one click. Still without an audio route: text whose words depend on the learner, which is the score and the review in a results box and the name on a certificate, because a script written ahead of time cannot say them.
+- [x] Results box and printable certificate (format 0.10.0): the score, passed or not, each question, and a certificate for learners who pass, who type their own name and print it or save it as a PDF.
+- [x] Course setting for what completes a course: every slide seen, or the last slide reached (format 0.9.0). The editor and the validator warn when a rule can skip a slide and the course needs every slide.
+- [x] Animation (format 0.14.0): an object can fade, slide or grow in when it appears and out when it goes, from a tenth of a second to two, never repeating or flashing. It does not play when a learner's device asks for reduced motion, and the player has a Turn off animation button. The editor has an Animation box and a Preview animation button. Not built: emphasis or looping effects (on purpose), slide transitions, and motion paths.
+- [x] Timing (format 0.13.0): each object can appear after a delay or when its own narration starts and go again, a slide can move on by itself, and the editor has a Timing box, a keyboard-operable Timing list and warnings. Learners get Pause timing and Show everything now. The Timeline panel under the canvas draws it all along a time axis, with the narration lengths, and its bars and grips work from the keyboard and by dragging. Not built: timing that follows a video or an audio clip.
+- [x] Publish and Preview from the editor (Publish: saves, checks, makes the SCORM 1.2 package and web files, cancellable; Preview: the course as it is now in your browser, saved or not). Both still need Node.js, and Publish needs Python.
+- [x] Narration panel: script, voice, speed and pronunciations in Properties, a Narration dialog that lists everything and makes the missing audio locally with Kokoro (cancellable), and a Listen button. A plugin seam for other voice models is not built.
+- [ ] ATAG Part A pass on everything above, including NVDA
+- [ ] Installer and first-run model download (nothing is packaged yet; the editor is built from source)
+
+## Phase 3 — Import and quizzing
+
+- [ ] PowerPoint import with provenance
+- [ ] Per-slide re-sync diff against a changed source deck
+- [~] Quiz authoring and scoring (multiple choice and true or false are authored in the editor and score in the player; other question types are not built)
+- [x] Branching (rules editor, conditions on variables and survey answers)
+
+## Later
+
+SCORM 2004 and xAPI. Whisper for imported media. Screen recording. Software simulation
+authoring. Step capture. Localisation. QTI and LTI. Responsive output. A CC0 character
+and icon library. Reusable components. Bring-your-own-key AI assistance.
+
+## Never
+
+Bidirectional PowerPoint round-trip. Cloud collaboration and accounts. A built-in LMS.
+Voice cloning. VR and AR. Unrestricted custom scripting.
+
+See CLAUDE.md for why each of these is on the list.

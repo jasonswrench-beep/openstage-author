@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "0.14.0",
+  "meta": {
+    "title": "Interactions demo",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-10",
+    "modified": "2026-10-10"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "option1",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-2",
+      "name": "option2",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-3",
+      "name": "option3",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-4",
+      "name": "choice",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-5",
+      "name": "choice2",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-6",
+      "name": "choice3",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-7",
+      "name": "statement1",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-8",
+      "name": "statement2",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-9",
+      "name": "statement3",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-10",
+      "name": "pair1",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-11",
+      "name": "pair2",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-12",
+      "name": "pair3",
+      "type": "number",
+      "initial": 0
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007",
+        "slide-008",
+        "slide-009",
+        "slide-010",
+        "slide-011",
+        "slide-012",
+        "slide-013",
+        "slide-014",
+        "slide-015",
+        "slide-016",
+        "slide-017",
+        "slide-018",
+        "slide-019",
+        "slide-020",
+        "slide-021",
+        "slide-022",
+        "slide-023"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,276 @@
+// A results box and a certificate. The results box tells a learner their score, whether they passed, and (if the
+// author wants) how each question went. The certificate is for a learner who passed: they type their own name,
+// then print it or save it as a PDF with the browser's own Print.
+//
+// Everything that is words lives here as small functions, so it can be tested without a page. The blocks that are
+// drawn from them are at the bottom. Like the other blocks they paint themselves in the theme's colours, so only
+// the font and its size come from the object's style.
+
+import type { CertificateContent, OSObject, ResultsContent } from "./types.ts";
+
+export type QuestionState = "correct" | "incorrect" | "open" | "unanswered";
+
+export interface QuestionResult {
+  /** The name of the slide the question is on, which is what the learner knows it by. */
+  slideName: string;
+  objectId: string;
+  points: number;
+  /** Points earned: all of them for a right answer on any attempt, none otherwise. */
+  earned: number;
+  /** open: answered wrongly, but with attempts left. */
+  state: QuestionState;
+}
+
+/** Where the learner stands in the quiz. */
+export interface CourseResults {
+  questions: QuestionResult[];
+  totalPoints: number;
+  earnedPoints: number;
+  /** 0 to 100, or null until every question is finished. */
+  percent: number | null;
+  /** Every question is answered right or out of attempts. */
+  finished: boolean;
+  /** Null until the quiz is finished. */
+  passed: boolean | null;
+  passMark: number;
+}
+
+export interface CourseInfo {
+  title: string;
+  language: string;
+}
+
+export interface ResultsDeps {
+  /** In the editor a box shows an example and does nothing. */
+  editing: boolean;
+  results(): CourseResults | undefined;
+  course(): CourseInfo;
+}
+
+// ---- the words
+
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/** 80, 66.67 and 100: no needless decimals. */
+export const roundPercent = (n: number): string => String(Math.round(n * 100) / 100);
+
+export function scoreSentence(r: CourseResults): string {
+  if (r.questions.length === 0) return "This course has no quiz questions.";
+  if (r.finished) return `You scored ${r.earnedPoints} of ${r.totalPoints} points (${roundPercent(r.percent ?? 0)}%).`;
+  const done = r.questions.filter((q) => q.state === "correct" || q.state === "incorrect").length;
+  return `You have finished ${done} of ${plural(r.questions.length, "question", "questions")} so far.`;
+}
+
+export function verdictSentence(r: CourseResults, c: ResultsContent): string {
+  if (r.questions.length === 0) return "";
+  if (!r.finished) return "Finish every question to see whether you passed.";
+  const extra = (r.passed ? c.passMessage : c.failMessage).trim();
+  return `${r.passed ? "You passed." : "You did not reach the pass mark."}${extra ? ` ${extra}` : ""}`;
+}
+
+export const passMarkSentence = (r: CourseResults): string => `The pass mark is ${r.passMark}%.`;
+
+/** What one question came to, in words that do not depend on colour. */
+export function questionLine(q: QuestionResult): string {
+  const how = {
+    correct: `correct, ${q.earned} of ${plural(q.points, "point", "points")}`,
+    incorrect: `not correct, 0 of ${plural(q.points, "point", "points")}`,
+    open: "answered, but not right yet, and you can still try again",
+    unanswered: "not answered yet",
+  }[q.state];
+  return `${q.slideName}: ${how}`;
+}
+
+// ---- the certificate's words
+
+/** What the learner typed, with the spaces tidied and a sensible limit. */
+export function cleanName(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim().slice(0, 100);
+}
+
+/** "October 12, 2026", in the course's language. A date the language cannot format falls back to English. */
+export function certificateDate(now: Date, language: string, timeZone?: string): string {
+  const options: Intl.DateTimeFormatOptions = { dateStyle: "long", ...(timeZone ? { timeZone } : {}) };
+  try {
+    return new Intl.DateTimeFormat(language, options).format(now);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", options).format(now);
+  }
+}
+
+export interface CertificateLine {
+  tag: "h2" | "p";
+  cls: string;
+  text: string;
+}
+
+/** The lines of a certificate, top to bottom. A line the author left empty is left out. */
+export function certificateLines(c: CertificateContent, name: string, r: CourseResults | undefined, info: CourseInfo, now: Date): CertificateLine[] {
+  const lines: CertificateLine[] = [{ tag: "h2", cls: "os-cert-title", text: c.title }];
+  const add = (cls: string, text: string) => { if (text.trim() !== "") lines.push({ tag: "p", cls, text: text.trim() }); };
+  add("os-cert-statement", c.statement);
+  add("os-cert-name", name);
+  add("os-cert-achievement", c.achievement);
+  add("os-cert-course", info.title);
+  if (c.showScore && r && r.percent !== null) add("os-cert-fact", `Score: ${roundPercent(r.percent)}%`);
+  if (c.showDate) add("os-cert-fact", `Date: ${certificateDate(now, info.language)}`);
+  add("os-cert-issuer", c.issuedBy);
+  return lines;
+}
+
+/** Why there is no certificate yet, for a learner who has not passed. */
+export function lockedSentence(r: CourseResults | undefined): string {
+  if (!r || r.questions.length === 0) return "There is no certificate to earn in this course.";
+  if (!r.finished) return "Your certificate is available once you pass the quiz. Finish every question first.";
+  return "The certificate is for learners who pass the quiz, and you did not reach the pass mark.";
+}
+
+// ---- drawing
+
+function make(doc: Document, tag: string, cls = ""): HTMLElement {
+  const e = doc.createElement(tag);
+  if (cls) e.className = cls;
+  return e;
+}
+
+/** What the editor shows in place of a real learner's results. */
+const SAMPLE: CourseResults = {
+  questions: [
+    { slideName: "Question 1", objectId: "a", points: 10, earned: 10, state: "correct" },
+    { slideName: "Question 2", objectId: "b", points: 10, earned: 0, state: "incorrect" },
+    { slideName: "Question 3", objectId: "c", points: 10, earned: 10, state: "correct" },
+  ],
+  totalPoints: 30, earnedPoints: 20, percent: 66.67, finished: true, passed: false, passMark: 80,
+};
+
+/** The score, whether the learner passed, and optionally each question. It is a labelled region, so a screen reader can jump to it. */
+export function buildResults(doc: Document, obj: OSObject, deps: ResultsDeps): HTMLElement {
+  const c = obj.content as unknown as ResultsContent;
+  const box = make(doc, "section", "os-results");
+  if (!obj.accessibility.decorative) box.setAttribute("aria-label", obj.accessibility.altText);
+  const h = make(doc, "h2");
+  h.textContent = c.heading;
+  box.appendChild(h);
+  const data = deps.editing ? SAMPLE : deps.results();
+  if (!data) {
+    const p = make(doc, "p");
+    p.textContent = "Results are not available here.";
+    box.appendChild(p);
+    return box;
+  }
+  const line = (cls: string, text: string) => {
+    if (text === "") return;
+    const p = make(doc, "p", cls);
+    p.textContent = text;
+    box.appendChild(p);
+  };
+  if (deps.editing) line("os-results-sample", "Example only. Each learner sees their own results here.");
+  line("os-results-score", scoreSentence(data));
+  line("os-results-verdict", verdictSentence(data, c));
+  if (data.questions.length > 0) line("os-results-mark", passMarkSentence(data));
+  if (c.review && data.questions.length > 0) {
+    const list = make(doc, "ol", "os-results-review");
+    list.setAttribute("aria-label", "Your answers, question by question");
+    for (const q of data.questions) {
+      const li = make(doc, "li", `os-results-${q.state}`);
+      li.textContent = questionLine(q);
+      list.appendChild(li);
+    }
+    box.appendChild(list);
+  }
+  return box;
+}
+
+function paperOf(doc: Document, lines: CertificateLine[]): HTMLElement {
+  const paper = make(doc, "div", "os-certificate");
+  paper.setAttribute("role", "group");
+  paper.setAttribute("aria-label", "Certificate");
+  for (const l of lines) {
+    const e = make(doc, l.tag, l.cls);
+    e.textContent = l.text;
+    paper.appendChild(e);
+  }
+  return paper;
+}
+
+/**
+ * A certificate for a learner who passed. They type their own name, press a button, and the certificate
+ * appears with a button to print it or save it as a PDF. Printing shows only the certificate.
+ */
+export function buildCertificate(doc: Document, obj: OSObject, deps: ResultsDeps): HTMLElement {
+  const c = obj.content as unknown as CertificateContent;
+  const box = make(doc, "section", "os-certificate-box");
+  if (!obj.accessibility.decorative) box.setAttribute("aria-label", obj.accessibility.altText);
+  const data = deps.editing ? { ...SAMPLE, passed: true, percent: 100 } : deps.results();
+  const info = deps.course();
+
+  if (deps.editing) {
+    const note = make(doc, "p", "os-results-sample");
+    note.textContent = "Example only. A learner who passes types their name and prints this.";
+    box.append(note, paperOf(doc, certificateLines(c, "Learner's name", data, info, new Date())));
+    return box;
+  }
+  if (!data || data.passed !== true) {
+    const p = make(doc, "p", "os-cert-locked");
+    p.textContent = lockedSentence(data);
+    box.appendChild(p);
+    return box;
+  }
+
+  const form = make(doc, "form", "os-cert-form") as HTMLFormElement;
+  const id = `os-cert-name-${obj.id}`;
+  const label = make(doc, "label") as HTMLLabelElement;
+  label.htmlFor = id;
+  label.textContent = "Your name, as it should appear on the certificate";
+  const input = make(doc, "input", "os-cert-input") as HTMLInputElement;
+  input.id = id;
+  input.type = "text";
+  input.maxLength = 100;
+  input.autocomplete = "name";
+  const makeBtn = make(doc, "button", "os-nav-btn os-cert-make") as HTMLButtonElement;
+  makeBtn.type = "submit";
+  makeBtn.textContent = "Make my certificate";
+  const status = make(doc, "p", "os-cert-status");
+  status.setAttribute("role", "status");
+  const holder = make(doc, "div", "os-cert-holder");
+  const print = make(doc, "button", "os-nav-btn os-cert-print") as HTMLButtonElement;
+  print.type = "button";
+  print.textContent = "Print or save as PDF";
+  print.hidden = true;
+  // The print button sits in the same row as the name, so it is never pushed below the certificate and out of sight.
+  form.append(label, input, makeBtn, print);
+  box.append(form, status, holder);
+
+  let paper: HTMLElement | null = null;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = cleanName(input.value);
+    if (name === "") {
+      status.textContent = "Type your name first.";
+      input.focus();
+      return;
+    }
+    paper = paperOf(doc, certificateLines(c, name, data, info, new Date()));
+    holder.replaceChildren(paper);
+    print.hidden = false;
+    status.textContent = "Your certificate is ready. Choose Print or save as PDF.";
+  });
+
+  print.addEventListener("click", () => {
+    const view = doc.defaultView;
+    if (!paper || !view) return;
+    // A copy goes straight into the page, outside the scaled and clipped stage, and printing shows only that copy.
+    const sheet = make(doc, "div", "os-print-sheet");
+    sheet.appendChild(paper.cloneNode(true));
+    doc.body.appendChild(sheet);
+    doc.documentElement.classList.add("os-printing");
+    const done = () => {
+      doc.documentElement.classList.remove("os-printing");
+      sheet.remove();
+      view.removeEventListener("afterprint", done);
+    };
+    view.addEventListener("afterprint", done);
+    view.print();
+  });
+  return box;
+}

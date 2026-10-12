@@ -1,0 +1,247 @@
+{
+  "id": "slide-016",
+  "name": "Question 3",
+  "duration": null,
+  "layout": "blank",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0056",
+        "geometry": {
+          "x": 80,
+          "y": 60,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Question 3 of 5. A colleague's work has slipped and you need to talk about it. What is the best first choice?",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>Question 3 of 5. A colleague's work has slipped and you need to talk about it. What is the best first choice?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 30,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Question 3 of 5. A colleague's work has slipped and you need to talk about it. What is the best first choice?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0057",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 720,
+          "height": 300,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "A message in the team chat",
+              "correct": false
+            },
+            {
+              "id": "c2",
+              "label": "An email copied to their manager",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "A private conversation, in person or on video",
+              "correct": true
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-1",
+            "incorrect": "layer-2"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices for question 3",
+          "role": "radiogroup",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-1",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0054",
+          "geometry": {
+            "x": 840,
+            "y": 170,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. A sensitive topic calls for a rich, private channel.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. A sensitive topic calls for a rich, private channel.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-2",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0055",
+          "geometry": {
+            "x": 840,
+            "y": 170,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. Sensitive feedback needs tone and privacy, so choose a richer channel.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. Sensitive feedback needs tone and privacy, so choose a richer channel.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

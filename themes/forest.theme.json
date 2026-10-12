@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "forest",
+  "name": "Forest",
+  "colors": {
+    "background": "#fbf7ee",
+    "surface": "#e6e0cc",
+    "text": "#1e2a1f",
+    "muted": "#4a5a4b",
+    "accent": "#c58a00",
+    "accentStrong": "#1f5d3a",
+    "onAccentStrong": "#ffffff",
+    "dark": "#173d28",
+    "onDark": "#fbf7ee",
+    "good": "#14532d",
+    "bad": "#7f1d1d",
+    "line": "#d8cfb4"
+  },
+  "fonts": {
+    "heading": "Georgia, 'Times New Roman', serif",
+    "body": "Arial, Helvetica, sans-serif"
+  },
+  "backgrounds": {
+    "default": {
+      "type": "solid",
+      "color": "background"
+    },
+    "dark": {
+      "type": "solid",
+      "color": "dark"
+    },
+    "accent": {
+      "type": "solid",
+      "color": "accentStrong"
+    }
+  }
+}

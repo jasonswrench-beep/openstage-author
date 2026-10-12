@@ -1,0 +1,193 @@
+{
+  "id": "slide-008",
+  "name": "Comparing channels",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0026",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0025",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Here is how the four channels compare. Notice that no channel is best at everything.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Comparing channels</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Comparing channels",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0027",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 380,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "table",
+        "name": "Table",
+        "content": {
+          "caption": "Four channels compared",
+          "headerRow": true,
+          "headerColumn": true,
+          "rows": [
+            [
+              "Channel",
+              "Feedback",
+              "Written record",
+              "Best for"
+            ],
+            [
+              "Face to face",
+              "Immediate",
+              "None unless you write it up",
+              "Sensitive or complex talks"
+            ],
+            [
+              "Phone or video call",
+              "Immediate",
+              "Only if recorded or summarized",
+              "Quick discussion and decisions"
+            ],
+            [
+              "Chat",
+              "Fast",
+              "Often kept, but hard to search",
+              "Quick questions and updates"
+            ],
+            [
+              "Email",
+              "Slower",
+              "Yes",
+              "Details, decisions and records"
+            ]
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "Table comparing four channels by feedback speed, written record and best use",
+          "role": "table",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -1,0 +1,19 @@
+{
+  "_note": "The kinds of file a course can offer for download, with how a learner is told what each is. One list for the validator, the editor, the player and the editor's native side, which has a test that its own copy matches. Programs that can run (exe, bat, js, html and the like) are deliberately not here.",
+  "types": [
+    { "ext": "pdf", "label": "PDF document" },
+    { "ext": "docx", "label": "Word document" },
+    { "ext": "doc", "label": "Word document" },
+    { "ext": "odt", "label": "OpenDocument text document" },
+    { "ext": "rtf", "label": "Rich text document" },
+    { "ext": "txt", "label": "Plain text file" },
+    { "ext": "xlsx", "label": "Excel spreadsheet" },
+    { "ext": "xls", "label": "Excel spreadsheet" },
+    { "ext": "ods", "label": "OpenDocument spreadsheet" },
+    { "ext": "csv", "label": "Comma-separated data file" },
+    { "ext": "pptx", "label": "PowerPoint presentation" },
+    { "ext": "ppt", "label": "PowerPoint presentation" },
+    { "ext": "odp", "label": "OpenDocument presentation" },
+    { "ext": "zip", "label": "Zip archive" }
+  ]
+}

@@ -1,0 +1,219 @@
+{
+  "id": "slide-006",
+  "name": "Channel richness",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0020",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0019",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Channels differ in how much they can carry. A richer channel carries more cues, such as tone and expression, and gives faster feedback. Select each tab to compare four common channels.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Some channels are richer than others</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Some channels are richer than others",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0021",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 430,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Horizontal tabs",
+        "content": {
+          "kind": "tabs",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Face to face",
+              "body": "<p>Carries words, tone, facial expression and body language, and you get feedback at once.</p><p>Best for sensitive, complex or emotional conversations.</p>",
+              "image": null,
+              "narration": {
+                "script": "Face to face. Carries words, tone, facial expression and body language, and you get feedback at once. Best for sensitive, complex or emotional conversations.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-2",
+              "title": "Phone or video call",
+              "body": "<p>Carries tone and, on video, expression. Feedback is fast, but there is usually no automatic record.</p><p>Good for discussions that need quick back and forth.</p>",
+              "image": null,
+              "narration": {
+                "script": "Phone or video call. Carries tone and, on video, expression. Feedback is fast, but there is usually no automatic record. Good for discussions that need quick back and forth.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-3",
+              "title": "Chat",
+              "body": "<p>Fast and informal, and easy to answer in a moment. Short messages can lose tone, and long threads are hard to follow.</p><p>Good for quick questions and updates.</p>",
+              "image": null,
+              "narration": {
+                "script": "Chat. Fast and informal, and easy to answer in a moment. Short messages can lose tone, and long threads are hard to follow. Good for quick questions and updates.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-4",
+              "title": "Email",
+              "body": "<p>Slower and written, so it leaves a record and can be read when it suits the reader. It carries little tone.</p><p>Good for details, decisions and anything that must be documented.</p>",
+              "image": null,
+              "narration": {
+                "script": "Email. Slower and written, so it leaves a record and can be read when it suits the reader. It carries little tone. Good for details, decisions and anything that must be documented.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Tabs comparing four channels: face to face, phone or video call, chat and email.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

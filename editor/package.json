@@ -1,0 +1,25 @@
+{
+  "name": "openstage-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The OpenStage Author editor. A Tauri shell around the shared renderer.",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/model.test.ts src/template.test.ts src/structure.test.ts src/features.test.ts src/themes.test.ts src/interactions.test.ts src/blocks.test.ts src/inputs.test.ts src/stock.test.ts src/media.test.ts src/rules.test.ts src/publishing.test.ts src/narration.test.ts src/narrationmodel.test.ts src/completion.test.ts src/results.test.ts src/itemnarration.test.ts src/downloads.test.ts src/timing.test.ts src/timelinemodel.test.ts src/animation.test.ts",
+    "tauri": "tauri",
+    "preview": "node dev-server.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-opener": "^2.7.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

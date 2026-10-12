@@ -1,0 +1,247 @@
+{
+  "id": "slide-021",
+  "name": "Your feedback",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0073",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0072",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Tell us how it went. Rate the lesson on each pair of words, and choose any topics you would like more of.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Tell us how it went</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Tell us how it went",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0074",
+        "geometry": {
+          "x": 80,
+          "y": 165,
+          "width": 1120,
+          "height": 250,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "input",
+        "name": "Semantic differential",
+        "content": {
+          "kind": "semantic",
+          "prompt": "How was this lesson?",
+          "report": true,
+          "points": 5,
+          "rows": [
+            {
+              "id": "row-1",
+              "label": "Confusing",
+              "right": "Clear",
+              "variable": "var-3"
+            },
+            {
+              "id": "row-2",
+              "label": "Boring",
+              "right": "Interesting",
+              "variable": "var-4"
+            },
+            {
+              "id": "row-3",
+              "label": "Too hard",
+              "right": "Too easy",
+              "variable": "var-5"
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "How was this lesson? Rate each pair of words.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0075",
+        "geometry": {
+          "x": 80,
+          "y": 440,
+          "width": 1120,
+          "height": 200,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "input",
+        "name": "Checkboxes",
+        "content": {
+          "kind": "checkbox",
+          "prompt": "Which topics would you like more of? Choose any that apply.",
+          "report": false,
+          "items": [
+            {
+              "id": "box-1",
+              "label": "Writing clear emails",
+              "variable": "var-6"
+            },
+            {
+              "id": "box-2",
+              "label": "Running better meetings",
+              "variable": "var-7"
+            },
+            {
+              "id": "box-3",
+              "label": "Giving feedback",
+              "variable": "var-8"
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Which topics would you like more of? Choose any that apply.",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

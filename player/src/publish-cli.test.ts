@@ -1,0 +1,149 @@
+// Runs the real publishing tool (player/publish.ts) on copies of the example projects, the way the editor's
+// Preview and Publish buttons do. The checks that need the Python validator run only when OPENSTAGE_PYTHON is
+// set, like the other tests that need it.
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { itemNarrationKey } from "./narration.ts";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const player = path.resolve(here, "..");
+const examples = path.resolve(player, "..", "examples");
+const havePython = Boolean(process.env["OPENSTAGE_PYTHON"]);
+
+interface Result { ok: boolean; message?: string; findings: { severity: string; rule: string }[]; preview?: boolean; slides?: number; outDir?: string; indexHtml?: string; zip?: string | null; narration?: { engine: string } }
+
+function scratch(): string {
+  return mkdtempSync(path.join(os.tmpdir(), "openstage-publish-test-"));
+}
+
+/** Run the tool with --json and return what it printed and how it ended. */
+function run(project: string, out: string, ...flags: string[]): { result: Result; status: number | null; stderr: string } {
+  const r = spawnSync(process.execPath, ["publish.ts", project, out, "--json", ...flags], { cwd: player, encoding: "utf-8", maxBuffer: 64 * 1024 * 1024 });
+  const lines = r.stdout.trim().split("\n");
+  assert.equal(lines.length, 1, `standard output must be exactly one JSON result, got: ${r.stdout}`);
+  return { result: JSON.parse(lines[0]!) as Result, status: r.status, stderr: r.stderr };
+}
+
+test("a preview writes the page and nothing else: no zip, no stand-in LMS, no problem check", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "site"), "--preview");
+    assert.equal(status, 0);
+    assert.equal(result.ok, true);
+    assert.equal(result.preview, true);
+    assert.equal(result.zip, null);
+    assert.equal(result.narration?.engine, "skipped");
+    assert.ok(existsSync(path.join(dir, "site", "index.html")) && existsSync(path.join(dir, "site", "player.js")));
+    assert.ok(!existsSync(path.join(dir, "site-scorm12.zip")));
+    assert.ok(!existsSync(path.join(dir, "site", "_scorm-test.html")));
+    assert.ok(!existsSync(path.join(dir, "site", "imsmanifest.xml")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a publish writes the folder, the SCORM zip and the manifest, and reports warnings without stopping", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
+    assert.equal(status, 0);
+    assert.equal(result.ok, true);
+    assert.equal(result.preview, false);
+    assert.equal(result.slides, 2);
+    assert.equal(result.zip, path.join(dir, "course-scorm12.zip"));
+    assert.ok(existsSync(path.join(dir, "course-scorm12.zip")));
+    assert.ok(existsSync(path.join(dir, "course", "imsmanifest.xml")));
+    assert.ok(result.findings.every((f) => f.severity === "warning"), "only warnings can come back from a publish that worked");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a project with errors is not published, and the errors come back", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "broken.osproj"), path.join(dir, "course"));
+    assert.equal(status, 1);
+    assert.equal(result.ok, false);
+    assert.match(result.message ?? "", /found 14 errors/);
+    assert.ok(result.findings.some((f) => f.rule === "alt-text-missing"));
+    assert.ok(!existsSync(path.join(dir, "course")), "nothing is written when the check fails");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an interaction item's narration is in the published course under the key the player looks for", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "ix.osproj");
+    cpSync(path.join(examples, "interactions.osproj"), project, { recursive: true, filter: (src) => path.basename(src) !== ".cache" });
+    const slideFile = path.join(project, "slides", "slide-001.json");
+    const slide = JSON.parse(readFileSync(slideFile, "utf-8")) as { baseLayer: { objects: { id: string; type: string; content: { items: { id: string; narration: unknown }[] } }[] } };
+    const ix = slide.baseLayer.objects.find((o) => o.type === "interaction")!;
+    const item = ix.content.items[1]!;
+    item.narration = { script: "This item speaks.", voice: "af_heart", speed: 1, lang: "en-US", pronunciations: [], audioCache: null };
+    writeFileSync(slideFile, JSON.stringify(slide, null, 2));
+
+    const { result, status } = run(project, path.join(dir, "site"), "--preview");
+    assert.equal(status, 0);
+    assert.equal(result.ok, true);
+    const page = readFileSync(path.join(dir, "site", "index.html"), "utf-8");
+    assert.ok(page.includes(`"${itemNarrationKey(ix.id, item.id)}"`), "the package names the item's narration by the player's key");
+    assert.ok(page.includes("This item speaks."), "and carries its script, which becomes the transcript");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a file to download is published with its size, and the file is in the course's assets", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "dl.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true, filter: (src) => path.basename(src) !== ".cache" });
+    mkdirSync(path.join(project, "assets", "documents"), { recursive: true });
+    writeFileSync(path.join(project, "assets", "documents", "guide.pdf"), Buffer.alloc(2048, 65));
+    const slideFile = path.join(project, "slides", "slide-001.json");
+    const slide = JSON.parse(readFileSync(slideFile, "utf-8")) as { baseLayer: { objects: unknown[] } };
+    slide.baseLayer.objects.push({
+      id: "obj-0090", type: "download", name: "Download", geometry: { x: 80, y: 480, width: 520, height: 200, rotation: 0, z: 90 },
+      content: { src: "assets/documents/guide.pdf", title: "Course guide", description: "What the course covers.", accessibleConfirmed: true },
+      style: {}, accessibility: { altText: "Course guide, a PDF", role: "group", tabOrder: 9, decorative: false },
+      states: {}, triggers: [], timing: { appear: "time", start: 0, visibleFor: null }, animation: { enter: { effect: "none", duration: 500 }, exit: { effect: "none", duration: 500 } }, narration: null, provenance: null, simulation: null,
+    });
+    writeFileSync(slideFile, JSON.stringify(slide, null, 2));
+
+    const { result, status } = run(project, path.join(dir, "course"));
+    assert.equal(status, 0, JSON.stringify(result));
+    assert.equal(result.ok, true);
+    assert.ok(existsSync(path.join(dir, "course", "assets", "documents", "guide.pdf")), "the file travels with the course");
+    const page = readFileSync(path.join(dir, "course", "index.html"), "utf-8");
+    assert.match(page, /"fileSizes":\s*\{\s*"assets\/documents\/guide\.pdf":\s*2048\s*\}/, "the package carries the size");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("it will not empty the project folder, a folder that holds it, or one inside it", () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "holder", "project");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    for (const out of [project, path.join(dir, "holder"), path.join(project, "out")]) {
+      const { result, status } = run(project, out);
+      assert.equal(status, 1);
+      assert.equal(result.ok, false);
+      assert.match(result.message ?? "", /somewhere else/);
+    }
+    assert.ok(existsSync(path.join(project, "project.json")), "the project is untouched");
+    assert.ok(existsSync(path.join(project, "assets")), "the project's assets are untouched");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

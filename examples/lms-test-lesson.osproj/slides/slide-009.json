@@ -1,0 +1,358 @@
+{
+  "id": "slide-009",
+  "name": "Choosing a channel",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0029",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0028",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "slideStart",
+            "action": "showLayer",
+            "target": "layer-1",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "lessThanOrEqual",
+                "value": 2
+              },
+              {
+                "variable": "var-1",
+                "operator": "greaterThan",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "id": "trg-0002",
+            "event": "slideStart",
+            "action": "showLayer",
+            "target": "layer-2",
+            "conditions": [
+              {
+                "variable": "var-2",
+                "operator": "equals",
+                "value": "remote"
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Before you send anything, ask four questions. Use the Next button inside the process to move through them.",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Four questions before you send</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Four questions before you send",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0030",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 330,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "interaction",
+        "name": "Step process",
+        "content": {
+          "kind": "steps",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Who needs it?",
+              "body": "<p>Think about everyone who must act on the message, and no one else.</p>",
+              "image": null,
+              "narration": {
+                "script": "Who needs it? Think about everyone who must act on the message, and no one else.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-2",
+              "title": "How urgent is it?",
+              "body": "<p>If it cannot wait, choose a channel with fast feedback.</p>",
+              "image": null,
+              "narration": {
+                "script": "How urgent is it? If it cannot wait, choose a channel with fast feedback.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-3",
+              "title": "How sensitive is it?",
+              "body": "<p>The more personal or emotional the message, the richer the channel should be.</p>",
+              "image": null,
+              "narration": {
+                "script": "How sensitive is it? The more personal or emotional the message, the richer the channel should be.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            },
+            {
+              "id": "item-4",
+              "title": "Do you need a record?",
+              "body": "<p>If a decision or a detail must be documented, put it in writing.</p>",
+              "image": null,
+              "narration": {
+                "script": "Do you need a record? If a decision or a detail must be documented, put it in writing.",
+                "voice": "af_heart",
+                "speed": 1,
+                "lang": "en-US",
+                "pronunciations": [],
+                "audioCache": null
+              }
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Four steps: who needs it, how urgent it is, how sensitive it is, and whether you need a record.",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-1",
+      "name": "Extra help",
+      "objects": [
+        {
+          "id": "obj-0031",
+          "geometry": {
+            "x": 80,
+            "y": 520,
+            "width": 1120,
+            "height": 70,
+            "rotation": 0,
+            "z": 10
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Text box",
+          "content": {
+            "html": "<p>Extra help: if you are not sure which channel to use, start with the sensitivity question. When in doubt, choose a richer channel.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.text"
+          },
+          "accessibility": {
+            "altText": "Extra help: if you are not sure which channel to use, start with the sensitivity question. When in doubt, choose a richer channel.",
+            "role": "paragraph",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-2",
+      "name": "Remote tip",
+      "objects": [
+        {
+          "id": "obj-0032",
+          "geometry": {
+            "x": 80,
+            "y": 600,
+            "width": 1120,
+            "height": 70,
+            "rotation": 0,
+            "z": 10
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Text box",
+          "content": {
+            "html": "<p>Remote tip: when you work remotely, a short video call can stand in for a hallway conversation about anything sensitive or complicated.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.text"
+          },
+          "accessibility": {
+            "altText": "Remote tip: when you work remotely, a short video call can stand in for a hallway conversation about anything sensitive or complicated.",
+            "role": "paragraph",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

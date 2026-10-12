@@ -1,0 +1,235 @@
+{
+  "id": "slide-001",
+  "name": "Welcome",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 72,
+          "width": 1120,
+          "height": 96,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>What is organizational communication?</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 44,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "What is organizational communication?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0002",
+        "type": "text",
+        "name": "Body",
+        "geometry": {
+          "x": 80,
+          "y": 200,
+          "width": 720,
+          "height": 240,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "html": "<p>Organizational communication is the study of how information moves through an organization, and of how people use communication to coordinate, persuade, and make sense of where they work.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#333333"
+        },
+        "accessibility": {
+          "altText": "Organizational communication is the study of how information moves through an organization, and of how people use communication to coordinate, persuade, and make sense of where they work.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Organizational communication is the study of how information moves through an organization. It is also the study of how people use communication to coordinate with each other, to persuade, and to make sense of the place they work.",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0003",
+        "type": "shape",
+        "name": "Accent bar",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "#0b5fff",
+          "stroke": "none"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0004",
+        "type": "button",
+        "name": "Continue",
+        "geometry": {
+          "x": 80,
+          "y": 520,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "content": {
+          "label": "Continue"
+        },
+        "style": {
+          "fill": "#0b5fff",
+          "color": "#ffffff",
+          "fontSize": 18,
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Continue to the next slide",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        },
+        "states": {
+          "hover": {
+            "style": {
+              "fill": "#0a4fd1"
+            }
+          },
+          "visited": {
+            "style": {
+              "opacity": 0.85
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}

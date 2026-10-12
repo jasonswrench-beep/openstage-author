@@ -1,0 +1,207 @@
+{
+  "id": "slide-001",
+  "name": "Every rule broken at least once",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "type": "image",
+        "name": "Missing alt text",
+        "geometry": {
+          "x": 80,
+          "y": 80,
+          "width": 400,
+          "height": 300,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "src": "assets/images/does-not-exist.png"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "",
+          "role": "img",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0002",
+        "type": "shape",
+        "name": "Decorative with alt text",
+        "geometry": {
+          "x": 520,
+          "y": 80,
+          "width": 120,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "#cccccc"
+        },
+        "accessibility": {
+          "altText": "A decorative line that should not have alt text",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0003",
+        "type": "button",
+        "name": "Mouse only",
+        "geometry": {
+          "x": 80,
+          "y": 440,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "content": {
+          "label": "Click me"
+        },
+        "style": {
+          "fill": "#eeeeee",
+          "color": "#f5f5f5",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Click me",
+          "role": "button",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "showLayer",
+            "target": "layer-does-not-exist",
+            "conditions": [
+              {
+                "variable": "var-undefined",
+                "operator": "lessThan",
+                "value": 3
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0003",
+        "type": "video",
+        "name": "Duplicate id, no captions",
+        "geometry": {
+          "x": 320,
+          "y": 440,
+          "width": 480,
+          "height": 270,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "src": "assets/video/clip.mp4",
+          "captions": null
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "An uncaptioned video",
+          "role": "img",
+          "tabOrder": 7,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}
