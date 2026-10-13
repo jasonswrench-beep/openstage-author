@@ -42,7 +42,7 @@ object list with reading order, live problem list, undo and redo.
 - [x] Publish and Preview from the editor (Publish: saves, checks, makes the SCORM 1.2 package and web files, cancellable; Preview: the course as it is now in your browser, saved or not). Both still need Node.js, and Publish needs Python.
 - [x] Narration panel: script, voice, speed and pronunciations in Properties, a Narration dialog that lists everything and makes the missing audio locally with Kokoro (cancellable), and a Listen button. A plugin seam for other voice models is not built.
 - [ ] ATAG Part A pass on everything above, including NVDA
-- [ ] Installer and first-run model download (nothing is packaged yet; the editor is built from source)
+- [ ] Installer and first-run model download (nothing is packaged yet; the editor is built from source). The installer must not bundle GPL components such as espeak-ng or phonemizer-fork; see NOTICE.
 
 ## Phase 3 — Import and quizzing
 

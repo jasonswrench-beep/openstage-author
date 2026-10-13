@@ -21,5 +21,11 @@ Kokoro-82M (text to speech model weights)
   https://huggingface.co/hexgrad/Kokoro-82M
   Apache License 2.0
 
+Speech engine (installed separately by the user; not included, bundled or hosted by OpenStage Author)
+  Spoken narration is made by a speech engine that the user installs on their own computer
+  and that OpenStage Author runs as a separate program. That engine may include components
+  under the GNU General Public License, such as phonemizer-fork and espeak-ng. OpenStage
+  Author does not include, bundle, or host them. They keep their own licences.
+
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.
