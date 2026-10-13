@@ -51,11 +51,29 @@ object list with reading order, live problem list, undo and redo.
 - [~] Quiz authoring and scoring (multiple choice and true or false are authored in the editor and score in the player; other question types are not built)
 - [x] Branching (rules editor, conditions on variables and survey answers)
 
+## Phase 4: Capture module (Windows first)
+
+Screen recording, a mid-level video editor for recordings (trimming, splitting, text overlays and
+zoom), and accessible step-by-step and software-simulation output. The recorder is a separate
+program (`openstage-capture`, written in Rust) that the editor starts; the editor panels are
+TypeScript. Building the recorder is on hold at the owner's request, so this phase records the plan
+and what it needs from OpenStage. Its own plan is in the repository jasonswrench-beep/claude-test
+(docs/roadmap.md); update this link when the Capture code moves into this repository. What it needs
+from OpenStage, besides the shell work listed in that repository's docs/openstage-requests.md:
+
+- [ ] Audio description for video in the player: an "Audio description" button beside a video that opens an accessible pop-up where the learner can read the description, listen to it, or play the video with the description voiced in time. Shown only where the author has added description. The text is the source and the audio is generated from it, like narration.
+- [ ] A free-text input, so a learner can type an answer into a labelled field that is saved in a variable and a rule can check it. (Typed answers already exist as quiz questions: short answer, number and fill in the blanks. This would be an input kind for practice steps that are not questions.)
+- [ ] Scoring from steps: hotspot and text-entry steps that are not quiz questions can add points to the score, the results box and SCORM, with step results stored compactly enough for SCORM 1.2's 4096-character suspend data. (Quiz questions already score, with partial credit, and a question worth 0 points is practice.)
+
+Timing that follows a video or an audio clip is already on the list under Phase 2. Capture works
+without it, but with it Capture's step text could be real, accessible objects timed to the video
+instead of being drawn into the picture.
+
 ## Later
 
-SCORM 2004 and xAPI. Whisper for imported media. Screen recording. Software simulation
-authoring. Step capture. Localisation. QTI and LTI. A CC0 character
-and icon library. Reusable components. Bring-your-own-key AI assistance.
+SCORM 2004 and xAPI. Whisper for imported media (the Capture module will audit it first
+for speech recognition). Localisation. QTI and LTI. A CC0 character and icon library.
+Reusable components. Bring-your-own-key AI assistance.
 
 ## Never
 
