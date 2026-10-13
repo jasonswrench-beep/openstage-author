@@ -21,7 +21,7 @@ at all. That is the intended order.
 First slice built with the Tauri shell: open and save a project, slide list, canvas, properties,
 object list with reading order, live problem list, undo and redo.
 
-- [~] Canvas: place, move, resize, rotate, z-order (select, move, resize, add and delete done for text, buttons, shapes and images). Duplicate, copy, cut and paste done (one object at a time, across slides). Not built: selecting several objects, align and distribute, grouping, locking, snapping.
+- [~] Canvas: place, move, resize, rotate, z-order (select, move, resize, add and delete done for text, buttons, shapes and images). Duplicate, copy, cut and paste done, across slides. Selecting several objects (Shift or Ctrl and click, a box dragged across the canvas, Shift with Page Down, Ctrl+A, the Objects list) with moving, copying and deleting them together, and line up and space out evenly, done. Not built: grouping, locking, snapping.
 - [~] Property panel, slide sorter, layer list (all three exist, with add, delete, rename and reorder for slides, and add, delete and rename for layers)
 - [x] Slide layouts (26, with previews, Change layout and Reset layout)
 - [~] Linked themes (format 0.2.0, 8 built-in themes, theme colours and fonts, slide backgrounds, migration; editing a theme's own colours and fonts is not built)

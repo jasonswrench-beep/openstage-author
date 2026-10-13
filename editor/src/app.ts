@@ -26,6 +26,7 @@ import { askText } from "./textprompt.ts";
 import { askChoice, interactionPreview, shapePreview } from "./choicepicker.ts";
 import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
+import { ALIGNMENTS } from "./align.ts";
 import { FORMAT_VERSION, Model, type Change } from "./model.ts";
 import { askNewProject } from "./newproject.ts";
 import { openNarration } from "./narrationdialog.ts";
@@ -121,6 +122,7 @@ export class App {
   private readonly copyBtn: HTMLButtonElement;
   private readonly cutBtn: HTMLButtonElement;
   private readonly pasteBtn: HTMLButtonElement;
+  private readonly selectAllBtn: HTMLButtonElement;
   private readonly moveEarlier: HTMLButtonElement;
   private readonly moveLater: HTMLButtonElement;
   private readonly problemList: HTMLElement;
@@ -195,18 +197,19 @@ export class App {
     this.objectList = h("ul", { class: "item-list", role: "list" });
     this.addKind = h("select", { id: "add-kind" }, ...ADD_MENU.map((k) => h("option", { value: k.value, text: k.label })));
     this.addObjectBtn = this.small("Add object", "Add the chosen kind of object to this layer", () => void this.addObject());
-    this.deleteObjectBtn = this.small("Delete object", "Delete the selected object (Delete key)", () => this.deleteObject());
+    this.deleteObjectBtn = this.small("Delete object", "Delete the selected objects (Delete key)", () => this.deleteObject());
     this.moveEarlier = this.small("Move earlier", "Earlier in reading order (Alt+Up Arrow)", () => this.reorder(-1));
     this.moveLater = this.small("Move later", "Later in reading order (Alt+Down Arrow)", () => this.reorder(1));
     this.duplicateBtn = this.small("Duplicate", "Make a copy of the selected object beside it (Ctrl+D)", () => this.duplicateObject());
     this.copyBtn = this.small("Copy", "Copy the selected object (Ctrl+C)", () => this.copyObject());
     this.cutBtn = this.small("Cut", "Copy the selected object and remove it (Ctrl+X)", () => this.cutObject());
-    this.pasteBtn = this.small("Paste", "Paste the copied object on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
+    this.pasteBtn = this.small("Paste", "Paste the copied objects on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
+    this.selectAllBtn = this.small("Select all", "Select every object on this layer (Ctrl+A)", () => this.selectAllObjects());
     const objects = h("section", { class: "panel objects", "aria-labelledby": "objects-h" },
       h("h2", { id: "objects-h", text: "Objects" }),
       h("div", { class: "btn-row" }, h("label", { for: "add-kind", text: "Add" }), this.addKind, this.addObjectBtn),
       h("div", { class: "btn-row" }, this.deleteObjectBtn, this.moveEarlier, this.moveLater),
-      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn),
+      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn, this.selectAllBtn),
       h("p", { class: "note", text: "In reading order, which is also the tab order." }),
       this.objectList);
 
@@ -1067,8 +1070,8 @@ export class App {
       return;
     }
     const before = m.objects.map((x) => x.id);
-    const at = before.indexOf(o.id);
-    const msg = m.deleteObject(o.id);
+    const at = Math.min(...m.selected.map((x) => before.indexOf(x.id)));
+    const msg = m.deleteSelected();
     if (!msg) return;
     this.announce(`${msg}. Press Control Z to undo.`);
     const left = m.objects.map((x) => x.id);
@@ -1132,10 +1135,31 @@ export class App {
     this.followSelection(wasInList);
   }
 
+  /** A click on an item in the Objects list: Shift extends a range, Ctrl adds or removes one, and a plain click chooses it alone. */
+  private pickObject(id: string, e: MouseEvent): void {
+    const m = this.model;
+    if (!m) return;
+    let msg: string | null = null;
+    if (e.shiftKey) msg = m.selectRange(id);
+    else if (e.ctrlKey || e.metaKey) msg = m.toggleSelected(id);
+    else m.selectObject(id);
+    if (msg) this.announce(msg);
+  }
+
+  private selectAllObjects(): void {
+    const m = this.model;
+    if (!m) return;
+    this.announce(m.selectAll());
+  }
+
   private reorder(delta: -1 | 1): void {
     const o = this.model?.object;
     if (!o) {
       this.announce("Choose an object in the list first.");
+      return;
+    }
+    if ((this.model?.selected.length ?? 0) > 1) {
+      this.announce("Reading order is for one object at a time. Choose one object first.");
       return;
     }
     const msg = this.model?.reorder(o.id, delta);
@@ -1195,8 +1219,11 @@ export class App {
     this.statusProblems.textContent = m ? (this.checkFailure ? "Could not check" : this.summaryText(e, w)) : "";
     void backend.setTitle(m ? `${m.dirty ? "* " : ""}${m.project.meta.title} - OpenStage Author` : "OpenStage Author");
     const hasObject = !!m?.object;
-    this.setEnabled(this.moveEarlier, hasObject);
-    this.setEnabled(this.moveLater, hasObject);
+    // Reading order is one object's place in the order, so it is for one object at a time.
+    const one = m?.selected.length === 1;
+    this.setEnabled(this.moveEarlier, !!one);
+    this.setEnabled(this.moveLater, !!one);
+    this.setEnabled(this.selectAllBtn, (m?.objects.length ?? 0) > 0);
     this.setEnabled(this.deleteObjectBtn, hasObject);
     this.setEnabled(this.duplicateBtn, hasObject);
     this.setEnabled(this.copyBtn, hasObject);
@@ -1235,7 +1262,7 @@ export class App {
     target?.focus();
   }
 
-  private item(key: string, label: string, current: boolean, onPick: () => void, extra = ""): HTMLLIElement {
+  private item(key: string, label: string, current: boolean, onPick: (e: MouseEvent) => void, extra = ""): HTMLLIElement {
     const b = h("button", { type: "button", class: "item", "data-key": key, text: label, ...(current ? { "aria-current": "true" } : {}) });
     if (extra) b.title = extra;
     b.addEventListener("click", onPick);
@@ -1286,12 +1313,17 @@ export class App {
   private renderObjects(): void {
     const m = this.model;
     if (!m) return;
+    // With several selected, each item says whether it is one of them (a pressed button), so a screen reader hears it.
+    const picked = new Set(m.selected.map((o) => o.id));
+    const several = picked.size > 1;
     this.keepFocus(() => {
       this.objectList.replaceChildren(
         ...m.objects.map((o) => {
           const t = o.accessibility.tabOrder ?? 0;
           const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"})`;
-          return this.item(`object:${o.id}`, label, o.id === m.sel.objectId, () => m.selectObject(o.id));
+          const li = this.item(`object:${o.id}`, label, o.id === m.sel.objectId, (e) => this.pickObject(o.id, e));
+          if (several) li.querySelector("button")!.setAttribute("aria-pressed", String(picked.has(o.id)));
+          return li;
         }),
       );
       if (m.objects.length === 0) this.objectList.append(h("li", { class: "note", text: "No objects on this layer. Use Add to put one here." }));
@@ -1398,6 +1430,14 @@ export class App {
   private renderProps(valuesOnly = false): void {
     const m = this.model;
     if (!m) return;
+    // Several objects selected: the panel is about lining them up, because their own settings differ.
+    if (m.selected.length > 1) {
+      const marker = `multi:${m.selected.map((x) => x.id).join(",")}`;
+      if (valuesOnly && this.propsBody.dataset["for"] === marker) return;
+      this.keepFocus(() => this.buildMultiProps(m));
+      this.propsBody.dataset["for"] = marker;
+      return;
+    }
     const o = m.object;
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
@@ -1425,6 +1465,32 @@ export class App {
     // Keep focus where it is when the panel is redrawn.
     this.keepFocus(() => (o ? this.buildProps(m, o) : this.buildSlideProps(m)));
     this.propsBody.dataset["for"] = marker;
+  }
+
+  /** The buttons that line up what is selected: with each other when there are several, with the slide when there is one. */
+  private alignButtons(m: Model): HTMLElement {
+    const say = (r: { changed: boolean; message: string } | null) => { if (r) this.announce(r.changed ? `${r.message} Press Control Z to undo.` : r.message); };
+    return h("div", { class: "btn-row" }, ...ALIGNMENTS.map((a) =>
+      this.small(a.label, `Line up the ${a.edge}`, () => say(m.align(a.value)), `Align ${a.label.toLowerCase()}`)));
+  }
+
+  /** The Properties panel while several objects are selected. */
+  private buildMultiProps(m: Model): void {
+    const sel = m.selected;
+    const say = (r: { changed: boolean; message: string } | null) => { if (r) this.announce(r.changed ? `${r.message} Press Control Z to undo.` : r.message); };
+    const across = this.small("Across", "Space the selected objects evenly from left to right", () => say(m.distribute("horizontal")), "Space out across");
+    const down = this.small("Down", "Space the selected objects evenly from top to bottom", () => say(m.distribute("vertical")), "Space out down");
+    this.setEnabled(across, sel.length >= 3);
+    this.setEnabled(down, sel.length >= 3);
+    this.propsBody.replaceChildren(
+      h("p", { class: "note", text: `${sel.length} objects selected: ${sel.map((o) => o.name).join(", ")}.` }),
+      h("fieldset", {}, h("legend", { text: "Line up" }),
+        this.alignButtons(m),
+        h("p", { class: "note", text: "Lines the objects up with each other. Only where they sit changes, never their sizes." })),
+      h("fieldset", {}, h("legend", { text: "Space out evenly" }),
+        h("div", { class: "btn-row" }, across, down),
+        h("p", { class: "note", text: "Needs three or more objects. The outermost two stay where they are." })),
+      h("p", { class: "note", text: "The arrow keys, Delete, Duplicate, Copy, Cut and Paste work on all of them. To change one object's text, colours, alt text, rules, timing or narration, choose that object on its own." }));
   }
 
   /** When nothing is selected, the Properties panel is about the slide and layer. */
@@ -1641,6 +1707,7 @@ export class App {
         this.field("height", "Height", o.geometry.height, num("height"), { number: true }),
         this.field("rotation", "Rotation, degrees", o.geometry.rotation, num("rotation"), { number: true }),
         this.field("z", "Stacking order", o.geometry.z, num("z"), { number: true })),
+      h("fieldset", {}, h("legend", { text: "Line up with the slide" }), this.alignButtons(m)),
       h("fieldset", {}, h("legend", { text: "Accessibility" }),
         h("div", { class: "field check" }, decorative, h("label", { for: "p-decorative", text: "Decorative (no meaning, hidden from screen readers)" })),
         this.field("alt", "Alt text", a.altText, (v) => { m.setAccessibility(o.id, { altText: v }); }, { area: true, describedBy: "alt-note" }),
@@ -2348,7 +2415,8 @@ export class App {
       // Duplicate, copy, cut and paste work on the selected object. When words are selected on the page, Copy is theirs, not ours.
       const key = e.key.toLowerCase();
       const wordsSelected = (window.getSelection()?.toString() ?? "") !== "";
-      if (key === "d") { e.preventDefault(); this.duplicateObject(); }
+      if (key === "a" && !wordsSelected) { e.preventDefault(); this.selectAllObjects(); }
+      else if (key === "d") { e.preventDefault(); this.duplicateObject(); }
       else if (key === "c" && !wordsSelected) { e.preventDefault(); this.copyObject(); }
       else if (key === "x" && !wordsSelected) { e.preventDefault(); this.cutObject(); }
       else if (key === "v") { e.preventDefault(); this.pasteObject(); }
@@ -2395,10 +2463,23 @@ export class App {
         }
       },
       (key) => {
-        this.model?.selectObject(key.replace(/^object:/, ""));
+        const id = key.replace(/^object:/, "");
+        // On one of several selected objects, Delete removes them all; on any other it removes that one.
+        if (!this.model?.selected.some((x) => x.id === id)) this.model?.selectObject(id);
         this.deleteObject();
       },
     );
+    // Shift with the arrow keys stretches the selection to the item the focus moved to, and Ctrl and Space adds or removes the focused one.
+    this.objectList.addEventListener("keydown", (e) => {
+      const m = this.model;
+      const key = (document.activeElement as HTMLElement | null)?.dataset?.["key"];
+      if (!m || !key?.startsWith("object:")) return;
+      const id = key.replace(/^object:/, "");
+      let msg: string | null = null;
+      if (e.shiftKey && ["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) msg = m.selectRange(id);
+      else if ((e.ctrlKey || e.metaKey) && e.key === " ") { e.preventDefault(); msg = m.toggleSelected(id); }
+      if (msg) this.announce(msg);
+    });
     this.wireArrows(this.problemList);
   }
 }

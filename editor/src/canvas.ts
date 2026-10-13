@@ -18,16 +18,25 @@ const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_DRAG_SIZE = 8;
 
 export const CANVAS_HINT =
-  "Arrow keys move the selected object by 1, or 10 with Shift. Alt with arrow keys resizes it. " +
-  "Page Down and Page Up select the next or previous object. Escape clears the selection. " +
-  "You can also type exact values in the Properties panel.";
+  "Arrow keys move the selected objects by 1, or 10 with Shift. Alt with arrow keys resizes one object. " +
+  "Page Down and Page Up select the next or previous object, and Shift with them adds to the selection. " +
+  "Shift and click adds or removes an object, and dragging a box round objects selects them. Ctrl and A selects everything. " +
+  "Escape clears the selection. You can also type exact values in the Properties panel.";
+
+/** A box dragged across empty canvas shorter than this, in stage pixels, was a click, not a box. */
+const MIN_MARQUEE = 4;
 
 interface Drag {
-  mode: "move" | Handle;
+  mode: "move" | "marquee" | Handle;
   startX: number;
   startY: number;
-  geom: OSObject["geometry"];
+  /** Where each object being moved or resized began, by id. */
+  geoms: Map<string, OSObject["geometry"]>;
   objectId: string;
+  /** The pointer has moved, so this was a drag and not a click. */
+  moved: boolean;
+  /** A click without a drag on an object in a selection of several narrows the selection to it. */
+  collapseTo: string | null;
 }
 
 export class Canvas {
@@ -38,6 +47,10 @@ export class Canvas {
   private readonly stageEl: HTMLElement;
   private readonly overlay: HTMLElement;
   private readonly box: HTMLElement;
+  /** Outlines of the objects selected along with others, when more than one is selected. */
+  private marks: HTMLElement[] = [];
+  /** The box being dragged across empty canvas to select what it touches. */
+  private readonly marquee: HTMLElement;
   private readonly stage: StageRenderer;
   private readonly model: () => Model | null;
   private readonly backend: Backend;
@@ -84,7 +97,11 @@ export class Canvas {
       handle.dataset["handle"] = h;
       this.box.appendChild(handle);
     }
-    this.overlay.appendChild(this.box);
+    this.marquee = doc.createElement("div");
+    this.marquee.className = "edit-marquee";
+    this.marquee.hidden = true;
+    this.marquee.setAttribute("aria-hidden", "true");
+    this.overlay.append(this.box, this.marquee);
     this.stageEl.appendChild(this.overlay);
     this.wrap.appendChild(this.stageEl);
     this.viewport.appendChild(this.wrap);
@@ -186,9 +203,30 @@ export class Canvas {
   }
 
   private updateSelection(): void {
-    const o = this.model()?.object;
+    for (const mark of this.marks) mark.remove();
+    this.marks = [];
+    const sel = this.model()?.selected ?? [];
+    const o = sel[0];
     if (!o) {
       this.box.hidden = true;
+      return;
+    }
+    // Several selected: each is outlined, and there are no handles, because a handle could only resize one of them.
+    if (sel.length > 1) {
+      this.box.hidden = true;
+      for (const each of sel) {
+        const mark = this.overlay.ownerDocument.createElement("div");
+        mark.className = "edit-box edit-box-multi";
+        mark.setAttribute("aria-hidden", "true");
+        mark.style.left = `${each.geometry.x}px`;
+        mark.style.top = `${each.geometry.y}px`;
+        mark.style.width = `${each.geometry.width}px`;
+        mark.style.height = `${each.geometry.height}px`;
+        mark.style.transform = each.geometry.rotation ? `rotate(${each.geometry.rotation}deg)` : "";
+        mark.style.setProperty("--line", `${2 / this.scale}px`);
+        this.overlay.appendChild(mark);
+        this.marks.push(mark);
+      }
       return;
     }
     const g = o.geometry;
@@ -237,7 +275,7 @@ export class Canvas {
     const arrow = arrows[e.key];
     if (arrow) {
       e.preventDefault();
-      if (!m.object) {
+      if (m.selected.length === 0) {
         this.say("Nothing is selected. Press Page Down to select an object, or choose one from the Objects list.");
         return;
       }
@@ -246,7 +284,11 @@ export class Canvas {
       if (msg) this.say(msg);
       return;
     }
-    if (e.key === "PageDown" || e.key === "PageUp") {
+    if ((e.key === "PageDown" || e.key === "PageUp") && e.shiftKey) {
+      e.preventDefault();
+      const msg = m.extendSelection(e.key === "PageDown" ? 1 : -1);
+      if (msg) this.say(msg);
+    } else if (e.key === "PageDown" || e.key === "PageUp") {
       e.preventDefault();
       const list = m.objects;
       if (list.length === 0) return;
@@ -257,7 +299,7 @@ export class Canvas {
       this.say(`Selected ${m.describe(target)}`);
     } else if (e.key === "Delete" && m.object) {
       e.preventDefault();
-      const msg = m.deleteObject(m.object.id);
+      const msg = m.deleteSelected();
       if (msg) this.say(`${msg}. Press Control Z to undo.`);
     } else if (e.key === "Escape" && m.object) {
       e.preventDefault();
@@ -292,20 +334,46 @@ export class Canvas {
     const p = this.toStage(e);
     const handle = (e.target as HTMLElement).dataset["handle"] as Handle | undefined;
     this.group.focus({ preventScroll: true });
+    const start = (mode: Drag["mode"], geoms: Map<string, OSObject["geometry"]>, objectId: string, collapseTo: string | null) => {
+      this.drag = { mode, startX: p.x, startY: p.y, geoms, objectId, moved: false, collapseTo };
+      this.overlay.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    };
 
-    let target = m.object;
-    let mode: Drag["mode"] = handle ?? "move";
-    if (!handle) {
-      target = this.hit(p.x, p.y);
-      m.selectObject(target?.id ?? null);
+    // A handle resizes the one selected object. (There are no handles while several are selected.)
+    if (handle) {
+      const target = m.object;
       if (!target) return;
+      m.beginGesture();
+      start(handle, new Map([[target.id, { ...target.geometry }]]), target.id, null);
+      return;
+    }
+
+    const target = this.hit(p.x, p.y);
+    // Shift or Ctrl and click adds an object to the selection, or takes it out.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      if (target) {
+        const msg = m.toggleSelected(target.id);
+        if (msg) this.say(msg);
+      }
+      e.preventDefault();
+      return;
+    }
+    // Empty canvas: clear the selection, and a drag from here draws a box that selects what it touches.
+    if (!target) {
+      m.selectObject(null);
+      start("marquee", new Map(), "", null);
+      return;
+    }
+    // On one of several selected objects, a drag moves them all together. A click without a drag narrows the selection to it.
+    const inside = m.selected.length > 1 && m.selected.some((o) => o.id === target.id);
+    if (!inside) {
+      m.selectObject(target.id);
       this.say(`Selected ${m.describe(target)}`);
     }
-    if (!target) return;
-    this.drag = { mode, startX: p.x, startY: p.y, geom: { ...target.geometry }, objectId: target.id };
+    const moving = inside ? m.selected : [target];
     m.beginGesture();
-    this.overlay.setPointerCapture(e.pointerId);
-    e.preventDefault();
+    start("move", new Map(moving.map((o) => [o.id, { ...o.geometry }])), target.id, inside ? target.id : null);
   }
 
   private onPointerMove(e: PointerEvent): void {
@@ -315,11 +383,22 @@ export class Canvas {
     const p = this.toStage(e);
     const dx = Math.round(p.x - d.startX);
     const dy = Math.round(p.y - d.startY);
-    const g = d.geom;
-    if (d.mode === "move") {
-      m.setGeometry(d.objectId, { x: g.x + dx, y: g.y + dy });
+    if (dx !== 0 || dy !== 0) d.moved = true;
+    if (d.mode === "marquee") {
+      const box = this.marqueeBox(d, p);
+      this.marquee.hidden = false;
+      this.marquee.style.left = `${box.x}px`;
+      this.marquee.style.top = `${box.y}px`;
+      this.marquee.style.width = `${box.width}px`;
+      this.marquee.style.height = `${box.height}px`;
+      this.marquee.style.setProperty("--line", `${2 / this.scale}px`);
       return;
     }
+    if (d.mode === "move") {
+      for (const [id, g0] of d.geoms) m.setGeometry(id, { x: g0.x + dx, y: g0.y + dy });
+      return;
+    }
+    const g = d.geoms.get(d.objectId)!;
     let { x, y, width, height } = g;
     if (d.mode.includes("e")) width = Math.max(MIN_DRAG_SIZE, g.width + dx);
     if (d.mode.includes("s")) height = Math.max(MIN_DRAG_SIZE, g.height + dy);
@@ -334,13 +413,37 @@ export class Canvas {
     m.setGeometry(d.objectId, { x, y, width, height });
   }
 
+  /** The box dragged across empty canvas, in stage pixels, whichever way it was dragged. */
+  private marqueeBox(d: Drag, p: { x: number; y: number }): { x: number; y: number; width: number; height: number } {
+    return { x: Math.min(d.startX, p.x), y: Math.min(d.startY, p.y), width: Math.abs(p.x - d.startX), height: Math.abs(p.y - d.startY) };
+  }
+
   private onPointerUp(e: PointerEvent): void {
     const m = this.model();
-    if (!this.drag || !m) return;
+    const d = this.drag;
+    if (!d || !m) return;
     this.drag = null;
     if (this.overlay.hasPointerCapture(e.pointerId)) this.overlay.releasePointerCapture(e.pointerId);
+    if (d.mode === "marquee") {
+      this.marquee.hidden = true;
+      const box = this.marqueeBox(d, this.toStage(e));
+      if (box.width < MIN_MARQUEE && box.height < MIN_MARQUEE) return; // a click on empty canvas: the selection was already cleared
+      const touched = (m.layer?.objects ?? []).filter((o) => {
+        const g = o.geometry;
+        return g.x < box.x + box.width && g.x + g.width > box.x && g.y < box.y + box.height && g.y + g.height > box.y;
+      });
+      const msg = m.selectIds(touched.map((o) => o.id));
+      if (msg) this.say(msg);
+      return;
+    }
     m.endGesture();
-    const o = m.object;
-    if (o) this.say(m.describe(o));
+    if (d.collapseTo && !d.moved) {
+      m.selectObject(d.collapseTo);
+      this.say(m.describeSelection());
+      return;
+    }
+    const sel = m.selected;
+    if (sel.length === 1) this.say(m.describe(sel[0]!));
+    else if (sel.length > 1) this.say(this.model()?.describeSelection() ?? "");
   }
 }

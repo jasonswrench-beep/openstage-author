@@ -11,6 +11,7 @@ import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, op
 import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { cloneObjects, copyName } from "./clone.ts";
+import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment } from "./align.ts";
 import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
@@ -113,6 +114,10 @@ export class Model {
   private clip: { objects: OSObject[]; layers: Layer[]; slideId: string; layerId: string; tone: "light" | "dark" | "accent" } | null = null;
   /** How many times the clip has been pasted onto each layer, so pasting again does not land on top of the last paste. */
   private pasted = new Map<string, number>();
+  /** Other objects chosen along with the main one. Only valid while the main one is still the one they were chosen with. */
+  private more: { primary: string; ids: string[] } | null = null;
+  /** Where a range of selected objects began, for Shift and click. */
+  private anchor: string | null = null;
   private listeners: ((c: Change) => void)[] = [];
   sel: Selection;
 
@@ -195,20 +200,130 @@ export class Model {
     const slide = this.docs.find((d) => d.slide.id === id)?.slide;
     if (!slide || slide.id === this.sel.slideId) return;
     this.sel = { slideId: id, layerId: slide.baseLayer.id, objectId: null };
+    this.more = null;
+    this.anchor = null;
     this.emit({ kind: "selection" });
   }
 
   selectLayer(id: string): void {
     if (!this.layers.some((l) => l.id === id) || id === this.sel.layerId) return;
     this.sel = { ...this.sel, layerId: id, objectId: null };
+    this.more = null;
+    this.anchor = null;
     this.emit({ kind: "selection" });
   }
 
   selectObject(id: string | null): void {
     if (id !== null && !this.layer?.objects.some((o) => o.id === id)) return;
-    if (id === this.sel.objectId) return;
+    // Choosing one object ends a selection of several, even if the one chosen was already the main one.
+    const hadMore = this.selected.length > 1;
+    this.more = null;
+    this.anchor = id;
+    if (id === this.sel.objectId && !hadMore) return;
     this.sel = { ...this.sel, objectId: id };
     this.emit({ kind: "selection", ...(id ? { objectId: id } : {}) });
+  }
+
+  // ---- choosing several objects
+
+  /** Everything selected on this layer: the main object and any chosen along with it, in reading order. */
+  get selected(): OSObject[] {
+    const layer = this.layer;
+    const main = this.object;
+    if (!layer || !main) return [];
+    const ids = new Set([main.id, ...(this.more && this.more.primary === main.id ? this.more.ids : [])]);
+    return readingOrder(layer.objects).filter((o) => ids.has(o.id));
+  }
+
+  /** Make these the selection, with `main` as the main one. */
+  private setSelection(ids: string[], main: string): void {
+    const unique = [...new Set(ids)];
+    this.more = unique.length > 1 ? { primary: main, ids: unique.filter((i) => i !== main) } : null;
+    this.sel = { ...this.sel, objectId: main };
+    this.emit({ kind: "selection", objectId: main });
+  }
+
+  /** What is selected, in words, for announcing. */
+  describeSelection(): string {
+    const s = this.selected;
+    if (s.length === 0) return "Nothing is selected.";
+    if (s.length === 1) return `Selected ${this.describe(s[0]!)}`;
+    return `${s.length} objects selected: ${s.map((o) => o.name).join(", ")}.`;
+  }
+
+  /** Add an object to the selection, or take it out if it is already there (Shift or Ctrl and click, Ctrl and Space). */
+  toggleSelected(id: string): string | null {
+    if (!this.layer?.objects.some((o) => o.id === id)) return null;
+    const now = this.selected.map((o) => o.id);
+    const had = now.includes(id);
+    const ids = had ? now.filter((i) => i !== id) : [...now, id];
+    this.anchor = id;
+    if (ids.length === 0) {
+      this.selectObject(null);
+      return this.describeSelection();
+    }
+    this.setSelection(ids, had ? ids[ids.length - 1]! : id);
+    return this.describeSelection();
+  }
+
+  /** Select every object from where the selection began, through this one, in reading order (Shift and click, Shift and arrow keys). */
+  selectRange(toId: string): string | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const order = readingOrder(layer.objects).map((o) => o.id);
+    const to = order.indexOf(toId);
+    if (to === -1) return null;
+    const from = order.indexOf(this.anchor ?? this.sel.objectId ?? toId);
+    const start = from === -1 ? to : from;
+    if (this.anchor === null || !order.includes(this.anchor)) this.anchor = order[start]!;
+    this.setSelection(order.slice(Math.min(start, to), Math.max(start, to) + 1), toId);
+    return this.describeSelection();
+  }
+
+  /** Select exactly these objects (dragging a box round them). The first of them in reading order is the main one. */
+  selectIds(ids: string[]): string | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const chosen = readingOrder(layer.objects).filter((o) => ids.includes(o.id)).map((o) => o.id);
+    if (chosen.length === 0) {
+      this.selectObject(null);
+      return this.describeSelection();
+    }
+    if (chosen.length === 1) {
+      this.selectObject(chosen[0]!);
+      return this.describeSelection();
+    }
+    this.anchor = chosen[0]!;
+    this.setSelection(chosen, chosen[0]!);
+    return this.describeSelection();
+  }
+
+  /** Select every object on the layer (Ctrl+A). */
+  selectAll(): string {
+    const layer = this.layer;
+    const all = layer ? readingOrder(layer.objects).map((o) => o.id) : [];
+    if (all.length === 0) return "There is nothing on this layer to select.";
+    this.anchor = all[0]!;
+    this.setSelection(all, this.sel.objectId && all.includes(this.sel.objectId) ? this.sel.objectId : all[0]!);
+    return this.describeSelection();
+  }
+
+  /** Add the object after (+1) or before (-1) the selected ones, in reading order, to the selection (Shift and Page Down or Page Up). */
+  extendSelection(delta: 1 | -1): string | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const order = readingOrder(layer.objects);
+    if (order.length === 0) return null;
+    const now = this.selected;
+    if (now.length === 0) {
+      this.selectObject(order[delta > 0 ? 0 : order.length - 1]!.id);
+      return this.describeSelection();
+    }
+    const at = now.map((o) => order.indexOf(o));
+    const next = delta > 0 ? Math.max(...at) + 1 : Math.min(...at) - 1;
+    if (next < 0 || next >= order.length) return delta > 0 ? "The last object is already selected." : "The first object is already selected.";
+    this.setSelection([...now.map((o) => o.id), order[next]!.id], order[next]!.id);
+    return this.describeSelection();
   }
 
   /** Select an object wherever it is, switching slide and layer as needed. */
@@ -216,6 +331,8 @@ export class Model {
     const where = this.locate(slideId, objectId);
     if (!where) return false;
     this.sel = { slideId, layerId: where.layerId, objectId };
+    this.more = null;
+    this.anchor = objectId;
     this.emit({ kind: "selection", objectId });
     return true;
   }
@@ -242,12 +359,25 @@ export class Model {
     return this.describe(obj);
   }
 
+  /** Move the selected object, or all the selected objects together, by this much. */
   nudge(dx: number, dy: number): string | null {
-    const o = this.object;
-    return o ? this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, `move:${o.id}`) : null;
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    if (sel.length === 1) {
+      const o = sel[0]!;
+      return this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, `move:${o.id}`);
+    }
+    // One key for the whole group, so the moves of one key press, and quick presses after it, are one undo step.
+    const key = `move:${sel.map((o) => o.id).join("+")}`;
+    let moved = 0;
+    for (const o of sel) if (this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, key)) moved++;
+    if (moved === 0) return null;
+    const box = bounds(sel.map((o) => o.geometry));
+    return `${sel.length} objects, at ${box.x}, ${box.y}`;
   }
 
   resizeBy(dw: number, dh: number): string | null {
+    if (this.selected.length > 1) return "Resizing works on one object at a time. Choose one object, or type exact sizes in the Properties panel.";
     const o = this.object;
     if (!o) return null;
     const width = Math.max(1, o.geometry.width + dw);
@@ -263,7 +393,12 @@ export class Model {
   endGesture(): void {
     const before = this.gestureStart;
     this.gestureStart = null;
-    if (before !== null && before !== this.snapshot()) this.pushUndo(before);
+    if (before !== null && before !== this.snapshot()) {
+      this.pushUndo(before);
+      this.redoStack = [];
+      // The moves of the drag each said "geometry" while the undo step did not exist yet, so the Undo button needs telling now.
+      this.emit({ kind: "selection" });
+    }
   }
 
   setAccessibility(objectId: string, patch: Partial<Accessibility>): string | null {
@@ -1789,6 +1924,65 @@ export class Model {
     return `Deleted ${obj.name}`;
   }
 
+  /** Remove every selected object, as one undo step. The tab order of what is left is renumbered so it has no gaps. */
+  deleteSelected(): string | null {
+    const layer = this.layer;
+    const sel = this.selected;
+    if (!layer || sel.length === 0) return null;
+    if (sel.length === 1) return this.deleteObject(sel[0]!.id);
+    this.record("");
+    const gone = new Set(sel.map((o) => o.id));
+    layer.objects = layer.objects.filter((o) => !gone.has(o.id));
+    readingOrder(layer.objects)
+      .filter((o) => (o.accessibility.tabOrder ?? 0) >= 1)
+      .forEach((o, i) => (o.accessibility = { ...o.accessibility, tabOrder: i + 1 }));
+    this.more = null;
+    this.anchor = null;
+    this.sel = { ...this.sel, objectId: null };
+    this.emit({ kind: "structure" });
+    return `Deleted ${sel.length} objects`;
+  }
+
+  // ---- aligning and spacing out
+
+  /**
+   * Line the selected objects up with each other, or, when only one is selected, with the slide. One undo step. Only where they sit
+   * changes, never their sizes.
+   */
+  align(how: Alignment): { changed: boolean; message: string } | null {
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    const stage = this.project.stage;
+    const within = sel.length === 1 ? { x: 0, y: 0, width: stage.width, height: stage.height } : null;
+    const how_ = ALIGNMENTS.find((a) => a.value === how)!;
+    const next = alignBoxes(sel.map((o) => o.geometry), how, within);
+    const done = this.applyBoxes(sel, next);
+    if (!done) return { changed: false, message: sel.length === 1 ? `${sel[0]!.name} is already there.` : "They are already lined up that way." };
+    return { changed: true, message: sel.length === 1 ? `Moved ${sel[0]!.name} ${how_.onSlide}.` : `Lined up ${sel.length} objects by their ${how_.edge}.` };
+  }
+
+  /** Space three or more selected objects evenly, keeping the outer two where they are. One undo step. */
+  distribute(axis: "horizontal" | "vertical"): { changed: boolean; message: string } | null {
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    if (sel.length < 3) return { changed: false, message: "Choose three or more objects to space them out evenly." };
+    const next = distributeBoxes(sel.map((o) => o.geometry), axis);
+    if (!this.applyBoxes(sel, next)) return { changed: false, message: "They are already spaced evenly." };
+    return { changed: true, message: `Spaced ${sel.length} objects evenly ${axis === "horizontal" ? "across" : "down"} the slide.` };
+  }
+
+  /** Move objects to new boxes as one undo step. False if none of them moved. */
+  private applyBoxes(objects: OSObject[], boxes: { x: number; y: number }[]): boolean {
+    const changes = objects.map((o, i) => ({ o, x: boxes[i]!.x, y: boxes[i]!.y })).filter(({ o, x, y }) => x !== o.geometry.x || y !== o.geometry.y);
+    if (changes.length === 0) return false;
+    this.record("");
+    for (const { o, x, y } of changes) {
+      o.geometry = { ...o.geometry, x, y };
+      this.emit({ kind: "geometry", objectId: o.id });
+    }
+    return true;
+  }
+
   // ---- duplicate, copy, cut and paste
 
   /** Make the ids a copy needs from the project as it is now: a trigger id no other trigger in the project uses. */
@@ -1820,33 +2014,39 @@ export class Model {
     return slide.layers.filter((l) => ids.has(l.id)).map((l) => JSON.parse(JSON.stringify(l)) as Layer);
   }
 
-  /** Remember the selected object, so Paste can put a copy of it here or on another slide. Changes nothing in the course. */
+  /** What the selection is called in a message: the object's name, or how many there are. */
+  private selectionName(sel: OSObject[]): string {
+    return sel.length === 1 ? sel[0]!.name : `${sel.length} objects`;
+  }
+
+  /** Remember the selected objects, so Paste can put copies of them here or on another slide. Changes nothing in the course. */
   copy(): string | null {
-    const o = this.object;
+    const sel = this.selected;
     const slide = this.slide;
     const layer = this.layer;
-    if (!o || !slide || !layer) return null;
-    this.clip = { objects: [JSON.parse(JSON.stringify(o)) as OSObject], layers: this.feedbackLayersOf([o], slide), slideId: slide.id, layerId: layer.id, tone: this.tone() };
+    if (sel.length === 0 || !slide || !layer) return null;
+    this.clip = { objects: JSON.parse(JSON.stringify(sel)) as OSObject[], layers: this.feedbackLayersOf(sel, slide), slideId: slide.id, layerId: layer.id, tone: this.tone() };
     this.pasted.clear();
     this.emit({ kind: "clipboard" });
-    return `Copied ${o.name}.`;
+    return `Copied ${this.selectionName(sel)}.`;
   }
 
-  /** Copy the selected object and remove it, as one undo step. */
+  /** Copy the selected objects and remove them, as one undo step. */
   cut(): string | null {
-    const o = this.object;
-    if (!o) return null;
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    const name = this.selectionName(sel);
     this.copy();
-    this.deleteObject(o.id);
-    return `Cut ${o.name}.`;
+    this.deleteSelected();
+    return `Cut ${name}.`;
   }
 
-  /** Put a copy of the selected object on this layer, a little to one side and straight after it in reading order, and select the copy. */
+  /** Put copies of the selected objects on this layer, a little to one side and straight after the last of them in reading order, and select the copies. */
   duplicate(): string | null {
-    const o = this.object;
+    const sel = this.selected;
     const slide = this.slide;
-    if (!o || !slide) return null;
-    return this.place([JSON.parse(JSON.stringify(o)) as OSObject], this.feedbackLayersOf([o], slide), { steps: 1, after: o, renameAlways: true, verb: "Duplicated" });
+    if (sel.length === 0 || !slide) return null;
+    return this.place(JSON.parse(JSON.stringify(sel)) as OSObject[], this.feedbackLayersOf(sel, slide), { steps: 1, after: sel[sel.length - 1]!, renameAlways: true, verb: "Duplicated" });
   }
 
   /** Put a copy of what was copied or cut on this layer, which may be on another slide, and select it. */
@@ -1918,10 +2118,12 @@ export class Model {
     slide.layers.push(...made.layers);
     const first = made.objects[0]!;
     this.sel = { ...this.sel, objectId: first.id };
+    this.more = made.objects.length > 1 ? { primary: first.id, ids: made.objects.slice(1).map((o) => o.id) } : null;
+    this.anchor = first.id;
     this.emit({ kind: "structure", objectId: first.id });
 
-    const parts = [`${at.verb} ${sources[0]!.name}${made.objects.length > 1 ? ` and ${made.objects.length - 1} more` : ""}.`];
-    if (first.name !== sources[0]!.name) parts.push(`The copy is called ${first.name}.`);
+    const parts = [`${at.verb} ${this.selectionName(sources)}.`];
+    if (made.objects.length === 1 && first.name !== sources[0]!.name) parts.push(`The copy is called ${first.name}.`);
     if (made.newVariables > 0) parts.push(`It saves to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so it does not overwrite the original's answers.`);
     if (made.layers.length > 0) parts.push("It has feedback layers of its own, and it counts toward the score as another question.");
     if (made.droppedRules > 0) parts.push(`${made.droppedRules} ${made.droppedRules === 1 ? "rule was" : "rules were"} not copied, because ${made.droppedRules === 1 ? "it points" : "they point"} at a layer or an object on the slide the original is on.`);

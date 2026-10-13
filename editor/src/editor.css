@@ -39,6 +39,7 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .item { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-left: 4px solid transparent; padding: 5px 8px; cursor: pointer; border-radius: 0 4px 4px 0; }
 .item:hover { background: #e3e6eb; }
 .item[aria-current="true"] { background: #d6e3ff; border-left-color: #0b3fb3; font-weight: 600; }
+.item[aria-pressed="true"] { background: #d6e3ff; border-left-color: #0b3fb3; }
 .problems .error .item { border-left-color: #b3261e; }
 .problems .warning .item { border-left-color: #8a5a00; }
 
@@ -54,6 +55,9 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 
 .edit-overlay { position: absolute; inset: 0; z-index: 100000; cursor: default; }
 .edit-box { position: absolute; box-sizing: border-box; border: var(--line, 2px) solid #0b5fff; outline: var(--line, 2px) solid #fff; pointer-events: none; }
+.edit-box-multi { border-style: dashed; }
+.edit-marquee { position: absolute; box-sizing: border-box; border: var(--line, 2px) dashed #0b5fff; background: rgba(11, 95, 255, .12); pointer-events: none; }
+.edit-marquee[hidden] { display: none; }
 .edit-handle { position: absolute; width: var(--handle, 10px); height: var(--handle, 10px); box-sizing: border-box; background: #fff; border: var(--line, 2px) solid #0b3fb3; pointer-events: auto; }
 .edit-handle-nw { left: calc(var(--handle, 10px) / -2); top: calc(var(--handle, 10px) / -2); cursor: nwse-resize; }
 .edit-handle-n  { left: calc(50% - var(--handle, 10px) / 2); top: calc(var(--handle, 10px) / -2); cursor: ns-resize; }

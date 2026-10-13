@@ -33,7 +33,23 @@ points at a layer, a video or an object on the slide the original is on is left 
 how many. A name that is already taken becomes "copy", then "copy 2". Alt text is copied, never made up, and for a picture, video,
 audio, video link or file you are reminded to check that it still fits. Pasting onto a slide with a different background reminds you to check
 the text is still easy to read. What was copied belongs to the open project: it is forgotten when another project is opened, because a
-picture or file in one project is not in another. Copying several objects at once waits for selecting several objects.
+picture or file in one project is not in another. Duplicate, Copy, Cut, Paste and Delete work on everything selected (see the next paragraph).
+
+**Choosing several objects, and lining them up.** The first selected object is the main one; the others are chosen along with it. On the
+canvas, **Shift or Ctrl and click** adds an object or takes it out, and **dragging a box across empty canvas** selects every object it touches
+(a click on empty canvas clears the selection). **Shift and Page Down** or **Shift and Page Up** add the next or previous object in reading
+order, and **Ctrl+A** (or the **Select all** button under the Objects list) selects everything on the layer. In the Objects list, Ctrl and
+click or Ctrl and Space adds or removes the item, Shift and click or Shift and the arrow keys select a range from where you began, and a
+plain click or Enter chooses one object alone. With several selected, each selected item in the list is a pressed button, so a screen
+reader says which are chosen, and each object is outlined with a dashed line on the canvas. There are no resize handles then, because a
+handle could only resize one of them: Alt and the arrow keys say so, and sizes are typed in Properties one object at a time.
+Dragging any selected object, or the arrow keys, moves them all together (one Undo step), and clicking one of them without dragging narrows the
+selection to it. The Properties panel then offers **Line up** (Left, Centre, Right, Top, Middle, Bottom) and **Space out evenly** (Across, Down,
+which needs three or more; the outermost two stay put). Line up lines the objects up with each other, changes only where they sit and never
+their sizes, and is one Undo step. With one object selected, the same Line up buttons are in its properties and line it up with the slide.
+A rotated object is lined up by the box it would have if it were not turned. Reading order is for one object at a time, so Move earlier and
+Move later are off while several are selected. Everything other than the shared actions (text, colours, alt text, rules, timing, narration)
+is changed on one object at a time, so nothing about alt text or the other accessibility fields is ever changed for several at once.
 
 **Shapes.** Add a rectangle, rounded rectangle, ellipse, triangle, diamond, arrow or line, and change
 the shape later. Fill and outline colour and outline width are editable. New shapes are decorative,
@@ -355,10 +371,11 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | --- | --- |
 | Anywhere | Ctrl+N new project, Ctrl+O open, Ctrl+S save, Ctrl+P preview, Ctrl+Shift+P publish, Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo, F6 and Shift+F6 next and previous panel |
 | Anywhere except in a text box | Ctrl+D duplicate the selected object, Ctrl+C copy, Ctrl+X cut, Ctrl+V paste |
+| Anywhere except in a text box | Ctrl+A select every object on the layer |
 | Slide, Objects and Problems lists | Up and Down, Home and End move; Enter or Space chooses |
 | Slides list | Alt+Up and Alt+Down move the slide; Delete removes it |
-| Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object |
-| Canvas | Arrow keys move 1 pixel, with Shift 10; Alt+arrows resize; Page Down and Page Up choose the next or previous object; Delete removes the selected object; Escape clears the selection |
+| Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object, or all selected objects if it is one of them; Shift with Up, Down, Home or End selects a range; Ctrl+Space adds or removes the focused object |
+| Canvas | Arrow keys move 1 pixel, with Shift 10, all the selected objects together; Alt+arrows resize one object; Page Down and Page Up choose the next or previous object, and with Shift add it to the selection; Delete removes the selected objects; Escape clears the selection |
 
 Moves, resizes and selections made on the canvas are announced in a polite live region. Alt text and
 the other accessibility fields are never filled in for the author.
