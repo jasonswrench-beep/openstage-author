@@ -230,6 +230,23 @@ Motion is a barrier for some learners, so it is small, short and optional. Try i
 4. **Show everything now.** Open the slide again and press it at once. **Expect:** everything shows immediately, without waiting for effects.
 5. Note whether any text ever flickers, jumps, or is hard to read while it arrives.
 
+### Test 13. A narrow window and a zoomed page (any slide)
+
+Learners use phones, small windows and zoom. When the room is narrow the lesson should become one column, in reading order, and
+never need sideways scrolling.
+
+1. Open the lesson in Brightspace on a computer and **zoom the page in** with Ctrl and the plus key until it reads 300 or 400
+   percent (or drag the window narrow, to about 400 pixels wide). **Expect:** each slide becomes one column, text wraps and is
+   larger than a shrunken picture of the slide would be, and **there is no sideways scroll bar** on the page. Back and Next are still
+   there. Brightspace shows the lesson in a frame, so also try making that frame narrow if you can.
+2. Go through slides 1 to 11 and 22 to 24. **Expect:** slide 1's title and sub-title sit in their dark panel; slide 5's flip cards stand
+   one under another; slide 6's tabs and slide 9's steps still work; slide 11's glossary shows its list above the definition.
+3. Zoom back to 100 percent. **Expect:** the fixed slide comes back, as it was.
+4. **A phone, if you have one.** Open the lesson from Brightspace in a mobile browser, held upright. **Expect:** the same one-column
+   layout, buttons big enough to press, and the sound controls still reachable.
+5. **A screen reader or the keyboard** (optional). **Expect:** Tab and the reading order are the same in one column as at full size.
+6. Note anything that is cut off, overlaps, or is hard to read at the large sizes.
+
 ## What the stand-in LMS showed
 
 I ran the published package through my pretend SCORM 1.2 system. Brightspace should match these:
@@ -251,6 +268,7 @@ I ran the published package through my pretend SCORM 1.2 system. Brightspace sho
 | Slide 12 in an ordinary browser | the YouTube player appeared with its picture. I did not play it |
 | Slide 23 effects, in an ordinary browser | each step slid in over 0.6 seconds from 40 pixels to the left of its place and the tip faded in over 0.8; nothing was left running afterwards; Turn off animation stopped the effects on the next visit and announced itself; with the device set to reduced motion no effect ran and the button was not offered |
 | Slide 23 in an ordinary browser | steps hidden at first and shown as their narration started (at the moments their sounds began); the tip at 4 seconds; Pause froze it for as long as I waited and Resume finished the time that was left; Show everything showed all and greyed its button; the buttons were gone on the next slide; with the sound refused, the three steps showed at once |
+| Reflow, in an ordinary browser 320 pixels wide | all 24 slides of this lesson, and all 23 slides of the interactions example, show as one column; none needed sideways scrolling; widening the window to 1280 brought the fixed slide back with no leftover changes. I looked at the title slide, flip cards, glossary, timeline, process circle, pyramid, Likert and semantic differential slides and the embedded video. I did not try a real phone or Brightspace's frame |
 | Slide 22 in an ordinary browser | both files listed with their kind and size, links to `assets/documents/...` with a `download` name and no new window; both files fetch with the right type. I did not press Download |
 | Items on slides 5, 6, 9, 10, 11 (an ordinary browser, with the real audio) | opening an item played its file; Listen played it again; closing an accordion heading, Flip back, and arrow keys between tabs played nothing; the transcript gained each item's words |
 
@@ -271,7 +289,8 @@ The questions I most want answered: **(1)** does Brightspace record the score an
 when you open it inside Brightspace (Test 9), or only after you press its Listen button, and **(8)** do the Download
 buttons on slide 22 save the files without a pop-up (Test 10), and **(9)** on slide 23 do the steps appear as they are spoken, and
 do the two timing buttons work (Test 11), and **(10)** do the steps slide in, does Turn off animation work, and does a computer set to
-reduced motion see none (Test 12)?
+reduced motion see none (Test 12), and **(11)** at 300 or 400 percent zoom, or in a narrow window or a phone, does every slide become
+one column that reads in order with no sideways scrolling (Test 13)?
 
 ## Things that are expected, not faults
 

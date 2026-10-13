@@ -5,11 +5,12 @@
 // and must never fork it. What differs is the `StageBehavior` each supplies: the player
 // wires objects to the course runtime, the editor leaves them inert.
 
-import { buildEmbed, buildMedia, buildScrollingText, buildTable } from "./blocks.ts";
+import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNeeded } from "./blocks.ts";
 import { buildInput, type InputChange } from "./inputs.ts";
 import { Presenter } from "./animation.ts";
 import { buildDownload } from "./downloads.ts";
 import { buildInteraction, type ItemSound } from "./interactions.ts";
+import { planReflow, type ReflowNote } from "./reflow.ts";
 import { buildCertificate, buildResults, type CourseInfo, type CourseResults } from "./results.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
 import { backgroundCss, resolveStyle } from "./theme.ts";
@@ -70,6 +71,10 @@ export class StageRenderer {
   private layerEls = new Map<string, HTMLElement>();
   private fillers = new Map<string, { el: HTMLElement; html: string }[]>();
   private section: HTMLElement | null = null;
+  /** The slide is shown in one column instead of on the fixed stage (see reflow.ts). */
+  private reflow = false;
+  /** What the one-column layout does with objects that sat on top of a panel or picture, by object id. */
+  private reflowNotes = new Map<string, ReflowNote>();
 
   constructor(doc: Document, stageEl: HTMLElement, behavior: StageBehavior, theme: Theme) {
     this.doc = doc;
@@ -81,6 +86,20 @@ export class StageRenderer {
   /** Use a different theme. The next render (or refresh of each object) shows it. */
   setTheme(theme: Theme): void {
     this.theme = theme;
+  }
+
+  /**
+   * Show the slide in one column, in reading order, instead of on the fixed stage. The player turns this on when the window is
+   * narrow or the page is zoomed in, so nothing has to scroll sideways. The editor never does.
+   */
+  setReflow(on: boolean): void {
+    if (on === this.reflow) return;
+    this.reflow = on;
+    this.stageEl.classList.toggle("os-reflow", on);
+    for (const m of this.mounted.values()) {
+      this.refresh(m);
+      if (m.obj.type === "table" && !this.behavior.editing) scrollableIfNeeded(m.el);
+    }
   }
 
   /** The slide's region element, which takes focus when the player moves to a new slide. */
@@ -99,6 +118,10 @@ export class StageRenderer {
     this.mounted.clear();
     this.layerEls.clear();
     this.fillers.clear();
+    this.reflowNotes.clear();
+    for (const layer of [slide.baseLayer, ...slide.layers]) {
+      for (const [id, note] of planReflow(layer.objects, this.theme)) this.reflowNotes.set(id, note);
+    }
 
     const section = el(doc, "section", "os-slide");
     section.setAttribute("role", "region");
@@ -154,6 +177,8 @@ export class StageRenderer {
     const fillers = this.fillers.get(layerId) ?? [];
     if (visible) {
       layerEl.hidden = false;
+      // In one column a layer comes after the slide's own content, so bring it into view if it opened out of sight.
+      if (this.reflow && typeof layerEl.scrollIntoView === "function") layerEl.scrollIntoView({ block: "nearest" });
       // Fill live regions after they are on screen, so assistive technology announces them.
       requestAnimationFrame(() => fillers.forEach((f) => appendSanitizedHtml(f.el, f.html)));
     } else {
@@ -395,6 +420,9 @@ export class StageRenderer {
     set("height", `${g.height}px`);
     set("z-index", String(g.z));
     if (g.rotation) set("transform", `rotate(${g.rotation}deg)`);
+    // The size the author gave, for the one-column layout, where a picture or video keeps its shape but fills the width.
+    set("--os-w", `${g.width}px`);
+    set("--os-ar", `${g.width} / ${Math.max(1, g.height)}`);
 
     const theme = this.theme;
     const layers: Style[] = [resolveStyle(theme, obj.style)];
@@ -418,6 +446,23 @@ export class StageRenderer {
     const disabled = m.stateName === "disabled";
     if (node instanceof HTMLButtonElement) node.disabled = disabled;
     else if (disabled) node.setAttribute("aria-disabled", "true");
+    this.applyReflow(m);
+  }
+
+  /** In one column, leave out a decorative backdrop and paint a colour behind text that sat on a panel or picture. */
+  private applyReflow(m: Mounted): void {
+    const note = this.reflow ? this.reflowNotes.get(m.obj.id) : undefined;
+    m.el.classList.toggle("os-reflow-hide", !!note?.hide);
+    // An object that has a fill of its own keeps it.
+    const backed = !!note?.backdrop && m.el.style.backgroundColor === "";
+    m.el.classList.toggle("os-reflow-backed", backed);
+    if (backed) m.el.style.setProperty("background-color", note!.backdrop!);
+    // Type drawn for a wide stage is too big for a narrow screen. Titles are capped at about nine hundredths of the window's width and
+    // body-sized text at seven, so a heading stays larger than the text under it. Small type is left alone.
+    if (this.reflow) {
+      const px = /^([0-9.]+)px$/.exec(m.el.style.fontSize);
+      if (px && Number(px[1]) > 22) m.el.style.setProperty("font-size", `min(${px[1]}px, ${Number(px[1]) >= 40 ? 9 : 7}vw)`);
+    }
   }
 }
 

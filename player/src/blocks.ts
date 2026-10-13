@@ -53,13 +53,15 @@ export function buildTable(doc: Document, obj: OSObject, editing: boolean): HTML
     wrap.setAttribute("role", "region");
     wrap.setAttribute("aria-label", obj.accessibility.altText);
   }
-  // A table taller than its box scrolls, and then it must be reachable by keyboard. Only the player
+  // A table taller or wider than its box scrolls, and then it must be reachable by keyboard. Only the player
   // needs this; the editor's canvas is steered by the editor's own keys.
-  if (!editing) {
-    const check = () => { if (wrap.scrollHeight > wrap.clientHeight + 1 || wrap.scrollWidth > wrap.clientWidth + 1) wrap.tabIndex = 0; };
-    if (typeof requestAnimationFrame === "function") requestAnimationFrame(check);
-  }
+  if (!editing && typeof requestAnimationFrame === "function") requestAnimationFrame(() => scrollableIfNeeded(wrap));
   return wrap;
+}
+
+/** Make a box that scrolls a stop for the keyboard. Called again when the page changes shape, because that changes what overflows. */
+export function scrollableIfNeeded(wrap: HTMLElement): void {
+  if (wrap.scrollHeight > wrap.clientHeight + 1 || wrap.scrollWidth > wrap.clientWidth + 1) wrap.tabIndex = 0;
 }
 
 /** A box of text that scrolls. It is a labelled region and a tab stop, so the keyboard can scroll it. */

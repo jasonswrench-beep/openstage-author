@@ -6,6 +6,7 @@ import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
+import { shouldReflow } from "./reflow.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
 import type { CoursePackage, Effect, ObjectAnimation, Slide } from "./types.ts";
 
@@ -287,6 +288,22 @@ export class Player implements Host {
     const { width, height } = this.pkg.project.stage;
     // Subtract the 12px of padding on each side of the player.
     const room = (this.root.clientWidth || width + 24) - 24;
+    // On a narrow window, or a page zoomed in, a shrunken stage cannot be read and a full-size one needs scrolling sideways, so
+    // the objects are shown in one column instead (WCAG 1.4.10).
+    const reflow = shouldReflow(room, width);
+    viewport.classList.toggle("os-reflow", reflow);
+    viewport.parentElement?.classList.toggle("os-reflow", reflow);
+    this.stage.setReflow(reflow);
+    if (reflow) {
+      this.stageEl.style.width = "";
+      this.stageEl.style.height = "";
+      this.stageEl.style.transform = "";
+      viewport.style.width = "";
+      viewport.style.height = "";
+      return;
+    }
+    this.stageEl.style.width = `${width}px`;
+    this.stageEl.style.height = `${height}px`;
     const scale = Math.min(1, room / width);
     this.stageEl.style.transform = `scale(${scale})`;
     viewport.style.width = `${width * scale}px`;

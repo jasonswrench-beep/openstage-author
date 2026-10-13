@@ -58,7 +58,7 @@ html, body { margin: 0; background: #f3f3f3; }
   box-shadow: 0 0 0 2px #fff;
 }
 
-.os-nav { display: flex; align-items: center; gap: 16px; }
+.os-nav { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 16px; }
 .os-nav-btn { padding: 8px 18px; font-size: 16px; border-radius: 6px; border: 2px solid #1d3f8f; background: #fff; color: #1d3f8f; cursor: pointer; }
 .os-nav-btn:disabled { color: #595959; border-color: #8c8c8c; cursor: default; }
 .os-nav-label { min-width: 110px; text-align: center; color: #1a1a1a; }
@@ -278,3 +278,62 @@ a.os-download-link:hover { text-decoration: underline; }
 /* ---- timing controls: pause what moves by itself, or show everything at once */
 .os-timing { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 12px; }
 .os-timing[hidden] { display: none; }
+
+/* ---- one column. When the window is narrow, or the page is zoomed in, the fixed stage gives way to the same objects in reading
+   order, at their real size, wrapping to the width (WCAG 1.4.10 Reflow). The player adds os-reflow to the viewport and the stage;
+   the editor never does. The sizes in an object's own style are overridden here, so these rules say !important. A table, which is
+   two-dimensional, scrolls inside its own box instead. */
+.os-main.os-reflow { align-self: stretch; min-width: 0; }
+.os-viewport.os-reflow { align-self: stretch; width: auto; height: auto; overflow: visible; box-shadow: none; }
+.os-stage.os-reflow { position: relative; width: auto; height: auto; transform: none; }
+.os-stage.os-reflow .os-slide { position: relative; width: auto; height: auto; min-height: 0; }
+.os-stage.os-reflow .os-layer:not([hidden]) { position: static; width: auto; height: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; box-sizing: border-box; pointer-events: auto; }
+.os-stage.os-reflow .os-layer > * { position: static !important; left: auto !important; top: auto !important; width: auto !important; height: auto !important; min-height: 0 !important; transform: none !important; z-index: auto !important; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.os-stage.os-reflow .os-layer > .os-reflow-hide { display: none !important; }
+.os-stage.os-reflow .os-layer > .os-timed-out { display: none !important; }
+.os-stage.os-reflow .os-layer > .os-reflow-backed { padding: 10px 14px; border-radius: 8px; }
+.os-stage.os-reflow { overflow-wrap: anywhere; }
+
+/* Pictures, shapes and video keep their shape but fill the width, no wider than the author drew them. */
+.os-stage.os-reflow .os-layer > img.os-image,
+.os-stage.os-reflow .os-layer > .os-shape,
+.os-stage.os-reflow .os-layer > video.os-media { width: 100% !important; max-width: var(--os-w) !important; aspect-ratio: var(--os-ar); }
+.os-stage.os-reflow .os-layer > audio.os-media { width: 100% !important; }
+.os-stage.os-reflow .os-shape svg { height: 100%; }
+.os-stage.os-reflow .os-mediabox .os-media-inner { aspect-ratio: 16 / 9; height: auto; flex: none; }
+.os-stage.os-reflow .os-embed-frame { flex: none; height: auto; aspect-ratio: 16 / 9; }
+
+/* A button or a hotspot is a full-size touch target on its own line. A hotspot lay invisibly over a picture; here it shows its name. */
+.os-stage.os-reflow .os-layer > :is(.os-button, .os-hotspot) { align-self: flex-start; min-height: 44px !important; padding: 8px 18px; }
+.os-stage.os-reflow .os-layer > .os-hotspot { font: inherit; border: 2px solid var(--os-accent-strong, #1d3f8f); border-radius: 6px; background: var(--os-surface, #f4f5f7); color: var(--os-text, #1a1a1a); }
+.os-stage.os-reflow .os-layer > .os-hotspot::before { content: attr(aria-label); }
+
+/* Parts of an interaction that sat side by side stack. */
+.os-stage.os-reflow .os-ix-tabs.os-ix-vertical { flex-direction: column; }
+.os-stage.os-reflow .os-ix-vertical > .os-ix-tablist { flex: none; flex-direction: row; flex-wrap: wrap; }
+.os-stage.os-reflow .os-ix-vertical > .os-ix-tablist .os-ix-tab { border-radius: 8px 8px 0 0; }
+.os-stage.os-reflow .os-ix-withdiagram { flex-direction: column; align-items: center; }
+.os-stage.os-reflow .os-ix-diagram { height: auto; width: 100%; max-width: 360px; }
+.os-stage.os-reflow .os-ix-withdiagram > .os-ix-panels { width: 100%; }
+/* The pieces of a process circle are narrower than their words on a small drawing, so they are wider here and their words stay whole. */
+.os-stage.os-reflow .os-ix-processCircle .os-ix-piece { width: 32%; padding: 6px 3px; }
+.os-stage.os-reflow .os-ix-processCircle .os-ix-piece .os-ix-label { font-size: .72em; overflow-wrap: normal; }
+.os-stage.os-reflow .os-ix-glossary { flex-direction: column; }
+.os-stage.os-reflow .os-ix-gloss-side { flex: none; }
+.os-stage.os-reflow .os-ix-terms { max-height: 14em; }
+.os-stage.os-reflow .os-ix-timeline .os-ix-tablist { flex-direction: column; flex-wrap: wrap; align-items: stretch; }
+.os-stage.os-reflow .os-ix-timeline .os-ix-tablist::before { display: none; }
+.os-stage.os-reflow .os-ix-timeline .os-ix-tab { flex-direction: row; justify-content: flex-start; }
+.os-stage.os-reflow .os-cert-input { min-width: 0; width: 100%; box-sizing: border-box; }
+.os-stage.os-reflow .os-certificate { padding-left: 12px; padding-right: 12px; }
+.os-stage.os-reflow .os-cert-name { min-width: 0; padding: 0 8px; overflow-wrap: anywhere; }
+/* A scale's choices go down the page, each with its words beside it, the way a list of options is easiest to read and to tap. */
+.os-stage.os-reflow .os-scale-row:not(.os-semantic-row) .os-scale-points { flex-direction: column; align-items: stretch; gap: 2px; }
+.os-stage.os-reflow .os-scale-row:not(.os-semantic-row) .os-scale-point { flex: none; flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 32px; text-align: left; }
+.os-stage.os-reflow .os-scale-row:not(.os-semantic-row) .os-scale-label { font-size: .95em; }
+/* The two opposite words go above the row of points, one at each end. (Only how it looks: the group is still read as one, in its own order.) */
+.os-stage.os-reflow .os-semantic-row { flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; }
+.os-stage.os-reflow .os-semantic-pole { flex: 1 1 40%; }
+.os-stage.os-reflow .os-semantic-left { text-align: left; order: 1; }
+.os-stage.os-reflow .os-semantic-right { text-align: right; order: 2; }
+.os-stage.os-reflow .os-semantic-row .os-scale-points { order: 3; flex: 1 1 100%; flex-wrap: nowrap; }

@@ -77,8 +77,10 @@ the skipped slide and the course can never complete. The validator warns about e
 (`completion-skippable`). New projects start with `"all"`, and so does every project updated from 0.8.0 or
 earlier, which is how they already behaved.
 
-`stage` is fixed-size in v0.1. Responsive output is deferred, and the stage dimensions
-are where that decision will eventually be revisited.
+`stage` is the size the course is drawn at, and objects are placed on it in those pixels. The player shows it at that size, scaled
+down to fit, while the window is wide enough, and shows one column instead when it is not (see Reflow, under the player's
+behaviour). Nothing about that is in the project file: it is worked out from the objects' places, their reading order and whether
+they are marked decorative, so no format change was needed.
 
 ## Themes
 
@@ -853,9 +855,33 @@ left behaviour open, v0.1 fixes it as follows.
   moves on after it. See Timing for the rules, the two fallbacks for narration that will not play, and the learner's controls.
 - **Animation.** An object with an `animation` plays its entrance as it appears and its exit as it goes, unless the learner's device
   asks for reduced motion or the learner has turned animation off. See Animation.
-- **Known limit.** The stage is a fixed size scaled to fit the window width. Text does not
-  reflow at narrow widths or large text sizes, which falls short of WCAG 2.2 AA 1.4.10
-  (Reflow). This is the open responsive-output decision noted above.
+- **Reflow.** When the room is under 70 percent of the stage's width (`REFLOW_BELOW` in `player/src/reflow.ts`), which a phone, a
+  narrow window or a page zoomed to about 200 percent gives, the player stops drawing the fixed stage and shows the same objects in
+  one column, in reading order, at their real size, wrapping to the width. This is what WCAG 1.4.10 (Reflow) asks for, so nothing
+  scrolls sideways except a table, which scrolls inside its own box (two-dimensional content is allowed to). The player checks the
+  width again whenever the window changes, so zooming in and out switches between the two. Wide windows look as they always did.
+  The decision (settled 2026-10-12) was to stack automatically, with no per-slide narrow layout for the author to draw. The rules:
+  - **Order.** The order a screen reader reads, which is the order the page already has (objects with a tab order first, in
+    that order, then the rest), so what a sighted learner sees top to bottom is what a listener hears.
+  - **Pictures, shapes and video** keep their shape and fill the width, no wider than the author drew them. **Audio** fills the width.
+    An **embedded video** is 16 by 9.
+  - **Buttons** each get their own line and a touch target at least 44 pixels high. A **hotspot** lies invisibly over a picture, which
+    cannot work in a column, so it shows as a button with its name.
+  - **Text on a panel or a picture.** An object sits on another when its box lies inside that one's box and is drawn above it. A
+    decorative shape or picture with something on it is left out of the column, because it was only a backdrop, and the text that
+    sat on it is painted with that shape's own fill, or for a picture with whichever of the theme's backgrounds reads best against the
+    text, so the contrast the author chose is kept. A shape or picture that is not decorative stays. Objects that only partly
+    overlap, or are rotated, are not guessed at: they simply follow each other in order. Only text is given a backdrop, because
+    buttons, interactions, tables and the like paint themselves.
+  - **Type.** Text bigger than 22 pixels is capped, titles (40 and over) at 9 percent of the window's width and body-sized text at 7,
+    so a heading stays larger than what is under it. Long words break rather than run off the screen.
+  - **Interactions** keep working and stack their parts: vertical tabs become tabs above a panel, a glossary's list goes above its
+    definition, a timeline runs down the page, a process circle or pyramid shrinks to fit with its words kept whole, a Likert scale's
+    choices go down the page, and a semantic differential puts its two words above its row of points.
+  - **Layers.** A layer comes after the slide's own content, and is scrolled into view when it opens.
+  - **Timing.** An object that appears later takes its place in the column then, and moves what follows down.
+  The editor's canvas never reflows: it always shows the whole stage. To see the column, preview the course in a browser and narrow
+  the window.
 
 ## SCORM 1.2 tracking
 
