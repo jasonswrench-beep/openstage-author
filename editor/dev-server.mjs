@@ -85,7 +85,7 @@ createServer(async (req, res) => {
     }
     if (url.pathname === "/api/delete-asset") {
       const { dir, path: rel } = await body(req);
-      if (!/^assets\/[^\]+$/.test(rel) && !/^assets\/[a-z]+\/[^\/\]+$/.test(rel)) return send(res, 400, "Not an asset path", "text/plain");
+      if (!/^assets\/[^\\]+$/.test(rel) && !/^assets\/[a-z]+\/[^\/\\]+$/.test(rel)) return send(res, 400, "Not an asset path", "text/plain");
       rmSync(path.join(dir, rel), { force: true });
       return send(res, 200, {});
     }

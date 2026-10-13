@@ -22,6 +22,19 @@ style (paragraph or a heading level), a button's label, font size and colours. I
 into the project's `assets/images` folder when added, and are left with empty alt text, so the
 validator flags them until the author writes it or marks them decorative.
 
+**Duplicate, copy, cut and paste.** Under the Objects list: **Duplicate** (Ctrl+D) puts a copy of the selected object a little to one side,
+on top, and straight after the original in reading order, and selects it. **Copy** (Ctrl+C) remembers the object and **Cut** (Ctrl+X)
+remembers it and removes it; **Paste** (Ctrl+V) then puts a copy on the layer you are on, which can be on another slide, where it lands in
+the same place (or a little to one side if it would land on top of the original or an earlier paste). Each is one step for Undo. The
+shortcuts work from the canvas and the lists but not while you are typing in a box, so Copy and Paste there stay the box's own. A copy is
+a separate object with its own id and its own rules. A copy of an input saves to variables of its own, so it does not overwrite the
+original's answers. A copy of a quiz question has feedback layers of its own and counts toward the score as another question. A rule that
+points at a layer, a video or an object on the slide the original is on is left off a copy pasted onto a different slide, and you are told
+how many. A name that is already taken becomes "copy", then "copy 2". Alt text is copied, never made up, and for a picture, video,
+audio, video link or file you are reminded to check that it still fits. Pasting onto a slide with a different background reminds you to check
+the text is still easy to read. What was copied belongs to the open project: it is forgotten when another project is opened, because a
+picture or file in one project is not in another. Copying several objects at once waits for selecting several objects.
+
 **Shapes.** Add a rectangle, rounded rectangle, ellipse, triangle, diamond, arrow or line, and change
 the shape later. Fill and outline colour and outline width are editable. New shapes are decorative,
 so they are hidden from screen readers; untick "Decorative" and write alt text if a shape carries
@@ -303,7 +316,10 @@ changes you have not saved. It builds a copy in a temporary folder, so nothing i
 it is quick: it does not check for problems (the Problems list does that) and it makes no narration audio,
 though audio made before is used. If a narrated object has no audio yet, the editor says so. A preview is
 not connected to an LMS, so scores and the place a learner left off are not recorded. The page opens in the
-browser that is set as your default, outside the editor, and old previews are cleared away after a day.
+browser that is set as your default, outside the editor, and old previews are cleared away after a day. The preview is also the way to
+see the narrow layout: the canvas always shows the whole stage, but when a learner's window is narrow or the page is zoomed in, the
+course shows one column instead, in reading order, and narrowing the preview window or zooming in shows you that. Check it, because
+it is the order a screen reader reads that decides what comes first (see Reflow in the format spec).
 
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then
 checks it for problems with the same checker as the Problems list. Errors stop it, and are listed in the
@@ -338,6 +354,7 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | Where | Keys |
 | --- | --- |
 | Anywhere | Ctrl+N new project, Ctrl+O open, Ctrl+S save, Ctrl+P preview, Ctrl+Shift+P publish, Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo, F6 and Shift+F6 next and previous panel |
+| Anywhere except in a text box | Ctrl+D duplicate the selected object, Ctrl+C copy, Ctrl+X cut, Ctrl+V paste |
 | Slide, Objects and Problems lists | Up and Down, Home and End move; Enter or Space chooses |
 | Slides list | Alt+Up and Alt+Down move the slide; Delete removes it |
 | Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object |

@@ -9,7 +9,7 @@ The published course has to be right before the thing that authors it is worth b
 - [x] JSON Schema for the project format
 - [x] Validator, accessibility rules first
 - [x] Test fixtures: one valid project, one broken fixture per rule
-- [~] Player that renders a project file to accessible HTML (slides, layers, triggers, quiz, narration with captions and transcript)
+- [x] Player that renders a project file to accessible HTML (slides, layers, triggers, quiz, narration with captions and transcript), and shows one column in reading order when the window is narrow or the page is zoomed in (WCAG 1.4.10 Reflow). Not yet tried on a real phone, or inside an LMS frame.
 - [x] SCORM 1.2 wrapper (checked against a strict stand-in LMS; not yet in a real one)
 - [ ] Tested in Moodle, Canvas and Brightspace, including resume
 
@@ -21,7 +21,7 @@ at all. That is the intended order.
 First slice built with the Tauri shell: open and save a project, slide list, canvas, properties,
 object list with reading order, live problem list, undo and redo.
 
-- [~] Canvas: place, move, resize, rotate, z-order (select, move, resize, add and delete done for text, buttons, shapes and images)
+- [~] Canvas: place, move, resize, rotate, z-order (select, move, resize, add and delete done for text, buttons, shapes and images). Duplicate, copy, cut and paste done (one object at a time, across slides). Not built: selecting several objects, align and distribute, grouping, locking, snapping.
 - [~] Property panel, slide sorter, layer list (all three exist, with add, delete, rename and reorder for slides, and add, delete and rename for layers)
 - [x] Slide layouts (26, with previews, Change layout and Reset layout)
 - [~] Linked themes (format 0.2.0, 8 built-in themes, theme colours and fonts, slide backgrounds, migration; editing a theme's own colours and fonts is not built)
@@ -37,7 +37,8 @@ object list with reading order, live problem list, undo and redo.
 - [x] Results box and printable certificate (format 0.10.0): the score, passed or not, each question, and a certificate for learners who pass, who type their own name and print it or save it as a PDF.
 - [x] Course setting for what completes a course: every slide seen, or the last slide reached (format 0.9.0). The editor and the validator warn when a rule can skip a slide and the course needs every slide.
 - [x] Animation (format 0.14.0): an object can fade, slide or grow in when it appears and out when it goes, from a tenth of a second to two, never repeating or flashing. It does not play when a learner's device asks for reduced motion, and the player has a Turn off animation button. The editor has an Animation box and a Preview animation button. Not built: emphasis or looping effects (on purpose), slide transitions, and motion paths.
-- [x] Timing (format 0.13.0): each object can appear after a delay or when its own narration starts and go again, a slide can move on by itself, and the editor has a Timing box, a keyboard-operable Timing list and warnings. Learners get Pause timing and Show everything now. The Timeline panel under the canvas draws it all along a time axis, with the narration lengths, and its bars and grips work from the keyboard and by dragging. Not built: timing that follows a video or an audio clip.
+- [x] Timing (format 0.13.0): each object can appear after a delay or when its own narration starts and go again, a slide can move on by itself, and the editor has a Timing box, a keyboard-operable Timing list and warnings. Learners get Pause timing and Show everything now. The Timeline panel under the canvas draws it all along a time axis, with the narration lengths, and its bars and grips work from the keyboard and by dragging. Not built: timing that follows a video or an audio clip (see the next item).
+- [ ] Timing that follows a video (requested by Jason, 2026-10-12): an object appears, or goes, at a moment in a video, so notes, questions and extra text can arrive as the video reaches them, with the same Pause timing and Show everything now controls. An audio clip would work the same way and should come with it. Open questions: a video file in the project can be followed directly, but an embedded YouTube or Vimeo video can only be followed through that site's own player code, which has to be loaded from the web; what happens to timed objects when the learner skips or rewinds the video; and what shows if the video cannot play. Needs a format change (a new way for `timing.appear` to count) and a migration.
 - [x] Publish and Preview from the editor (Publish: saves, checks, makes the SCORM 1.2 package and web files, cancellable; Preview: the course as it is now in your browser, saved or not). Both still need Node.js, and Publish needs Python.
 - [x] Narration panel: script, voice, speed and pronunciations in Properties, a Narration dialog that lists everything and makes the missing audio locally with Kokoro (cancellable), and a Listen button. A plugin seam for other voice models is not built.
 - [ ] ATAG Part A pass on everything above, including NVDA
@@ -53,7 +54,7 @@ object list with reading order, live problem list, undo and redo.
 ## Later
 
 SCORM 2004 and xAPI. Whisper for imported media. Screen recording. Software simulation
-authoring. Step capture. Localisation. QTI and LTI. Responsive output. A CC0 character
+authoring. Step capture. Localisation. QTI and LTI. A CC0 character
 and icon library. Reusable components. Bring-your-own-key AI assistance.
 
 ## Never
