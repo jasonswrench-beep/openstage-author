@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/model.test.ts src/template.test.ts src/structure.test.ts src/features.test.ts src/themes.test.ts src/interactions.test.ts src/blocks.test.ts src/inputs.test.ts src/stock.test.ts src/media.test.ts src/rules.test.ts src/publishing.test.ts src/narration.test.ts src/narrationmodel.test.ts src/completion.test.ts src/results.test.ts src/itemnarration.test.ts src/downloads.test.ts src/timing.test.ts src/timelinemodel.test.ts src/animation.test.ts src/clipboard.test.ts src/align.test.ts src/multiselect.test.ts",
+    "test": "node --test src/model.test.ts src/template.test.ts src/structure.test.ts src/features.test.ts src/themes.test.ts src/interactions.test.ts src/blocks.test.ts src/inputs.test.ts src/stock.test.ts src/media.test.ts src/rules.test.ts src/publishing.test.ts src/narration.test.ts src/narrationmodel.test.ts src/completion.test.ts src/results.test.ts src/itemnarration.test.ts src/downloads.test.ts src/timing.test.ts src/timelinemodel.test.ts src/animation.test.ts src/clipboard.test.ts src/align.test.ts src/multiselect.test.ts src/lock.test.ts",
     "tauri": "tauri",
     "preview": "node dev-server.mjs"
   },

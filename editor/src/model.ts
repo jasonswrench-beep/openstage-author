@@ -18,7 +18,7 @@ import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
 import { downloadScript, isValidIpa, itemScript, langForVoice, newNarration, SPEED_MAX, SPEED_MIN, VOICES, voiceOption, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.14.0";
+export const FORMAT_VERSION = "0.15.0";
 
 export interface OpenedProject {
   dir: string;
@@ -346,6 +346,8 @@ export class Model {
   setGeometry(objectId: string, patch: Partial<Geometry>, key = ""): string | null {
     const obj = this.find(objectId);
     if (!obj) return null;
+    // Place and size are what a lock protects. Stacking order is not, so it can still change.
+    if (obj.locked && Object.keys(patch).some((k) => k !== "z")) return this.lockMessage(objectId);
     const next = { ...obj.geometry };
     for (const [k, v] of Object.entries(patch) as [keyof Geometry, number][]) {
       if (typeof v !== "number" || !Number.isFinite(v)) return null;
@@ -367,13 +369,16 @@ export class Model {
       const o = sel[0]!;
       return this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, `move:${o.id}`);
     }
+    const free = sel.filter((o) => !o.locked);
+    if (free.length === 0) return `All ${sel.length} selected objects are locked. Unlock them first to move them.`;
     // One key for the whole group, so the moves of one key press, and quick presses after it, are one undo step.
-    const key = `move:${sel.map((o) => o.id).join("+")}`;
+    const key = `move:${free.map((o) => o.id).join("+")}`;
     let moved = 0;
-    for (const o of sel) if (this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, key)) moved++;
+    for (const o of free) if (this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, key)) moved++;
     if (moved === 0) return null;
-    const box = bounds(sel.map((o) => o.geometry));
-    return `${sel.length} objects, at ${box.x}, ${box.y}`;
+    const box = bounds(free.map((o) => o.geometry));
+    const stayed = sel.length - free.length;
+    return `${free.length === 1 ? free[0]!.name : `${free.length} objects`}, at ${box.x}, ${box.y}${stayed > 0 ? `.${this.stayedNote(stayed)}` : ""}`;
   }
 
   resizeBy(dw: number, dh: number): string | null {
@@ -1914,6 +1919,7 @@ export class Model {
     const layer = this.layer;
     const obj = layer?.objects.find((o) => o.id === objectId);
     if (!layer || !obj) return null;
+    if (obj.locked) return this.lockMessage(objectId);
     this.record("");
     layer.objects = layer.objects.filter((o) => o.id !== objectId);
     readingOrder(layer.objects)
@@ -1930,17 +1936,65 @@ export class Model {
     const sel = this.selected;
     if (!layer || sel.length === 0) return null;
     if (sel.length === 1) return this.deleteObject(sel[0]!.id);
+    // A locked object is kept, and stays selected, so the author can unlock it and then delete it if they meant to.
+    const kept = sel.filter((o) => o.locked);
+    const doomed = sel.filter((o) => !o.locked);
+    if (doomed.length === 0) return `All ${sel.length} selected objects are locked, so none were deleted. Unlock them first.`;
     this.record("");
-    const gone = new Set(sel.map((o) => o.id));
+    const gone = new Set(doomed.map((o) => o.id));
     layer.objects = layer.objects.filter((o) => !gone.has(o.id));
     readingOrder(layer.objects)
       .filter((o) => (o.accessibility.tabOrder ?? 0) >= 1)
       .forEach((o, i) => (o.accessibility = { ...o.accessibility, tabOrder: i + 1 }));
-    this.more = null;
-    this.anchor = null;
-    this.sel = { ...this.sel, objectId: null };
+    this.more = kept.length > 1 ? { primary: kept[0]!.id, ids: kept.slice(1).map((o) => o.id) } : null;
+    this.anchor = kept[0]?.id ?? null;
+    this.sel = { ...this.sel, objectId: kept[0]?.id ?? null };
     this.emit({ kind: "structure" });
-    return `Deleted ${sel.length} objects`;
+    return `Deleted ${doomed.length === 1 ? doomed[0]!.name : `${doomed.length} objects`}${kept.length > 0 ? `. ${kept.length} locked ${kept.length === 1 ? "object was" : "objects were"} kept.` : ""}`;
+  }
+
+  // ---- locking
+
+  /** Why an object cannot be moved, resized, rotated or deleted, or null if it can. */
+  lockMessage(objectId: string): string | null {
+    const o = this.find(objectId);
+    return o?.locked ? `${o.name} is locked. Unlock it first to move, resize, rotate or delete it.` : null;
+  }
+
+  /** Whether none, some or all of the selected objects are locked. */
+  get selectionLock(): "none" | "some" | "all" {
+    const sel = this.selected;
+    const locked = sel.filter((o) => o.locked).length;
+    return locked === 0 ? "none" : locked === sel.length ? "all" : "some";
+  }
+
+  /** Lock or unlock every selected object, as one undo step. An unlocked object has no flag at all, not a false one. */
+  setLocked(locked: boolean): string | null {
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    const change = sel.filter((o) => (o.locked === true) !== locked);
+    const name = sel.length === 1 ? sel[0]!.name : `${sel.length} objects`;
+    if (change.length === 0) return `${name} ${sel.length === 1 ? "is" : "are"} already ${locked ? "locked" : "unlocked"}.`;
+    this.record("");
+    for (const o of change) {
+      if (locked) o.locked = true; else delete o.locked;
+    }
+    this.emit({ kind: "structure", objectId: sel[0]!.id });
+    return `${locked ? "Locked" : "Unlocked"} ${name}.`;
+  }
+
+  /** Lock what is selected, or unlock it if all of it is locked already (Ctrl+L). */
+  toggleLock(): string | null {
+    return this.setLocked(this.selectionLock !== "all");
+  }
+
+  private stayedNote(n: number): string {
+    return n > 0 ? ` ${n} locked ${n === 1 ? "object stayed" : "objects stayed"} where ${n === 1 ? "it was" : "they were"}.` : "";
+  }
+
+  private blockedMessage(blocked: number, only: string | null): string {
+    if (only) return `${only} is locked. Unlock it first to move it.`;
+    return `${blocked} locked ${blocked === 1 ? "object" : "objects"} would have had to move, so nothing changed. Unlock ${blocked === 1 ? "it" : "them"} first.`;
   }
 
   // ---- aligning and spacing out
@@ -1956,9 +2010,12 @@ export class Model {
     const within = sel.length === 1 ? { x: 0, y: 0, width: stage.width, height: stage.height } : null;
     const how_ = ALIGNMENTS.find((a) => a.value === how)!;
     const next = alignBoxes(sel.map((o) => o.geometry), how, within);
-    const done = this.applyBoxes(sel, next);
-    if (!done) return { changed: false, message: sel.length === 1 ? `${sel[0]!.name} is already there.` : "They are already lined up that way." };
-    return { changed: true, message: sel.length === 1 ? `Moved ${sel[0]!.name} ${how_.onSlide}.` : `Lined up ${sel.length} objects by their ${how_.edge}.` };
+    const r = this.applyBoxes(sel, next);
+    if (r.moved === 0) {
+      if (r.blocked > 0) return { changed: false, message: this.blockedMessage(r.blocked, sel.length === 1 ? sel[0]!.name : null) };
+      return { changed: false, message: sel.length === 1 ? `${sel[0]!.name} is already there.` : "They are already lined up that way." };
+    }
+    return { changed: true, message: (sel.length === 1 ? `Moved ${sel[0]!.name} ${how_.onSlide}.` : `Lined up ${sel.length} objects by their ${how_.edge}.`) + this.stayedNote(r.blocked) };
   }
 
   /** Space three or more selected objects evenly, keeping the outer two where they are. One undo step. */
@@ -1967,20 +2024,23 @@ export class Model {
     if (sel.length === 0) return null;
     if (sel.length < 3) return { changed: false, message: "Choose three or more objects to space them out evenly." };
     const next = distributeBoxes(sel.map((o) => o.geometry), axis);
-    if (!this.applyBoxes(sel, next)) return { changed: false, message: "They are already spaced evenly." };
-    return { changed: true, message: `Spaced ${sel.length} objects evenly ${axis === "horizontal" ? "across" : "down"} the slide.` };
+    const r = this.applyBoxes(sel, next);
+    if (r.moved === 0) return { changed: false, message: r.blocked > 0 ? this.blockedMessage(r.blocked, null) : "They are already spaced evenly." };
+    return { changed: true, message: `Spaced ${sel.length} objects evenly ${axis === "horizontal" ? "across" : "down"} the slide.${this.stayedNote(r.blocked)}` };
   }
 
-  /** Move objects to new boxes as one undo step. False if none of them moved. */
-  private applyBoxes(objects: OSObject[], boxes: { x: number; y: number }[]): boolean {
-    const changes = objects.map((o, i) => ({ o, x: boxes[i]!.x, y: boxes[i]!.y })).filter(({ o, x, y }) => x !== o.geometry.x || y !== o.geometry.y);
-    if (changes.length === 0) return false;
+  /** Move objects to new boxes as one undo step. A locked object stays where it is. Says how many moved and how many were held back. */
+  private applyBoxes(objects: OSObject[], boxes: { x: number; y: number }[]): { moved: number; blocked: number } {
+    const wanted = objects.map((o, i) => ({ o, x: boxes[i]!.x, y: boxes[i]!.y })).filter(({ o, x, y }) => x !== o.geometry.x || y !== o.geometry.y);
+    const changes = wanted.filter(({ o }) => !o.locked);
+    const blocked = wanted.length - changes.length;
+    if (changes.length === 0) return { moved: 0, blocked };
     this.record("");
     for (const { o, x, y } of changes) {
       o.geometry = { ...o.geometry, x, y };
       this.emit({ kind: "geometry", objectId: o.id });
     }
-    return true;
+    return { moved: changes.length, blocked };
   }
 
   // ---- duplicate, copy, cut and paste
@@ -2035,6 +2095,8 @@ export class Model {
   cut(): string | null {
     const sel = this.selected;
     if (sel.length === 0) return null;
+    const locked = sel.filter((o) => o.locked).length;
+    if (locked > 0) return `${locked === sel.length && sel.length === 1 ? sel[0]!.name : `${locked} of the selected objects`} ${locked === 1 ? "is" : "are"} locked, so ${locked === 1 ? "it" : "they"} cannot be cut. Copy ${locked === 1 ? "it" : "them"} instead, or unlock first.`;
     const name = this.selectionName(sel);
     this.copy();
     this.deleteSelected();

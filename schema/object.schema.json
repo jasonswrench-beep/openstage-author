@@ -48,6 +48,7 @@
     "triggers": { "type": "array", "items": { "$ref": "#/$defs/trigger" } },
     "timing": { "$ref": "#/$defs/timing" },
     "animation": { "$ref": "#/$defs/animation" },
+    "locked": { "type": "boolean", "description": "Editor only. True means the editor refuses to move, resize, rotate or delete the object until it is unlocked. Absent means unlocked. The published course ignores it." },
     "narration": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
     },

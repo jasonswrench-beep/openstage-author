@@ -31,9 +31,9 @@ class Migration(unittest.TestCase):
 
     def test_the_update_gives_the_project_a_theme_and_slides_a_layout_and_background(self):
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.15.0"))
         project = self.load("project.json")
-        self.assertEqual(project["schemaVersion"], "0.14.0")
+        self.assertEqual(project["schemaVersion"], "0.15.0")
         self.assertEqual(project["theme"], {"ref": "theme.json"})
         self.assertEqual(self.load("theme.json")["id"], "classic")
         for name in ("slide-001", "slide-002"):
@@ -128,9 +128,9 @@ class CompletionSetting(unittest.TestCase):
     def test_a_0_8_0_course_keeps_counting_every_slide(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.15.0"))
         project = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.14.0")
+        self.assertEqual(project["schemaVersion"], "0.15.0")
         self.assertEqual(project["completion"], {"slides": "all"})
         keys = list(project)
         self.assertEqual(keys[keys.index("credits") + 1], "completion", "the new setting sits beside the credits switch")
@@ -168,9 +168,9 @@ class ResultsAndCertificates(unittest.TestCase):
         slide_before = (self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.15.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.14.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         self.assertEqual(json.loads((self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")),
@@ -212,7 +212,7 @@ class ItemNarration(unittest.TestCase):
     def test_a_0_10_0_course_is_refused_until_updated_then_every_item_has_a_null_narration(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.15.0"))
         count = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -254,9 +254,9 @@ class FilesToDownload(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.15.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.14.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -292,7 +292,7 @@ class ObjectTiming(unittest.TestCase):
     def test_every_object_gets_the_starting_timing_after_its_triggers_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.15.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -351,7 +351,7 @@ class ObjectAnimation(unittest.TestCase):
     def test_every_object_gets_no_effect_after_its_timing_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.14.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.15.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -385,3 +385,45 @@ class ObjectAnimation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
+
+
+class ObjectLocking(unittest.TestCase):
+    """0.14.0 to 0.15.0: an object can be locked in the editor. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.14.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_14_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.14.0", "0.15.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("locked" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+    def test_a_locked_object_is_valid_and_a_locked_flag_that_is_not_true_or_false_is_not(self):
+        migrate.migrate(self.dir)
+        path = next((self.dir / "slides").glob("*.json"))
+        slide = json.loads(path.read_text(encoding="utf-8"))
+        slide["baseLayer"]["objects"][0]["locked"] = True
+        path.write_text(json.dumps(slide, indent=2), encoding="utf-8")
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+        slide["baseLayer"]["objects"][0]["locked"] = "yes"
+        path.write_text(json.dumps(slide, indent=2), encoding="utf-8")
+        self.assertTrue([f for f in validate.validate_project(self.dir) if f.severity == "error"], "a flag that is not true or false is reported")

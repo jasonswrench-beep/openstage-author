@@ -225,6 +225,8 @@ export interface OSObject {
   narration: unknown;
   provenance: unknown;
   simulation: unknown;
+  /** Editor only: the editor refuses to move, resize, rotate or delete a locked object. Absent means unlocked. The course ignores it. */
+  locked?: boolean;
 }
 
 export interface Layer {

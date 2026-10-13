@@ -93,6 +93,8 @@ export function cloneObjects(sources: OSObject[], feedbackLayers: Layer[], ctx: 
   const copyOne = (source: OSObject): OSObject => {
     const o = deep(source);
     o.id = idMap.get(source.id)!;
+    // A copy starts unlocked: it is a new object, and the author copied it to do something with it.
+    delete o.locked;
     o.triggers = o.triggers.flatMap((t) => {
       const to = target(t);
       if (to === null) { dropped.add(`${t.action}|${t.target}|${JSON.stringify(t.value ?? null)}|${JSON.stringify(t.conditions)}`); return []; }

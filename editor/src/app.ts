@@ -123,6 +123,7 @@ export class App {
   private readonly cutBtn: HTMLButtonElement;
   private readonly pasteBtn: HTMLButtonElement;
   private readonly selectAllBtn: HTMLButtonElement;
+  private readonly lockBtn: HTMLButtonElement;
   private readonly moveEarlier: HTMLButtonElement;
   private readonly moveLater: HTMLButtonElement;
   private readonly problemList: HTMLElement;
@@ -205,11 +206,12 @@ export class App {
     this.cutBtn = this.small("Cut", "Copy the selected object and remove it (Ctrl+X)", () => this.cutObject());
     this.pasteBtn = this.small("Paste", "Paste the copied objects on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
     this.selectAllBtn = this.small("Select all", "Select every object on this layer (Ctrl+A)", () => this.selectAllObjects());
+    this.lockBtn = this.small("Lock", "Lock the selected objects so they cannot be moved, resized, rotated or deleted by accident (Ctrl+L)", () => this.toggleLockObjects());
     const objects = h("section", { class: "panel objects", "aria-labelledby": "objects-h" },
       h("h2", { id: "objects-h", text: "Objects" }),
       h("div", { class: "btn-row" }, h("label", { for: "add-kind", text: "Add" }), this.addKind, this.addObjectBtn),
       h("div", { class: "btn-row" }, this.deleteObjectBtn, this.moveEarlier, this.moveLater),
-      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn, this.selectAllBtn),
+      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn, this.selectAllBtn, this.lockBtn),
       h("p", { class: "note", text: "In reading order, which is also the tab order." }),
       this.objectList);
 
@@ -1073,7 +1075,11 @@ export class App {
     const at = Math.min(...m.selected.map((x) => before.indexOf(x.id)));
     const msg = m.deleteSelected();
     if (!msg) return;
-    this.announce(`${msg}. Press Control Z to undo.`);
+    if (!msg.startsWith("Deleted ")) {
+      this.announce(msg);
+      return;
+    }
+    this.announce(`${msg.endsWith(".") ? msg : `${msg}.`} Press Control Z to undo.`);
     const left = m.objects.map((x) => x.id);
     const next = left[Math.min(at, left.length - 1)];
     if (next) this.refocus(`object:${next}`);
@@ -1118,6 +1124,10 @@ export class App {
     const at = m.objects.findIndex((x) => x.id === o.id);
     const msg = m.cut();
     if (!msg) return;
+    if (!msg.startsWith("Cut ")) {
+      this.announce(msg);
+      return;
+    }
     this.announce(`${msg} Press Control V to paste it, or Control Z to undo.`);
     // The object is gone, so focus goes to its neighbour, as it does after Delete.
     const left = m.objects.map((x) => x.id);
@@ -1144,6 +1154,16 @@ export class App {
     else if (e.ctrlKey || e.metaKey) msg = m.toggleSelected(id);
     else m.selectObject(id);
     if (msg) this.announce(msg);
+  }
+
+  private toggleLockObjects(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose an object in the list first.");
+      return;
+    }
+    const msg = m.toggleLock();
+    if (msg) this.announce(`${msg} Press Control Z to undo.`);
   }
 
   private selectAllObjects(): void {
@@ -1224,6 +1244,8 @@ export class App {
     this.setEnabled(this.moveEarlier, !!one);
     this.setEnabled(this.moveLater, !!one);
     this.setEnabled(this.selectAllBtn, (m?.objects.length ?? 0) > 0);
+    this.lockBtn.textContent = m?.selectionLock === "all" ? "Unlock" : "Lock";
+    this.setEnabled(this.lockBtn, hasObject);
     this.setEnabled(this.deleteObjectBtn, hasObject);
     this.setEnabled(this.duplicateBtn, hasObject);
     this.setEnabled(this.copyBtn, hasObject);
@@ -1320,7 +1342,7 @@ export class App {
       this.objectList.replaceChildren(
         ...m.objects.map((o) => {
           const t = o.accessibility.tabOrder ?? 0;
-          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"})`;
+          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""})`;
           const li = this.item(`object:${o.id}`, label, o.id === m.sel.objectId, (e) => this.pickObject(o.id, e));
           if (several) li.querySelector("button")!.setAttribute("aria-pressed", String(picked.has(o.id)));
           return li;
@@ -1578,6 +1600,8 @@ export class App {
     set("alt", a.altText); set("role", a.role); set("tab", a.tabOrder);
     const dec = this.propsBody.querySelector<HTMLInputElement>("#p-decorative");
     if (dec) dec.checked = a.decorative;
+    const lock = this.propsBody.querySelector<HTMLInputElement>("#p-locked");
+    if (lock) lock.checked = o.locked === true;
     set("label", String(o.content["label"] ?? ""));
     const spoken = (o.narration as Narration | null) ?? null;
     set("narration-script", spoken?.script ?? "");
@@ -1626,11 +1650,26 @@ export class App {
   private buildProps(m: Model, o: OSObject): void {
     const a = o.accessibility;
     const num = (key: keyof OSObject["geometry"]) => (v: string) => {
+      const refused = v.trim() !== "" && key !== "z" ? m.lockMessage(o.id) : null;
+      if (refused) {
+        this.announce(refused);
+        // The box the author typed in is still focused, and a focused box is never overwritten, so put its real value back here.
+        const typed = this.propsBody.querySelector<HTMLInputElement>(`#p-${key}`);
+        if (typed) typed.value = String(o.geometry[key]);
+        this.fillValues(o);
+        return;
+      }
       const msg = v.trim() === "" ? null : m.setGeometry(o.id, { [key]: Number(v) });
       if (msg) this.announce(msg);
       else this.fillValues(o);
     };
 
+    const locked = h("input", { id: "p-locked", type: "checkbox", ...(o.locked ? { checked: true } : {}) });
+    locked.dataset["key"] = "prop:locked";
+    locked.addEventListener("change", () => {
+      const msg = m.setLocked(locked.checked);
+      if (msg) this.announce(`${msg} Press Control Z to undo.`);
+    });
     const decorative = h("input", { id: "p-decorative", type: "checkbox", ...(a.decorative ? { checked: true } : {}) });
     decorative.dataset["key"] = "prop:decorative";
     decorative.addEventListener("change", () => {
@@ -1706,7 +1745,8 @@ export class App {
         this.field("width", "Width", o.geometry.width, num("width"), { number: true }),
         this.field("height", "Height", o.geometry.height, num("height"), { number: true }),
         this.field("rotation", "Rotation, degrees", o.geometry.rotation, num("rotation"), { number: true }),
-        this.field("z", "Stacking order", o.geometry.z, num("z"), { number: true })),
+        this.field("z", "Stacking order", o.geometry.z, num("z"), { number: true }),
+        h("div", { class: "field check" }, locked, h("label", { for: "p-locked", text: "Locked (the editor will not move, resize, rotate or delete it)" }))),
       h("fieldset", {}, h("legend", { text: "Line up with the slide" }), this.alignButtons(m)),
       h("fieldset", {}, h("legend", { text: "Accessibility" }),
         h("div", { class: "field check" }, decorative, h("label", { for: "p-decorative", text: "Decorative (no meaning, hidden from screen readers)" })),
@@ -2415,7 +2455,8 @@ export class App {
       // Duplicate, copy, cut and paste work on the selected object. When words are selected on the page, Copy is theirs, not ours.
       const key = e.key.toLowerCase();
       const wordsSelected = (window.getSelection()?.toString() ?? "") !== "";
-      if (key === "a" && !wordsSelected) { e.preventDefault(); this.selectAllObjects(); }
+      if (key === "l") { e.preventDefault(); this.toggleLockObjects(); }
+      else if (key === "a" && !wordsSelected) { e.preventDefault(); this.selectAllObjects(); }
       else if (key === "d") { e.preventDefault(); this.duplicateObject(); }
       else if (key === "c" && !wordsSelected) { e.preventDefault(); this.copyObject(); }
       else if (key === "x" && !wordsSelected) { e.preventDefault(); this.cutObject(); }

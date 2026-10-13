@@ -51,6 +51,16 @@ A rotated object is lined up by the box it would have if it were not turned. Rea
 Move later are off while several are selected. Everything other than the shared actions (text, colours, alt text, rules, timing, narration)
 is changed on one object at a time, so nothing about alt text or the other accessibility fields is ever changed for several at once.
 
+**Locking.** Lock an object so it is not moved, resized, rotated or deleted by accident, for example a background panel or a title you have
+placed exactly. **Lock** (Ctrl+L) is under the Objects list, and says **Unlock** when everything selected is locked; the **Locked** box in an
+object's Position and size does the same for one object. A locked object shows ", locked" in the Objects list and a dotted outline with no
+handles on the canvas. The lock is saved with the project (format 0.15.0), so it is still there next time. A locked object refuses dragging,
+the arrow keys, Alt and the arrow keys, typed X, Y, width, height and rotation, Cut and Delete, and the editor says why. It does not stop
+anything else: you can still select it, edit its text, alt text, rules, timing and narration, change its stacking order, copy it, and duplicate
+it (the copy is not locked). With several selected, moving, lining up and spacing out leave the locked ones where they are and say how many stayed,
+and Delete removes the others and keeps the locked ones selected so you can unlock them if you meant to remove them. Change layout and Reset layout are
+commands you ask for and can still rearrange a locked object. The published course ignores locks.
+
 **Shapes.** Add a rectangle, rounded rectangle, ellipse, triangle, diamond, arrow or line, and change
 the shape later. Fill and outline colour and outline width are editable. New shapes are decorative,
 so they are hidden from screen readers; untick "Decorative" and write alt text if a shape carries
@@ -371,7 +381,7 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | --- | --- |
 | Anywhere | Ctrl+N new project, Ctrl+O open, Ctrl+S save, Ctrl+P preview, Ctrl+Shift+P publish, Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo, F6 and Shift+F6 next and previous panel |
 | Anywhere except in a text box | Ctrl+D duplicate the selected object, Ctrl+C copy, Ctrl+X cut, Ctrl+V paste |
-| Anywhere except in a text box | Ctrl+A select every object on the layer |
+| Anywhere except in a text box | Ctrl+A select every object on the layer, Ctrl+L lock or unlock the selected objects |
 | Slide, Objects and Problems lists | Up and Down, Home and End move; Enter or Space chooses |
 | Slides list | Alt+Up and Alt+Down move the slide; Delete removes it |
 | Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object, or all selected objects if it is one of them; Shift with Up, Down, Home or End selects a range; Ctrl+Space adds or removes the focused object |

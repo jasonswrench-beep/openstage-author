@@ -216,7 +216,7 @@ export class Canvas {
       this.box.hidden = true;
       for (const each of sel) {
         const mark = this.overlay.ownerDocument.createElement("div");
-        mark.className = "edit-box edit-box-multi";
+        mark.className = `edit-box edit-box-multi${each.locked ? " edit-box-locked" : ""}`;
         mark.setAttribute("aria-hidden", "true");
         mark.style.left = `${each.geometry.x}px`;
         mark.style.top = `${each.geometry.y}px`;
@@ -229,6 +229,8 @@ export class Canvas {
       }
       return;
     }
+    // A locked object has no handles, and a dotted outline.
+    this.box.classList.toggle("edit-box-locked", o.locked === true);
     const g = o.geometry;
     this.box.hidden = false;
     this.box.style.left = `${g.x}px`;
@@ -300,7 +302,7 @@ export class Canvas {
     } else if (e.key === "Delete" && m.object) {
       e.preventDefault();
       const msg = m.deleteSelected();
-      if (msg) this.say(`${msg}. Press Control Z to undo.`);
+      if (msg) this.say(msg.startsWith("Deleted ") ? `${msg.endsWith(".") ? msg : `${msg}.`} Press Control Z to undo.` : msg);
     } else if (e.key === "Escape" && m.object) {
       e.preventDefault();
       m.selectObject(null);
@@ -369,9 +371,18 @@ export class Canvas {
     const inside = m.selected.length > 1 && m.selected.some((o) => o.id === target.id);
     if (!inside) {
       m.selectObject(target.id);
-      this.say(`Selected ${m.describe(target)}`);
+      this.say(`Selected ${m.describe(target)}${target.locked ? ". It is locked, so it cannot be moved." : ""}`);
     }
-    const moving = inside ? m.selected : [target];
+    // Locked objects are not dragged. If none of what was grabbed can move, there is no drag, and a click narrows the selection as usual.
+    const moving = (inside ? m.selected : [target]).filter((o) => !o.locked);
+    if (moving.length === 0) {
+      if (inside) {
+        m.selectObject(target.id);
+        this.say(`${m.describeSelection()} It is locked, so it cannot be moved.`);
+      }
+      e.preventDefault();
+      return;
+    }
     m.beginGesture();
     start("move", new Map(moving.map((o) => [o.id, { ...o.geometry }])), target.id, inside ? target.id : null);
   }
@@ -443,7 +454,9 @@ export class Canvas {
       return;
     }
     const sel = m.selected;
+    const stayed = sel.filter((o) => o.locked).length;
+    const note = stayed > 0 && sel.length > 1 ? ` ${stayed} locked ${stayed === 1 ? "object stayed" : "objects stayed"} where ${stayed === 1 ? "it was" : "they were"}.` : "";
     if (sel.length === 1) this.say(m.describe(sel[0]!));
-    else if (sel.length > 1) this.say(this.model()?.describeSelection() ?? "");
+    else if (sel.length > 1) this.say(`${m.describeSelection()}${note}`);
   }
 }

@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CURRENT = "0.14.0"
+CURRENT = "0.15.0"
 
 
 def version_tuple(text):
@@ -148,9 +148,15 @@ def step_0_13_to_0_14(project, slides, files):
     return ["Objects can now fade, slide or grow in when they appear, and out when they go. Your existing objects start with no effect, so nothing moves until you choose some."]
 
 
+def step_0_14_to_0_15(project, slides, files):
+    """0.14.0 to 0.15.0: an object can be locked in the editor. Nothing in an existing project has to change: no flag means unlocked."""
+    project["schemaVersion"] = "0.15.0"
+    return ["Objects can now be locked in the editor, so they are not moved or deleted by accident. All your existing objects are unlocked."]
+
+
 STEPS = {"0.1.0": ("0.2.0", step_0_1_to_0_2), "0.2.0": ("0.3.0", step_0_2_to_0_3), "0.3.0": ("0.4.0", step_0_3_to_0_4),
          "0.4.0": ("0.5.0", step_0_4_to_0_5), "0.5.0": ("0.6.0", step_0_5_to_0_6), "0.6.0": ("0.7.0", step_0_6_to_0_7),
-         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14)}
+         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15)}
 
 
 def migrate(project_dir):

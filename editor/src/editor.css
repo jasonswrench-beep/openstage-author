@@ -56,6 +56,8 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .edit-overlay { position: absolute; inset: 0; z-index: 100000; cursor: default; }
 .edit-box { position: absolute; box-sizing: border-box; border: var(--line, 2px) solid #0b5fff; outline: var(--line, 2px) solid #fff; pointer-events: none; }
 .edit-box-multi { border-style: dashed; }
+.edit-box-locked { border-style: dotted; }
+.edit-box-locked .edit-handle { display: none; }
 .edit-marquee { position: absolute; box-sizing: border-box; border: var(--line, 2px) dashed #0b5fff; background: rgba(11, 95, 255, .12); pointer-events: none; }
 .edit-marquee[hidden] { display: none; }
 .edit-handle { position: absolute; width: var(--handle, 10px); height: var(--handle, 10px); box-sizing: border-box; background: #fff; border: var(--line, 2px) solid #0b3fb3; pointer-events: auto; }

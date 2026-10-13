@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.14.0",
+  "schemaVersion": "0.15.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -204,6 +204,11 @@ the same commit.
 Required fields: every field in the examples above is required, including `states`,
 `triggers`, `narration`, `provenance` and `simulation` (use `{}`, `[]` or `null`). Unknown
 fields are rejected. Ids match `^[a-z][a-z0-9_-]*$`.
+
+Optional field: `locked`. `true` means the editor refuses to move, resize, rotate or delete the object until it is unlocked. Its text,
+alt text, rules, timing, narration and stacking order can still be changed. An object that is not locked has no `locked` field at all,
+never `false`, so a project that has never used locking looks exactly as it did before. It is for the author only: the published course
+and the validator ignore it. A copy of a locked object is not locked. (Added in 0.15.0.)
 
 `content` shapes fixed by the schema in v0.1:
 
@@ -940,6 +945,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.14.0 | 0.15.0 | Adds the optional `locked` field to objects, which locks an object in the editor. Nothing in an existing project changes, because no field means unlocked. |
 | 0.13.0 | 0.14.0 | Every object gets an `animation`, set to no effect either way (`{ "enter": { "effect": "none", "duration": 500 }, "exit": { "effect": "none", "duration": 500 } }`), after its `timing`. Nothing moves until the author chooses an effect. |
 | 0.12.0 | 0.13.0 | Every object gets a `timing`, set to always there (`{ "appear": "time", "start": 0, "visibleFor": null }`), after its `triggers`. Nothing looks different until the author sets some. |
 | 0.11.0 | 0.12.0 | Adds the `download` object type, the `assets/documents/` folder and the `document` kind in `assets.json`. Nothing in an existing project changes. |
