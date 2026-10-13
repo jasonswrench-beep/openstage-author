@@ -14,7 +14,9 @@ A slide-based authoring studio in the the eLearning authoring platform and an eL
 education/businesses, funded by donation rather than license. Every other free authoring tool
 (an interactive content framework, Adapt, an open authoring toolkit, eXeLearning) is template-driven. This one is a freeform canvas.
 
-Not a template tool. Not an LMS. Not a cloud platform. Not a video editor.
+Not a template tool. Not an LMS. Not a cloud platform. Not a full or professional video editor.
+The Capture module includes a mid-level editor for recordings: trimming, splitting, text overlays,
+and zoom, in the manner of a screen recording studio.
 
 ## Current phase
 
@@ -64,8 +66,9 @@ such as placing objects, triggers or the timeline, is agreed with the user first
 - The editing stage and the published player run the same renderer. Never fork them.
 - Local models sit behind three plugin contracts: audio from text, captions from media,
   image from prompt. Nothing model-specific enters the format or the renderer.
-- TypeScript throughout. Electron or Tauri shell. Cross-platform from the start:
-  Windows, macOS and Linux all matter.
+- TypeScript throughout, except the Capture program, which is Rust because screen capture
+  needs native code. Electron or Tauri shell. Cross-platform from the start, except the
+  Capture module, which is Windows first.
 
 ## Out of scope — do not build these
 
