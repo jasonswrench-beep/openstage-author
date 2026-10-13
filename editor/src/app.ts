@@ -117,6 +117,10 @@ export class App {
   private readonly addKind: HTMLSelectElement;
   private readonly addObjectBtn: HTMLButtonElement;
   private readonly deleteObjectBtn: HTMLButtonElement;
+  private readonly duplicateBtn: HTMLButtonElement;
+  private readonly copyBtn: HTMLButtonElement;
+  private readonly cutBtn: HTMLButtonElement;
+  private readonly pasteBtn: HTMLButtonElement;
   private readonly moveEarlier: HTMLButtonElement;
   private readonly moveLater: HTMLButtonElement;
   private readonly problemList: HTMLElement;
@@ -194,10 +198,15 @@ export class App {
     this.deleteObjectBtn = this.small("Delete object", "Delete the selected object (Delete key)", () => this.deleteObject());
     this.moveEarlier = this.small("Move earlier", "Earlier in reading order (Alt+Up Arrow)", () => this.reorder(-1));
     this.moveLater = this.small("Move later", "Later in reading order (Alt+Down Arrow)", () => this.reorder(1));
+    this.duplicateBtn = this.small("Duplicate", "Make a copy of the selected object beside it (Ctrl+D)", () => this.duplicateObject());
+    this.copyBtn = this.small("Copy", "Copy the selected object (Ctrl+C)", () => this.copyObject());
+    this.cutBtn = this.small("Cut", "Copy the selected object and remove it (Ctrl+X)", () => this.cutObject());
+    this.pasteBtn = this.small("Paste", "Paste the copied object on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
     const objects = h("section", { class: "panel objects", "aria-labelledby": "objects-h" },
       h("h2", { id: "objects-h", text: "Objects" }),
       h("div", { class: "btn-row" }, h("label", { for: "add-kind", text: "Add" }), this.addKind, this.addObjectBtn),
       h("div", { class: "btn-row" }, this.deleteObjectBtn, this.moveEarlier, this.moveLater),
+      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn),
       h("p", { class: "note", text: "In reading order, which is also the tab order." }),
       this.objectList);
 
@@ -1068,6 +1077,61 @@ export class App {
     else this.addKind.focus();
   }
 
+  /** Keep the keyboard user's place: if focus was in the Objects list, it goes to the newly selected object. */
+  private followSelection(wasInList: boolean): void {
+    const id = this.model?.object?.id;
+    if (wasInList && id) this.refocus(`object:${id}`);
+  }
+
+  private duplicateObject(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose an object in the list first.");
+      return;
+    }
+    const wasInList = this.objectList.contains(document.activeElement);
+    const msg = m.duplicate();
+    if (msg) this.announce(`${msg} Press Control Z to undo.`);
+    this.followSelection(wasInList);
+  }
+
+  private copyObject(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose an object in the list first.");
+      return;
+    }
+    const msg = m.copy();
+    if (msg) this.announce(`${msg} Press Control V to paste it, here or on another slide.`);
+  }
+
+  private cutObject(): void {
+    const m = this.model;
+    const o = m?.object;
+    if (!m || !o) {
+      this.announce("Choose an object in the list first.");
+      return;
+    }
+    const at = m.objects.findIndex((x) => x.id === o.id);
+    const msg = m.cut();
+    if (!msg) return;
+    this.announce(`${msg} Press Control V to paste it, or Control Z to undo.`);
+    // The object is gone, so focus goes to its neighbour, as it does after Delete.
+    const left = m.objects.map((x) => x.id);
+    const next = left[Math.min(at, left.length - 1)];
+    if (next) this.refocus(`object:${next}`);
+    else this.addKind.focus();
+  }
+
+  private pasteObject(): void {
+    const m = this.model;
+    if (!m) return;
+    const wasInList = this.objectList.contains(document.activeElement);
+    const msg = m.paste();
+    if (msg) this.announce(m.canPaste && m.object ? `${msg} Press Control Z to undo.` : msg);
+    this.followSelection(wasInList);
+  }
+
   private reorder(delta: -1 | 1): void {
     const o = this.model?.object;
     if (!o) {
@@ -1084,6 +1148,11 @@ export class App {
   // ---- reacting to the model
 
   private onChange(c: Change): void {
+    // What is held for Paste is not part of the course: only the Paste button needs to know.
+    if (c.kind === "clipboard") {
+      this.updateChrome();
+      return;
+    }
     if (c.kind !== "geometry" && c.kind !== "saved") this.timelinePanel.render();
     if (c.kind === "selection" || c.kind === "structure") {
       this.renderSlides();
@@ -1129,6 +1198,10 @@ export class App {
     this.setEnabled(this.moveEarlier, hasObject);
     this.setEnabled(this.moveLater, hasObject);
     this.setEnabled(this.deleteObjectBtn, hasObject);
+    this.setEnabled(this.duplicateBtn, hasObject);
+    this.setEnabled(this.copyBtn, hasObject);
+    this.setEnabled(this.cutBtn, hasObject);
+    this.setEnabled(this.pasteBtn, !!m?.canPaste);
     this.setEnabled(this.deleteSlideBtn, !!m && m.slides.length > 1);
     this.setEnabled(this.changeLayoutBtn, !!m);
     this.setEnabled(this.themeBtn, !!m);
@@ -2271,6 +2344,15 @@ export class App {
     else if (mod && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); }
     else if (mod && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); this.redo(); }
     else if (e.key === "F6") { e.preventDefault(); this.cycleRegion(e.shiftKey ? -1 : 1); }
+    else if (mod && !typing && !e.shiftKey && !e.altKey && this.model && !document.querySelector("dialog[open]")) {
+      // Duplicate, copy, cut and paste work on the selected object. When words are selected on the page, Copy is theirs, not ours.
+      const key = e.key.toLowerCase();
+      const wordsSelected = (window.getSelection()?.toString() ?? "") !== "";
+      if (key === "d") { e.preventDefault(); this.duplicateObject(); }
+      else if (key === "c" && !wordsSelected) { e.preventDefault(); this.copyObject(); }
+      else if (key === "x" && !wordsSelected) { e.preventDefault(); this.cutObject(); }
+      else if (key === "v") { e.preventDefault(); this.pasteObject(); }
+    }
   }
 
   private cycleRegion(dir: 1 | -1): void {

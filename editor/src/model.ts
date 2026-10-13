@@ -10,6 +10,7 @@ import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
 import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
+import { cloneObjects, copyName } from "./clone.ts";
 import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
@@ -54,7 +55,7 @@ export interface NarratedObject {
   narration: Narration;
 }
 
-export type ChangeKind = "selection" | "geometry" | "content" | "structure" | "saved";
+export type ChangeKind = "selection" | "geometry" | "content" | "structure" | "saved" | "clipboard";
 export interface Change {
   kind: ChangeKind;
   objectId?: string;
@@ -108,6 +109,10 @@ export class Model {
   private lastKey = "";
   private lastTime = 0;
   private gestureStart: string | null = null;
+  /** What Copy and Cut hold: copies of the objects, so editing an original afterwards does not change them. */
+  private clip: { objects: OSObject[]; layers: Layer[]; slideId: string; layerId: string; tone: "light" | "dark" | "accent" } | null = null;
+  /** How many times the clip has been pasted onto each layer, so pasting again does not land on top of the last paste. */
+  private pasted = new Map<string, number>();
   private listeners: ((c: Change) => void)[] = [];
   sel: Selection;
 
@@ -964,15 +969,7 @@ export class Model {
 
   /** Write rules back, giving any new rule ids no other trigger in the project uses. */
   private writeRulesTo(obj: OSObject, items: RuleItem[]): void {
-    const used = new Set(this.docs.flatMap((d) => [d.slide.baseLayer, ...d.slide.layers].flatMap((l) => l.objects.flatMap((o) => o.triggers.map((t) => t.id)))));
-    let next = nextNumber([...used], "trg-");
-    const fresh = () => {
-      let id = `trg-${String(next++).padStart(4, "0")}`;
-      while (used.has(id)) id = `trg-${String(next++).padStart(4, "0")}`;
-      used.add(id);
-      return id;
-    };
-    obj.triggers = writeRules(items, fresh);
+    obj.triggers = writeRules(items, this.triggerAllocator());
   }
 
   /** What a rule on this object may point at for an action: slides, layers of its slide, variables, or media on its slide. */
@@ -1790,6 +1787,148 @@ export class Model {
     if (this.sel.objectId === objectId) this.sel = { ...this.sel, objectId: null };
     this.emit({ kind: "structure" });
     return `Deleted ${obj.name}`;
+  }
+
+  // ---- duplicate, copy, cut and paste
+
+  /** Make the ids a copy needs from the project as it is now: a trigger id no other trigger in the project uses. */
+  private triggerAllocator(): () => string {
+    const used = new Set(this.docs.flatMap((d) => [d.slide.baseLayer, ...d.slide.layers].flatMap((l) => l.objects.flatMap((o) => o.triggers.map((t) => t.id)))));
+    let next = nextNumber([...used], "trg-");
+    return () => {
+      let id = `trg-${String(next++).padStart(4, "0")}`;
+      while (used.has(id)) id = `trg-${String(next++).padStart(4, "0")}`;
+      used.add(id);
+      return id;
+    };
+  }
+
+  /** Whether there is something to paste. */
+  get canPaste(): boolean {
+    return this.clip !== null;
+  }
+
+  /** The feedback layers a quiz question shows, as copies, so a copied question can have layers of its own. */
+  private feedbackLayersOf(objects: OSObject[], slide: Slide): Layer[] {
+    const ids = new Set<string>();
+    for (const o of objects) {
+      if (o.type !== "quizQuestion") continue;
+      const f = (o.content as unknown as QuizContent).feedback;
+      ids.add(f.correct);
+      ids.add(f.incorrect);
+    }
+    return slide.layers.filter((l) => ids.has(l.id)).map((l) => JSON.parse(JSON.stringify(l)) as Layer);
+  }
+
+  /** Remember the selected object, so Paste can put a copy of it here or on another slide. Changes nothing in the course. */
+  copy(): string | null {
+    const o = this.object;
+    const slide = this.slide;
+    const layer = this.layer;
+    if (!o || !slide || !layer) return null;
+    this.clip = { objects: [JSON.parse(JSON.stringify(o)) as OSObject], layers: this.feedbackLayersOf([o], slide), slideId: slide.id, layerId: layer.id, tone: this.tone() };
+    this.pasted.clear();
+    this.emit({ kind: "clipboard" });
+    return `Copied ${o.name}.`;
+  }
+
+  /** Copy the selected object and remove it, as one undo step. */
+  cut(): string | null {
+    const o = this.object;
+    if (!o) return null;
+    this.copy();
+    this.deleteObject(o.id);
+    return `Cut ${o.name}.`;
+  }
+
+  /** Put a copy of the selected object on this layer, a little to one side and straight after it in reading order, and select the copy. */
+  duplicate(): string | null {
+    const o = this.object;
+    const slide = this.slide;
+    if (!o || !slide) return null;
+    return this.place([JSON.parse(JSON.stringify(o)) as OSObject], this.feedbackLayersOf([o], slide), { steps: 1, after: o, renameAlways: true, verb: "Duplicated" });
+  }
+
+  /** Put a copy of what was copied or cut on this layer, which may be on another slide, and select it. */
+  paste(): string | null {
+    const clip = this.clip;
+    const slide = this.slide;
+    const layer = this.layer;
+    if (!slide || !layer) return null;
+    if (!clip) return "There is nothing to paste yet. Copy or cut an object first.";
+    const key = `${slide.id}/${layer.id}`;
+    const earlier = this.pasted.get(key) ?? 0;
+    // Moved aside only if it would land on top of the original, or on top of an earlier paste.
+    const originalHere = clip.slideId === slide.id && clip.layerId === layer.id && clip.objects.some((c) => layer.objects.some((o) => o.id === c.id));
+    const msg = this.place(JSON.parse(JSON.stringify(clip.objects)) as OSObject[], JSON.parse(JSON.stringify(clip.layers)) as Layer[], { steps: earlier + (originalHere ? 1 : 0), after: null, renameAlways: false, verb: "Pasted" });
+    if (!msg) return msg;
+    this.pasted.set(key, earlier + 1);
+    // Text colours were chosen for the slide the object came from. The Problems list will say if one has gone unreadable, but say so now.
+    return this.tone() !== clip.tone ? `${msg} This slide has a different background from the one it was copied from, so check that its text is still easy to read.` : msg;
+  }
+
+  /** The common work of Duplicate and Paste: copies with their own ids, put on this layer as one undo step. */
+  private place(sources: OSObject[], feedback: Layer[], at: { steps: number; after: OSObject | null; renameAlways: boolean; verb: string }): string | null {
+    const layer = this.layer;
+    const slide = this.slide;
+    if (!layer || !slide || sources.length === 0) return null;
+    this.record("");
+    const alloc = this.allocator();
+    const made = cloneObjects(sources, feedback, {
+      newObjectId: alloc.object,
+      newLayerId: alloc.layer,
+      newTriggerId: this.triggerAllocator(),
+      newVariable: (type, base) => this.makeVariable(type, base),
+      variableOf: (id) => this.project.variables.find((v) => v.id === id),
+      layerIds: new Set(slide.layers.map((l) => l.id)),
+      objectIds: new Set([slide.baseLayer, ...slide.layers].flatMap((l) => l.objects.map((o) => o.id))),
+    });
+
+    // Names: a duplicate always says it is a copy; a paste keeps its name unless this layer already has one like it.
+    const taken = layer.objects.map((o) => o.name);
+    for (const o of made.objects) {
+      if (at.renameAlways || taken.some((n) => n.toLowerCase() === o.name.toLowerCase())) o.name = copyName(o.name, taken);
+      taken.push(o.name);
+      if (o.type === "quizQuestion") {
+        const f = (o.content as unknown as QuizContent).feedback;
+        for (const [which, id] of [["Correct", f.correct], ["Incorrect", f.incorrect]] as const) {
+          const l = made.layers.find((x) => x.id === id);
+          if (l) l.name = `${which} feedback for ${o.name}`;
+        }
+      }
+    }
+
+    // Places: to one side by 20 stage pixels a step, and above everything already on the layer, keeping their order among themselves.
+    const top = layer.objects.reduce((m, o) => Math.max(m, o.geometry.z), 0);
+    const low = Math.min(...made.objects.map((o) => o.geometry.z));
+    for (const o of made.objects) {
+      const g = o.geometry;
+      o.geometry = { ...g, x: Math.round((g.x + 20 * at.steps) * 100) / 100, y: Math.round((g.y + 20 * at.steps) * 100) / 100, z: top + 10 + (g.z - low) };
+    }
+
+    // Reading order: a duplicate goes straight after its original; a paste goes at the end. Only objects that are in the tab order
+    // have a place in it, and the tab orders of the layer are renumbered 1, 2, 3 so they have no gaps or repeats.
+    const tabbedCopies = made.objects.filter((o) => (o.accessibility.tabOrder ?? 0) >= 1);
+    const tabbed = readingOrder(layer.objects).filter((o) => (o.accessibility.tabOrder ?? 0) >= 1);
+    const afterAt = at.after ? tabbed.findIndex((o) => o.id === at.after!.id) : -1;
+    if (afterAt === -1) tabbed.push(...tabbedCopies); else tabbed.splice(afterAt + 1, 0, ...tabbedCopies);
+    tabbed.forEach((o, i) => (o.accessibility = { ...o.accessibility, tabOrder: i + 1 }));
+
+    layer.objects.push(...made.objects);
+    slide.layers.push(...made.layers);
+    const first = made.objects[0]!;
+    this.sel = { ...this.sel, objectId: first.id };
+    this.emit({ kind: "structure", objectId: first.id });
+
+    const parts = [`${at.verb} ${sources[0]!.name}${made.objects.length > 1 ? ` and ${made.objects.length - 1} more` : ""}.`];
+    if (first.name !== sources[0]!.name) parts.push(`The copy is called ${first.name}.`);
+    if (made.newVariables > 0) parts.push(`It saves to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so it does not overwrite the original's answers.`);
+    if (made.layers.length > 0) parts.push("It has feedback layers of its own, and it counts toward the score as another question.");
+    if (made.droppedRules > 0) parts.push(`${made.droppedRules} ${made.droppedRules === 1 ? "rule was" : "rules were"} not copied, because ${made.droppedRules === 1 ? "it points" : "they point"} at a layer or an object on the slide the original is on.`);
+    if (made.objects.some((o) => ["image", "video", "audio", "embed", "download"].includes(o.type) && !o.accessibility.decorative && o.accessibility.altText !== "")) {
+      parts.push("Its alt text was copied too, so check that it still describes this one.");
+    }
+    return parts.join(" ");
   }
 
   // ---- slides and layers
