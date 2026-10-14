@@ -7,6 +7,7 @@ import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
 import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
+import { creditParts } from "./credits.ts";
 import { shouldReflow } from "./reflow.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
 import type { CoursePackage, Effect, ObjectAnimation, Slide } from "./types.ts";
@@ -168,28 +169,19 @@ export class Player implements Host {
     dialog.setAttribute("aria-labelledby", "os-credits-title");
     const h = el(doc, "h2", "");
     h.id = "os-credits-title";
-    h.textContent = "Image and media credits";
+    h.textContent = "Credits";
     const list = el(doc, "ul", "os-credits-list");
-    const names: Record<string, string> = {
-      pixabay: "Pixabay", unsplash: "Unsplash", pexels: "Pexels", openverse: "Openverse", wikimedia: "Wikimedia Commons", freesound: "Freesound",
-      mixkit: "Mixkit", svgrepo: "SVG Repo", libreshot: "Libreshot", vecteezy: "Vecteezy", other: "",
-    };
-    const link = (text: string, href: string): HTMLElement => {
-      if (!/^https?:\/\//i.test(href)) return doc.createTextNode(text) as unknown as HTMLElement;
-      const a = el(doc, "a", "") as HTMLAnchorElement;
-      a.href = href;
-      a.textContent = text;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      return a;
-    };
     for (const c of credits) {
       const li = el(doc, "li", "");
-      const s = c.source;
-      li.append(doc.createTextNode(`${c.title || c.path.split("/").pop() || c.path}`));
-      if (s.creator) { li.append(doc.createTextNode(", by "), link(s.creator, s.creatorUrl)); }
-      if (names[s.provider]) { li.append(doc.createTextNode(", from "), link(names[s.provider]!, s.url)); }
-      if (s.licence) li.append(doc.createTextNode(`. ${s.licence}.`));
+      for (const part of creditParts(c)) {
+        if (!("href" in part)) { li.append(doc.createTextNode(part.text)); continue; }
+        const a = el(doc, "a", "") as HTMLAnchorElement;
+        a.href = part.href;
+        a.textContent = part.text;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        li.append(a);
+      }
       list.appendChild(li);
     }
     const close = button(doc, "Close", "os-nav-btn");

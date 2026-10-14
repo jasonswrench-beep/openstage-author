@@ -17,6 +17,7 @@ import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { buildManifest, manifestId } from "./src/scorm-manifest.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
+import { narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -88,7 +89,7 @@ if (!preview) {
 const narrateScript = path.join(repoRoot, "tools", "narrate.py");
 const kokoroPython = process.env["OPENSTAGE_KOKORO_PYTHON"];
 const LF = String.fromCharCode(10);
-interface NarrationInfo { script: string; lang: string; hash: string; audio: string | null; cues: NarrationAsset["cues"] }
+interface NarrationInfo { script: string; lang: string; hash: string; audio: string | null; cues: NarrationAsset["cues"]; engine?: string; engineName?: string; where?: string; home?: string }
 function runNarrate(py: string, generate: boolean): Record<string, NarrationInfo> | null {
   const args = [narrateScript, projectDir, "--json", ...(generate ? [] : ["--no-generate"])];
   const r = spawnSync(py, args, { encoding: "utf-8", maxBuffer: 64 * 1024 * 1024, windowsHide: true });
@@ -136,6 +137,8 @@ const assetsFile = path.join(projectDir, "assets.json");
 const recorded = existsSync(assetsFile) ? readJson<{ assets: NonNullable<CoursePackage["credits"]> }>(assetsFile).assets : [];
 const slideText = JSON.stringify(slides);
 const credits = recorded.filter((e) => slideText.includes(e.path) && (e.source.creator || e.source.provider !== "other"));
+// Narration is made by a synthetic voice, and the credits page says so: one line for each engine whose voices speak in this course.
+credits.push(...narrationCredits(Object.values(narrationInfo).filter((i) => i.audio && i.engine && i.engineName).map((i) => ({ engine: i.engine!, name: i.engineName!, where: i.where ?? "unknown", ...(i.home ? { home: i.home } : {}) }))));
 // Icons come from an open set (Lucide, ISC licence) whose notice has to travel with them, so a course that uses any names it and carries the licence text.
 const usesIcons = slideText.includes('"set":"lucide"');
 if (usesIcons) {

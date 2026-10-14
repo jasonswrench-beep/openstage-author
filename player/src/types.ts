@@ -258,11 +258,24 @@ export interface EmbedContent {
 }
 
 /** Where one asset came from, so credit can be given. */
+/** Which service and model made a picture or sound, from what words, and when. Kept in assets.json beside the credit. */
+export interface GeneratedRecord {
+  service: string;
+  model: string;
+  prompt: string;
+  madeAt: string;
+}
+
 export interface CreditEntry {
   path: string;
   title: string;
   kind: "image" | "video" | "audio" | "document";
-  source: { provider: "pixabay" | "unsplash" | "pexels" | "openverse" | "wikimedia" | "freesound" | "mixkit" | "svgrepo" | "libreshot" | "vecteezy" | "other"; url: string; creator: string; creatorUrl: string; licence: string; requiresCredit: boolean };
+  source: {
+    provider: "pixabay" | "unsplash" | "pexels" | "openverse" | "wikimedia" | "freesound" | "mixkit" | "svgrepo" | "libreshot" | "vecteezy" | "generated" | "other";
+    url: string; creator: string; creatorUrl: string; licence: string; requiresCredit: boolean;
+    /** Only for provider "generated": a picture or sound an AI service made, and from what words. */
+    generated?: GeneratedRecord;
+  };
 }
 
 /** A file the learner can save to their own device, with the author's description of what it is. */
