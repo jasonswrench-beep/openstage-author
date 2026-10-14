@@ -1050,11 +1050,11 @@ class EngineVoices(unittest.TestCase):
             return p.run()
 
     def test_a_voice_of_each_engine_is_accepted(self):
-        for voice in ("af_heart", "openai:alloy", "openai:cedar", "elevenlabs:21m00Tcm4TlvDq8ikWAM", "tone-voice:low", "my-plugin:narrator.v2"):
+        for voice in ("af_heart", "openai:alloy", "openai:cedar", "tone-voice:low", "my-plugin:narrator.v2"):
             self.assertEqual(rules(self.with_voice(voice), "voice-unknown"), [], voice)
 
     def test_a_voice_that_cannot_be_right_is_not(self):
-        for voice in ("zz_nobody", "openai:alloyy", "openai:", "elevenlabs:short", "elevenlabs:../../x", "Tone:low", "tone voice:low", "a:b", ":low", "x:y:z", "openai:alloy extra"):
+        for voice in ("zz_nobody", "openai:alloyy", "openai:", "plug:../../x", "Tone:low", "tone voice:low", "a:b", ":low", "x:y:z", "openai:alloy extra"):
             self.assertTrue(rules(self.with_voice(voice), "voice-unknown", "obj-0002", "error"), voice)
 
     def test_a_person_in_the_cast_can_have_a_voice_of_any_engine(self):
@@ -1069,10 +1069,10 @@ class EngineVoices(unittest.TestCase):
         self.assertEqual(len(hit), 1)
         self.assertIn("OpenAI", hit[0].message)
         self.assertEqual(rules(self.with_voice("openai:alloy", credits_on=True), "voice-credit-page-off"), [])
-        self.assertEqual(len(rules(self.with_voice("elevenlabs:21m00Tcm4TlvDq8ikWAM", credits_on=False), "voice-credit-page-off")), 1)
 
     def test_other_voices_do_not_raise_it(self):
-        for voice in ("af_heart", "tone-voice:low"):
+        # A voice of an engine OpenStage no longer has is read like any plugin's: well formed, and nothing said about the credits page.
+        for voice in ("af_heart", "tone-voice:low", "elevenlabs:21m00Tcm4TlvDq8ikWAM"):
             self.assertEqual(rules(self.with_voice(voice, credits_on=False), "voice-credit-page-off"), [], voice)
 
 

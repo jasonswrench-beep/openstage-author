@@ -411,7 +411,7 @@ When the course is published, the entries for assets that slides actually use go
 creator, where it came from, and the licence. The dialog is native, so focus stays inside it and Escape
 closes it.
 
-**Pictures and sounds an AI service made** (added in 0.26.0). The provider is `generated`, and the `source` carries a
+**Pictures an AI service made** (added in 0.26.0; the record is also allowed for a sound, but nothing makes one now). The provider is `generated`, and the `source` carries a
 `generated` record, which is required for that provider and allowed for no other:
 
 ```json
@@ -957,7 +957,6 @@ and is why none of them changed. Any other engine's voices begin with the engine
 | --- | --- |
 | `af_heart` | Kokoro, on this computer. Checked against `tools/kokoro-voices.json`. |
 | `openai:alloy` | OpenAI, over the internet, with the author's key. The ready-made voices only, from `tools/openai-voices.json`. |
-| `elevenlabs:21m00Tcm4TlvDq8ikWAM` | ElevenLabs, over the internet, with the author's key. The ready-made voices of the account, by voice id. |
 | `my-plugin:narrator` | A voice plugin the author has installed (docs/plugins.md). A plugin's voices can be checked only on the computer that has it, so any well-formed name is accepted. |
 
 The name before the colon is 2 to 31 lowercase letters, digits and hyphens, starting with a letter; the name after it is 1 to 60
@@ -967,11 +966,11 @@ field of the format, and no part of the plugin contract, can hand an engine a re
 What differs between engines, and what the format says about it:
 
 - **`lang`** is stored beside the voice as always. A Kokoro voice, and a plugin voice that names its language, set it. A voice that speaks many
-  languages (OpenAI's and ElevenLabs') has no language of its own, so the editor starts it at the course's language and the author sets the
+  languages (OpenAI's) has no language of its own, so the editor starts it at the course's language and the author sets the
   language of the script. The captions, the transcript and a screen reader use it.
 - **`pronunciations`** are IPA, and only Kokoro can use them. For any other voice they are kept in the file and ignored when the audio is made. They are still part
   of the cache hash, so changing one makes the audio again. The editor says so and offers no way to add one for such a voice.
-- **`speed`** is held to what the engine can do (ElevenLabs allows 0.7 to 1.2). The hash uses the speed as written.
+- **`speed`** is held to what the engine can do. The hash uses the speed as written.
 - **Word times.** Kokoro, and a plugin that says it reports them, give when each word is spoken. The services do not, so the cue times are estimated from
   sentence length and `exactTimings` is false. The captions still equal the script.
 - **Where the audio is made.** Kokoro and most plugins work on the computer. A service receives the words of the script, over the internet, using the

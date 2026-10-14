@@ -2,7 +2,7 @@
 
 A voice is named by one string. A bare name such as af_heart is a voice of Kokoro, the speech model that runs on this
 computer, which is how every project made before other engines existed names its voices. Any other engine's voices begin
-with the engine's name and a colon: openai:alloy, elevenlabs:<voice id>, or <plugin id>:<voice> for a plugin.
+with the engine's name and a colon: openai:alloy, or <plugin id>:<voice> for a plugin.
 
 Nothing that makes audio is reached unless it is allowed. A service that sends text over the internet is used only if the
 caller names it in Config.allow_network (the editor does that after the author has said yes, once, for that service) and a
@@ -11,7 +11,7 @@ reason, and the course is published without that audio, as it is when no speech 
 """
 import os
 
-from . import common, elevenlabs_engine, openai_engine, plugins
+from . import common, openai_engine, plugins
 from .common import EngineError, Speech
 
 KOKORO = "kokoro"
@@ -20,9 +20,8 @@ KOKORO = "kokoro"
 BUILTIN = {
     KOKORO: {"name": "Kokoro", "where": "computer", "home": "https://huggingface.co/hexgrad/Kokoro-82M"},
     openai_engine.ID: {"name": openai_engine.NAME, "where": "internet", "home": openai_engine.HOME},
-    elevenlabs_engine.ID: {"name": elevenlabs_engine.NAME, "where": "internet", "home": elevenlabs_engine.HOME},
 }
-SERVICES = {openai_engine.ID: openai_engine, elevenlabs_engine.ID: elevenlabs_engine}
+SERVICES = {openai_engine.ID: openai_engine}
 
 
 def split_voice(voice):

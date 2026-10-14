@@ -1,4 +1,4 @@
-"""Make a picture or a sound with an internet service, list a service's voices, check a key, or list the voice plugins.
+"""Make a picture with an internet service, check a key, or list the voice plugins.
 
 Usage:  python generate.py OP [--allow-network SERVICE,SERVICE] [--plugins-dir DIR] [--plugins-enabled ID,ID]
         with one line of JSON describing the job on standard input, and one line of JSON as the answer on standard output.
@@ -6,12 +6,10 @@ Usage:  python generate.py OP [--allow-network SERVICE,SERVICE] [--plugins-dir D
 OP is one of
   plugins    the voice plugins found in --plugins-dir, and whether each is switched on. Nothing is run and nothing is sent.
   check      {"service": "openai"}  asks the service whether the key is accepted (it costs nothing)
-  voices     {"service": "elevenlabs"}  the account's ready-made voices
   picture    {"service": "openai", "prompt": "...", "size": "square|wide|tall", "quality": "low|medium|high", "out": "FILE.png"}
-  sound      {"service": "elevenlabs", "prompt": "...", "seconds": 5 or null, "out": "FILE.mp3"}
 
 Anything that talks to a service needs the service named in --allow-network (the editor passes it only after the author
-has said yes, once, for that service) and its key in the environment (OPENSTAGE_KEY_OPENAI, OPENSTAGE_KEY_ELEVENLABS).
+has said yes, once, for that service) and its key in the environment (OPENSTAGE_KEY_OPENAI).
 The key is never put on the command line or in the answer. The model to use, if the author changed it, arrives in
 OPENSTAGE_MODEL_<SERVICE>_<KIND>. The answer is {"ok": true, ...} or {"ok": false, "message": "..."}; a message is in
 words an author can read.
@@ -62,11 +60,6 @@ def do_check(request, config):
     return {"ok": True}
 
 
-def do_voices(request, config):
-    service = _service(request, config, "list_voices")
-    return {"ok": True, "voices": service.list_voices(config.key(service.ID), config.transport)}
-
-
 def do_picture(request, config):
     service = _service(request, config, "picture")
     out = _out(request, ".png")
@@ -76,18 +69,7 @@ def do_picture(request, config):
     return {"ok": True, "bytes": len(data), "format": "png", "service": service.ID, "model": model}
 
 
-def do_sound(request, config):
-    service = _service(request, config, "sound")
-    out = _out(request, ".mp3")
-    seconds = request.get("seconds")
-    if seconds is not None and (isinstance(seconds, bool) or not isinstance(seconds, (int, float))):
-        raise EngineError("How long the sound should be must be a number of seconds.")
-    data, model = service.sound(str(request.get("prompt", "")), seconds, config.key(service.ID), config.transport)
-    out.write_bytes(data)
-    return {"ok": True, "bytes": len(data), "format": "mp3", "service": service.ID, "model": model}
-
-
-OPS = {"plugins": do_plugins, "check": do_check, "voices": do_voices, "picture": do_picture, "sound": do_sound}
+OPS = {"plugins": do_plugins, "check": do_check, "picture": do_picture}
 
 
 def run(op, request, config):

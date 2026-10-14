@@ -187,13 +187,13 @@ OPEN EDITOR.bat looks for the engine in the Audiobook Studio folder; otherwise s
 Python that has Kokoro installed. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
 is published with the audio already made, or without audio.
 
-**AI services.** The **AI services** button opens a dialog for OpenAI and ElevenLabs and for voice plugins (docs/ai-generation.md, docs/plugins.md). For each service: the key
-(a password box with Show), a box that is the author's yes to the service being sent their words (**Allow OpenStage to send ...**), **Check the key**, for ElevenLabs
-**Get my voices**, and under *models (advanced)* the model names. Voice plugins are listed with a switch each, their licence, and what their author says about the
+**AI services.** The **AI services** button opens a dialog for OpenAI and for voice plugins (docs/ai-generation.md, docs/plugins.md). For OpenAI: the key
+(a password box with Show), a box that is the author's yes to it being sent their words (**Allow OpenStage to send ...**), **Check the key**,
+and under *models (advanced)* the model names. Voice plugins are listed with a switch each, their licence, and what their author says about the
 internet; **Open the plugins folder** shows where they go. **Save** keeps it; **Cancel** and Escape drop the changes. Only a service with a key and a yes has its voices in the lists.
 The first time the author makes something with a service they have not said yes to, a question asks, and says what is sent; its **Not now** button has the focus. A voice from a service or
 plugin is under its own heading in every Voice list (an object's, an item's, a description's, a character's). Under the list, a note says where the voice is made. A voice that speaks many languages
-has a **Language of the script** box. A voice that cannot use pronunciations says so and has no way to add one; ElevenLabs' speed is held to 0.7 to 1.2. If the credits page is off, the note says
+has a **Language of the script** box. A voice that cannot use pronunciations says so and has no way to add one. If the credits page is off, the note says
 that listeners are not told the voice is made by an AI service. The Narration dialog starts with one sentence for each engine (where the audio is made and whether anything is sent),
 asks before sending to a service for the first time, and leaves out what the author did not allow.
 
@@ -217,8 +217,8 @@ Repo and Libreshot in your browser. Download a file there, add it on the *This p
 "Add video..." or "Add audio...", and use Edit credit to record where it came from, so the credits page can name
 the creator. Four of the sites can also be searched from inside the editor, if you add that site's own free key
 (their programming interfaces ask for one; you get it on their website and paste it into *Settings* once). Without
-a key those searches say so and point at the button that opens the site. *Make with AI* makes a picture (OpenAI) or a sound effect (ElevenLabs) from a
-description: the shape and quality of a picture or the length of a sound, then **Make**, which can be cancelled. The file is saved in the project at once, with a credit that says an AI
+a key those searches say so and point at the button that opens the site. *Make with AI* makes a picture (OpenAI) from a
+description: its shape and quality, then **Make**, which can be cancelled. The file is saved in the project at once, with a credit that says an AI
 service made it and the words that made it, and **Insert on this slide** puts it on the slide. Its alt text is the author's to write; their description is offered as a place to start. Each
 time costs money, which the service charges; the tab says so. **Edit credit** keeps the record of a made file while it is still called AI-made.
 

@@ -1,6 +1,6 @@
 // The Assets dialog. Four tabs: "This project" lists everything the project keeps under assets/ (what
 // is in the project is also what is exported), "Find media" searches the free libraries with the
-// author's own free key, "Make with AI" makes a picture or a sound from words with a service the author has a key for,
+// author's own free key, "Make with AI" makes a picture from words with a service the author has a key for,
 // and "Settings" holds the library keys. A native <dialog>, so focus moves in, Tab stays
 // inside, Escape closes it and focus returns to the button that opened it. Each tab is a real tab (arrow
 // keys move between them) and each list of assets is one group of radio buttons.
@@ -8,7 +8,7 @@
 import type { CreditEntry } from "../../player/src/types.ts";
 import type { AssetFile, AssetKindName, Backend } from "./backend.ts";
 import { errorText } from "./backend.ts";
-import { creditForMade, hasKey, nowStamp, parseSoundSeconds, PROMPT_LIMIT, promptProblem, QUALITIES, SHAPES, serviceById, titleFromPrompt, type ServiceId, type Work } from "./aiservices.ts";
+import { creditForMade, hasKey, nowStamp, PROMPT_LIMIT, promptProblem, QUALITIES, SHAPES, serviceById, titleFromPrompt, type ServiceId, type Work } from "./aiservices.ts";
 import { updateSettings } from "./aidialog.ts";
 import type { Model } from "./model.ts";
 import { clock, creditFor, KEYED, KINDS, LINK_SOURCES, nameFor, parseSettings, searchStock, SOURCES, sourceById, sourcesFor, trackDownload, type KeyedProvider, type MediaKind, type Provider, type Settings, type StockHit } from "./stock.ts";
@@ -403,39 +403,37 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
     renderLinks();
 
     // ================================================================ make with AI
-    // A picture is made with OpenAI and a sound effect with ElevenLabs. The file is saved in the project as soon as it is made, with a credit that
-    // says an AI service made it and the words that made it. Alt text is never written for the author.
+    // A picture is made with OpenAI. The file is saved in the project as soon as it is made, with a credit that says an AI service made it
+    // and the words that made it. Alt text is never written for the author.
     let working = false;
     const makeBody = h("div", {});
     const rereadSettings = async () => { settings = parseSettings(await b.readSettings().catch(() => "")); };
 
-    async function showMade(into: HTMLElement, work: "picture" | "sound", path: string, prompt: string): Promise<void> {
+    async function showMade(into: HTMLElement, path: string, prompt: string): Promise<void> {
       into.replaceChildren();
       const insert = h("button", { type: "button", text: "Insert on this slide" });
       insert.addEventListener("click", () => {
         close();
-        if (work === "picture") void ctx.insertImage(path, prompt, "prompt");
-        else ctx.insertMedia("audio", path);
+        void ctx.insertImage(path, prompt, "prompt");
       });
-      const player = work === "picture" ? h("img", { class: "as-preview", alt: "Preview of the picture that was made" }) : h("audio", { class: "as-listen", controls: true, "aria-label": "Listen to the sound that was made" });
+      const preview = h("img", { class: "as-preview", alt: "Preview of the picture that was made" });
       try {
-        if (player instanceof HTMLImageElement) player.src = await b.assetUrl(m.dir, path);
-        else player.src = await b.mediaUrl(m.dir, path);
+        preview.src = await b.assetUrl(m.dir, path);
       } catch {
-        player.replaceWith(h("p", { class: "note", text: "A preview needs the desktop app. The file is saved in the project." }));
+        preview.replaceWith(h("p", { class: "note", text: "A preview needs the desktop app. The file is saved in the project." }));
       }
       into.append(
         h("h4", { text: `Made: ${path.split("/").pop()}` }),
-        player,
-        h("p", { class: "note", text: `You asked for: "${prompt}". An AI service does not always make what was asked for, so check it before you use it.${work === "picture" ? " You still write its alt text yourself." : " A sound needs captions or a transcript, which you add after it is on the slide."}` }),
+        preview,
+        h("p", { class: "note", text: `You asked for: "${prompt}". An AI service does not always make what was asked for, so check it before you use it. You still write its alt text yourself.` }),
         h("div", { class: "btn-row" }, insert),
       );
     }
 
-    function makeSection(work: "picture" | "sound", id: ServiceId): HTMLElement {
+    function makeSection(id: ServiceId): HTMLElement {
       const svc = serviceById(id);
-      const prefix = `mk-${work}`;
-      const heading = h("h3", { id: `${prefix}-h`, text: work === "picture" ? `Make a picture with ${svc.name}` : `Make a sound effect with ${svc.name}` });
+      const prefix = "mk-picture";
+      const heading = h("h3", { id: `${prefix}-h`, text: `Make a picture with ${svc.name}` });
       if (!hasKey(settings.ai, id)) {
         const open = h("button", { type: "button", class: "small", id: `${prefix}-open`, text: "Open AI services" });
         open.addEventListener("click", () => void (async () => {
@@ -446,44 +444,34 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
           (document.getElementById(`${prefix}-prompt`) ?? document.getElementById(`${prefix}-open`))?.focus();
         })());
         return h("section", { class: "ai-service", "aria-labelledby": `${prefix}-h` }, heading,
-          h("p", { class: "note", text: `To make ${work === "picture" ? "pictures" : "sounds"} here, add your ${svc.name} key in AI services. You pay ${svc.name} for what you make; OpenStage does not charge for it.` }), open);
+          h("p", { class: "note", text: `To make pictures here, add your ${svc.name} key in AI services. You pay ${svc.name} for what you make; OpenStage does not charge for it.` }), open);
       }
-      const prompt = h("textarea", { id: `${prefix}-prompt`, rows: "4", maxlength: String(PROMPT_LIMIT[work]) });
-      const hint = work === "picture"
-        ? "Say what the picture should show, and the style if you want one. For example: a flat illustration of a teacher greeting a class, bright colours."
-        : "Say what the sound should be. For example: a door closing in a quiet hallway.";
+      const prompt = h("textarea", { id: `${prefix}-prompt`, rows: "4", maxlength: String(PROMPT_LIMIT) });
+      const hint = "Say what the picture should show, and the style if you want one. For example: a flat illustration of a teacher greeting a class, bright colours.";
       const shape = h("select", { id: `${prefix}-shape` }, ...SHAPES.map((s) => h("option", { value: s.id, text: s.label })));
       const quality = h("select", { id: `${prefix}-quality` }, ...QUALITIES.map((q) => h("option", { value: q.id, text: q.label })));
       quality.value = "medium";
-      const secs = h("input", { id: `${prefix}-seconds`, type: "text", inputmode: "decimal", autocomplete: "off" });
-      const go = h("button", { type: "button", text: work === "picture" ? "Make the picture" : "Make the sound" });
+      const go = h("button", { type: "button", text: "Make the picture" });
       const cancel = h("button", { type: "button", class: "small", text: "Cancel" });
       cancel.hidden = true;
       const result = h("div", { class: "as-detail", "aria-live": "polite" });
       go.addEventListener("click", async () => {
         if (working) return;
-        const problem = promptProblem(prompt.value, work);
+        const problem = promptProblem(prompt.value);
         if (problem) { say(problem); prompt.focus(); return; }
-        let seconds: number | null = null;
-        if (work === "sound") {
-          const parsed = parseSoundSeconds(secs.value);
-          if (!parsed.ok) { say(parsed.message); secs.focus(); return; }
-          seconds = parsed.seconds;
-        }
-        if (!(await ctx.askToSend(id, work))) { say(`Nothing was sent to ${svc.name}.`); return; }
+        if (!(await ctx.askToSend(id, "picture"))) { say(`Nothing was sent to ${svc.name}.`); return; }
         working = true;
         go.setAttribute("aria-disabled", "true");
         cancel.hidden = false;
-        say(`Asking ${svc.name} to make the ${work}. This can take up to a minute. You can cancel.`);
+        say(`Asking ${svc.name} to make the picture. This can take up to a minute. You can cancel.`);
         try {
           const words = prompt.value.trim();
-          const request = work === "picture" ? { service: id, prompt: words, size: shape.value, quality: quality.value } : { service: id, prompt: words, seconds };
-          const answer = await b.aiMake(m.dir, work, request);
+          const answer = await b.aiMake(m.dir, "picture", { service: id, prompt: words, size: shape.value, quality: quality.value });
           if (!answer.ok) { say(answer.cancelled ? "Cancelled. Nothing was added." : answer.message); return; }
-          m.setCredit(creditForMade({ path: answer.path, title: titleFromPrompt(words), kind: work === "picture" ? "image" : "audio", service: id, model: answer.model, prompt: words, madeAt: nowStamp() }));
+          m.setCredit(creditForMade({ path: answer.path, title: titleFromPrompt(words), kind: "image", service: id, model: answer.model, prompt: words, madeAt: nowStamp() }));
           await reload(answer.path);
-          await showMade(result, work, answer.path, words);
-          say(`The ${work} is made and saved in the project as ${answer.path.split("/").pop()}, with a credit that says an AI service made it.`);
+          await showMade(result, answer.path, words);
+          say(`The picture is made and saved in the project as ${answer.path.split("/").pop()}, with a credit that says an AI service made it.`);
         } catch (err) {
           say(errorText(err));
         } finally {
@@ -494,21 +482,20 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
       });
       cancel.addEventListener("click", () => void b.cancelJob());
       return h("section", { class: "ai-service", "aria-labelledby": `${prefix}-h` }, heading,
-        h("div", { class: "field" }, h("label", { for: prompt.id, text: work === "picture" ? "Describe the picture" : "Describe the sound" }), prompt, h("p", { class: "note", text: hint })),
-        ...(work === "picture"
-          ? [h("div", { class: "field" }, h("label", { for: shape.id, text: "Shape" }), shape), h("div", { class: "field" }, h("label", { for: quality.id, text: "Quality" }), quality)]
-          : [h("div", { class: "field" }, h("label", { for: secs.id, text: "Length in seconds (0.5 to 30, or empty to let the service decide)" }), secs)]),
+        h("div", { class: "field" }, h("label", { for: prompt.id, text: "Describe the picture" }), prompt, h("p", { class: "note", text: hint })),
+        h("div", { class: "field" }, h("label", { for: shape.id, text: "Shape" }), shape),
+        h("div", { class: "field" }, h("label", { for: quality.id, text: "Quality" }), quality),
         h("div", { class: "btn-row" }, go, cancel),
         h("p", { class: "note", text: `Each time you choose this, ${svc.name} charges your account. Your description is sent to ${svc.name}; nothing else from your course is.` }),
         result);
     }
 
     function renderMake(): void {
-      makeBody.replaceChildren(makeSection("picture", "openai"), makeSection("sound", "elevenlabs"));
+      makeBody.replaceChildren(makeSection("openai"));
     }
 
     panels[2]!.append(
-      h("p", { class: "note", text: "Make a picture or a sound from words, with a service you have your own key for. What you make is saved in your project, with a credit that says an AI service made it and the words you gave. The credit is shown on the credits page, and you still write the alt text yourself." }),
+      h("p", { class: "note", text: "Make a picture from words, with a service you have your own key for. What you make is saved in your project, with a credit that says an AI service made it and the words you gave. The credit is shown on the credits page, and you still write the alt text yourself." }),
       makeBody,
     );
     renderMake();

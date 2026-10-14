@@ -36,9 +36,9 @@ Speech engine (installed separately by the user; not included, bundled or hosted
   Author does not include, bundle, or host them. They keep their own licences.
 
 AI services and voice plugins (connected by the user; not included, bundled or hosted by OpenStage Author)
-  The editor can make voices, pictures and sounds with OpenAI (https://openai.com) and
-  ElevenLabs (https://elevenlabs.io), and can run speech models the user installs as plugins.
-  OpenStage Author includes no service, model, key or account of theirs. The user supplies their
+  The editor can make voices and pictures with OpenAI (https://openai.com), and can run
+  speech models the user installs as plugins. OpenStage Author includes no service, model,
+  key or account of theirs. The user supplies their
   own key, and the service's own terms and privacy rules apply to what is sent to it and to what
   it makes. A plugin is a separate program with its own licence. The example plugin in
   examples/plugins is part of OpenStage Author (Apache License 2.0). No component of these

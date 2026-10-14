@@ -1,4 +1,4 @@
-"""Tests for the speech, picture and sound engines and the plugin runner. Nothing here reaches the internet: the services are
+"""Tests for the speech and picture engines and the plugin runner. Nothing here reaches the internet: the services are
 played by stand-ins that record what they were asked and answer as the services' documentation says they do, and the plugin
 tests run the example plugin in examples/plugins for real. Run with:  python tools/test_engines.py
 """
@@ -18,8 +18,9 @@ import wave
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import engines  # noqa: E402
 import generate  # noqa: E402
+import live_test  # noqa: E402
 import narrate  # noqa: E402
-from engines import common, elevenlabs_engine, openai_engine, plugins  # noqa: E402
+from engines import common, openai_engine, plugins  # noqa: E402
 from engines.common import EngineError  # noqa: E402
 
 EXAMPLES = pathlib.Path(__file__).resolve().parent.parent / "examples" / "plugins"
@@ -115,6 +116,15 @@ class WebRequests(unittest.TestCase):
         self.assertIn("Could not reach Acme", str(ctx.exception))
 
 
+class KeyProblems(unittest.TestCase):
+    def test_a_400_that_is_about_the_key_is_said_to_be_about_the_key(self):
+        # ElevenLabs answers a key ID pasted in place of the key with a 400, not a 401.
+        with self.assertRaises(EngineError) as ctx:
+            common.call("ElevenLabs", "abc", Fake((400, {"detail": {"message": "API key ID used as API key - only valid API keys can be used."}})), "GET", "https://x.test/", {})
+        self.assertIn("did not accept the key", str(ctx.exception))
+        self.assertIn("It said: API key ID used as API key", str(ctx.exception))
+
+
 class Audio(unittest.TestCase):
     def test_raw_samples_become_a_wav_file(self):
         wav = common.wav_from_pcm(pcm(2.0))
@@ -208,78 +218,10 @@ class OpenAI(unittest.TestCase):
         self.assertEqual((fake.calls[0]["method"], fake.calls[0]["url"]), ("GET", "https://api.openai.com/v1/models"))
 
 
-class ElevenLabs(unittest.TestCase):
-    VOICE = "21m00Tcm4TlvDq8ikWAM"
-
-    def test_speech_asks_for_raw_samples(self):
-        fake = Fake((200, pcm(1.0)))
-        speech = elevenlabs_engine.speak("Hello there.", self.VOICE, 1.0, KEY, "", fake)
-        call = fake.calls[0]
-        self.assertEqual(call["url"], f"https://api.elevenlabs.io/v1/text-to-speech/{self.VOICE}?output_format=pcm_24000")
-        self.assertEqual(call["headers"]["xi-api-key"], KEY)
-        self.assertNotIn("Authorization", call["headers"])
-        self.assertEqual(call["body"], {"text": "Hello there.", "model_id": "eleven_multilingual_v2", "voice_settings": {"speed": 1.0}})
-        self.assertAlmostEqual(seconds_of(speech.wav), 1.0, places=2)
-
-    def test_the_speed_is_held_to_what_the_service_takes(self):
-        fake = Fake((200, pcm(0.5)))
-        elevenlabs_engine.speak("Hi.", self.VOICE, 3, KEY, "", fake)
-        elevenlabs_engine.speak("Hi.", self.VOICE, 0.5, KEY, "", fake)
-        self.assertEqual([c["body"]["voice_settings"]["speed"] for c in fake.calls], [1.2, 0.7])
-
-    def test_a_voice_id_cannot_change_the_address(self):
-        fake = Fake((200, pcm(0.5)))
-        for bad in ("../v1/user", "abc", "x" * 60, "a b c d e f g h i j", ""):
-            with self.assertRaises(EngineError):
-                elevenlabs_engine.speak("Hi.", bad, 1, KEY, "", fake)
-        self.assertEqual(fake.calls, [])
-
-    def test_a_sound_effect(self):
-        fake = Fake((200, b"ID3\x04" + b"\x00" * 20))
-        data, model = elevenlabs_engine.sound("A door closing", 3, KEY, fake)
-        self.assertTrue(data.startswith(b"ID3"))
-        call = fake.calls[0]
-        self.assertEqual(call["url"], "https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128")
-        self.assertEqual(call["body"], {"text": "A door closing", "model_id": "eleven_text_to_sound_v2", "duration_seconds": 3.0})
-
-    def test_a_sound_can_leave_its_length_to_the_service(self):
-        fake = Fake((200, b"\xff\xfb\x90\x00" + b"\x00" * 20))
-        elevenlabs_engine.sound("Rain", None, KEY, fake)
-        self.assertNotIn("duration_seconds", fake.calls[0]["body"])
-
-    def test_sound_choices_are_checked_before_anything_is_sent(self):
-        fake = Fake((200, b"ID3"))
-        for args in (("", 3), ("Rain", 0.1), ("Rain", 31), ("x" * 1001, 3)):
-            with self.assertRaises(EngineError):
-                elevenlabs_engine.sound(*args, KEY, fake)
-        with self.assertRaises(EngineError):
-            elevenlabs_engine.sound("Rain", 3, KEY, Fake((200, b"not sound")))
-        self.assertEqual(fake.calls, [])
-
-    def test_only_ready_made_voices_are_listed(self):
-        page1 = {"voices": [
-            {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "category": "premade", "labels": {"gender": "female", "accent": "American", "age": "young"}},
-            {"voice_id": "AAAAAAAAAAAAAAAAAAAA", "name": "My clone", "category": "cloned"},
-            {"voice_id": "BBBBBBBBBBBBBBBBBBBB", "name": "Designed", "category": "generated"},
-        ], "has_more": True, "next_page_token": "tok_2"}
-        page2 = {"voices": [{"voice_id": "CCCCCCCCCCCCCCCCCCCC", "name": "adam", "category": "premade", "labels": {}}], "has_more": False}
-        fake = Fake((200, page1), (200, page2))
-        voices = elevenlabs_engine.list_voices(KEY, fake)
-        self.assertEqual([v["name"] for v in voices], ["adam", "Rachel"])
-        self.assertEqual(voices[1], {"id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "hint": "female, American, young"})
-        self.assertIn("category=premade", fake.calls[0]["url"])
-        self.assertIn("next_page_token=tok_2", fake.calls[1]["url"])
-
-    def test_a_list_that_is_not_json_is_refused(self):
-        with self.assertRaises(EngineError):
-            elevenlabs_engine.list_voices(KEY, Fake((200, b"<html>")))
-
-
 class Choosing(unittest.TestCase):
     def test_a_voice_names_its_engine(self):
         self.assertEqual(engines.split_voice("af_heart"), ("kokoro", "af_heart"))
         self.assertEqual(engines.split_voice("openai:alloy"), ("openai", "alloy"))
-        self.assertEqual(engines.split_voice("elevenlabs:21m00Tcm4TlvDq8ikWAM"), ("elevenlabs", "21m00Tcm4TlvDq8ikWAM"))
         self.assertEqual(engines.split_voice("my-plugin:a:b"), ("my-plugin", "a:b"))
 
     def test_openais_voices_come_from_the_one_shared_list(self):
@@ -293,7 +235,9 @@ class Choosing(unittest.TestCase):
         self.assertEqual(engines.status(engines.Config(allow_network=["openai"], env={}), "openai:alloy")[0], False)
         self.assertIn("key", engines.status(engines.Config(allow_network=["openai"], env={}), "openai:alloy")[1])
         self.assertEqual(engines.status(engines.Config(allow_network=["openai"], env=env), "openai:alloy"), (True, ""))
-        self.assertEqual(engines.status(engines.Config(allow_network=["elevenlabs"], env=env), "openai:alloy")[0], False, "each service is allowed separately")
+        self.assertEqual(engines.status(engines.Config(allow_network=["somewhere-else"], env=env), "openai:alloy")[0], False, "permission is for one service by name")
+        gone = engines.status(engines.Config(allow_network=["elevenlabs"], env={engines.key_variable("elevenlabs"): KEY}), "elevenlabs:21m00Tcm4TlvDq8ikWAM")
+        self.assertEqual(gone[0], False, "a service that is no longer here is not reached, whatever the settings say")
 
     def test_kokoro_is_always_allowed_here(self):
         self.assertEqual(engines.status(engines.Config(), "af_heart"), (True, ""))
@@ -534,8 +478,8 @@ class Narrating(unittest.TestCase):
         self.assertTrue(result["c"]["audio"], "another engine is not held up by it")
 
     def test_the_command_line_is_read(self):
-        self.assertEqual(narrate.parse_args(["P", "--allow-network", "openai,elevenlabs", "--plugins-dir", "D", "--plugins-enabled", "a,b"]),
-                         ("P", {"only": None, "cache_root": None, "allow_network": {"openai", "elevenlabs"}, "plugins_dir": "D", "plugins_enabled": {"a", "b"}}))
+        self.assertEqual(narrate.parse_args(["P", "--allow-network", "openai", "--plugins-dir", "D", "--plugins-enabled", "a,b"]),
+                         ("P", {"only": None, "cache_root": None, "allow_network": {"openai"}, "plugins_dir": "D", "plugins_enabled": {"a", "b"}}))
         self.assertIsNone(narrate.parse_args(["P", "--allow-network"]))
         self.assertIsNone(narrate.parse_args(["P", "--plugins-dir"]))
 
@@ -550,12 +494,10 @@ class Generating(unittest.TestCase):
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="openstage-generate-test-"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
 
-    def config(self, fake, allow=("openai", "elevenlabs"), openai=KEY, eleven=KEY, plugins_dir=None, enabled=()):
+    def config(self, fake, allow=("openai",), openai=KEY, plugins_dir=None, enabled=()):
         env = {}
         if openai:
             env[engines.key_variable("openai")] = openai
-        if eleven:
-            env[engines.key_variable("elevenlabs")] = eleven
         return engines.Config(allow_network=allow, env=env, transport=fake, plugins_dir=plugins_dir, plugins_enabled=enabled)
 
     def test_a_picture_is_written_where_asked(self):
@@ -565,16 +507,9 @@ class Generating(unittest.TestCase):
         self.assertEqual(answer, {"ok": True, "bytes": len(PNG), "format": "png", "service": "openai", "model": "gpt-image-1"})
         self.assertEqual(out.read_bytes(), PNG)
 
-    def test_a_sound_is_written_where_asked(self):
-        out = self.tmp / "made.mp3"
-        answer = generate.run("sound", {"service": "elevenlabs", "prompt": "Rain", "seconds": 4, "out": str(out)}, self.config(Fake((200, b"ID3" + b"\x00" * 9))))
-        self.assertTrue(answer["ok"])
-        self.assertEqual(answer["format"], "mp3")
-        self.assertTrue(out.read_bytes().startswith(b"ID3"))
-
     def test_nothing_happens_for_a_service_that_was_not_allowed(self):
         fake = Fake((200, {}))
-        for op, request in (("check", {"service": "openai"}), ("voices", {"service": "elevenlabs"}),
+        for op, request in (("check", {"service": "openai"}),
                             ("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.png")})):
             answer = generate.run(op, request, self.config(fake, allow=()))
             self.assertFalse(answer["ok"], op)
@@ -585,11 +520,11 @@ class Generating(unittest.TestCase):
         answer = generate.run("check", {"service": "openai"}, self.config(Fake((200, {})), openai=""))
         self.assertEqual(answer, {"ok": False, "message": "There is no OpenAI key. Add it in Settings."})
 
-    def test_a_service_does_only_what_it_does(self):
+    def test_a_service_openstage_does_not_have_is_said_so(self):
         out = str(self.tmp / "x.png")
-        self.assertIn("does not offer", generate.run("picture", {"service": "elevenlabs", "prompt": "x", "size": "square", "quality": "low", "out": out}, self.config(Fake((200, {}))))["message"])
-        self.assertIn("does not offer", generate.run("sound", {"service": "openai", "prompt": "x", "out": str(self.tmp / "x.mp3")}, self.config(Fake((200, {}))))["message"])
-        self.assertIn("not a service OpenStage knows", generate.run("check", {"service": "midjourney"}, self.config(Fake((200, {}))))["message"])
+        for name in ("midjourney", "elevenlabs"):
+            self.assertIn("not a service OpenStage knows", generate.run("check", {"service": name}, self.config(Fake((200, {}))))["message"], name)
+            self.assertIn("not a service OpenStage knows", generate.run("picture", {"service": name, "prompt": "x", "size": "square", "quality": "low", "out": out}, self.config(Fake((200, {}))))["message"], name)
 
     def test_the_result_goes_only_where_it_makes_sense(self):
         fake = Fake((200, {"data": [{"b64_json": base64.b64encode(PNG).decode()}]}))
@@ -603,11 +538,6 @@ class Generating(unittest.TestCase):
         self.assertFalse(answer["ok"])
         self.assertIn("rejected by the safety system", answer["message"])
 
-    def test_the_voices_of_an_account(self):
-        fake = Fake((200, {"voices": [{"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "category": "premade", "labels": {"gender": "female"}}], "has_more": False}))
-        answer = generate.run("voices", {"service": "elevenlabs"}, self.config(fake))
-        self.assertEqual(answer["voices"], [{"id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "hint": "female"}])
-
     def test_plugins_are_listed_without_running_anything(self):
         answer = generate.run("plugins", {}, self.config(Fake((200, {})), plugins_dir=str(EXAMPLES), enabled=("tone-voice",)))
         self.assertTrue(answer["ok"])
@@ -619,9 +549,160 @@ class Generating(unittest.TestCase):
         self.assertEqual(generate.parse_args(["picture", "--allow-network", "openai"]), ("picture", {"allow_network": {"openai"}, "plugins_dir": None, "plugins_enabled": set()}))
         self.assertIsNone(generate.parse_args([]))
         self.assertIsNone(generate.parse_args(["nonsense"]))
-        self.assertIsNone(generate.parse_args(["picture", "sound"]))
+        self.assertIsNone(generate.parse_args(["picture", "check"]))
+        for gone in ("voices", "sound"):
+            self.assertIsNone(generate.parse_args([gone]), f"{gone} went with the service that did it")
         self.assertIsNone(generate.parse_args(["picture", "--allow-network"]))
 
+
+
+class LiveTestScript(unittest.TestCase):
+    """tools/live_test.py is what Jason runs with a real key. It is tried here against stand-in services, so it is known to work before it spends anything."""
+
+    OPENAI_KEY = "sk-live-secret-key-123456"
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="openstage-live-script-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(plugins.close_all)
+        self.saved_output = live_test.OUTPUT
+        live_test.OUTPUT = self.tmp / "out"
+        self.addCleanup(setattr, live_test, "OUTPUT", self.saved_output)
+        self.calls = []
+
+    def internet(self, status=200):
+        """Stand-in services that answer as their documentation says."""
+        def transport(method, url, headers, body, timeout):
+            self.calls.append((method, url))
+            if status != 200:
+                return status, json.dumps({"error": {"message": "Incorrect API key provided"}}).encode("utf-8")
+            if url.startswith("https://api.openai.com/v1/models"):
+                return 200, b'{"data": []}'
+            if url.endswith("/v1/audio/speech"):
+                return 200, pcm(2.0)
+            if url.endswith("/v1/images/generations"):
+                return 200, json.dumps({"data": [{"b64_json": base64.b64encode(PNG).decode()}]}).encode("utf-8")
+            raise AssertionError(f"unexpected request: {method} {url}")
+        return transport
+
+    def run_it(self, answers, transport=None, env=None):
+        said, asked, secrets_asked = [], [], []
+        replies = iter(answers)
+
+        def ask(question):
+            asked.append(question)
+            return next(replies)
+
+        def secret(question):
+            secrets_asked.append(question)
+            return next(replies)
+
+        results = live_test.run_live_test(ask, secret, said.append, transport=transport, env=env if env is not None else {})
+        return results, said, asked, secrets_asked
+
+    def test_nothing_is_asked_of_a_service_that_is_declined_and_the_free_checks_still_run(self):
+        results, said, asked, secrets_asked = self.run_it(["n"])
+        self.assertEqual([r.name for r in results], ["Publishing sends nothing", "The example voice plugin works"])
+        self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
+        self.assertEqual(secrets_asked, [], "no key is asked for a service that is not tested")
+        self.assertEqual(self.calls, [])
+        self.assertTrue((live_test.OUTPUT / "live-test-results.txt").is_file())
+        self.assertTrue((live_test.OUTPUT / "example-plugin.wav").is_file())
+
+    def test_a_working_service_passes_every_step_and_keeps_what_it_made(self):
+        results, said, asked, secrets_asked = self.run_it(["y", self.OPENAI_KEY], transport=self.internet())
+        self.assertEqual(len(results), 5)
+        self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
+        for name in ("openai-voice.wav", "openai-picture.png", "example-plugin.wav"):
+            self.assertTrue((live_test.OUTPUT / name).is_file(), name)
+        self.assertEqual((live_test.OUTPUT / "openai-picture.png").read_bytes(), PNG)
+        self.assertEqual(len(secrets_asked), 1)
+        self.assertIn(("POST", "https://api.openai.com/v1/audio/speech"), self.calls)
+        self.assertIn(("POST", "https://api.openai.com/v1/images/generations"), self.calls)
+        self.assertIn("Everything that was tried worked.", (live_test.OUTPUT / "live-test-results.txt").read_text(encoding="utf-8"))
+
+    def test_a_key_is_never_shown_or_written(self):
+        _, said, _, _ = self.run_it(["y", self.OPENAI_KEY], transport=self.internet())
+        shown = " ".join(said)
+        self.assertNotIn(self.OPENAI_KEY, shown)
+        for path in live_test.OUTPUT.glob("*.txt"):
+            self.assertNotIn(self.OPENAI_KEY, path.read_text(encoding="utf-8"))
+
+    def test_a_wrong_key_fails_plainly_and_does_not_leak(self):
+        results, said, _, _ = self.run_it(["y", self.OPENAI_KEY], transport=self.internet(status=401))
+        failed = [r for r in results if r.ok is False]
+        self.assertEqual(len(failed), 1, [r.line() for r in results])
+        self.assertIn("did not accept the key", failed[0].detail)
+        self.assertEqual([r.ok for r in results][-2:], [False, None], "the rest of that service is not tried, and the report says so")
+        self.assertEqual(len([c for c in self.calls if "api.openai.com" in c[1]]), 1, "only the key check reached the service")
+        everything = "\n".join(said) + (live_test.OUTPUT / "live-test-results.txt").read_text(encoding="utf-8")
+        self.assertNotIn(self.OPENAI_KEY, everything)
+        self.assertIn("did not work. Send this file back", everything)
+
+    def test_a_key_in_the_environment_is_used_without_asking_for_it(self):
+        env = {engines.key_variable("openai"): self.OPENAI_KEY}
+        results, said, _, secrets_asked = self.run_it(["y"], transport=self.internet(), env=env)
+        self.assertEqual(secrets_asked, [])
+        self.assertTrue(any("using the key in OPENSTAGE_KEY_OPENAI" in line for line in said))
+        self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
+
+    def test_no_key_typed_means_not_tested_rather_than_a_crash(self):
+        results, _, _, secrets_asked = self.run_it(["y", "", "", ""], transport=self.internet())
+        self.assertFalse(results[-1].ok)
+        self.assertIn("not tested", results[-1].detail)
+        self.assertEqual(len(secrets_asked), 3, "asked three times, then given up on")
+        self.assertEqual(self.calls, [])
+
+    def test_something_that_cannot_be_a_key_is_asked_for_again_before_anything_is_sent(self):
+        # A single "y" typed at the key prompt is what a real run sent to OpenAI the first time.
+        results, said, _, secrets_asked = self.run_it(["y", "y", "has a space in it and is long enough", self.OPENAI_KEY], transport=self.internet())
+        self.assertEqual(len(secrets_asked), 3)
+        self.assertTrue(any("only 1 character," in line for line in said), said)
+        self.assertTrue(any("no spaces" in line for line in said), said)
+        self.assertTrue(any("Got it: 25 characters, starting sk-" in line for line in said), said)
+        self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
+
+    def test_a_key_that_starts_wrongly_is_questioned_and_can_be_used_anyway(self):
+        odd = "abcdefghijklmnopqrstuvwxyz0123"
+        results, said, asked, _ = self.run_it(["y", odd, "n", self.OPENAI_KEY], transport=self.internet())
+        self.assertTrue(any("start with sk-" in line for line in said), said)
+        self.assertIn("  Use it anyway? (y/n) ", asked)
+        self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
+        sent = []
+        inner = self.internet()
+
+        def watching(method, url, headers, body, timeout):
+            sent.append(headers.get("Authorization"))
+            return inner(method, url, headers, body, timeout)
+
+        self.run_it(["y", odd, "y"], transport=watching)
+        self.assertEqual(sent[0], f"Bearer {odd}", "used anyway when the author says so")
+
+    def test_a_pasted_key_shows_a_star_for_each_character_and_nothing_more(self):
+        typed = iter(list("sk-abc") + ["\x08", "d", "\x00", "H", "\r"])  # the backspace removes c; the special key and its code are ignored
+        out = []
+        got = live_test.read_masked("Key: ", lambda: next(typed), out.append)
+        self.assertEqual(got, "sk-abd")
+        self.assertEqual("".join(out), "Key: ******\b \b*\n")
+        keys = iter(["a", "\x03"])
+        with self.assertRaises(KeyboardInterrupt):
+            live_test.read_masked("", lambda: next(keys), lambda text: None)
+
+    def test_a_step_that_breaks_unexpectedly_is_a_failed_step_and_the_rest_go_on(self):
+        def odd(method, url, headers, body, timeout):
+            if url.endswith("/v1/images/generations"):
+                raise RuntimeError(f"surprise containing {self.OPENAI_KEY}")
+            return self.internet()(method, url, headers, body, timeout)
+        results, said, _, _ = self.run_it(["y", self.OPENAI_KEY], transport=odd)
+        picture = next(r for r in results if r.name == "OpenAI makes a picture")
+        self.assertFalse(picture.ok)
+        self.assertNotIn(self.OPENAI_KEY, picture.detail)
+        self.assertTrue(next(r for r in results if r.name == "OpenAI makes a voice").ok)
+
+    def test_the_batch_file_runs_the_script(self):
+        bat = (pathlib.Path(__file__).resolve().parent.parent / "TEST AI SERVICES.bat").read_bytes()
+        self.assertIn(b"tools\\live_test.py", bat)
+        self.assertIn(b"\r\n", bat, "a batch file needs Windows line endings for labels and blocks to work")
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

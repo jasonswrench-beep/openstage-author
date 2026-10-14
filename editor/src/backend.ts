@@ -115,10 +115,10 @@ export interface Backend {
   aiPlugins(): Promise<PluginList>;
   /** The folder the author puts voice plugins in, made if it is not there yet. */
   aiPluginsFolder(): Promise<string>;
-  /** Ask a service something free: whether the author's key works ("check"), or which ready-made voices the account has ("voices"). */
-  aiService(op: "check" | "voices", service: ServiceId): Promise<ServiceAnswer>;
-  /** Make a picture or a sound with a service and save it in the project's assets. This costs the author money. */
-  aiMake(dir: string, kind: "picture" | "sound", request: Record<string, unknown>): Promise<MadeAnswer>;
+  /** Ask a service something free: whether the author's key works ("check"). */
+  aiService(op: "check", service: ServiceId): Promise<ServiceAnswer>;
+  /** Make a picture with a service and save it in the project's images. This costs the author money. */
+  aiMake(dir: string, kind: "picture", request: Record<string, unknown>): Promise<MadeAnswer>;
   /** A URL the page can show an image from, for a file inside the project's assets folder. */
   assetUrl(dir: string, path: string): Promise<string>;
   /**

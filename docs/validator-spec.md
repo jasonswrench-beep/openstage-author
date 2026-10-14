@@ -285,7 +285,7 @@ alt text and a tab order of 1 or more like the other controls.
 | An asset that requires credit lacks its creator, source link or licence (`credit-incomplete`) | Credit is required but incomplete |
 | An asset that requires credit is used and `credits` is off (`credit-page-off`, warning) | This project uses an asset that needs credit, but the credits page is off |
 | `assets.json` names a `generated` source with no `generated` record, a record on any other source, or a record that is missing its service, model, prompt or time, or whose prompt is blank or time is not a UTC date-time (`schema`) | (the schema's message) |
-| Narration uses an OpenAI or ElevenLabs voice and `credits` is off (`voice-credit-page-off`, warning) | This course has OpenAI voices, but the credits page is off |
+| Narration uses an OpenAI voice and `credits` is off (`voice-credit-page-off`, warning) | This course has OpenAI voices, but the credits page is off |
 
 ### Results and certificates — warnings
 
@@ -414,7 +414,7 @@ above has a test. Decisions made while building it:
   themes exist. Large text (24px, or 18.66px bold) needs 3:1, all other text 4.5:1.
 - **IPA validity** is a character-set check, not a phonological one.
 - **Voice set** is `tools/kokoro-voices.json`, checked against the 54 voices published for Kokoro-82M. A voice may instead be `engine:voice` (see docs/format-spec.md, "Voices"):
-  OpenAI's are checked against `tools/openai-voices.json`, ElevenLabs' by the shape of a voice id, and any other engine's by shape only, because a plugin's voices are known only on the
+  OpenAI's are checked against `tools/openai-voices.json`, and any other engine's by shape only, because a plugin's voices are known only on the
   computer it is installed on. `voice-unknown` is reported for a name that cannot be right in any of these ways.
 - **Added beyond the tables:** slide id must match its file name (error), slide files not
   in any scene (warning), quiz and simulation feedback layers must exist (error).

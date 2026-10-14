@@ -1,7 +1,7 @@
 // The two dialogs for AI services.
 //
-// "AI services" is where the author adds a key for OpenAI or ElevenLabs, says yes to a service sending it their words, chooses the
-// model, fetches the voices on their ElevenLabs account, and switches voice plugins on. The permission question is asked the first
+// "AI services" is where the author adds a key for OpenAI, says yes to it sending their words, chooses the
+// model, and switches voice plugins on. The permission question is asked the first
 // time something would be sent to a service, in the place where the author asked for it (making narration audio, a picture or a sound).
 //
 // Both are native <dialog>s, so focus moves in, Tab stays inside, Escape closes them and focus returns to what opened them. Nothing is
@@ -105,7 +105,7 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
     const say = (text: string) => { status.textContent = text; };
 
     const intro = h("div", {},
-      h("p", { text: "Make voices, pictures and sounds with a service you have your own key for, and use other voice models through plugins. Nothing is sent anywhere until you add a key and say yes to that service." }),
+      h("p", { text: "Make voices and pictures with a service you have your own key for, and use other voice models through plugins. Nothing is sent anywhere until you add a key and say yes to that service." }),
       h("p", { class: "note", text: "Your keys are kept on this computer only, in OpenStage's own settings. They are never saved in a project, so sharing a project never shares a key. Voices are always the ready-made ones a service offers: OpenStage does not copy anyone's voice." }));
 
     // ---- one block for each service
@@ -114,9 +114,9 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
       const key = h("input", { id: `${prefix}-key`, type: "password", autocomplete: "off", spellcheck: "false" });
       const show = h("button", { type: "button", class: "small", text: "Show", "aria-label": `Show the ${svc.name} key`, "aria-pressed": "false" });
       show.addEventListener("click", () => { const shown = key.type === "text"; key.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide"; show.setAttribute("aria-pressed", String(!shown)); });
-      const get = h("button", { type: "button", class: "small", text: `Get a ${svc.name} key` });
+      const get = h("button", { type: "button", class: "small", text: `Get your ${svc.name} key` });
       get.addEventListener("click", () => void b.openUrl(svc.keyUrl));
-      const works = svc.works.map((w) => (w === "voice" ? "voices" : w === "picture" ? "pictures" : "sound effects")).join(", ");
+      const works = svc.works.map((w) => (w === "voice" ? "voices" : "pictures")).join(", ");
       const permit = h("input", { id: `${prefix}-allow`, type: "checkbox" });
       const sendsList = svc.works.map((w) => svc.sends[w]).filter(Boolean).join(" and ");
       const models = svc.models;
@@ -128,14 +128,9 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
         return [{ kind, input, row: h("div", { class: "field" }, h("label", { for: input.id, text: `${m.label} (empty uses ${m.fallback})` }), input) }];
       });
       const check = h("button", { type: "button", class: "small", text: "Check the key" });
-      const fetchVoices = svc.id === "elevenlabs" ? h("button", { type: "button", class: "small", text: "Get my voices" }) : null;
-      const voiceCount = svc.id === "elevenlabs" ? h("p", { class: "note", id: `${prefix}-voices` }) : null;
 
       const readKey = () => { ai = withKey(ai, svc.id, key.value); };
-      const refresh = () => {
-        permit.checked = isAllowed(ai, svc.id);
-        if (voiceCount) voiceCount.textContent = ai.voices.elevenlabs.length === 0 ? "No voices fetched yet. After your key is checked and you have said yes, choose Get my voices to see the ready-made voices on your account." : `${ai.voices.elevenlabs.length} ready-made voices from your account are in the voice list.`;
-      };
+      const refresh = () => { permit.checked = isAllowed(ai, svc.id); };
       key.addEventListener("change", () => {
         const was = isAllowed(ai, svc.id);
         readKey();
@@ -145,36 +140,27 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
       permit.addEventListener("change", () => { ai = permit.checked ? allow(ai, svc.id, nowStamp()) : withdraw(ai, svc.id); refresh(); });
 
       /** Talk to the service about the key. The tool checks the author's yes in the saved settings, so the settings are saved first. */
-      const ask = async (op: "check" | "voices") => {
+      const ask = async () => {
         readKey();
         if (!hasKey(ai, svc.id)) { say(`Type your ${svc.name} key first.`); key.focus(); return; }
         if (!isAllowed(ai, svc.id)) { say(`Tick "Allow OpenStage to send ..." for ${svc.name} first. This button contacts ${svc.name} with your key.`); permit.focus(); return; }
         try {
           settings = await updateSettings(b, (s) => ({ ...s, ai }));
-          say(op === "check" ? `Checking your ${svc.name} key...` : `Asking ${svc.name} for the voices on your account...`);
-          const answer = await b.aiService(op, svc.id);
-          if (!answer.ok) { say(answer.message); return; }
-          if (op === "voices") {
-            ai = { ...ai, voices: { ...ai.voices, elevenlabs: answer.voices } };
-            refresh();
-            say(answer.voices.length === 0 ? "Your account has no ready-made voices to list." : `Found ${answer.voices.length} ready-made voices. They are in the voice list once you save.`);
-          } else {
-            say(`${svc.name} accepted the key.`);
-          }
+          say(`Checking your ${svc.name} key...`);
+          const answer = await b.aiService("check", svc.id);
+          say(answer.ok ? `${svc.name} accepted the key.` : answer.message);
         } catch (err) {
           say(errorText(err));
         }
       };
-      check.addEventListener("click", () => void ask("check"));
-      fetchVoices?.addEventListener("click", () => void ask("voices"));
+      check.addEventListener("click", () => void ask());
 
       const section = h("section", { class: "ai-service", "aria-labelledby": `${prefix}-h` },
         h("h3", { id: `${prefix}-h`, text: `${svc.name} (${works})` }),
         h("p", { class: "note", text: svc.blurb }),
         h("div", { class: "field" }, h("label", { for: key.id, text: `${svc.name} ${svc.keyName}` }), h("span", { class: "as-keyrow" }, key, show, get)),
         h("div", { class: "field check" }, permit, h("label", { for: permit.id, text: `Allow OpenStage to send ${svc.name} ${sendsList}` })),
-        h("div", { class: "btn-row" }, check, ...(fetchVoices ? [fetchVoices] : [])),
-        ...(voiceCount ? [voiceCount] : []),
+        h("div", { class: "btn-row" }, check),
         ...(modelInputs.length ? [h("details", {}, h("summary", { text: `${svc.name} models (advanced)` }), h("p", { class: "note", text: "Services change their model names from time to time. If one stops working, type the new name here." }), ...modelInputs.map((m) => m.row))] : []),
       );
       const fill = () => {

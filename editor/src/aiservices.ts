@@ -1,4 +1,4 @@
-// AI services in the editor: pictures, sounds and voices from a service the author has their own key for (OpenAI, ElevenLabs),
+// AI services in the editor: pictures and voices from a service the author has their own key for (OpenAI),
 // and voices from plugins the author has installed. Nothing here touches the network or a page: the editor keeps the author's
 // settings, works out which voices and which kinds of work are available, wording for the questions it has to ask, and the record
 // kept in assets.json for something a service made. The talking to the services is done by tools/generate.py and tools/narrate.py,
@@ -12,8 +12,8 @@ import openaiVoiceList from "../../tools/openai-voices.json" with { type: "json"
 import type { CreditEntry } from "../../player/src/types.ts";
 import { engineOf, type Narration, type VoiceSource, type VoiceTraits } from "./narration.ts";
 
-export type ServiceId = "openai" | "elevenlabs";
-export type Work = "voice" | "picture" | "sound";
+export type ServiceId = "openai";
+export type Work = "voice" | "picture";
 
 export interface ServiceInfo {
   id: ServiceId;
@@ -37,13 +37,6 @@ export const SERVICES: readonly ServiceInfo[] = [
     models: { speech: { label: "Voice model", fallback: "gpt-4o-mini-tts" }, picture: { label: "Picture model", fallback: "gpt-image-1" } },
     blurb: "Spoken voices (a fixed set of ready-made ones, in many languages) and pictures. You pay OpenAI for what you use.",
   },
-  {
-    id: "elevenlabs", name: "ElevenLabs", home: "https://elevenlabs.io/", keyUrl: "https://elevenlabs.io/app/settings/api-keys", keyName: "API key",
-    works: ["voice", "sound"],
-    sends: { voice: "the words of the narration scripts", sound: "the description of the sound you write" },
-    models: { speech: { label: "Voice model", fallback: "eleven_multilingual_v2" } },
-    blurb: "Spoken voices (only the ready-made ones on your account, never a cloned voice) and sound effects. You pay ElevenLabs for what you use.",
-  },
 ];
 
 export const serviceById = (id: ServiceId): ServiceInfo => SERVICES.find((s) => s.id === id)!;
@@ -54,13 +47,6 @@ export const OPENAI_VOICES: readonly { id: string; label: string }[] = openaiVoi
 
 // ---- the author's settings for all of this: kept with the program, never in a project
 
-/** A ready-made voice on the author's ElevenLabs account, as last fetched. */
-export interface ServiceVoice {
-  id: string;
-  name: string;
-  hint: string;
-}
-
 export interface AiSettings {
   keys: Record<ServiceId, string>;
   /** When the author said yes to a service sending it their text or descriptions, or "" if they have not. */
@@ -68,16 +54,13 @@ export interface AiSettings {
   models: Record<ServiceId, { speech: string; picture: string }>;
   /** The plugins switched on, by id. */
   plugins: Record<string, boolean>;
-  /** The account's ready-made ElevenLabs voices, kept so the list is there without asking the service each time. */
-  voices: { elevenlabs: ServiceVoice[] };
 }
 
 export const emptyAi = (): AiSettings => ({
-  keys: { openai: "", elevenlabs: "" },
-  allowed: { openai: "", elevenlabs: "" },
-  models: { openai: { speech: "", picture: "" }, elevenlabs: { speech: "", picture: "" } },
+  keys: { openai: "" },
+  allowed: { openai: "" },
+  models: { openai: { speech: "", picture: "" } },
   plugins: {},
-  voices: { elevenlabs: [] },
 });
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -93,13 +76,6 @@ export function parseAi(data: unknown): AiSettings {
     out.models[s.id] = { speech: text(models["speech"]).trim(), picture: text(models["picture"]).trim() };
   }
   for (const [id, on] of Object.entries(record(d["plugins"]))) if (on === true && /^[a-z][a-z0-9-]{1,30}$/.test(id)) out.plugins[id] = true;
-  const voices = record(d["voices"])["elevenlabs"];
-  if (Array.isArray(voices)) {
-    out.voices.elevenlabs = voices.flatMap((v) => {
-      const r = record(v);
-      return text(r["id"]) !== "" && text(r["name"]) !== "" ? [{ id: text(r["id"]), name: text(r["name"]), hint: text(r["hint"]) }] : [];
-    });
-  }
   return out;
 }
 
@@ -118,7 +94,7 @@ export function withdraw(ai: AiSettings, id: ServiceId): AiSettings {
   return { ...ai, allowed: { ...ai.allowed, [id]: "" } };
 }
 
-/** A different key is a different account, so the yes given to the old one does not carry over, and the voices fetched with it are forgotten. */
+/** A different key is a different account, so the yes given to the old one does not carry over. */
 export function withKey(ai: AiSettings, id: ServiceId, key: string): AiSettings {
   const next = key.trim();
   if (next === ai.keys[id]) return ai;
@@ -126,7 +102,6 @@ export function withKey(ai: AiSettings, id: ServiceId, key: string): AiSettings 
     ...ai,
     keys: { ...ai.keys, [id]: next },
     allowed: { ...ai.allowed, [id]: "" },
-    voices: id === "elevenlabs" ? { elevenlabs: [] } : ai.voices,
   };
 }
 
@@ -187,12 +162,6 @@ export function buildVoiceSources(ai: AiSettings, plugins: readonly PluginInfo[]
   const out: VoiceSource[] = [];
   if (usable(ai, "openai")) {
     out.push({ engine: "openai", name: "OpenAI", where: "internet", pronunciations: false, speed: null, voices: OPENAI_VOICES.map((v) => ({ id: `openai:${v.id}`, label: v.label, lang: null })) });
-  }
-  if (usable(ai, "elevenlabs") && ai.voices.elevenlabs.length > 0) {
-    out.push({
-      engine: "elevenlabs", name: "ElevenLabs", where: "internet", pronunciations: false, speed: { min: 0.7, max: 1.2 },
-      voices: ai.voices.elevenlabs.map((v) => ({ id: `elevenlabs:${v.id}`, label: v.hint ? `${v.name}, ${v.hint}` : v.name, lang: null })),
-    });
   }
   for (const p of plugins) {
     if (!p.enabled || p.voices.length === 0) continue;
@@ -324,7 +293,7 @@ export function permissionText(service: ServiceInfo, work: Work, detail: { narra
   ];
 }
 
-// ---- pictures and sounds
+// ---- pictures
 
 export const SHAPES: readonly { id: "square" | "wide" | "tall"; label: string }[] = [
   { id: "wide", label: "Wide (3 across, 2 down)" }, { id: "square", label: "Square" }, { id: "tall", label: "Tall (2 across, 3 down)" },
@@ -333,32 +302,21 @@ export const QUALITIES: readonly { id: "low" | "medium" | "high"; label: string 
   { id: "low", label: "Quick draft (costs the least)" }, { id: "medium", label: "Standard" }, { id: "high", label: "Best (costs the most)" },
 ];
 
-export const PROMPT_LIMIT: Record<"picture" | "sound", number> = { picture: 4000, sound: 1000 };
+/** The longest description of a picture that is sent. */
+export const PROMPT_LIMIT = 4000;
 
 /** Why a description cannot be sent, or null if it can. */
-export function promptProblem(prompt: string, work: "picture" | "sound"): string | null {
-  const noun = work === "picture" ? "picture" : "sound";
-  if (prompt.trim() === "") return `Describe the ${noun} first.`;
-  if (prompt.length > PROMPT_LIMIT[work]) return `That description is too long. Keep it under ${PROMPT_LIMIT[work]} characters.`;
+export function promptProblem(prompt: string): string | null {
+  if (prompt.trim() === "") return "Describe the picture first.";
+  if (prompt.length > PROMPT_LIMIT) return `That description is too long. Keep it under ${PROMPT_LIMIT} characters.`;
   return null;
-}
-
-export const SOUND_SECONDS = { min: 0.5, max: 30 };
-
-/** How long a sound should be, from what the author typed. Empty means "let the service decide". */
-export function parseSoundSeconds(raw: string): { ok: true; seconds: number | null } | { ok: false; message: string } {
-  const t = raw.trim();
-  if (t === "") return { ok: true, seconds: null };
-  const n = Number(t);
-  if (!Number.isFinite(n) || n < SOUND_SECONDS.min || n > SOUND_SECONDS.max) return { ok: false, message: `A sound can be ${SOUND_SECONDS.min} to ${SOUND_SECONDS.max} seconds long. Leave the box empty to let the service decide.` };
-  return { ok: true, seconds: Math.round(n * 10) / 10 };
 }
 
 /** "2026-10-14T10:30:00Z", the form assets.json keeps. */
 export const nowStamp = (d = new Date()): string => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-/** The record kept in assets.json for a picture or sound a service made. It says so on the credits page, and keeps the words that made it. */
-export function creditForMade(a: { path: string; title: string; kind: "image" | "audio"; service: ServiceId; model: string; prompt: string; madeAt: string }): CreditEntry {
+/** The record kept in assets.json for a picture a service made. It says so on the credits page, and keeps the words that made it. */
+export function creditForMade(a: { path: string; title: string; kind: "image"; service: ServiceId; model: string; prompt: string; madeAt: string }): CreditEntry {
   const s = serviceById(a.service);
   return {
     path: a.path, title: a.title, kind: a.kind,
@@ -370,13 +328,13 @@ export function creditForMade(a: { path: string; title: string; kind: "image" | 
   };
 }
 
-/** A short title for a made file, from its description. */
+/** A short title for a made picture, from its description. */
 export function titleFromPrompt(prompt: string): string {
   const words = prompt.trim().replace(/\s+/g, " ");
   return words.length <= 60 ? words : `${words.slice(0, 57).trimEnd()}...`;
 }
 
-/** What tools/generate.py answers for a picture or sound that was made and saved. */
+/** What tools/generate.py answers for a picture that was made and saved. */
 export type MadeAnswer = { ok: true; path: string; service: string; model: string } | { ok: false; message: string; cancelled?: boolean };
 
 export function parseMade(raw: string): MadeAnswer {
@@ -389,13 +347,13 @@ export function parseMade(raw: string): MadeAnswer {
   }
 }
 
-export type ServiceAnswer = { ok: true; voices: ServiceVoice[] } | { ok: false; message: string };
+export type ServiceAnswer = { ok: true } | { ok: false; message: string };
 
 export function parseServiceAnswer(raw: string): ServiceAnswer {
   try {
     const d = record(JSON.parse(raw) as unknown);
     if (d["ok"] !== true) return { ok: false, message: text(d["message"]) || "It did not work, and the service did not say why." };
-    return { ok: true, voices: parseAi({ voices: { elevenlabs: d["voices"] } }).voices.elevenlabs };
+    return { ok: true };
   } catch {
     return { ok: false, message: "The answer was not understood." };
   }

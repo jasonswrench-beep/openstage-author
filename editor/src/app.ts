@@ -219,7 +219,7 @@ export class App {
     this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
-    this.aiBtn = this.tool("AI services", "Keys for OpenAI and ElevenLabs, to make voices, pictures and sounds with them, and voice plugins", () => void this.openAiServicesDialog());
+    this.aiBtn = this.tool("AI services", "A key for OpenAI, to make voices and pictures with it, and voice plugins", () => void this.openAiServicesDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
     this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
     this.timelineBtn.setAttribute("aria-pressed", "false");

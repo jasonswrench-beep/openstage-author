@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, test } from "node:test";
 import {
   allow, audioPlan, availability, buildVoiceSources, creditForMade, disclosureNote, emptyAi, hasKey, isAllowed, nowStamp, OPENAI_VOICES, parseAi, parseMade, parsePlugins,
-  parseServiceAnswer, parseSoundSeconds, permissionText, promptProblem, SERVICES, serviceById, servicesToAsk, titleFromPrompt, usable, voiceLimits, voiceNote,
+  parseServiceAnswer, permissionText, promptProblem, SERVICES, serviceById, servicesToAsk, titleFromPrompt, usable, voiceLimits, voiceNote,
   withdraw, withKey, type AiSettings, type PluginInfo,
 } from "./aiservices.ts";
 import {
@@ -20,8 +20,7 @@ const plugin = (over: Partial<PluginInfo> = {}): PluginInfo => ({
 });
 
 const ready = (): AiSettings => ({
-  ...emptyAi(), keys: { openai: "sk-1", elevenlabs: "xi-1" }, allowed: { openai: "2026-10-14T10:00:00Z", elevenlabs: "2026-10-14T10:00:00Z" },
-  voices: { elevenlabs: [{ id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", hint: "female, American" }] },
+  ...emptyAi(), keys: { openai: "sk-1" }, allowed: { openai: "2026-10-14T10:00:00Z" },
 });
 
 const spoken = (voice: string, script = "Hello there."): Narration => ({ script, voice, speed: 1, lang: "en-US", pronunciations: [], audioCache: null });
@@ -37,12 +36,13 @@ test("settings start empty, and anything odd in them is ignored", () => {
     voices: { elevenlabs: [{ id: "a1", name: "Ann", hint: "calm" }, { id: "", name: "No id" }, "junk"] },
   });
   assert.equal(ai.keys.openai, "sk-1");
-  assert.equal(ai.keys.elevenlabs, "");
   assert.equal(ai.allowed.openai, "2026-10-14T10:00:00Z");
-  assert.equal(ai.allowed.elevenlabs, "", "only a time counts as a yes");
   assert.deepEqual(ai.models.openai, { speech: "tts-1", picture: "" });
   assert.deepEqual(ai.plugins, { "tone-voice": true });
-  assert.deepEqual(ai.voices.elevenlabs, [{ id: "a1", name: "Ann", hint: "calm" }]);
+  // A settings file from when ElevenLabs was part of this, or from anything else OpenStage does not know, is read without it.
+  assert.deepEqual(Object.keys(ai.keys), ["openai"]);
+  assert.deepEqual(Object.keys(ai.allowed), ["openai"]);
+  assert.equal("voices" in ai, false);
 });
 
 test("the AI settings travel with the stock keys in the one settings file, and an old file still loads", () => {
@@ -69,9 +69,6 @@ test("a service is used only with a key and the author's yes, and a new key is a
   assert.equal(isAllowed(withKey(ai, "openai", "sk-2"), "openai"), false, "another key may be another account");
   assert.equal(usable(withdraw(ai, "openai"), "openai"), false);
   assert.equal(usable(withKey(ai, "openai", ""), "openai"), false, "removing the key stops it");
-  const eleven = { ...ready(), keys: { ...ready().keys, elevenlabs: "xi-1" } };
-  assert.equal(withKey(eleven, "elevenlabs", "xi-2").voices.elevenlabs.length, 0, "voices fetched with the old key are forgotten");
-  assert.equal(withKey(eleven, "openai", "sk-9").voices.elevenlabs.length, 1);
 });
 
 test("every service says what it sends, and every kind of work it does has words for it", () => {
@@ -80,7 +77,13 @@ test("every service says what it sends, and every kind of work it does has words
     assert.ok(s.keyUrl.startsWith("https://") && s.home.startsWith("https://"));
   }
   assert.deepEqual(serviceById("openai").works, ["voice", "picture"]);
-  assert.deepEqual(serviceById("elevenlabs").works, ["voice", "sound"]);
+});
+
+test("OpenAI is the one service, and a voice from one that is not there is simply unavailable", () => {
+  assert.deepEqual(SERVICES.map((s) => s.id), ["openai"]);
+  const gone = voiceTraits("elevenlabs:21m00Tcm4TlvDq8ikWAM");
+  assert.deepEqual([gone.known, gone.where], [false, "unknown"]);
+  assert.match(availability(spoken("elevenlabs:21m00Tcm4TlvDq8ikWAM"), { ai: ready(), kokoro: true, plugins: [] }).reason, /not installed/);
 });
 
 test("the voices listed for OpenAI are the ones in the shared list, with plain names", () => {
@@ -107,18 +110,13 @@ test("plugins are read from what the tool lists, and a bad answer is no plugins"
 
 test("a service's voices appear only when it can be used, and a plugin's only when it is switched on", () => {
   assert.deepEqual(buildVoiceSources(emptyAi(), []), []);
-  assert.deepEqual(buildVoiceSources({ ...emptyAi(), keys: { openai: "sk-1", elevenlabs: "" } }, []), [], "a key without a yes");
+  assert.deepEqual(buildVoiceSources({ ...emptyAi(), keys: { openai: "sk-1" } }, []), [], "a key without a yes");
   const sources = buildVoiceSources(ready(), [plugin(), plugin({ id: "off", name: "Off one", enabled: false })]);
-  assert.deepEqual(sources.map((s) => s.engine), ["openai", "elevenlabs", "tone-voice"]);
+  assert.deepEqual(sources.map((s) => s.engine), ["openai", "tone-voice"]);
   assert.equal(sources[0]!.voices.length, OPENAI_VOICES.length);
   assert.equal(sources[0]!.voices[0]!.id, "openai:alloy");
-  assert.equal(sources[1]!.voices[0]!.id, "elevenlabs:21m00Tcm4TlvDq8ikWAM");
-  assert.equal(sources[1]!.voices[0]!.label, "Rachel, female, American");
-  assert.deepEqual(sources[1]!.speed, { min: 0.7, max: 1.2 });
-  assert.equal(sources[2]!.where, "computer");
-  assert.equal(buildVoiceSources(ready(), [plugin({ network: true })])[2]!.where, "internet");
-  const noVoicesYet = { ...ready(), voices: { elevenlabs: [] } };
-  assert.deepEqual(buildVoiceSources(noVoicesYet, []).map((s) => s.engine), ["openai"], "ElevenLabs has no voices to list until they are fetched");
+  assert.equal(sources[1]!.where, "computer");
+  assert.equal(buildVoiceSources(ready(), [plugin({ network: true })])[1]!.where, "internet");
 });
 
 test("once the sources are set, their voices can be chosen, listed in groups and described", () => {
@@ -129,7 +127,7 @@ test("once the sources are set, their voices can be chosen, listed in groups and
   assert.equal(isKnownVoice("tone-voice:low"), true);
   const groups = voiceGroups();
   assert.equal(groups.at(0)!.group, "American English", "Kokoro's voices come first, as they always have");
-  assert.deepEqual(groups.slice(-3).map((g) => g.group), ["OpenAI, over the internet", "ElevenLabs, over the internet", "Tone voice, on this computer"]);
+  assert.deepEqual(groups.slice(-2).map((g) => g.group), ["OpenAI, over the internet", "Tone voice, on this computer"]);
   assert.equal(voiceOption("openai:alloy").label, "Alloy");
   assert.equal(voiceOption("tone-voice:low").group, "Tone voice, on this computer");
   const every = groups.flatMap((g) => g.voices.map((v) => v.id));
@@ -142,7 +140,6 @@ test("what a voice can do depends on its engine", () => {
   assert.deepEqual(voiceTraits("af_heart"), { engine: "kokoro", engineName: "Kokoro", where: "computer", pronunciations: true, multilingual: false, speed: null, known: true });
   const openai = voiceTraits("openai:alloy");
   assert.deepEqual([openai.engineName, openai.where, openai.pronunciations, openai.multilingual, openai.known], ["OpenAI", "internet", false, true, true]);
-  assert.deepEqual(voiceTraits("elevenlabs:21m00Tcm4TlvDq8ikWAM").speed, { min: 0.7, max: 1.2 });
   const tone = voiceTraits("tone-voice:low");
   assert.deepEqual([tone.where, tone.multilingual], ["computer", false], "a plugin voice with a language is not multilingual");
   setVoiceSources([]);
@@ -231,7 +228,7 @@ test("each voice says where it is made and what it cannot do", () => {
   assert.match(voiceNote(voiceTraits("mystery:x")), /not available here/);
   assert.deepEqual(voiceLimits(voiceTraits("af_heart")), []);
   assert.match(voiceLimits(voiceTraits("openai:alloy"))[0]!, /^This voice cannot be taught how to say a word.*spell the word as it sounds/);
-  assert.match(voiceLimits(voiceTraits("elevenlabs:21m00Tcm4TlvDq8ikWAM")).join(" "), /between 0.7 and 1.2/);
+  assert.equal(voiceLimits(voiceTraits("openai:alloy")).length, 1, "OpenAI takes every speed the editor allows, so only the pronunciation note");
 });
 
 test("listeners are told about an AI voice, and the editor says so when the credits page is off", () => {
@@ -248,17 +245,13 @@ test("the question before anything is sent says what is sent, to whom, and that 
   assert.match(voice[1]!, /Nothing else from your course is sent.*may charge your account.*cannot see what it costs/);
   assert.match(voice[2]!, /asked once.*take your permission back/);
   assert.match(permissionText(serviceById("openai"), "picture")[0]!, /the description of the picture you write/);
-  assert.match(permissionText(serviceById("elevenlabs"), "voice", { narrations: 1, characters: 5 })[0]!, /1 narration, 5 characters/);
+  assert.match(permissionText(serviceById("openai"), "voice", { narrations: 1, characters: 5 })[0]!, /1 narration, 5 characters/);
 });
 
-test("a description must be there and not too long, and a sound has a sensible length", () => {
-  assert.equal(promptProblem("a red barn", "picture"), null);
-  assert.match(promptProblem("   ", "picture")!, /Describe the picture first/);
-  assert.match(promptProblem("x".repeat(4001), "picture")!, /too long/);
-  assert.match(promptProblem("", "sound")!, /Describe the sound first/);
-  assert.deepEqual(parseSoundSeconds(""), { ok: true, seconds: null });
-  assert.deepEqual(parseSoundSeconds(" 3.25 "), { ok: true, seconds: 3.3 });
-  for (const bad of ["0.1", "31", "abc", "-2"]) assert.equal(parseSoundSeconds(bad).ok, false, bad);
+test("a description must be there and not too long", () => {
+  assert.equal(promptProblem("a red barn"), null);
+  assert.match(promptProblem("   ")!, /Describe the picture first/);
+  assert.match(promptProblem("x".repeat(4001))!, /too long/);
 });
 
 // ---- the record kept for something a service made
@@ -272,7 +265,7 @@ test("a made picture is credited as AI-made, with the words that made it", () =>
       generated: { service: "openai", model: "gpt-image-1", prompt: "A red barn in the snow", madeAt: "2026-10-14T10:30:00Z" },
     },
   });
-  assert.equal(creditForMade({ path: "assets/audio/x.mp3", title: "Rain", kind: "audio", service: "elevenlabs", model: "", prompt: "Rain", madeAt: "2026-10-14T10:30:00Z" }).source.creator, "ElevenLabs");
+  assert.equal(creditForMade({ path: "assets/images/x.png", title: "Rain", kind: "image", service: "openai", model: "", prompt: "Rain", madeAt: "2026-10-14T10:30:00Z" }).source.creator, "OpenAI", "no model named, no brackets");
 });
 
 test("times and titles come out in the forms the format and the lists use", () => {
@@ -287,7 +280,7 @@ test("what the tools answer is read, and a bad answer is an error, not a crash",
   assert.deepEqual(parseMade('{"ok":false,"cancelled":true,"message":"Cancelled."}'), { ok: false, message: "Cancelled.", cancelled: true });
   assert.equal(parseMade("junk").ok, false);
   assert.equal(parseMade('{"ok":true}').ok, false, "a success with no file is not one");
-  assert.deepEqual(parseServiceAnswer('{"ok":true,"voices":[{"id":"a1","name":"Ann","hint":"calm"},{"id":"","name":"x"}]}'), { ok: true, voices: [{ id: "a1", name: "Ann", hint: "calm" }] });
+  assert.deepEqual(parseServiceAnswer('{"ok":true}'), { ok: true });
   assert.equal(parseServiceAnswer('{"ok":false,"message":"Nope."}').ok, false);
   assert.equal(parseServiceAnswer("").ok, false);
 });

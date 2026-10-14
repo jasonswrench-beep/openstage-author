@@ -163,7 +163,7 @@ createServer(async (req, res) => {
         rmSync(temp, { recursive: true, force: true });
       }
     }
-    // Stand-ins for the AI services, for trying the dialogs in a browser. Nothing is sent anywhere: a plain picture or a silent sound is saved in
+    // Stand-ins for the AI services, for trying the dialogs in a browser. Nothing is sent anywhere: a plain picture is saved in
     // the project the way the app saves a real one. The plugin list is the real tool's, over the example plugins.
     if (url.pathname === "/api/ai-plugins") {
       const { enabled = [] } = await body(req);
@@ -174,22 +174,19 @@ createServer(async (req, res) => {
     }
     if (url.pathname === "/api/ai-service") {
       const { op, service } = await body(req);
-      if (op === "voices" && service === "elevenlabs") {
-        return send(res, 200, { ok: true, voices: [{ id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", hint: "female, American" }, { id: "29vD33N1CtxCmqQRPOHJ", name: "Drew", hint: "male, American" }] });
-      }
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/api/ai-make") {
       const { dir, kind, request } = await body(req);
-      if (!existsSync(path.join(dir, "project.json")) || !["picture", "sound"].includes(kind)) return send(res, 400, "Not something that can be made.", "text/plain");
+      if (!existsSync(path.join(dir, "project.json")) || kind !== "picture") return send(res, 400, "Not something that can be made.", "text/plain");
       if (String(request.prompt ?? "").includes("FAIL")) return send(res, 200, { ok: false, message: "The stand-in service was asked to fail." });
-      const folder = kind === "picture" ? "images" : "audio";
-      const ext = kind === "picture" ? "png" : "mp3";
+      const folder = "images";
+      const ext = "png";
       const stem = "ai-" + (String(request.prompt ?? "").split(/\s+/).slice(0, 5).join("-").replace(/[^A-Za-z0-9_-]/g, "-").replace(/^-+|-+$/g, "") || "made");
       mkdirSync(path.join(dir, "assets", folder), { recursive: true });
       let name = `${stem}.${ext}`;
       for (let n = 2; existsSync(path.join(dir, "assets", folder, name)); n++) name = `${stem}-${n}.${ext}`;
-      writeFileSync(path.join(dir, "assets", folder, name), kind === "picture" ? plainPng(96, 64) : Buffer.concat([Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0]), Buffer.alloc(64)]));
+      writeFileSync(path.join(dir, "assets", folder, name), plainPng(96, 64));
       return send(res, 200, { ok: true, path: `assets/${folder}/${name}`, service: request.service, model: "stand-in" });
     }
     if (url.pathname === "/api/asset") {

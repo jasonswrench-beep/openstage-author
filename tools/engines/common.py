@@ -105,7 +105,8 @@ def call(service, key, transport, method, url, headers, body=None, timeout=180, 
         return answer
     said = redact(detail_of(answer), key)
     more = f" It said: {said}" if said else ""
-    if status in (401, 403):
+    about_the_key = "api key" in said.lower() or "api_key" in said.lower()
+    if status in (401, 403) or (status in (400, 422) and about_the_key):
         raise EngineError(f"{service} did not accept the key. Check the key in Settings, and that the account can use this.{more}")
     if status == 402:
         raise EngineError(f"{service} says the account has no credit left for this.{more}")

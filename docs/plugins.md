@@ -47,7 +47,7 @@ my-plugin/
 | Field | Meaning |
 | --- | --- |
 | `contract` | `1`. A plugin for another contract is not used. |
-| `id` | 2 to 31 lowercase letters, digits and hyphens, starting with a letter. Not `kokoro`, `openai` or `elevenlabs`. A voice is `my-plugin:narrator` in a project. |
+| `id` | 2 to 31 lowercase letters, digits and hyphens, starting with a letter. Not `kokoro` or `openai`. A voice is `my-plugin:narrator` in a project. |
 | `name`, `licence` | Shown to the author. The licence is required. |
 | `network` | `true` if the plugin sends the text over the internet. Required. |
 | `kinds` | `["voice"]`. |

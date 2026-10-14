@@ -23,7 +23,7 @@ from . import common
 from .common import EngineError, Speech
 
 CONTRACT = 1
-RESERVED_IDS = {"kokoro", "openai", "elevenlabs"}
+RESERVED_IDS = {"kokoro", "openai"}
 _ID = re.compile(r"^[a-z][a-z0-9-]{1,30}$")
 _VOICE_ID = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 _LANG = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
@@ -78,7 +78,7 @@ def load_manifest(folder):
         raise PluginProblem(f"This plugin is written for contract {data.get('contract')!r}; this OpenStage uses contract {CONTRACT}.")
     pid = _text(data, "id", 31)
     if not _ID.match(pid) or pid in RESERVED_IDS:
-        raise PluginProblem(f"The id '{pid}' will not do. Use 2 to 31 lowercase letters, digits and hyphens, starting with a letter, and not kokoro, openai or elevenlabs.")
+        raise PluginProblem(f"The id '{pid}' will not do. Use 2 to 31 lowercase letters, digits and hyphens, starting with a letter, and not kokoro or openai.")
     _text(data, "name", 60)
     _text(data, "licence", 80)
     _text(data, "version", 30, required=False)

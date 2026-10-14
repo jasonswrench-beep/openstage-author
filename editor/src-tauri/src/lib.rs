@@ -1066,16 +1066,16 @@ fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[F
 
 // ---- AI services and voice plugins
 //
-// Pictures, sounds and voices can come from a service the author has a key for (OpenAI, ElevenLabs), and voices from plugins the
+// Pictures and voices can come from a service the author has a key for (OpenAI), and voices from plugins the
 // author has installed and switched on. All of it goes through the Python tools (tools/narrate.py, tools/generate.py), which are
 // the only place that talks to those services, so there is one place that checks the author's permission and one place that
 // handles a key. This file's part is small and strict:
 //   - the key and the permission live in the settings file, never in a project; a service is handed its key only if the author
 //     has said yes to it, and the key goes in an environment variable, never on a command line where other programs can see it;
-//   - what comes back is checked (is it really a picture or sound, is it a sensible size) before it is saved in the project.
+//   - what comes back is checked (is it really a picture, is it a sensible size) before it is saved in the project.
 
 /// The services OpenStage can send text or a description to with the author's own key. The same names are in tools/engines.
-const AI_SERVICES: [&str; 2] = ["openai", "elevenlabs"];
+const AI_SERVICES: [&str; 1] = ["openai"];
 
 #[derive(Default, Debug)]
 struct AiSettings {
@@ -1200,47 +1200,41 @@ fn run_generate(python: &Path, op: &str, request: &serde_json::Value, ai: &AiSet
     }
 }
 
-/// Save a picture or sound a service made in the project's assets, and return its project-relative path. The bytes have to be what
-/// they say they are, and a file that is already there is never overwritten.
-fn save_generated_media_at(dir: &Path, kind: &str, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
+/// Save a picture a service made in the project's images, and return its project-relative path. The bytes have to be a real PNG,
+/// and a file that is already there is never overwritten.
+fn save_generated_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
-    let (ext, noun, genuine) = match kind {
-        "image" => ("png", "picture", picture_matches("png", bytes)),
-        "audio" => ("mp3", "sound", bytes.starts_with(b"ID3") || (bytes.len() > 2 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0)),
-        _ => return Err("Only a picture or a sound can be made.".into()),
-    };
-    if !genuine {
-        return Err(format!("What came back was not a {noun} OpenStage can use."));
+    if !picture_matches("png", bytes) {
+        return Err("What came back was not a picture OpenStage can use.".into());
     }
-    let k = asset_kind(kind)?;
+    let k = asset_kind("image")?;
     if bytes.len() as u64 > k.max {
-        return Err(format!("That {noun} is larger than {} MB.", k.max / (1024 * 1024)));
+        return Err(format!("That picture is larger than {} MB.", k.max / (1024 * 1024)));
     }
     let folder = dir.join("assets").join(k.folder);
     fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     let stem: String = format!("ai-{}", safe_stem(name_hint, "made")).chars().take(48).collect();
-    let name = unique_name(&folder, stem.trim_end_matches('-'), ext);
-    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the {noun}: {e}"))?;
+    let name = unique_name(&folder, stem.trim_end_matches('-'), "png");
+    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
     Ok(format!("assets/{}/{name}", k.folder))
 }
 
-/// The words a service is asked to draw or sound out, cut to a short name for the file.
+/// The words a service is asked to draw, cut to a short name for the file.
 fn name_from_prompt(prompt: &str) -> String {
     prompt.split_whitespace().take(5).collect::<Vec<_>>().join("-")
 }
 
-/// Make a picture or a sound and save it in the project. `request` has the service, the prompt and the choices for this kind
-/// of work (see tools/generate.py). The answer is JSON: ok, and then the path, the service and the model; or ok false and why.
+/// Make a picture and save it in the project. `request` has the service, the prompt and the choices (see tools/generate.py).
+/// The answer is JSON: ok, and then the path, the service and the model; or ok false and why.
 fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json::Value, ai: &AiSettings) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
-    let (op, suffix, asset) = match kind {
-        "picture" => ("picture", "png", "image"),
-        "sound" => ("sound", "mp3", "audio"),
-        _ => return Err("Only a picture or a sound can be made.".into()),
+    let (op, suffix) = match kind {
+        "picture" => ("picture", "png"),
+        _ => return Err("Only a picture can be made.".into()),
     };
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let temp = std::env::temp_dir().join(format!("openstage-author-make-{}-{stamp}", std::process::id()));
@@ -1248,7 +1242,7 @@ fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json:
     let result = (|| {
         let out = temp.join(format!("made.{suffix}"));
         let mut sent = serde_json::Map::new();
-        for field in ["service", "prompt", "size", "quality", "seconds"] {
+        for field in ["service", "prompt", "size", "quality"] {
             if let Some(v) = request.get(field) {
                 sent.insert(field.to_string(), v.clone());
             }
@@ -1260,7 +1254,7 @@ fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json:
         }
         let bytes = fs::read(&out).map_err(|_| "The service answered, but nothing was saved.".to_string())?;
         let hint = name_from_prompt(request["prompt"].as_str().unwrap_or(""));
-        let path = save_generated_media_at(dir, asset, &hint, &bytes)?;
+        let path = save_generated_picture_at(dir, &hint, &bytes)?;
         Ok(serde_json::json!({ "ok": true, "path": path, "service": answer["service"], "model": answer["model"], "bytes": bytes.len() }).to_string())
     })();
     let _ = fs::remove_dir_all(&temp);
@@ -1285,10 +1279,10 @@ fn ai_plugins_folder(app: tauri::AppHandle) -> Result<String, String> {
     Ok(dir.to_string_lossy().into_owned())
 }
 
-/// Ask a service something that costs nothing: whether the key works (op "check"), or which ready-made voices the account has ("voices").
+/// Ask a service something that costs nothing: whether the key works (op "check").
 #[tauri::command]
 async fn ai_service(app: tauri::AppHandle, op: String, service: String) -> Result<String, String> {
-    if op != "check" && op != "voices" {
+    if op != "check" {
         return Err("Not something a service can be asked.".into());
     }
     let ai = ai_settings(&app);
@@ -1297,7 +1291,7 @@ async fn ai_service(app: tauri::AppHandle, op: String, service: String) -> Resul
         .map_err(|e| e.to_string())?
 }
 
-/// Make a picture or a sound with a service and save it in the project's assets. This is the one thing here that costs money.
+/// Make a picture with a service and save it in the project's images. This is the one thing here that costs money.
 #[tauri::command]
 async fn ai_make(app: tauri::AppHandle, dir: String, kind: String, request: String) -> Result<String, String> {
     let request: serde_json::Value = serde_json::from_str(&request).map_err(|_| "The request was not understood.".to_string())?;
@@ -1508,7 +1502,79 @@ fn open_in_browser(app: tauri::AppHandle, path: String) -> Result<(), String> {
     if std::env::var("OPENSTAGE_NO_BROWSER").is_ok() {
         return Ok(());
     }
+    // Opening the file itself would use whatever program the computer has for .html files, which is not always a web browser (on one
+    // computer it is Notepad, and Preview showed the page's text). So the default web browser is asked for, by name, to open the page.
+    #[cfg(windows)]
+    if open_in_default_browser(&path).is_ok() {
+        return Ok(());
+    }
     app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// A file's path as a file:// address a web browser understands. Anything but letters, digits and a few safe marks is written as %XX, so a
+/// space, an &, a # or a % in the path can never change what is asked for, nor mean anything to the command line it is passed on.
+fn file_url(path: &str) -> String {
+    let mut out = String::from("file:///");
+    for b in path.replace('\\', "/").bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b'/' | b':') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// The value in `reg query` output: what follows the type (REG_SZ or REG_EXPAND_SZ) on the line that has one.
+fn reg_value(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        let at = line.find("REG_SZ").map(|i| i + "REG_SZ".len()).or_else(|| line.find("REG_EXPAND_SZ").map(|i| i + "REG_EXPAND_SZ".len()))?;
+        let value = line[at..].trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+/// The command a browser's "open" entry runs, with the page's address in place of its %1 (or %L), or after it if it has neither.
+fn browser_command_line(command: &str, url: &str) -> String {
+    if command.contains("%1") || command.contains("%L") {
+        command.replace("%1", url).replace("%L", url)
+    } else {
+        format!("{command} {url}")
+    }
+}
+
+/// A program id from the registry is used in a registry path, so it is only taken if it is plain.
+fn plain_prog_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 80 && id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+}
+
+#[cfg(windows)]
+fn reg_query(key: &str, args: &[&str]) -> Option<String> {
+    use std::os::windows::process::CommandExt;
+    let out = Command::new("reg").arg("query").arg(key).args(args).creation_flags(0x0800_0000).output().ok()?;
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Open a page in the web browser the person has chosen as their default, whatever program .html files open with.
+#[cfg(windows)]
+fn open_in_default_browser(path: &str) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    let prog = ["https", "http"]
+        .iter()
+        .find_map(|scheme| {
+            reg_query(&format!(r"HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\{scheme}\UserChoice"), &["/v", "ProgId"]).and_then(|o| reg_value(&o))
+        })
+        .filter(|id| plain_prog_id(id))
+        .ok_or("No default web browser is set.")?;
+    let command = reg_query(&format!(r"HKCR\{prog}\shell\open\command"), &["/ve"]).and_then(|o| reg_value(&o)).ok_or("The default browser has no way to open a page.")?;
+    let line = browser_command_line(&command, &file_url(path));
+    Command::new("cmd")
+        .raw_arg("/C")
+        .raw_arg(format!("\"{line}\""))
+        .creation_flags(0x0800_0000)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -2720,7 +2786,7 @@ mod tests {
 
     const AI_JSON: &str = r#"{"keys":{"pexels":"stock-key"},"ai":{
         "keys":{"openai":" sk-live-1 ","elevenlabs":"xi-2","somewhere":"else"},
-        "allowed":{"openai":"2026-10-14T10:00:00Z","elevenlabs":""},
+        "allowed":{"openai":"2026-10-14T10:00:00Z","elevenlabs":"2026-10-14T10:00:00Z"},
         "models":{"openai":{"speech":"tts-1","picture":"bad name!"}},
         "plugins":{"tone-voice":true,"Evil One":true,"off-one":false,"../x":true}}}"#;
 
@@ -2728,8 +2794,8 @@ mod tests {
     fn what_the_author_allowed_is_read_from_the_settings() {
         let ai = AiSettings::parse(AI_JSON);
         assert_eq!(ai.keys.get("openai").map(String::as_str), Some("sk-live-1"), "the key is trimmed");
-        assert!(ai.keys.contains_key("elevenlabs") && !ai.keys.contains_key("somewhere") && !ai.keys.contains_key("pexels"), "only the services OpenStage knows");
-        assert!(ai.allowed.contains("openai") && !ai.allowed.contains("elevenlabs"), "an empty answer is a no");
+        assert!(ai.keys.contains_key("openai") && !ai.keys.contains_key("elevenlabs") && !ai.keys.contains_key("somewhere") && !ai.keys.contains_key("pexels"), "only the services OpenStage knows; an old file that names another is not trusted");
+        assert!(ai.allowed.contains("openai") && !ai.allowed.contains("elevenlabs"), "a yes to a service OpenStage does not know means nothing");
         assert_eq!(ai.models.get(&("openai".to_string(), "speech".to_string())).map(String::as_str), Some("tts-1"));
         assert!(!ai.models.contains_key(&("openai".to_string(), "picture".to_string())), "a model name with odd characters is dropped");
         assert_eq!(ai.plugins, vec!["tone-voice".to_string()], "only valid ids that are switched on");
@@ -2753,7 +2819,7 @@ mod tests {
         let mut cmd = Command::new("python");
         apply_ai(&mut cmd, &ai, Some(Path::new("C:\\plugins")));
         assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_OPENAI").as_deref(), Some("sk-live-1"));
-        assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_ELEVENLABS"), None, "a key the author has not said yes to is not handed over");
+        assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_ELEVENLABS"), None, "a key for a service OpenStage does not know is not handed over, even with a yes beside it");
         assert_eq!(env_of(&cmd, "OPENSTAGE_MODEL_OPENAI_SPEECH").as_deref(), Some("tts-1"));
         assert_eq!(env_of(&cmd, "PYTHONIOENCODING").as_deref(), Some("utf-8"));
         let args = args_of(&cmd);
@@ -2770,22 +2836,19 @@ mod tests {
     }
 
     #[test]
-    fn a_picture_or_sound_that_came_back_is_checked_before_it_is_saved() {
+    fn a_picture_that_came_back_is_checked_before_it_is_saved() {
         let project = temp_project("ai-save");
         let png = [&[0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][..], &[0u8; 16][..]].concat();
-        let first = save_generated_media_at(&project, "image", "a-red-barn", &png).unwrap();
+        let first = save_generated_picture_at(&project, "a-red-barn", &png).unwrap();
         assert_eq!(first, "assets/images/ai-a-red-barn.png");
-        let second = save_generated_media_at(&project, "image", "a-red-barn", &png).unwrap();
+        let second = save_generated_picture_at(&project, "a-red-barn", &png).unwrap();
         assert_eq!(second, "assets/images/ai-a-red-barn-2.png", "never overwrites");
         assert_eq!(fs::read(project.join(&first)).unwrap(), png);
-        assert!(save_generated_media_at(&project, "image", "x", b"<html>not a picture</html>").is_err());
-        assert!(save_generated_media_at(&project, "image", "x", &[]).is_err());
-        assert_eq!(save_generated_media_at(&project, "audio", "rain", b"ID3\x04\0\0\0\0\0\0").unwrap(), "assets/audio/ai-rain.mp3");
-        assert!(save_generated_media_at(&project, "audio", "rain", &[0xff, 0xfb, 0x90]).is_ok(), "an MP3 frame without a tag");
-        assert!(save_generated_media_at(&project, "audio", "x", b"RIFFxxxx").is_err());
-        assert!(save_generated_media_at(&project, "video", "x", &png).is_err());
-        assert!(save_generated_media_at(&std::env::temp_dir(), "image", "x", &png).is_err(), "not a project");
-        let odd = save_generated_media_at(&project, "image", "../../Windows/System32 evil", &png).unwrap();
+        assert!(save_generated_picture_at(&project, "x", b"<html>not a picture</html>").is_err());
+        assert!(save_generated_picture_at(&project, "x", &[]).is_err());
+        assert!(save_generated_picture_at(&project, "x", b"ID3\x04\0\0\0\0\0\0").is_err(), "a sound is not a picture");
+        assert!(save_generated_picture_at(&std::env::temp_dir(), "x", &png).is_err(), "not a project");
+        let odd = save_generated_picture_at(&project, "../../Windows/System32 evil", &png).unwrap();
         assert!(odd.starts_with("assets/images/ai-") && !odd.contains(".."), "{odd}");
         let _ = fs::remove_dir_all(&project);
     }
@@ -2832,7 +2895,50 @@ mod tests {
         let ai = AiSettings::default();
         let request = serde_json::json!({ "service": "openai", "prompt": "a barn" });
         assert!(ai_make_blocking(Path::new("python"), &std::env::temp_dir(), "picture", &request, &ai).is_err(), "not a project");
-        assert!(ai_make_blocking(Path::new("python"), &project, "video", &request, &ai).is_err(), "only pictures and sounds");
+        assert!(ai_make_blocking(Path::new("python"), &project, "video", &request, &ai).is_err(), "only a picture can be made");
+        assert!(ai_make_blocking(Path::new("python"), &project, "sound", &request, &ai).is_err(), "a sound maker is not built");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_path_becomes_a_safe_file_address() {
+        assert_eq!(file_url(r"C:\Users\Jason\AppData\Local\Temp\openstage-author-preview\index.html"), "file:///C:/Users/Jason/AppData/Local/Temp/openstage-author-preview/index.html");
+        assert_eq!(file_url(r"D:\My Course & Notes #1\a%b.html"), "file:///D:/My%20Course%20%26%20Notes%20%231/a%25b.html");
+        assert_eq!(file_url("C:\\caf\u{e9}\\x.html"), "file:///C:/caf%C3%A9/x.html");
+        for hostile in ["a\"b", "a^b", "a|b", "a<b>", "a b", "a;b", "a'b"] {
+            let url = file_url(hostile);
+            assert!(url.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b'/' | b':' | b'%')), "{url}");
+        }
+    }
+
+    #[test]
+    fn a_registry_answer_is_read_for_its_value() {
+        let prog = "\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice\r\n    ProgId    REG_SZ    ChromeHTML\r\n\r\n";
+        assert_eq!(reg_value(prog).as_deref(), Some("ChromeHTML"));
+        let cmd = "\r\nHKEY_CLASSES_ROOT\\ChromeHTML\\shell\\open\\command\r\n    (Default)    REG_SZ    \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --single-argument %1\r\n\r\n";
+        assert_eq!(reg_value(cmd).as_deref(), Some("\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --single-argument %1"));
+        let expand = "    (Default)    REG_EXPAND_SZ    %ProgramFiles%\\Mozilla Firefox\\firefox.exe -osint -url \"%1\"";
+        assert_eq!(reg_value(expand).as_deref(), Some("%ProgramFiles%\\Mozilla Firefox\\firefox.exe -osint -url \"%1\""));
+        assert_eq!(reg_value(""), None);
+        assert_eq!(reg_value("ERROR: The system was unable to find the specified registry key or value."), None);
+    }
+
+    #[test]
+    fn a_browsers_own_command_is_given_the_page_in_place_of_its_percent_one() {
+        let url = "file:///C:/p/index.html";
+        assert_eq!(browser_command_line("\"C:\\chrome.exe\" --single-argument %1", url), "\"C:\\chrome.exe\" --single-argument file:///C:/p/index.html");
+        assert_eq!(browser_command_line("firefox.exe -osint -url \"%1\"", url), "firefox.exe -osint -url \"file:///C:/p/index.html\"");
+        assert_eq!(browser_command_line("\"C:\\edge.exe\" --app=%L", url), "\"C:\\edge.exe\" --app=file:///C:/p/index.html");
+        assert_eq!(browser_command_line("\"C:\\odd.exe\"", url), "\"C:\\odd.exe\" file:///C:/p/index.html", "a command with no place for it gets it on the end");
+    }
+
+    #[test]
+    fn only_a_plain_program_id_is_used_in_a_registry_path() {
+        for good in ["ChromeHTML", "MSEdgeHTM", "FirefoxURL-308046B0AF4A39CB", "AppXabc123"] {
+            assert!(plain_prog_id(good), "{good}");
+        }
+        for bad in ["", "a\\b", "a b", "a\"b", "..\\x", "a&b", &"x".repeat(81)] {
+            assert!(!plain_prog_id(bad), "{bad}");
+        }
     }
 }

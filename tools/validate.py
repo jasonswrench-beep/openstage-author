@@ -225,9 +225,8 @@ def _voices():
 
 # A voice with no colon is one of Kokoro's. Another engine's voice begins with the engine's name and a colon (docs/format-spec.md, "Voices").
 _ENGINE_VOICE = re.compile(r"^[a-z][a-z0-9-]{1,30}:[A-Za-z0-9_.-]{1,60}$")
-_ELEVENLABS_VOICE = re.compile(r"^[A-Za-z0-9]{10,40}$")
 # Internet services whose ready-made voices are known here, so a misspelt one is found. Their rules ask that listeners are told a voice is AI-made.
-SERVICE_VOICES = {"openai": "OpenAI", "elevenlabs": "ElevenLabs"}
+SERVICE_VOICES = {"openai": "OpenAI"}
 
 
 def _openai_voices():
@@ -235,7 +234,7 @@ def _openai_voices():
 
 
 def voice_known(voice):
-    """Whether a voice name can be right. Kokoro's are checked against its list, and OpenAI's and ElevenLabs' by their own forms. A plugin's voices
+    """Whether a voice name can be right. Kokoro's are checked against its list, and OpenAI's against its own. A plugin's voices
     can be known only on the computer the plugin is installed on, so any well-formed name is accepted."""
     if voice in _voices():
         return True
@@ -244,8 +243,6 @@ def voice_known(voice):
     engine, _, rest = voice.partition(":")
     if engine == "openai":
         return rest in _openai_voices()
-    if engine == "elevenlabs":
-        return bool(_ELEVENLABS_VOICE.match(rest))
     return True
 
 

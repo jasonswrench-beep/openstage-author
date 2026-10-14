@@ -83,7 +83,7 @@ export const keyOf = (n: Narration): string => narrationHash(n).slice("sha256:".
 //
 // A voice is named by one string. A bare name such as af_heart is a voice of Kokoro, the speech model that runs on this
 // computer (every project made before other engines existed names its voices that way). Another engine's voices begin with
-// the engine's name and a colon: openai:alloy, elevenlabs:<voice id>, or <plugin id>:<voice> for a plugin. Which of those can
+// the engine's name and a colon: openai:alloy, or <plugin id>:<voice> for a plugin. Which of those can
 // be chosen right now depends on what the author has set up (a service key and permission, a plugin switched on), so the
 // editor tells this module with setVoiceSources and everything that lists voices follows.
 
@@ -92,8 +92,8 @@ export const VOICES: readonly string[] = voiceList.voices;
 const KOKORO = "kokoro";
 
 /** What the engines the editor ships with are called, whether or not they can be used right now. */
-export const ENGINE_NAMES: Record<string, string> = { kokoro: "Kokoro", openai: "OpenAI", elevenlabs: "ElevenLabs" };
-const INTERNET_ENGINES = new Set(["openai", "elevenlabs"]);
+export const ENGINE_NAMES: Record<string, string> = { kokoro: "Kokoro", openai: "OpenAI" };
+const INTERNET_ENGINES = new Set(["openai"]);
 
 /** A voice of an engine other than Kokoro. `lang` is the language it speaks, or null for a voice that speaks many. */
 export interface ExtraVoice {
