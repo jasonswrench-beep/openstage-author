@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { parseMade, parsePlugins, parseServiceAnswer, type MadeAnswer, type PluginList, type ServiceAnswer, type ServiceId } from "./aiservices.ts";
 import type { FileText, OpenedProject } from "./model.ts";
 import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } from "./narration.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
@@ -108,6 +109,16 @@ export interface Backend {
    * for, or none to make everything that is missing. The audio goes into the project's .cache folder.
    */
   makeNarration(dir: string, files: FileText[], ids: string[]): Promise<MakeResult>;
+  // ---- AI services and voice plugins (docs/ai-generation.md). The tools check the author's permission themselves, using the settings file.
+
+  /** The voice plugins in the plugins folder, and whether each is switched on. Runs no plugin and sends nothing. */
+  aiPlugins(): Promise<PluginList>;
+  /** The folder the author puts voice plugins in, made if it is not there yet. */
+  aiPluginsFolder(): Promise<string>;
+  /** Ask a service something free: whether the author's key works ("check"), or which ready-made voices the account has ("voices"). */
+  aiService(op: "check" | "voices", service: ServiceId): Promise<ServiceAnswer>;
+  /** Make a picture or a sound with a service and save it in the project's assets. This costs the author money. */
+  aiMake(dir: string, kind: "picture" | "sound", request: Record<string, unknown>): Promise<MadeAnswer>;
   /** A URL the page can show an image from, for a file inside the project's assets folder. */
   assetUrl(dir: string, path: string): Promise<string>;
   /**
@@ -231,6 +242,16 @@ const tauriBackend: Backend = {
   async makeNarration(dir, files, ids) {
     return parseMakeResult(await invoke<string>("make_narration", { dir, files, ids }));
   },
+  async aiPlugins() {
+    return parsePlugins(await invoke<string>("ai_plugins"));
+  },
+  aiPluginsFolder: () => invoke<string>("ai_plugins_folder"),
+  async aiService(op, service) {
+    return parseServiceAnswer(await invoke<string>("ai_service", { op, service }));
+  },
+  async aiMake(dir, kind, request) {
+    return parseMade(await invoke<string>("ai_make", { dir, kind, request: JSON.stringify(request) }));
+  },
   // The file comes back as a data URL string, which needs no binary transfer and no special
   // permission, and works for every image type including SVG.
   assetUrl: (dir, path) => invoke<string>("read_asset_url", { dir, path }),
@@ -349,6 +370,27 @@ const previewBackend: Backend = {
   },
   async makeNarration() {
     throw new Error("Making narration audio needs the desktop app.");
+  },
+  // In a plain browser there is no network access to the services and no plugin runner. The development server answers with stand-ins, so the
+  // dialogs can be tried: a plain picture or silence, saved in the project like the real thing, and the example plugin.
+  async aiPlugins() {
+    let enabled: string[] = [];
+    try {
+      enabled = Object.keys(((JSON.parse(localStorage.getItem("openstage-settings") ?? "{}") as { ai?: { plugins?: Record<string, boolean> } }).ai?.plugins) ?? {});
+    } catch {
+      // no settings yet
+    }
+    const res = await fetch("/api/ai-plugins", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled }) });
+    return res.ok ? parsePlugins(await res.text()) : { plugins: [], problems: [] };
+  },
+  async aiPluginsFolder() {
+    return "(the plugins folder, in the app)";
+  },
+  async aiService(op, service) {
+    return parseServiceAnswer(JSON.stringify(await post("/api/ai-service", { op, service })));
+  },
+  async aiMake(dir, kind, request) {
+    return parseMade(JSON.stringify(await post("/api/ai-make", { dir, kind, request })));
   },
   async assetUrl(dir, path) {
     const res = await fetch(`/api/asset?dir=${encodeURIComponent(dir)}&path=${encodeURIComponent(path)}`);

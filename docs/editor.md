@@ -174,7 +174,7 @@ to 2, where 1 is normal), and a Pronunciations list for words the voice gets wro
 script and its IPA, which is checked as the validator checks it. The captions and the transcript come from the
 script, so they always match what is said.
 
-The audio is made on this computer by the speech engine (Kokoro), never in the editor itself, and it is kept in the
+The audio is made by the voice's own engine, never in the editor itself: Kokoro on this computer, a voice plugin, or an internet service the author has a key for (**AI services**, below). It is kept in the
 project's `.cache/narration`, each file named by a hash of the script, voice, speed, language and pronunciations. So
 the editor always knows whether an object's audio exists: change a word and the audio is out of date; undo it and it is
 back, because it is found again by its words. The Properties section says whether the audio exists and how long it is,
@@ -184,7 +184,18 @@ each with its audio status, a "Go to" button, and "Make audio" (or "Make all mis
 project as it is on screen, saved or not, and can be cancelled; the first time can take a minute or more for each object.
 If no speech engine is set up the dialog says so and still lists everything (transcripts and captions work without audio).
 OPEN EDITOR.bat looks for the engine in the Audiobook Studio folder; otherwise set `OPENSTAGE_KOKORO_PYTHON` to the
-Python that has Kokoro installed. Publishing also makes any audio that is missing.
+Python that has Kokoro installed. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
+is published with the audio already made, or without audio.
+
+**AI services.** The **AI services** button opens a dialog for OpenAI and ElevenLabs and for voice plugins (docs/ai-generation.md, docs/plugins.md). For each service: the key
+(a password box with Show), a box that is the author's yes to the service being sent their words (**Allow OpenStage to send ...**), **Check the key**, for ElevenLabs
+**Get my voices**, and under *models (advanced)* the model names. Voice plugins are listed with a switch each, their licence, and what their author says about the
+internet; **Open the plugins folder** shows where they go. **Save** keeps it; **Cancel** and Escape drop the changes. Only a service with a key and a yes has its voices in the lists.
+The first time the author makes something with a service they have not said yes to, a question asks, and says what is sent; its **Not now** button has the focus. A voice from a service or
+plugin is under its own heading in every Voice list (an object's, an item's, a description's, a character's). Under the list, a note says where the voice is made. A voice that speaks many languages
+has a **Language of the script** box. A voice that cannot use pronunciations says so and has no way to add one; ElevenLabs' speed is held to 0.7 to 1.2. If the credits page is off, the note says
+that listeners are not told the voice is made by an AI service. The Narration dialog starts with one sentence for each engine (where the audio is made and whether anything is sent),
+asks before sending to a service for the first time, and leaves out what the author did not allow.
 
 **Narration of items.** Text should have audio available, so each item of an interaction can speak too: a glossary
 term and its definition, the back of a flip card, a tab, a step. In an interaction's Items section each item has its own
@@ -196,7 +207,7 @@ later, and asking again replaces them. The Narration dialog lists items after th
 its own status and "Make audio", and "Go to" lands in that item's script box. In the published course the item speaks
 when the learner opens it and has a Listen button; see the format spec.
 
-**Assets.** The Assets button opens a dialog with three tabs. *This project* lists every file the project
+**Assets.** The Assets button opens a dialog with four tabs. *This project* lists every file the project
 keeps (images, video, audio and captions), filtered by kind, with a picture of each image. Selecting one shows
 where it is used, where it came from, and buttons to insert it on the slide, edit its credit, or delete it. A
 file a slide uses cannot be deleted. Everything listed is included when the course is published, and a
@@ -206,7 +217,10 @@ Repo and Libreshot in your browser. Download a file there, add it on the *This p
 "Add video..." or "Add audio...", and use Edit credit to record where it came from, so the credits page can name
 the creator. Four of the sites can also be searched from inside the editor, if you add that site's own free key
 (their programming interfaces ask for one; you get it on their website and paste it into *Settings* once). Without
-a key those searches say so and point at the button that opens the site.
+a key those searches say so and point at the button that opens the site. *Make with AI* makes a picture (OpenAI) or a sound effect (ElevenLabs) from a
+description: the shape and quality of a picture or the length of a sound, then **Make**, which can be cancelled. The file is saved in the project at once, with a credit that says an AI
+service made it and the words that made it, and **Insert on this slide** puts it on the slide. Its alt text is the author's to write; their description is offered as a place to start. Each
+time costs money, which the service charges; the tab says so. **Edit credit** keeps the record of a made file while it is still called AI-made.
 
 | Searched here, with a free key | Finds |
 | --- | --- |

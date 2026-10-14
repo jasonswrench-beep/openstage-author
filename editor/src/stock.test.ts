@@ -1,5 +1,6 @@
 // Tests for the media libraries, with canned answers that follow each service's documentation. They are not
 // real replies: a key is needed to get one, and the author uses their own.
+import { emptyAi } from "./aiservices.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -192,7 +193,7 @@ test("names, credit records, licence labels and times read well", async () => {
 });
 
 test("settings keep all four keys, and a damaged or missing file means no keys", () => {
-  const s = parseSettings(serializeSettings({ keys: { pixabay: "p", unsplash: "u", pexels: "x", freesound: "f" } }));
+  const s = parseSettings(serializeSettings({ keys: { pixabay: "p", unsplash: "u", pexels: "x", freesound: "f" }, ai: emptyAi() }));
   assert.deepEqual(s.keys, { pixabay: "p", unsplash: "u", pexels: "x", freesound: "f" });
   const none = { pixabay: "", unsplash: "", pexels: "", freesound: "" };
   assert.deepEqual(parseSettings("").keys, none);

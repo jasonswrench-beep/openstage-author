@@ -80,8 +80,90 @@ export function narrationHash(n: Narration): string {
 export const keyOf = (n: Narration): string => narrationHash(n).slice("sha256:".length);
 
 // ---- voices
+//
+// A voice is named by one string. A bare name such as af_heart is a voice of Kokoro, the speech model that runs on this
+// computer (every project made before other engines existed names its voices that way). Another engine's voices begin with
+// the engine's name and a colon: openai:alloy, elevenlabs:<voice id>, or <plugin id>:<voice> for a plugin. Which of those can
+// be chosen right now depends on what the author has set up (a service key and permission, a plugin switched on), so the
+// editor tells this module with setVoiceSources and everything that lists voices follows.
 
 export const VOICES: readonly string[] = voiceList.voices;
+
+const KOKORO = "kokoro";
+
+/** What the engines the editor ships with are called, whether or not they can be used right now. */
+export const ENGINE_NAMES: Record<string, string> = { kokoro: "Kokoro", openai: "OpenAI", elevenlabs: "ElevenLabs" };
+const INTERNET_ENGINES = new Set(["openai", "elevenlabs"]);
+
+/** A voice of an engine other than Kokoro. `lang` is the language it speaks, or null for a voice that speaks many. */
+export interface ExtraVoice {
+  id: string;
+  label: string;
+  lang: string | null;
+}
+
+/** The voices one engine offers right now: a service the author has a key for and has allowed, or a plugin that is switched on. */
+export interface VoiceSource {
+  engine: string;
+  name: string;
+  where: "computer" | "internet";
+  /** Whether the engine can be taught how to say a word. Only Kokoro can be. */
+  pronunciations: boolean;
+  /** The speeds the engine can do, if narrower than the format's own range. */
+  speed: { min: number; max: number } | null;
+  voices: ExtraVoice[];
+}
+
+let voiceSourceList: readonly VoiceSource[] = [];
+
+export function setVoiceSources(next: readonly VoiceSource[]): void {
+  voiceSourceList = next;
+}
+
+export const voiceSources = (): readonly VoiceSource[] => voiceSourceList;
+
+/** The engine a voice belongs to: what is before the colon, or Kokoro for a bare name. */
+export function engineOf(voice: string): string {
+  const colon = voice.indexOf(":");
+  return colon < 0 ? KOKORO : voice.slice(0, colon);
+}
+
+function extraVoice(voice: string): { source: VoiceSource; voice: ExtraVoice } | undefined {
+  for (const source of voiceSourceList) {
+    const found = source.voices.find((v) => v.id === voice);
+    if (found) return { source, voice: found };
+  }
+  return undefined;
+}
+
+/** Whether a voice can be chosen now. */
+export function isKnownVoice(voice: string): boolean {
+  return VOICES.includes(voice) || extraVoice(voice) !== undefined;
+}
+
+export interface VoiceTraits {
+  engine: string;
+  engineName: string;
+  /** Where the audio is made. Unknown for an engine that is not set up here. */
+  where: "computer" | "internet" | "unknown";
+  pronunciations: boolean;
+  /** The voice speaks many languages, so the author says which one the script is in. */
+  multilingual: boolean;
+  speed: { min: number; max: number } | null;
+  /** Whether the voice can be chosen now. */
+  known: boolean;
+}
+
+export function voiceTraits(voice: string): VoiceTraits {
+  const engine = engineOf(voice);
+  if (engine === KOKORO) return { engine, engineName: "Kokoro", where: "computer", pronunciations: true, multilingual: false, speed: null, known: VOICES.includes(voice) };
+  const found = extraVoice(voice);
+  if (found) {
+    return { engine, engineName: found.source.name, where: found.source.where, pronunciations: found.source.pronunciations, multilingual: found.voice.lang === null, speed: found.source.speed, known: true };
+  }
+  const where = INTERNET_ENGINES.has(engine) ? "internet" : "unknown";
+  return { engine, engineName: ENGINE_NAMES[engine] ?? engine, where, pronunciations: false, multilingual: false, speed: null, known: false };
+}
 
 const LANGUAGES: Record<string, { name: string; lang: string }> = {
   a: { name: "American English", lang: "en-US" },
@@ -95,9 +177,32 @@ const LANGUAGES: Record<string, { name: string; lang: string }> = {
   z: { name: "Mandarin Chinese", lang: "zh" },
 };
 
-/** The language code a voice speaks, which the format stores beside the voice. Voice ids start with a language letter. */
-export function langForVoice(voice: string): string {
-  return LANGUAGES[voice[0] ?? ""]?.lang ?? "en-US";
+/**
+ * The language code a voice speaks, which the format stores beside the voice. A Kokoro voice id starts with a language letter. A voice
+ * that speaks many languages has no answer of its own, so `fallback` (the course's language) is used until the author says otherwise.
+ */
+export function langForVoice(voice: string, fallback = "en-US"): string {
+  if (engineOf(voice) === KOKORO) return LANGUAGES[voice[0] ?? ""]?.lang ?? "en-US";
+  return extraVoice(voice)?.voice.lang ?? fallback;
+}
+
+/** The language for a narration whose voice has just been changed: one the author set is kept when both voices speak many languages. */
+export function langAfterVoiceChange(prev: { voice: string; lang: string }, voice: string, fallback = "en-US"): string {
+  if (!voiceTraits(voice).multilingual) return langForVoice(voice, fallback);
+  return voiceTraits(prev.voice).multilingual ? prev.lang : fallback;
+}
+
+/** Languages a script is likely to be in, for a voice that speaks many. A language not listed here that a narration already has is added to the list. */
+export const COMMON_LANGUAGES: readonly { lang: string; name: string }[] = [
+  { lang: "en-US", name: "English (United States)" }, { lang: "en-GB", name: "English (United Kingdom)" }, { lang: "es", name: "Spanish" },
+  { lang: "fr-FR", name: "French" }, { lang: "de", name: "German" }, { lang: "it", name: "Italian" }, { lang: "pt-BR", name: "Portuguese (Brazil)" },
+  { lang: "nl", name: "Dutch" }, { lang: "ja", name: "Japanese" }, { lang: "ko", name: "Korean" }, { lang: "zh", name: "Chinese" },
+  { lang: "hi", name: "Hindi" }, { lang: "ar", name: "Arabic" }, { lang: "ru", name: "Russian" },
+];
+
+export function languageOptions(current: string): { lang: string; name: string }[] {
+  const list = [...COMMON_LANGUAGES];
+  return list.some((l) => l.lang === current) ? list : [{ lang: current, name: current }, ...list];
 }
 
 export interface VoiceOption {
@@ -110,14 +215,21 @@ export interface VoiceOption {
 
 const titleCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** The name of the group of voices an engine's voices are listed under. */
+export function sourceGroup(source: Pick<VoiceSource, "name" | "where">): string {
+  return `${source.name}, ${source.where === "internet" ? "over the internet" : "on this computer"}`;
+}
+
 /** af_heart is "Heart, woman" in American English; the second letter says woman (f) or man (m). */
 export function voiceOption(id: string): VoiceOption {
+  const found = extraVoice(id);
+  if (found) return { id, label: found.voice.label, group: sourceGroup(found.source) };
   const name = titleCase(id.slice(id.indexOf("_") + 1));
   const person = id[1] === "m" ? "man" : id[1] === "f" ? "woman" : "voice";
   return { id, label: `${name}, ${person}`, group: LANGUAGES[id[0] ?? ""]?.name ?? "Other" };
 }
 
-/** Every voice, grouped by language in the order the languages are listed, each group sorted by name. */
+/** Every voice that can be chosen, grouped: Kokoro's by language in the order the languages are listed, then each other engine's, each group sorted by name. */
 export function voiceGroups(): { group: string; voices: VoiceOption[] }[] {
   const order = Object.values(LANGUAGES).map((l) => l.name);
   const groups = new Map<string, VoiceOption[]>(order.map((name) => [name, []]));
@@ -125,17 +237,26 @@ export function voiceGroups(): { group: string; voices: VoiceOption[] }[] {
     const v = voiceOption(id);
     (groups.get(v.group) ?? groups.set(v.group, []).get(v.group)!).push(v);
   }
-  return [...groups].filter(([, voices]) => voices.length > 0).map(([group, voices]) => ({ group, voices: voices.sort((a, b) => a.label.localeCompare(b.label)) }));
+  const kokoro = [...groups].filter(([, voices]) => voices.length > 0).map(([group, voices]) => ({ group, voices: voices.sort((a, b) => a.label.localeCompare(b.label)) }));
+  const others = voiceSourceList.filter((s) => s.voices.length > 0).map((s) => ({
+    group: sourceGroup(s),
+    voices: s.voices.map((v) => ({ id: v.id, label: v.label, group: sourceGroup(s) })).sort((a, b) => a.label.localeCompare(b.label)),
+  }));
+  return [...kokoro, ...others];
 }
 
 export const DEFAULT_VOICE = "af_heart";
 export const SPEED_MIN = 0.5;
 export const SPEED_MAX = 2;
 
-/** New narration, with the voice and speed of the narration nearest to hand, so a course keeps one voice. */
-export function newNarration(script: string, like?: Narration): Narration {
-  const voice = like && VOICES.includes(like.voice) ? like.voice : DEFAULT_VOICE;
-  return { script, voice, speed: like?.speed ?? 1, lang: langForVoice(voice), pronunciations: [], audioCache: null };
+/**
+ * New narration, with the voice and speed of the narration nearest to hand, so a course keeps one voice. `fallbackLang` is the course's language, for a voice
+ * that speaks many; a narration like this one keeps the language it already has.
+ */
+export function newNarration(script: string, like?: Narration, fallbackLang = "en-US"): Narration {
+  const voice = like && isKnownVoice(like.voice) ? like.voice : DEFAULT_VOICE;
+  const lang = like && voice === like.voice && voiceTraits(voice).multilingual ? like.lang : langForVoice(voice, fallbackLang);
+  return { script, voice, speed: like?.speed ?? 1, lang, pronunciations: [], audioCache: null };
 }
 
 // ---- what an interaction item says

@@ -41,7 +41,10 @@ import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
-import { audioStatus, keyOf, statusLine, VOICES, voiceGroups, type CachedAudio, type Narration } from "./narration.ts";
+import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
+import { askPermission, openAiServices } from "./aidialog.ts";
+import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
 import { failureText, narrationLine } from "./publishing.ts";
 import { newProjectFiles } from "./template.ts";
@@ -150,6 +153,7 @@ export class App {
   private readonly pptxBtn: HTMLButtonElement;
   private readonly variablesBtn: HTMLButtonElement;
   private readonly narrationBtn: HTMLButtonElement;
+  private readonly aiBtn: HTMLButtonElement;
   private readonly timingBtn: HTMLButtonElement;
   private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
@@ -215,6 +219,7 @@ export class App {
     this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
+    this.aiBtn = this.tool("AI services", "Keys for OpenAI and ElevenLabs, to make voices, pictures and sounds with them, and voice plugins", () => void this.openAiServicesDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
     this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
     this.timelineBtn.setAttribute("aria-pressed", "false");
@@ -230,7 +235,7 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -399,6 +404,7 @@ export class App {
     this.welcome.hidden = true;
     this.workspace.hidden = false;
     this.narrationCache = new Map();
+    await this.loadServices();
     this.renderAll();
     this.scheduleValidate(0);
     void this.refreshNarration();
@@ -529,6 +535,53 @@ export class App {
     }
   }
 
+  // ---- AI services and voice plugins
+
+  /** The author's settings (keys, permissions, plugins switched on) as last read from the settings file. */
+  private settings: Settings = parseSettings("");
+  /** The voice plugins found in the plugins folder. */
+  private plugins: PluginList = noPlugins();
+  /** Counts each time the voices that can be chosen change, so the Properties panel is built again with the new list. */
+  private voiceEpoch = 0;
+
+  /** Read the settings and look for plugins, and make the voices of whatever is set up choosable. A failure leaves only Kokoro's voices. */
+  private async loadServices(): Promise<void> {
+    try {
+      this.settings = parseSettings(await backend.readSettings());
+    } catch {
+      this.settings = parseSettings("");
+    }
+    this.plugins = await backend.aiPlugins().catch(() => noPlugins());
+    this.applyServices();
+  }
+
+  private applyServices(): void {
+    setVoiceSources(buildVoiceSources(this.settings.ai, this.plugins.plugins));
+    this.voiceEpoch++;
+    if (this.model) this.renderProps();
+  }
+
+  private async openAiServicesDialog(): Promise<void> {
+    const result = await openAiServices({ backend, plugins: this.plugins, announce: (msg) => this.announce(msg) });
+    if (result.settings) {
+      this.settings = result.settings;
+      this.plugins = result.plugins;
+      this.applyServices();
+    }
+    this.aiBtn.focus();
+  }
+
+  /** Whether a service may be sent what the author is about to make with it. They are asked the first time, and a yes is kept. */
+  private async askToSend(service: ServiceId, work: Work, detail?: { narrations?: number; characters?: number }): Promise<boolean> {
+    if (isAllowed(this.settings.ai, service)) return true;
+    const yes = await askPermission(backend, { service: serviceById(service), work, ...(detail ? { detail } : {}) });
+    if (yes) {
+      this.settings = parseSettings(await backend.readSettings().catch(() => ""));
+      this.applyServices();
+    }
+    return yes;
+  }
+
   // ---- narration
 
   /** The audio the generator has made, by key. Updated from the disk, never guessed. */
@@ -583,6 +636,8 @@ export class App {
     try {
       goTo = (await openNarration({
         model: m, backend, engine: this.narrationEngineReady,
+        ai: () => this.settings.ai, plugins: () => this.plugins.plugins,
+        ask: (service, detail) => this.askToSend(service, "voice", detail),
         cache: () => this.narrationCache,
         refresh: () => this.refreshNarration(),
         announce: (msg) => this.announce(msg),
@@ -766,18 +821,28 @@ export class App {
       ...(spec.extra ?? []),
     ];
     if (n) {
-      const voice = h("select", { id: `p-${prefix}-voice` },
-        ...(VOICES.includes(n.voice) ? [] : [h("option", { value: n.voice, text: `${n.voice} (not an available voice)` })]),
+      const traits = voiceTraits(n.voice);
+      const voice = h("select", { id: `p-${prefix}-voice`, "aria-describedby": `${prefix}-voice-note` },
+        ...(isKnownVoice(n.voice) ? [] : [h("option", { value: n.voice, text: `${n.voice} (not an available voice)` })]),
         ...voiceGroups().map((g) => h("optgroup", { label: g.group }, ...g.voices.map((v) => h("option", { value: v.id, text: v.label })))));
       voice.value = n.voice;
       voice.dataset["key"] = `prop:${prefix}-voice`;
       voice.addEventListener("change", () => { const msg = m.setNarrationVoice(key, voice.value); if (msg) this.announce(msg); });
       parts.push(h("div", { class: "field" }, h("label", { for: `p-${prefix}-voice`, text: "Voice" }), voice));
+      parts.push(h("p", { id: `${prefix}-voice-note`, class: "note", text: voiceNote(traits) }));
+      parts.push(...[...voiceLimits(traits), disclosureNote(traits, m.project.credits)].filter((t) => t !== "").map((t) => h("p", { class: "note", text: t })));
+      if (traits.multilingual) {
+        const lang = h("select", { id: `p-${prefix}-lang` }, ...languageOptions(n.lang).map((l) => h("option", { value: l.lang, text: l.name })));
+        lang.value = n.lang;
+        lang.dataset["key"] = `prop:${prefix}-lang`;
+        lang.addEventListener("change", () => { const msg = m.setNarrationLang(key, lang.value); if (msg) this.announce(msg); });
+        parts.push(h("div", { class: "field" }, h("label", { for: `p-${prefix}-lang`, text: "Language of the script" }), lang));
+      }
       parts.push(this.field(`${prefix}-speed`, "Speed (1 is normal)", n.speed, (v) => {
         const r = m.setNarrationSpeed(key, Number(v));
         if (!r.ok) { this.announce(r.message); const o = m.object; if (o) this.fillValues(o); } else if (r.message) this.announce(r.message);
       }, { number: true }));
-      parts.push(this.pronunciationFields(m, key, n, prefix === "narration" ? "pron" : `${prefix}-pron`));
+      if (traits.pronunciations || n.pronunciations.length > 0) parts.push(this.pronunciationFields(m, key, n, prefix === "narration" ? "pron" : `${prefix}-pron`, traits.pronunciations));
       const state = audioStatus(n, this.narrationCache);
       const holder = h("div", { class: "listen" });
       if (state.state === "ready") holder.append(this.small("Listen to the audio", "Play the audio made for this script", () => void this.listen(n, holder, spec.audioLabel)));
@@ -793,7 +858,7 @@ export class App {
   }
 
   /** Words the voice gets wrong, taught in IPA. `pron` is the start of the ids of this set of boxes. */
-  private pronunciationFields(m: Model, key: string, n: Narration, pron: string): HTMLElement {
+  private pronunciationFields(m: Model, key: string, n: Narration, pron: string, active = true): HTMLElement {
     const rows = n.pronunciations.map((p, i) => {
       const term = h("input", { type: "text", id: `p-${pron}-${i}-term`, "aria-label": `Word ${i + 1}`, placeholder: "Word" });
       const ipa = h("input", { type: "text", id: `p-${pron}-${i}-ipa`, "aria-label": `How ${p.term} sounds, in IPA`, placeholder: "Sounds like (IPA)" });
@@ -822,8 +887,9 @@ export class App {
     });
     return h("fieldset", { class: "pron" }, h("legend", { text: "Pronunciations" }),
       h("p", { class: "note", text: "Teach the voice a word it gets wrong. Write the word as it is spelled in the script, then how it sounds in IPA, for example \u02c8l\u026ak\u0259rt for Likert." }),
+      ...(active ? [] : [h("p", { class: "note", text: "The voice you chose cannot use these, so they are ignored. They stay here in case you choose a voice that can." })]),
       ...rows,
-      h("div", { class: "pron-row" }, newTerm, newIpa, add));
+      ...(active ? [h("div", { class: "pron-row" }, newTerm, newIpa, add)] : []));
   }
 
   /** Load this script's audio into a player the author can use, and start it. */
@@ -1114,13 +1180,15 @@ export class App {
   }
 
   /** Put a picture that is already in the project on the slide. `suggestion` is a description a stock service gave, offered but never filled in. */
-  private async placeImage(src: string, suggestion?: string): Promise<void> {
+  private async placeImage(src: string, suggestion?: string, source: "service" | "prompt" = "service"): Promise<void> {
     const m = this.model;
     if (!m) return;
     const size = await this.measure(m.dir, src);
     const o = m.addObject("image", { imageSrc: src, size });
     if (o) {
-      const tip = suggestion ? ` The service describes it as: "${suggestion}". You can use that as a start.` : "";
+      const tip = !suggestion ? ""
+        : source === "prompt" ? ` You asked for: "${suggestion}". Describe what the picture actually shows, which may differ.`
+        : ` The service describes it as: "${suggestion}". You can use that as a start.`;
       this.announce(`Added image ${src.split("/").pop()}. It needs alt text: describe it in the Alt text field, or mark it decorative.${tip}`);
       document.getElementById("p-alt")?.focus();
     }
@@ -1200,7 +1268,9 @@ export class App {
     await openAssets({
       model: m, backend, tab,
       announce: (msg) => this.announce(msg),
-      insertImage: (path, suggestion) => this.placeImage(path, suggestion),
+      insertImage: (path, suggestion, source) => this.placeImage(path, suggestion, source),
+      askToSend: (service, work) => this.askToSend(service, work),
+      openAiServices: () => this.openAiServicesDialog(),
       insertMedia: (kind, path) => this.placeMedia(kind, path),
       insertDownload: (path) => this.placeDownload(path),
       useCaptions: (path) => {
@@ -1844,7 +1914,7 @@ export class App {
     const narrationSign = (n: unknown): string => (n ? `${keyOf(n as Narration)}:${(n as Narration).pronunciations.length}` : "none");
     const itemNarration = o?.type === "interaction" ? (o.content as unknown as InteractionContent).items.map((i) => narrationSign(i.narration)).join(",")
       : o?.type === "video" ? m.descriptionOf(o.id).map((c) => `${c.id}:${narrationSign(c.narration)}`).join(",") : "";
-    const narrated = o ? `|${narrationSign(o.narration)}:${this.narrationEpoch}|${itemNarration}` : "";
+    const narrated = o ? `|${narrationSign(o.narration)}:${this.narrationEpoch}:${this.voiceEpoch}:${m.project.credits}|${itemNarration}` : "";
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";

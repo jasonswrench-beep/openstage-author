@@ -28,10 +28,10 @@ import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { templateById } from "./templates.ts";
 import { castUse, cloneCast, draftProblems as castProblems, voiceChanges } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
-import { downloadScript, isValidIpa, itemScript, langForVoice, newNarration, questionScript, SPEED_MAX, SPEED_MIN, VOICES, voiceOption, type Narration } from "./narration.ts";
+import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.25.0";
+export const FORMAT_VERSION = "0.26.0";
 
 export interface OpenedProject {
   dir: string;
@@ -1598,7 +1598,7 @@ export class Model {
               const voice = line.speaker ? changed.get(line.speaker) : undefined;
               const n = line.narration as Narration | null;
               if (voice && n && n.voice !== voice) {
-                line.narration = { ...n, voice, lang: langForVoice(voice) };
+                line.narration = { ...n, voice, lang: langAfterVoiceChange(n, voice, this.project.meta.language) };
                 lines++;
               }
             }
@@ -1793,15 +1793,29 @@ export class Model {
     return { added: todo.length, message: `Gave ${todo.length} ${todo.length === 1 ? "description" : "descriptions"} a voice that says ${todo.length === 1 ? "its" : "their"} words. Make the audio from the Narration button.` };
   }
 
-  /** Change the voice. The language stored beside it follows the voice. */
+  /**
+   * Change the voice. The language stored beside it follows the voice, except for a voice that speaks many languages, which
+   * keeps the language the author set (or the course's language if the voice before it spoke only one).
+   */
   setNarrationVoice(key: string, voice: string): string | null {
     const owner = this.narrationOwner(key);
     const n = owner ? this.narrationAt(owner) : null;
-    if (!owner || !n || !VOICES.includes(voice) || n.voice === voice) return null;
+    if (!owner || !n || !isKnownVoice(voice) || n.voice === voice) return null;
     this.record("");
-    this.writeNarration(owner, { ...n, voice, lang: langForVoice(voice) });
+    this.writeNarration(owner, { ...n, voice, lang: langAfterVoiceChange(n, voice, this.project.meta.language) });
     this.emit({ kind: "content", objectId: owner.obj.id });
     return `Voice changed to ${voiceOption(voice).label}`;
+  }
+
+  /** Say which language the script is in. Only for a voice that speaks many; any other voice has its own language. */
+  setNarrationLang(key: string, lang: string): string | null {
+    const owner = this.narrationOwner(key);
+    const n = owner ? this.narrationAt(owner) : null;
+    if (!owner || !n || !voiceTraits(n.voice).multilingual || n.lang === lang || !/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(lang)) return null;
+    this.record("");
+    this.writeNarration(owner, { ...n, lang });
+    this.emit({ kind: "content", objectId: owner.obj.id });
+    return `Language set to ${lang}`;
   }
 
   setNarrationSpeed(key: string, speed: number): { ok: boolean; message: string } {

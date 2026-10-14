@@ -7,7 +7,7 @@
 
 import type { Character, ScenarioChoice, ScenarioContent, ScenarioLine, ScenarioNode } from "../../player/src/types.ts";
 import { YOU } from "./characters.ts";
-import { langForVoice, newNarration, type Narration } from "./narration.ts";
+import { langAfterVoiceChange, newNarration, type Narration } from "./narration.ts";
 
 export const LIMITS = { nodes: 40, lines: 12, choices: 6, responses: 6, effects: 6, meters: 6 } as const;
 
@@ -186,7 +186,7 @@ export function voiceFor(speaker: string | null, cast: readonly Character[]): st
 export function spokenLine(text: string, speaker: string | null, cast: readonly Character[], like?: Narration): Narration {
   const base = newNarration(text.trim(), like);
   const voice = voiceFor(speaker, cast);
-  return voice ? { ...base, voice, lang: langForVoice(voice) } : base;
+  return voice ? { ...base, voice, lang: langAfterVoiceChange(base, voice) } : base;
 }
 
 /** Add a line to a situation (`nodeId`), or to the response to a choice (`choiceId`). It starts with no words, for the author to write. */
@@ -253,7 +253,7 @@ export function setLineSpeaker(c: ScenarioContent, lineId: string, speaker: stri
   const voice = voiceFor(speaker, cast);
   const n = home.line.narration as Narration | null;
   if (n && voice && n.voice !== voice) {
-    home.line.narration = { ...n, voice, lang: langForVoice(voice) };
+    home.line.narration = { ...n, voice, lang: langAfterVoiceChange(n, voice) };
     return done(`Now spoken by ${cast.find((p) => p.id === speaker)!.name}. Its voice changed to theirs, so make the audio again.`);
   }
   const who = speaker === null ? "the narrator" : speaker === YOU ? "you, the learner's character" : cast.find((p) => p.id === speaker)!.name;

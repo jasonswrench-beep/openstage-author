@@ -5,7 +5,7 @@
 // be one of them. Because they are used, one cannot be taken out of the cast while something still points at them.
 
 import type { Character, InputContent, ScenarioContent, Slide } from "../../player/src/types.ts";
-import { DEFAULT_VOICE, VOICES } from "./narration.ts";
+import { DEFAULT_VOICE, isKnownVoice, VOICES } from "./narration.ts";
 
 export const CAST_LIMIT = 12;
 
@@ -64,7 +64,7 @@ export function draftProblems(draft: readonly Character[], before: readonly Char
   draft.forEach((p, i) => {
     const who = p.name.trim() === "" ? `Person ${i + 1}` : p.name.trim();
     if (p.name.trim() === "") out.push(`Person ${i + 1} needs a name.`);
-    if (!VOICES.includes(p.voice)) out.push(`${who} has a voice that does not exist.`);
+    if (!isKnownVoice(p.voice)) out.push(`${who} has a voice that is not available here. Choose another, or set up the service or plugin it comes from in AI services.`);
     if (p.picture) {
       if (!p.picture.decorative && p.picture.alt.trim() === "") out.push(`${who}'s picture needs alt text, or tick that it is decorative.`);
       if (p.picture.decorative && p.picture.alt.trim() !== "") out.push(`${who}'s picture is decorative, so it has no alt text. Clear the alt text, or untick decorative.`);

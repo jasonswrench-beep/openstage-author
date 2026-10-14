@@ -197,7 +197,7 @@ button.small:hover { background: #e3e6eb; }
 
 /* Assets dialog */
 .assets-dialog { width: min(1040px, 96vw); }
-.as-tabs { display: flex; gap: 4px; border-bottom: 2px solid #1d2530; margin-bottom: 10px; }
+.as-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 2px solid #1d2530; margin-bottom: 10px; }
 .as-tabs button { font: inherit; padding: 6px 14px; border: 2px solid #1d2530; border-bottom: 0; border-radius: 6px 6px 0 0; background: #eef0f3; color: #1a1a1a; cursor: pointer; }
 .as-tabs button[aria-selected="true"] { background: #0b3fb3; color: #fff; }
 .as-panel[hidden] { display: none; }
@@ -241,6 +241,18 @@ button.small:hover { background: #e3e6eb; }
 .props-body fieldset.pron { margin: 8px 0 4px; }
 /* A script is paragraphs, so its box takes the panel's full width with the label above it. */
 .props-body .field.stack { grid-template-columns: minmax(0, 1fr); }
+/* AI services and voice plugins */
+.ai-dialog { width: min(820px, 96vw); }
+.ai-service { border: 1px solid #8c929b; border-radius: 6px; padding: 4px 14px 10px; margin: 12px 0; }
+.ai-service h3 { margin: 10px 0 4px; font-size: 16px; }
+.ai-service details { margin: 8px 0; }
+.ai-service summary { cursor: pointer; min-height: 24px; }
+.ai-plugin { border-top: 1px solid #d3d8df; padding: 6px 0; }
+.ai-plugin:first-child { border-top: 0; }
+.ai-plugin .note, .ai-plugin-problem { overflow-wrap: anywhere; }
+.nr-plan .note { margin: 4px 0; }
+.nr-state { overflow-wrap: anywhere; }
+
 .pron-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; align-items: center; margin: 8px 0; }
 .pron-row > button { grid-column: 1 / -1; justify-self: start; }
 .pron-row input { font: inherit; padding: 3px 5px; min-width: 0; box-sizing: border-box; }

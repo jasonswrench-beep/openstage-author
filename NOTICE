@@ -35,5 +35,14 @@ Speech engine (installed separately by the user; not included, bundled or hosted
   under the GNU General Public License, such as phonemizer-fork and espeak-ng. OpenStage
   Author does not include, bundle, or host them. They keep their own licences.
 
+AI services and voice plugins (connected by the user; not included, bundled or hosted by OpenStage Author)
+  The editor can make voices, pictures and sounds with OpenAI (https://openai.com) and
+  ElevenLabs (https://elevenlabs.io), and can run speech models the user installs as plugins.
+  OpenStage Author includes no service, model, key or account of theirs. The user supplies their
+  own key, and the service's own terms and privacy rules apply to what is sent to it and to what
+  it makes. A plugin is a separate program with its own licence. The example plugin in
+  examples/plugins is part of OpenStage Author (Apache License 2.0). No component of these
+  services is distributed with a course; a course credits the services that made its material.
+
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.

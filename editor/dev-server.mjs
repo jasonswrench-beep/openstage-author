@@ -3,6 +3,7 @@
 // src-tauri/src/lib.rs. For development only; it binds to this computer alone.
 import { createServer } from "node:http";
 import { spawnSync } from "node:child_process";
+import { deflateSync } from "node:zlib";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -28,6 +29,18 @@ const send = (res, code, data, type = "application/json") => {
   res.writeHead(code, { "content-type": type });
   res.end(typeof data === "string" || Buffer.isBuffer(data) ? data : JSON.stringify(data));
 };
+
+/** A plain blue-grey picture, as PNG bytes, for the stand-in service. */
+function plainPng(w, h) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const body = Buffer.concat([Buffer.from(type, "latin1"), data]); const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(body)); return Buffer.concat([len, body, sum]); };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(w, 0); header.writeUInt32BE(h, 4); header[8] = 8; header[9] = 2;
+  const rows = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; rows[o] = 70 + x; rows[o + 1] = 110 + y; rows[o + 2] = 160; }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]);
+}
 
 function open(dir) {
   const project = readFileSync(path.join(dir, "project.json"), "utf-8");
@@ -149,6 +162,35 @@ createServer(async (req, res) => {
       } finally {
         rmSync(temp, { recursive: true, force: true });
       }
+    }
+    // Stand-ins for the AI services, for trying the dialogs in a browser. Nothing is sent anywhere: a plain picture or a silent sound is saved in
+    // the project the way the app saves a real one. The plugin list is the real tool's, over the example plugins.
+    if (url.pathname === "/api/ai-plugins") {
+      const { enabled = [] } = await body(req);
+      const args = [path.join(repo, "tools", "generate.py"), "plugins", "--plugins-dir", process.env.OPENSTAGE_PLUGINS_DIR ?? path.join(repo, "examples", "plugins")];
+      if (enabled.length) args.push("--plugins-enabled", enabled.filter((id) => /^[a-z][a-z0-9-]{1,30}$/.test(id)).join(","));
+      const r = spawnSync(python, args, { encoding: "utf-8", input: "{}" });
+      return send(res, 200, r.stdout || JSON.stringify({ ok: false }));
+    }
+    if (url.pathname === "/api/ai-service") {
+      const { op, service } = await body(req);
+      if (op === "voices" && service === "elevenlabs") {
+        return send(res, 200, { ok: true, voices: [{ id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", hint: "female, American" }, { id: "29vD33N1CtxCmqQRPOHJ", name: "Drew", hint: "male, American" }] });
+      }
+      return send(res, 200, { ok: true });
+    }
+    if (url.pathname === "/api/ai-make") {
+      const { dir, kind, request } = await body(req);
+      if (!existsSync(path.join(dir, "project.json")) || !["picture", "sound"].includes(kind)) return send(res, 400, "Not something that can be made.", "text/plain");
+      if (String(request.prompt ?? "").includes("FAIL")) return send(res, 200, { ok: false, message: "The stand-in service was asked to fail." });
+      const folder = kind === "picture" ? "images" : "audio";
+      const ext = kind === "picture" ? "png" : "mp3";
+      const stem = "ai-" + (String(request.prompt ?? "").split(/\s+/).slice(0, 5).join("-").replace(/[^A-Za-z0-9_-]/g, "-").replace(/^-+|-+$/g, "") || "made");
+      mkdirSync(path.join(dir, "assets", folder), { recursive: true });
+      let name = `${stem}.${ext}`;
+      for (let n = 2; existsSync(path.join(dir, "assets", folder, name)); n++) name = `${stem}-${n}.${ext}`;
+      writeFileSync(path.join(dir, "assets", folder, name), kind === "picture" ? plainPng(96, 64) : Buffer.concat([Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0]), Buffer.alloc(64)]));
+      return send(res, 200, { ok: true, path: `assets/${folder}/${name}`, service: request.service, model: "stand-in" });
     }
     if (url.pathname === "/api/asset") {
       const dir = url.searchParams.get("dir");

@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CURRENT = "0.25.0"
+CURRENT = "0.26.0"
 
 
 def version_tuple(text):
@@ -231,9 +231,17 @@ def step_0_24_to_0_25(project, slides, files):
     return ["Slides can now be imported from a PowerPoint deck, and brought up to date when the deck changes. None of your slides came from a deck."]
 
 
+def step_0_25_to_0_26(project, slides, files):
+    """0.25.0 to 0.26.0: a picture or sound made by an AI service is credited as such ("generated", with the service, model, words and time),
+    and a narration's voice can name an engine other than the built-in one ("openai:alloy"). Nothing in an existing project has to change:
+    a voice with no engine in its name is still the built-in one, and nothing was generated before."""
+    project["schemaVersion"] = "0.26.0"
+    return ["Pictures and sounds can now be made with an AI service you have a key for, and narration can use other voices. Nothing in your course is made that way yet."]
+
+
 STEPS = {"0.1.0": ("0.2.0", step_0_1_to_0_2), "0.2.0": ("0.3.0", step_0_2_to_0_3), "0.3.0": ("0.4.0", step_0_3_to_0_4),
          "0.4.0": ("0.5.0", step_0_4_to_0_5), "0.5.0": ("0.6.0", step_0_5_to_0_6), "0.6.0": ("0.7.0", step_0_6_to_0_7),
-         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15), "0.15.0": ("0.16.0", step_0_15_to_0_16), "0.16.0": ("0.17.0", step_0_16_to_0_17), "0.17.0": ("0.18.0", step_0_17_to_0_18), "0.18.0": ("0.19.0", step_0_18_to_0_19), "0.19.0": ("0.20.0", step_0_19_to_0_20), "0.20.0": ("0.21.0", step_0_20_to_0_21), "0.21.0": ("0.22.0", step_0_21_to_0_22), "0.22.0": ("0.23.0", step_0_22_to_0_23), "0.23.0": ("0.24.0", step_0_23_to_0_24), "0.24.0": ("0.25.0", step_0_24_to_0_25)}
+         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15), "0.15.0": ("0.16.0", step_0_15_to_0_16), "0.16.0": ("0.17.0", step_0_16_to_0_17), "0.17.0": ("0.18.0", step_0_17_to_0_18), "0.18.0": ("0.19.0", step_0_18_to_0_19), "0.19.0": ("0.20.0", step_0_19_to_0_20), "0.20.0": ("0.21.0", step_0_20_to_0_21), "0.21.0": ("0.22.0", step_0_21_to_0_22), "0.22.0": ("0.23.0", step_0_22_to_0_23), "0.23.0": ("0.24.0", step_0_23_to_0_24), "0.24.0": ("0.25.0", step_0_24_to_0_25), "0.25.0": ("0.26.0", step_0_25_to_0_26)}
 
 
 def migrate(project_dir):

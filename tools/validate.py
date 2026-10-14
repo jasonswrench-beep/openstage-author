@@ -33,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 25, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 26, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -221,6 +221,32 @@ _IPA_OK = re.compile(
 def _voices():
     data = json.loads((pathlib.Path(__file__).parent / "kokoro-voices.json").read_text(encoding="utf-8"))
     return set(data["voices"])
+
+
+# A voice with no colon is one of Kokoro's. Another engine's voice begins with the engine's name and a colon (docs/format-spec.md, "Voices").
+_ENGINE_VOICE = re.compile(r"^[a-z][a-z0-9-]{1,30}:[A-Za-z0-9_.-]{1,60}$")
+_ELEVENLABS_VOICE = re.compile(r"^[A-Za-z0-9]{10,40}$")
+# Internet services whose ready-made voices are known here, so a misspelt one is found. Their rules ask that listeners are told a voice is AI-made.
+SERVICE_VOICES = {"openai": "OpenAI", "elevenlabs": "ElevenLabs"}
+
+
+def _openai_voices():
+    return set(json.loads((pathlib.Path(__file__).parent / "openai-voices.json").read_text(encoding="utf-8"))["voices"])
+
+
+def voice_known(voice):
+    """Whether a voice name can be right. Kokoro's are checked against its list, and OpenAI's and ElevenLabs' by their own forms. A plugin's voices
+    can be known only on the computer the plugin is installed on, so any well-formed name is accepted."""
+    if voice in _voices():
+        return True
+    if not _ENGINE_VOICE.match(voice):
+        return False
+    engine, _, rest = voice.partition(":")
+    if engine == "openai":
+        return rest in _openai_voices()
+    if engine == "elevenlabs":
+        return bool(_ELEVENLABS_VOICE.match(rest))
+    return True
 
 
 # ---------------------------------------------------------------- themes
@@ -632,6 +658,21 @@ def _icon_credit(project, slides, add):
                     "The icons are from Lucide (ISC licence), which asks for its copyright notice and licence to be kept with them. "
                     "Switch the credits page on, which carries the notice, or carry it another way.")
                 return
+
+
+def _voice_credit(project, slides, add):
+    """A voice made by an AI service is credited on the credits page, which is where the course tells listeners. If the page is off, nobody is told."""
+    if project["credits"]:
+        return
+    told = set()
+    for rel, slide in slides.items():
+        for _, obj in _objects(slide):
+            for n, _owner in narrations_of(obj):
+                engine = n["voice"].partition(":")[0] if ":" in n["voice"] else ""
+                if engine in SERVICE_VOICES and engine not in told:
+                    told.add(engine)
+                    add(WARNING, rel, obj["id"], "voice-credit-page-off", f"This course has {SERVICE_VOICES[engine]} voices, but the credits page is off",
+                        f"{SERVICE_VOICES[engine]}'s rules ask that listeners are told a voice is made by an AI service. The credits page says so. Switch it on, or tell listeners another way.")
 
 
 def _value_type(v):
@@ -1189,7 +1230,7 @@ def _characters(project, asset_root, add):
         elif names.count(" ".join(person["name"].split()).lower()) > 1:
             add(WARNING, rel, pid, "character-name-duplicate", "Two people in the cast have the same name",
                 f"More than one person is called '{person['name']}'. A learner cannot tell them apart.")
-        if person["voice"] not in _voices():
+        if not voice_known(person["voice"]):
             add(ERROR, rel, pid, "voice-unknown", "Unknown voice", f"'{person['voice']}' is not in the available voice set (the voice of {person['name']}).")
         picture = person["picture"]
         if picture:
@@ -1207,7 +1248,7 @@ def _characters(project, asset_root, add):
 def _narration(rel, obj, add):
     oid = obj["id"]
     for n, owner in narrations_of(obj):
-        if n["voice"] not in _voices():
+        if not voice_known(n["voice"]):
             add(ERROR, rel, oid, "voice-unknown", "Unknown voice", f"'{n['voice']}' is not in the available voice set{owner}.")
         for p in n["pronunciations"]:
             if not _IPA_OK.match(p["ipa"]):
@@ -1389,6 +1430,7 @@ def validate_project(project_dir, asset_root=None):
     _capture_material(project, project_dir, add)
     _characters(project, asset_root, add)
     _icon_credit(project, slides, add)
+    _voice_credit(project, slides, add)
     _completion(project, slides, listed, add)
     _results(slides, add)
     _timing(slides, add)

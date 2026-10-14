@@ -4,7 +4,7 @@
 
 import type { Character } from "../../player/src/types.ts";
 import { cloneCast, draftNotes, draftProblems, newPerson, CAST_LIMIT } from "./characters.ts";
-import { voiceGroups } from "./narration.ts";
+import { isKnownVoice, voiceGroups } from "./narration.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -75,7 +75,9 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
       name.addEventListener("input", () => { p.name = name.value; legend.textContent = legendText(p, i); showNotes(); });
       const role = h("input", { id: `${k}-role`, type: "text", value: p.role });
       role.addEventListener("input", () => { p.role = role.value; });
-      const voice = h("select", { id: `${k}-voice` }, ...voiceGroups().map((g) => h("optgroup", { label: g.group }, ...g.voices.map((v) => h("option", { value: v.id, text: v.label })))));
+      const voice = h("select", { id: `${k}-voice` },
+        ...(isKnownVoice(p.voice) ? [] : [h("option", { value: p.voice, text: `${p.voice} (not an available voice)` })]),
+        ...voiceGroups().map((g) => h("optgroup", { label: g.group }, ...g.voices.map((v) => h("option", { value: v.id, text: v.label })))));
       voice.value = p.voice;
       voice.addEventListener("change", () => { p.voice = voice.value; });
 

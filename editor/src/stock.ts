@@ -8,6 +8,7 @@
 // only: alt text is always the author's to write.
 
 import type { CreditEntry } from "../../player/src/types.ts";
+import { emptyAi, parseAi, type AiSettings } from "./aiservices.ts";
 
 export type MediaKind = "image" | "video" | "audio";
 export type Provider = "pixabay" | "unsplash" | "pexels" | "freesound";
@@ -283,15 +284,18 @@ export interface Settings {
   keys: Record<Provider, string>;
   /** The folder the author last published into. Absent until they choose one. */
   publishFolder?: string;
+  /** Keys, permissions and plugins for the AI services (see aiservices.ts). */
+  ai: AiSettings;
 }
 
 export const KEYED: Provider[] = ["pexels", "pixabay", "unsplash", "freesound"];
 
 export function parseSettings(raw: string): Settings {
-  const out: Settings = { keys: { pixabay: "", unsplash: "", pexels: "", freesound: "" } };
+  const out: Settings = { keys: { pixabay: "", unsplash: "", pexels: "", freesound: "" }, ai: emptyAi() };
   try {
-    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown };
+    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown; ai?: unknown };
     for (const id of KEYED) out.keys[id] = text(data.keys?.[id]);
+    out.ai = parseAi(data.ai);
     if (text(data.publishFolder).trim() !== "") out.publishFolder = text(data.publishFolder);
   } catch {
     // no settings yet, or a damaged file: start empty

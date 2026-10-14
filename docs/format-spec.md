@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.25.0",
+  "schemaVersion": "0.26.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -400,7 +400,7 @@ SCORM package. `assets.json` is an optional record of where assets came from:
 ```
 
 `provider` is `pixabay`, `unsplash`, `pexels`, `openverse`, `wikimedia`, `freesound`, `mixkit`, `svgrepo`,
-`libreshot`, `vecteezy` (kept for projects that already name it) or `other`. A file with no entry is treated as the
+`libreshot`, `vecteezy` (kept for projects that already name it), `generated` or `other`. A file with no entry is treated as the
 author's own. When `requiresCredit` is true the creator, the source link and the licence must all be
 filled in (`credit-incomplete`). The validator warns about an entry whose file is missing
 (`credit-asset-missing`), and when an asset that needs credit is used while `credits` is off
@@ -410,6 +410,29 @@ When the course is published, the entries for assets that slides actually use go
 `credits` is on the player shows a "Credits" button that opens a dialog listing them: the title, the
 creator, where it came from, and the licence. The dialog is native, so focus stays inside it and Escape
 closes it.
+
+**Pictures and sounds an AI service made** (added in 0.26.0). The provider is `generated`, and the `source` carries a
+`generated` record, which is required for that provider and allowed for no other:
+
+```json
+"source": {
+  "provider": "generated", "url": "https://openai.com/", "creator": "OpenAI (gpt-image-1)", "creatorUrl": "",
+  "licence": "AI-generated; the service's terms of use apply", "requiresCredit": true,
+  "generated": { "service": "openai", "model": "gpt-image-1", "prompt": "A red barn in the snow", "madeAt": "2026-10-14T10:30:00Z" }
+}
+```
+
+`service` is the service's short name (letters, digits and hyphens), `model` the model it used, `prompt` the words that
+were sent (kept so the author can see, and make again, what made the file), and `madeAt` the time in UTC. The editor
+writes `requiresCredit` as true, so the credits page must be on for the course to tell its learners the picture or sound
+was made by an AI service (`credit-page-off`, the same warning as any asset that needs credit). The credits page reads
+"Title, made with OpenAI (gpt-image-1). AI-generated; the service's terms of use apply." The prompt is for the author and
+is not shown to learners. A made picture still needs alt text like any other, and the editor never writes it from the
+prompt. OpenStage keeps no key, no request and no answer from a service in a project: only the file and this record.
+
+The credits page also lists the narration: one line for each engine whose voices speak in the course ("Narration, made
+with OpenAI. Synthetic voices from an AI service, not a person."). The publisher adds these from the narration it
+finds, so they are not in `assets.json`.
 
 ### Inputs and surveys
 
@@ -924,6 +947,37 @@ The decision that shapes the most downstream behaviour.
 }
 ```
 
+### Voices
+
+`voice` names one voice of one speech engine, in one string. A name with no colon is a voice of Kokoro, the speech
+model that runs on the author's computer (`af_heart`), which is how every project made before 0.26.0 names its voices
+and is why none of them changed. Any other engine's voices begin with the engine's name and a colon:
+
+| Voice | Engine |
+| --- | --- |
+| `af_heart` | Kokoro, on this computer. Checked against `tools/kokoro-voices.json`. |
+| `openai:alloy` | OpenAI, over the internet, with the author's key. The ready-made voices only, from `tools/openai-voices.json`. |
+| `elevenlabs:21m00Tcm4TlvDq8ikWAM` | ElevenLabs, over the internet, with the author's key. The ready-made voices of the account, by voice id. |
+| `my-plugin:narrator` | A voice plugin the author has installed (docs/plugins.md). A plugin's voices can be checked only on the computer that has it, so any well-formed name is accepted. |
+
+The name before the colon is 2 to 31 lowercase letters, digits and hyphens, starting with a letter; the name after it is 1 to 60
+letters, digits, `.`, `_` and `-`. A voice that does not match is `voice-unknown`. **Voices are always a fixed set of ready-made voices.** No
+field of the format, and no part of the plugin contract, can hand an engine a recording to copy, because voice cloning is out of scope.
+
+What differs between engines, and what the format says about it:
+
+- **`lang`** is stored beside the voice as always. A Kokoro voice, and a plugin voice that names its language, set it. A voice that speaks many
+  languages (OpenAI's and ElevenLabs') has no language of its own, so the editor starts it at the course's language and the author sets the
+  language of the script. The captions, the transcript and a screen reader use it.
+- **`pronunciations`** are IPA, and only Kokoro can use them. For any other voice they are kept in the file and ignored when the audio is made. They are still part
+  of the cache hash, so changing one makes the audio again. The editor says so and offers no way to add one for such a voice.
+- **`speed`** is held to what the engine can do (ElevenLabs allows 0.7 to 1.2). The hash uses the speed as written.
+- **Word times.** Kokoro, and a plugin that says it reports them, give when each word is spoken. The services do not, so the cue times are estimated from
+  sentence length and `exactTimings` is false. The captions still equal the script.
+- **Where the audio is made.** Kokoro and most plugins work on the computer. A service receives the words of the script, over the internet, using the
+  author's key. It is sent only after the author has said yes to that service, and never when a course is previewed or published (docs/ai-generation.md).
+  The audio is a cache like any other: a course published from a project whose audio is already made sends nothing and needs no key.
+
 ### The cache hash
 
 `audioCache.hash` is `sha256:` followed by the lowercase hex SHA-256 of this UTF-8 text,
@@ -936,7 +990,7 @@ language that reads the format produces the same value. Reference implementation
 ### Where the cache lives and what it holds
 
 For narration with hash `H`, `tools/narrate.py` writes two files to `.cache/narration/`:
-`H.wav` (24 kHz mono audio) and `H.json` with `duration`, `exactTimings` and `cues`.
+`H.wav` (a WAV file: 24 kHz mono from Kokoro and the services, whatever a plugin writes) and `H.json` with `duration`, `exactTimings` and `cues`, and, for audio from a service or a plugin, `madeBy` (the engine's id, name and home page, and whether it works on this computer or over the internet), which the credits page uses.
 Each cue is `{start, end, text}` in seconds, one per sentence of `script`. The cue text
 is the script itself, split into sentences, so joined with single spaces it equals the
 script. Only the start and end times come from synthesis: Kokoro reports when each word
@@ -1293,6 +1347,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.25.0 | 0.26.0 | Adds the `generated` credit provider and its record (a picture or sound an AI service made, with the service, model, prompt and time), and lets a narration's `voice` name an engine other than the built-in one (`openai:alloy`). Nothing in an existing project changes: a voice with no engine in its name is still Kokoro's, and nothing was generated before. |
 | 0.24.0 | 0.25.0 | Adds what is needed to bring slides in from a PowerPoint deck and to bring them up to date: `project.sources` (the decks, and how each was laid on the stage), a slide's own import provenance, and in an object's import provenance the deck's slide number (`slideId`), a fingerprint of the shape (`sourceHash`) and the object as it was imported (`base`). Nothing in an existing project changes: nothing was imported before. |
 | 0.23.0 | 0.24.0 | Adds `announce` to a look (an object state): the words a screen reader says when a rule applies the look. Nothing in an existing project changes: no look has one. A look's name now has limits (1 to 40 characters, no space at either end). |
 | 0.22.0 | 0.23.0 | Adds `timing.appear: "media"` and `timing.media`: an object can appear and go at moments in a video or audio clip on its slide. Nothing in an existing project changes: every timing there says `time` or `narration`. |

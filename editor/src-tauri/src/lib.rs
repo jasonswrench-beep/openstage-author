@@ -684,14 +684,20 @@ fn kill_tree(pid: u32) {
 }
 
 /// Run a command to the end and return what it printed. Cancelling the job stops it.
-fn run_job(mut cmd: Command) -> Result<std::process::Output, JobError> {
-    cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+fn run_job(cmd: Command) -> Result<std::process::Output, JobError> {
+    run_job_input(cmd, None)
+}
+
+/// The same, with some bytes written to the program's standard input (a request for it to read). It is written from a
+/// thread of its own, so a request larger than the pipe never stops the program from being waited for.
+fn run_job_input(mut cmd: Command, input: Option<Vec<u8>>) -> Result<std::process::Output, JobError> {
+    cmd.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // no console window flashing up
     }
-    let child = cmd.spawn().map_err(|e| {
+    let mut child = cmd.spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound { JobError::Missing } else { JobError::Failed(e.to_string()) }
     })?;
     let pid = child.id();
@@ -699,7 +705,18 @@ fn run_job(mut cmd: Command) -> Result<std::process::Output, JobError> {
     if JOB_CANCELLED.load(Ordering::SeqCst) {
         kill_tree(pid); // cancelled in the instant before it started
     }
+    let writer = input.and_then(|bytes| {
+        child.stdin.take().map(|mut stdin| {
+            std::thread::spawn(move || {
+                use std::io::Write;
+                let _ = stdin.write_all(&bytes);
+            })
+        })
+    });
     let out = child.wait_with_output().map_err(|e| JobError::Failed(e.to_string()))?;
+    if let Some(writer) = writer {
+        let _ = writer.join();
+    }
     *job_pid() = None;
     if JOB_CANCELLED.swap(false, Ordering::SeqCst) {
         return Err(JobError::Cancelled);
@@ -969,6 +986,21 @@ fn read_narration_audio_at(dir: &Path, key: &str) -> Result<Vec<u8>, String> {
 /// What the author is told when the speech engine runs but fails.
 fn engine_failure(stderr: &str) -> String {
     let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    // narrate.py says why each engine failed in a "NOT MADE:" line, in words meant for the author already.
+    let mut said: Vec<String> = Vec::new();
+    for reason in lines.iter().filter_map(|l| l.strip_prefix("NOT MADE: ")) {
+        let text = if reason.contains("Kokoro is not available") {
+            "The speech engine is set up, but Kokoro is not installed in it. Set OPENSTAGE_KOKORO_PYTHON to a Python that has Kokoro installed, then open OpenStage Author again.".to_string()
+        } else {
+            reason.to_string()
+        };
+        if !said.contains(&text) {
+            said.push(text);
+        }
+    }
+    if !said.is_empty() {
+        return said.join(" ");
+    }
     if stderr.contains("Kokoro is not available") {
         return "The speech engine is set up, but Kokoro is not installed in it. Set OPENSTAGE_KOKORO_PYTHON to a Python that has Kokoro installed, then open OpenStage Author again.".to_string();
     }
@@ -989,7 +1021,14 @@ fn narration_key_ok(key: &str) -> bool {
 /// Make audio for the project as it is in the editor now, saved or not: the editor's files are laid out in a
 /// temporary folder, the speech tool runs on them, and the audio goes into the real project's .cache.
 /// `ids` are the narrations to make audio for (see `narration_key_ok`), or none to make everything that is missing.
+#[cfg(test)]
 fn make_narration_blocking(engine: &Path, dir: &Path, files: &[FileText], ids: &[String]) -> Result<String, String> {
+    make_narration_with(engine, true, dir, files, ids, &AiSettings::default(), None)
+}
+
+/// The same, with the services and plugins the author has allowed. `kokoro_ready` says whether `engine` is a Python set up for Kokoro
+/// (OPENSTAGE_KOKORO_PYTHON) or only an ordinary Python, which can still make audio with a service or a plugin.
+fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[FileText], ids: &[String], ai: &AiSettings, plugins: Option<&Path>) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
@@ -1007,16 +1046,265 @@ fn make_narration_blocking(engine: &Path, dir: &Path, files: &[FileText], ids: &
         if !ids.is_empty() {
             cmd.arg("--only").arg(ids.join(","));
         }
+        apply_ai(&mut cmd, ai, plugins);
         match run_job(cmd) {
             Ok(out) if out.status.success() => Ok(serde_json::json!({ "ok": true }).to_string()),
-            Ok(out) => Ok(serde_json::json!({ "ok": false, "message": engine_failure(&String::from_utf8_lossy(&out.stderr)) }).to_string()),
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                let message = if !kokoro_ready && stderr.contains("Kokoro is not available") { NO_ENGINE.to_string() } else { engine_failure(&stderr) };
+                Ok(serde_json::json!({ "ok": false, "message": message }).to_string())
+            }
             Err(JobError::Cancelled) => Ok(serde_json::json!({ "ok": false, "cancelled": true, "message": "Making audio was cancelled." }).to_string()),
+            Err(JobError::Missing) if !kokoro_ready => Err(NO_PYTHON.into()),
             Err(JobError::Missing) => Err("The speech engine could not be started. Check OPENSTAGE_KOKORO_PYTHON.".into()),
             Err(JobError::Failed(e)) => Err(format!("Could not run the speech engine: {e}")),
         }
     })();
     let _ = fs::remove_dir_all(&temp);
     result
+}
+
+// ---- AI services and voice plugins
+//
+// Pictures, sounds and voices can come from a service the author has a key for (OpenAI, ElevenLabs), and voices from plugins the
+// author has installed and switched on. All of it goes through the Python tools (tools/narrate.py, tools/generate.py), which are
+// the only place that talks to those services, so there is one place that checks the author's permission and one place that
+// handles a key. This file's part is small and strict:
+//   - the key and the permission live in the settings file, never in a project; a service is handed its key only if the author
+//     has said yes to it, and the key goes in an environment variable, never on a command line where other programs can see it;
+//   - what comes back is checked (is it really a picture or sound, is it a sensible size) before it is saved in the project.
+
+/// The services OpenStage can send text or a description to with the author's own key. The same names are in tools/engines.
+const AI_SERVICES: [&str; 2] = ["openai", "elevenlabs"];
+
+#[derive(Default, Debug)]
+struct AiSettings {
+    keys: std::collections::BTreeMap<String, String>,
+    /// The services the author has said may receive their text and descriptions.
+    allowed: std::collections::BTreeSet<String>,
+    /// The model the author chose for a service and a kind of work ("speech", "picture"). Not a secret.
+    models: std::collections::BTreeMap<(String, String), String>,
+    /// The plugins the author has switched on.
+    plugins: Vec<String>,
+}
+
+fn plugin_id_ok(id: &str) -> bool {
+    let b = id.as_bytes();
+    (2..=31).contains(&b.len()) && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+}
+
+fn model_name_ok(name: &str) -> bool {
+    let b = name.as_bytes();
+    (1..=64).contains(&b.len()) && b[0].is_ascii_alphanumeric() && b.iter().all(|c| c.is_ascii_alphanumeric() || matches!(*c, b'.' | b'_' | b':' | b'-'))
+}
+
+impl AiSettings {
+    /// What the settings file says under "ai". A missing or damaged file says nothing, which means nothing is allowed.
+    fn parse(text: &str) -> AiSettings {
+        let mut out = AiSettings::default();
+        let Ok(root) = serde_json::from_str::<serde_json::Value>(text) else { return out };
+        let ai = &root["ai"];
+        for service in AI_SERVICES {
+            if let Some(key) = ai["keys"][service].as_str() {
+                let key = key.trim();
+                if !key.is_empty() {
+                    out.keys.insert(service.to_string(), key.to_string());
+                }
+            }
+            let said_yes = match &ai["allowed"][service] {
+                serde_json::Value::String(when) => !when.trim().is_empty(),
+                serde_json::Value::Bool(b) => *b,
+                _ => false,
+            };
+            if said_yes {
+                out.allowed.insert(service.to_string());
+            }
+            for kind in ["speech", "picture"] {
+                if let Some(name) = ai["models"][service][kind].as_str().map(str::trim) {
+                    if model_name_ok(name) {
+                        out.models.insert((service.to_string(), kind.to_string()), name.to_string());
+                    }
+                }
+            }
+        }
+        if let Some(plugins) = ai["plugins"].as_object() {
+            out.plugins = plugins.iter().filter(|(id, on)| on.as_bool() == Some(true) && plugin_id_ok(id)).map(|(id, _)| id.clone()).collect();
+        }
+        out
+    }
+
+    /// Whether a service may be used now: it has a key and the author has said yes to it.
+    fn may_use(&self, service: &str) -> bool {
+        self.allowed.contains(service) && self.keys.contains_key(service)
+    }
+}
+
+/// Hand a tool what it is allowed to use: the keys of the services the author has allowed (as environment variables),
+/// the models they chose, which services may be reached, and the plugins folder with the plugins switched on.
+fn apply_ai(cmd: &mut Command, ai: &AiSettings, plugins_dir: Option<&Path>) {
+    cmd.env("PYTHONIOENCODING", "utf-8");
+    let usable: Vec<&str> = AI_SERVICES.iter().copied().filter(|s| ai.may_use(s)).collect();
+    for service in &usable {
+        cmd.env(format!("OPENSTAGE_KEY_{}", service.to_uppercase()), &ai.keys[*service]);
+    }
+    for ((service, kind), name) in &ai.models {
+        cmd.env(format!("OPENSTAGE_MODEL_{}_{}", service.to_uppercase(), kind.to_uppercase()), name);
+    }
+    if !usable.is_empty() {
+        cmd.arg("--allow-network").arg(usable.join(","));
+    }
+    if let Some(dir) = plugins_dir {
+        cmd.arg("--plugins-dir").arg(dir);
+        if !ai.plugins.is_empty() {
+            cmd.arg("--plugins-enabled").arg(ai.plugins.join(","));
+        }
+    }
+}
+
+/// Where the author puts voice plugins: a folder beside the editor's settings.
+fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("plugins"))
+}
+
+fn ai_settings(app: &tauri::AppHandle) -> AiSettings {
+    settings_file(app).ok().and_then(|f| fs::read_to_string(f).ok()).map(|t| AiSettings::parse(&t)).unwrap_or_default()
+}
+
+/// The Python that runs the tools that need only the standard library.
+fn tools_python() -> PathBuf {
+    PathBuf::from(std::env::var("OPENSTAGE_PYTHON").unwrap_or_else(|_| "python".into()))
+}
+
+const NO_PYTHON: &str = "Python could not be started, and it is needed to reach these services and to run voice plugins. Install Python from python.org (tick Add python.exe to PATH), or set OPENSTAGE_PYTHON to its python.exe, then open OpenStage Author again.";
+
+/// Run tools/generate.py for one job and return its answer. The answer is a JSON object with ok, and if not ok a message.
+fn run_generate(python: &Path, op: &str, request: &serde_json::Value, ai: &AiSettings, plugins_dir: Option<&Path>) -> Result<serde_json::Value, String> {
+    let _slot = JobSlot::take()?;
+    let tool = find_tool("generate.py").ok_or("Could not find tools/generate.py.")?;
+    let mut cmd = Command::new(python);
+    cmd.arg(&tool).arg(op);
+    apply_ai(&mut cmd, ai, plugins_dir);
+    match run_job_input(cmd, Some(request.to_string().into_bytes())) {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let line = text.lines().rev().find(|l| l.trim_start().starts_with('{')).unwrap_or("");
+            serde_json::from_str(line).map_err(|_| "The tool did not give an answer OpenStage understands.".to_string())
+        }
+        Ok(out) => {
+            let tail: Vec<String> = String::from_utf8_lossy(&out.stderr).lines().map(str::trim).filter(|l| !l.is_empty()).rev().take(3).map(str::to_string).collect();
+            Err(format!("The tool stopped before it finished. {}", tail.into_iter().rev().collect::<Vec<_>>().join(" ")).trim().to_string())
+        }
+        Err(JobError::Cancelled) => Ok(serde_json::json!({ "ok": false, "cancelled": true, "message": "Cancelled." })),
+        Err(JobError::Missing) => Err(NO_PYTHON.into()),
+        Err(JobError::Failed(e)) => Err(format!("Could not run the tool: {e}")),
+    }
+}
+
+/// Save a picture or sound a service made in the project's assets, and return its project-relative path. The bytes have to be what
+/// they say they are, and a file that is already there is never overwritten.
+fn save_generated_media_at(dir: &Path, kind: &str, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let (ext, noun, genuine) = match kind {
+        "image" => ("png", "picture", picture_matches("png", bytes)),
+        "audio" => ("mp3", "sound", bytes.starts_with(b"ID3") || (bytes.len() > 2 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0)),
+        _ => return Err("Only a picture or a sound can be made.".into()),
+    };
+    if !genuine {
+        return Err(format!("What came back was not a {noun} OpenStage can use."));
+    }
+    let k = asset_kind(kind)?;
+    if bytes.len() as u64 > k.max {
+        return Err(format!("That {noun} is larger than {} MB.", k.max / (1024 * 1024)));
+    }
+    let folder = dir.join("assets").join(k.folder);
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let stem: String = format!("ai-{}", safe_stem(name_hint, "made")).chars().take(48).collect();
+    let name = unique_name(&folder, stem.trim_end_matches('-'), ext);
+    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the {noun}: {e}"))?;
+    Ok(format!("assets/{}/{name}", k.folder))
+}
+
+/// The words a service is asked to draw or sound out, cut to a short name for the file.
+fn name_from_prompt(prompt: &str) -> String {
+    prompt.split_whitespace().take(5).collect::<Vec<_>>().join("-")
+}
+
+/// Make a picture or a sound and save it in the project. `request` has the service, the prompt and the choices for this kind
+/// of work (see tools/generate.py). The answer is JSON: ok, and then the path, the service and the model; or ok false and why.
+fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json::Value, ai: &AiSettings) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let (op, suffix, asset) = match kind {
+        "picture" => ("picture", "png", "image"),
+        "sound" => ("sound", "mp3", "audio"),
+        _ => return Err("Only a picture or a sound can be made.".into()),
+    };
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let temp = std::env::temp_dir().join(format!("openstage-author-make-{}-{stamp}", std::process::id()));
+    fs::create_dir_all(&temp).map_err(|e| e.to_string())?;
+    let result = (|| {
+        let out = temp.join(format!("made.{suffix}"));
+        let mut sent = serde_json::Map::new();
+        for field in ["service", "prompt", "size", "quality", "seconds"] {
+            if let Some(v) = request.get(field) {
+                sent.insert(field.to_string(), v.clone());
+            }
+        }
+        sent.insert("out".into(), out.to_string_lossy().into_owned().into());
+        let answer = run_generate(python, op, &serde_json::Value::Object(sent), ai, None)?;
+        if answer["ok"].as_bool() != Some(true) {
+            return Ok(answer.to_string());
+        }
+        let bytes = fs::read(&out).map_err(|_| "The service answered, but nothing was saved.".to_string())?;
+        let hint = name_from_prompt(request["prompt"].as_str().unwrap_or(""));
+        let path = save_generated_media_at(dir, asset, &hint, &bytes)?;
+        Ok(serde_json::json!({ "ok": true, "path": path, "service": answer["service"], "model": answer["model"], "bytes": bytes.len() }).to_string())
+    })();
+    let _ = fs::remove_dir_all(&temp);
+    result
+}
+
+/// The voice plugins in the plugins folder, and whether each is switched on. Nothing is run and nothing is sent.
+#[tauri::command]
+async fn ai_plugins(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = plugins_dir(&app)?;
+    let ai = ai_settings(&app);
+    tauri::async_runtime::spawn_blocking(move || run_generate(&tools_python(), "plugins", &serde_json::json!({}), &ai, Some(&dir)).map(|v| v.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The plugins folder, made if it is not there yet.
+#[tauri::command]
+fn ai_plugins_folder(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = plugins_dir(&app)?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not make the plugins folder: {e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Ask a service something that costs nothing: whether the key works (op "check"), or which ready-made voices the account has ("voices").
+#[tauri::command]
+async fn ai_service(app: tauri::AppHandle, op: String, service: String) -> Result<String, String> {
+    if op != "check" && op != "voices" {
+        return Err("Not something a service can be asked.".into());
+    }
+    let ai = ai_settings(&app);
+    tauri::async_runtime::spawn_blocking(move || run_generate(&tools_python(), &op, &serde_json::json!({ "service": service }), &ai, None).map(|v| v.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Make a picture or a sound with a service and save it in the project's assets. This is the one thing here that costs money.
+#[tauri::command]
+async fn ai_make(app: tauri::AppHandle, dir: String, kind: String, request: String) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(&request).map_err(|_| "The request was not understood.".to_string())?;
+    let ai = ai_settings(&app);
+    tauri::async_runtime::spawn_blocking(move || ai_make_blocking(&tools_python(), Path::new(&dir), &kind, &request, &ai))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 fn read_asset_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
@@ -1190,9 +1478,15 @@ fn read_narration_audio(dir: String, hash: String) -> Result<String, String> {
 
 /// Make narration audio. The answer is JSON: ok, and if not, why.
 #[tauri::command]
-async fn make_narration(dir: String, files: Vec<FileText>, ids: Vec<String>) -> Result<String, String> {
-    let engine = engine_path().ok_or(NO_ENGINE)?;
-    tauri::async_runtime::spawn_blocking(move || make_narration_blocking(&engine, Path::new(&dir), &files, &ids))
+async fn make_narration(app: tauri::AppHandle, dir: String, files: Vec<FileText>, ids: Vec<String>) -> Result<String, String> {
+    // Kokoro's own Python if there is one. Without it an ordinary Python still makes audio for a service or a plugin voice.
+    let (engine, kokoro_ready) = match engine_path() {
+        Some(path) => (path, true),
+        None => (tools_python(), false),
+    };
+    let ai = ai_settings(&app);
+    let plugins = plugins_dir(&app).ok();
+    tauri::async_runtime::spawn_blocking(move || make_narration_with(&engine, kokoro_ready, Path::new(&dir), &files, &ids, &ai, plugins.as_deref()))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -1422,7 +1716,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, make_narration, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -1750,9 +2044,9 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.25.0");
+        assert_eq!(report["to"], "0.26.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.25.0\""));
+        assert!(opened.project.contains("\"0.26.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.
@@ -2413,5 +2707,132 @@ mod tests {
         let json = make_narration_blocking(Path::new(&python), &example, &files, &["obj-0002".to_string()]).expect("runs");
         assert_eq!(json, r#"{"ok":true}"#);
         assert_eq!(narration_cache_at(&example).unwrap().len(), before.len(), "nothing new was made or lost");
+    }
+
+    // ---- AI services and voice plugins
+
+    fn args_of(cmd: &Command) -> Vec<String> {
+        cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect()
+    }
+    fn env_of(cmd: &Command, name: &str) -> Option<String> {
+        cmd.get_envs().find(|(k, _)| *k == std::ffi::OsStr::new(name)).and_then(|(_, v)| v.map(|v| v.to_string_lossy().into_owned()))
+    }
+
+    const AI_JSON: &str = r#"{"keys":{"pexels":"stock-key"},"ai":{
+        "keys":{"openai":" sk-live-1 ","elevenlabs":"xi-2","somewhere":"else"},
+        "allowed":{"openai":"2026-10-14T10:00:00Z","elevenlabs":""},
+        "models":{"openai":{"speech":"tts-1","picture":"bad name!"}},
+        "plugins":{"tone-voice":true,"Evil One":true,"off-one":false,"../x":true}}}"#;
+
+    #[test]
+    fn what_the_author_allowed_is_read_from_the_settings() {
+        let ai = AiSettings::parse(AI_JSON);
+        assert_eq!(ai.keys.get("openai").map(String::as_str), Some("sk-live-1"), "the key is trimmed");
+        assert!(ai.keys.contains_key("elevenlabs") && !ai.keys.contains_key("somewhere") && !ai.keys.contains_key("pexels"), "only the services OpenStage knows");
+        assert!(ai.allowed.contains("openai") && !ai.allowed.contains("elevenlabs"), "an empty answer is a no");
+        assert_eq!(ai.models.get(&("openai".to_string(), "speech".to_string())).map(String::as_str), Some("tts-1"));
+        assert!(!ai.models.contains_key(&("openai".to_string(), "picture".to_string())), "a model name with odd characters is dropped");
+        assert_eq!(ai.plugins, vec!["tone-voice".to_string()], "only valid ids that are switched on");
+    }
+
+    #[test]
+    fn nothing_is_allowed_when_the_settings_say_nothing() {
+        for text in ["", "{}", "not json", r#"{"ai":[]}"#, r#"{"ai":{"keys":{"openai":"k"}}}"#] {
+            let ai = AiSettings::parse(text);
+            assert!(!ai.may_use("openai") && !ai.may_use("elevenlabs"), "{text}");
+            assert!(ai.plugins.is_empty());
+        }
+        let ai = AiSettings::parse(r#"{"ai":{"allowed":{"openai":true}}}"#);
+        assert!(!ai.may_use("openai"), "yes without a key is still nothing to send with");
+        assert!(AiSettings::parse(r#"{"ai":{"keys":{"openai":"k"},"allowed":{"openai":true}}}"#).may_use("openai"));
+    }
+
+    #[test]
+    fn a_tool_is_given_the_key_only_of_a_service_that_was_allowed_and_never_on_the_command_line() {
+        let ai = AiSettings::parse(AI_JSON);
+        let mut cmd = Command::new("python");
+        apply_ai(&mut cmd, &ai, Some(Path::new("C:\\plugins")));
+        assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_OPENAI").as_deref(), Some("sk-live-1"));
+        assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_ELEVENLABS"), None, "a key the author has not said yes to is not handed over");
+        assert_eq!(env_of(&cmd, "OPENSTAGE_MODEL_OPENAI_SPEECH").as_deref(), Some("tts-1"));
+        assert_eq!(env_of(&cmd, "PYTHONIOENCODING").as_deref(), Some("utf-8"));
+        let args = args_of(&cmd);
+        assert_eq!(args, vec!["--allow-network", "openai", "--plugins-dir", "C:\\plugins", "--plugins-enabled", "tone-voice"]);
+        assert!(!args.iter().any(|a| a.contains("sk-live-1")), "no key where other programs can read it");
+    }
+
+    #[test]
+    fn nothing_is_offered_to_a_tool_when_nothing_is_allowed() {
+        let mut cmd = Command::new("python");
+        apply_ai(&mut cmd, &AiSettings::default(), None);
+        assert!(args_of(&cmd).is_empty());
+        assert_eq!(env_of(&cmd, "OPENSTAGE_KEY_OPENAI"), None);
+    }
+
+    #[test]
+    fn a_picture_or_sound_that_came_back_is_checked_before_it_is_saved() {
+        let project = temp_project("ai-save");
+        let png = [&[0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][..], &[0u8; 16][..]].concat();
+        let first = save_generated_media_at(&project, "image", "a-red-barn", &png).unwrap();
+        assert_eq!(first, "assets/images/ai-a-red-barn.png");
+        let second = save_generated_media_at(&project, "image", "a-red-barn", &png).unwrap();
+        assert_eq!(second, "assets/images/ai-a-red-barn-2.png", "never overwrites");
+        assert_eq!(fs::read(project.join(&first)).unwrap(), png);
+        assert!(save_generated_media_at(&project, "image", "x", b"<html>not a picture</html>").is_err());
+        assert!(save_generated_media_at(&project, "image", "x", &[]).is_err());
+        assert_eq!(save_generated_media_at(&project, "audio", "rain", b"ID3\x04\0\0\0\0\0\0").unwrap(), "assets/audio/ai-rain.mp3");
+        assert!(save_generated_media_at(&project, "audio", "rain", &[0xff, 0xfb, 0x90]).is_ok(), "an MP3 frame without a tag");
+        assert!(save_generated_media_at(&project, "audio", "x", b"RIFFxxxx").is_err());
+        assert!(save_generated_media_at(&project, "video", "x", &png).is_err());
+        assert!(save_generated_media_at(&std::env::temp_dir(), "image", "x", &png).is_err(), "not a project");
+        let odd = save_generated_media_at(&project, "image", "../../Windows/System32 evil", &png).unwrap();
+        assert!(odd.starts_with("assets/images/ai-") && !odd.contains(".."), "{odd}");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_name_for_the_file_comes_from_the_first_words() {
+        assert_eq!(name_from_prompt("A red barn in the snow at dawn, painted"), "A-red-barn-in-the");
+        assert_eq!(name_from_prompt("   "), "");
+    }
+
+    #[test]
+    fn a_narration_failure_is_explained_in_the_engines_own_words() {
+        let said = engine_failure("  failed      a  (OpenAI did not accept the key.)\nNOT MADE: OpenAI did not accept the key. Check the key in Settings.\nNOT MADE: The plugin 'x' stopped before it answered.\n");
+        assert_eq!(said, "OpenAI did not accept the key. Check the key in Settings. The plugin 'x' stopped before it answered.");
+        let both = engine_failure("NOT MADE: Kokoro is not available in this Python (kokoro). Set OPENSTAGE_KOKORO_PYTHON to a Python that has it, or use --no-generate.\nNOT MADE: Kokoro is not available in this Python (kokoro). Set OPENSTAGE_KOKORO_PYTHON to a Python that has it, or use --no-generate.\n");
+        assert!(both.starts_with("The speech engine is set up, but Kokoro is not installed in it.") && !both.contains("--no-generate"), "{both}");
+    }
+
+    #[test]
+    fn plugins_are_listed_and_a_service_that_was_not_allowed_is_refused_by_the_tool() {
+        let _turn = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let Ok(python) = std::env::var("OPENSTAGE_PYTHON") else {
+            eprintln!("skipped: OPENSTAGE_PYTHON is not set");
+            return;
+        };
+        let Some(script) = find_repo_file("tools/generate.py") else {
+            eprintln!("skipped: repository not found");
+            return;
+        };
+        let plugins = script.parent().unwrap().parent().unwrap().join("examples").join("plugins");
+        let ai = AiSettings::parse(r#"{"ai":{"plugins":{"tone-voice":true}}}"#);
+        let listed = run_generate(Path::new(&python), "plugins", &serde_json::json!({}), &ai, Some(&plugins)).expect("runs");
+        assert_eq!(listed["ok"], true);
+        assert_eq!(listed["plugins"][0]["id"], "tone-voice");
+        assert_eq!(listed["plugins"][0]["enabled"], true);
+        let refused = run_generate(Path::new(&python), "check", &serde_json::json!({ "service": "openai" }), &AiSettings::default(), None).expect("runs");
+        assert_eq!(refused["ok"], false);
+        assert!(refused["message"].as_str().unwrap().contains("has not been allowed"), "{refused}");
+    }
+
+    #[test]
+    fn making_a_picture_refuses_what_it_should_before_it_starts() {
+        let project = temp_project("ai-make-checks");
+        let ai = AiSettings::default();
+        let request = serde_json::json!({ "service": "openai", "prompt": "a barn" });
+        assert!(ai_make_blocking(Path::new("python"), &std::env::temp_dir(), "picture", &request, &ai).is_err(), "not a project");
+        assert!(ai_make_blocking(Path::new("python"), &project, "video", &request, &ai).is_err(), "only pictures and sounds");
+        let _ = fs::remove_dir_all(&project);
     }
 }

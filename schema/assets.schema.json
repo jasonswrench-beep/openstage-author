@@ -22,13 +22,32 @@
             "additionalProperties": false,
             "required": ["provider", "url", "creator", "creatorUrl", "licence", "requiresCredit"],
             "properties": {
-              "provider": { "enum": ["pixabay", "unsplash", "pexels", "openverse", "wikimedia", "freesound", "mixkit", "svgrepo", "libreshot", "vecteezy", "other"] },
+              "provider": { "enum": ["pixabay", "unsplash", "pexels", "openverse", "wikimedia", "freesound", "mixkit", "svgrepo", "libreshot", "vecteezy", "generated", "other"] },
               "url": { "type": "string" },
               "creator": { "type": "string" },
               "creatorUrl": { "type": "string" },
               "licence": { "type": "string" },
-              "requiresCredit": { "type": "boolean" }
-            }
+              "requiresCredit": { "type": "boolean" },
+              "generated": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["service", "model", "prompt", "madeAt"],
+                "properties": {
+                  "service": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}$" },
+                  "model": { "type": "string" },
+                  "prompt": { "type": "string", "pattern": "\\S" },
+                  "madeAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$" }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "$comment": "A picture or sound an AI service made says which service and model made it, from what words, and when. Nothing else carries that record.",
+                "if": { "required": ["provider"], "properties": { "provider": { "const": "generated" } } },
+                "then": { "required": ["generated"] },
+                "else": { "not": { "required": ["generated"] } }
+              }
+            ]
           }
         }
       }

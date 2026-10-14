@@ -1040,6 +1040,90 @@ class Credits(unittest.TestCase):
         self.assertTrue([f for f in self.run_with("midjourney") if f.severity == "error"])
 
 
+class EngineVoices(unittest.TestCase):
+    """A narration's voice names its engine: a bare name is Kokoro's, and another engine's voice is 'engine:voice'."""
+
+    def with_voice(self, voice, credits_on=True):
+        with MutatedProject() as p:
+            p.obj(1, lambda o: o["narration"].__setitem__("voice", voice))
+            p.edit("project.json", lambda d: d.__setitem__("credits", credits_on))
+            return p.run()
+
+    def test_a_voice_of_each_engine_is_accepted(self):
+        for voice in ("af_heart", "openai:alloy", "openai:cedar", "elevenlabs:21m00Tcm4TlvDq8ikWAM", "tone-voice:low", "my-plugin:narrator.v2"):
+            self.assertEqual(rules(self.with_voice(voice), "voice-unknown"), [], voice)
+
+    def test_a_voice_that_cannot_be_right_is_not(self):
+        for voice in ("zz_nobody", "openai:alloyy", "openai:", "elevenlabs:short", "elevenlabs:../../x", "Tone:low", "tone voice:low", "a:b", ":low", "x:y:z", "openai:alloy extra"):
+            self.assertTrue(rules(self.with_voice(voice), "voice-unknown", "obj-0002", "error"), voice)
+
+    def test_a_person_in_the_cast_can_have_a_voice_of_any_engine(self):
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d.__setitem__("characters", [{"id": "ana", "name": "Ana", "role": "", "voice": "openai:coral", "picture": None}]))
+            self.assertEqual(rules(p.run(), "voice-unknown"), [])
+            p.edit("project.json", lambda d: d["characters"][0].__setitem__("voice", "openai:nobody"))
+            self.assertTrue(rules(p.run(), "voice-unknown", severity="error"))
+
+    def test_a_service_voice_needs_the_credits_page_so_listeners_are_told(self):
+        hit = rules(self.with_voice("openai:alloy", credits_on=False), "voice-credit-page-off", severity="warning")
+        self.assertEqual(len(hit), 1)
+        self.assertIn("OpenAI", hit[0].message)
+        self.assertEqual(rules(self.with_voice("openai:alloy", credits_on=True), "voice-credit-page-off"), [])
+        self.assertEqual(len(rules(self.with_voice("elevenlabs:21m00Tcm4TlvDq8ikWAM", credits_on=False), "voice-credit-page-off")), 1)
+
+    def test_other_voices_do_not_raise_it(self):
+        for voice in ("af_heart", "tone-voice:low"):
+            self.assertEqual(rules(self.with_voice(voice, credits_on=False), "voice-credit-page-off"), [], voice)
+
+
+class GeneratedCredits(unittest.TestCase):
+    """assets.json: a picture or sound an AI service made says so, and from what words and when."""
+
+    RECORD = {"service": "openai", "model": "gpt-image-1", "prompt": "A red barn in the snow", "madeAt": "2026-10-14T10:30:00Z"}
+
+    def findings(self, credits_on=True, **changes):
+        source = {"provider": "generated", "url": "https://openai.com/", "creator": "OpenAI (gpt-image-1)", "creatorUrl": "",
+                  "licence": "AI-generated; the service's terms of use apply", "requiresCredit": True, "generated": dict(self.RECORD)}
+        for k, v in changes.items():
+            if v is None:
+                source.pop(k, None)
+            else:
+                source[k] = v
+        with MutatedProject() as p:
+            (p.root / "assets" / "images").mkdir(parents=True, exist_ok=True)
+            (p.root / "assets" / "images" / "barn.png").write_bytes(b"x")
+            entry = {"path": "assets/images/barn.png", "title": "A red barn", "kind": "image", "source": source}
+            (p.root / "assets.json").write_text(json.dumps({"assets": [entry]}), encoding="utf-8")
+            p.edit("project.json", lambda d: d.__setitem__("credits", credits_on))
+            # Something on a slide that mentions the file, which is all the check for 'in use' looks at.
+            p.obj(0, lambda o: o.__setitem__("name", "Uses assets/images/barn.png"))
+            return p.run()
+
+    def test_a_generated_picture_with_its_record_is_valid(self):
+        self.assertEqual([f for f in self.findings() if f.severity == "error"], [])
+
+    def test_the_record_is_required_for_a_generated_source(self):
+        self.assertTrue([f for f in self.findings(generated=None) if f.severity == "error"])
+
+    def test_the_record_belongs_to_generated_sources_only(self):
+        self.assertTrue([f for f in self.findings(provider="other") if f.severity == "error"])
+
+    def test_the_record_must_be_complete(self):
+        for field in ("service", "model", "prompt", "madeAt"):
+            record = {k: v for k, v in self.RECORD.items() if k != field}
+            self.assertTrue([f for f in self.findings(generated=record) if f.severity == "error"], field)
+
+    def test_a_blank_prompt_or_a_made_up_time_is_not_a_record(self):
+        self.assertTrue([f for f in self.findings(generated={**self.RECORD, "prompt": "   "}) if f.severity == "error"])
+        self.assertTrue([f for f in self.findings(generated={**self.RECORD, "madeAt": "yesterday"}) if f.severity == "error"])
+        self.assertTrue([f for f in self.findings(generated={**self.RECORD, "service": "Open AI!"}) if f.severity == "error"])
+
+    def test_the_credits_page_must_be_on_to_tell_people_it_was_made_by_an_ai(self):
+        hit = rules(self.findings(credits_on=False), "credit-page-off", severity="warning")
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(rules(self.findings(credits_on=True), "credit-page-off"), [])
+
+
 class Themes(unittest.TestCase):
     THEMES = sorted((validate.ROOT / "themes").glob("*.theme.json"))
 
