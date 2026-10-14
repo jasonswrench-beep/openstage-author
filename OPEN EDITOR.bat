@@ -40,7 +40,14 @@ if not defined OPENSTAGE_KOKORO_PYTHON (
 
 set "EXE=%~dp0editor\src-tauri\target\release\openstage-editor.exe"
 
-if exist "%EXE%" goto :run
+REM A program built before the editor's files last changed is out of date: it opens without the newest buttons and fixes.
+REM If any of the editor's files is newer than the program, build it again.
+if exist "%EXE%" (
+  powershell -NoProfile -Command "$e=(Get-Item -LiteralPath $env:EXE).LastWriteTime; $n=(Get-ChildItem editor\src,editor\web,editor\src-tauri\src,editor\src-tauri\tauri.conf.json,player\src -Recurse -File | Measure-Object -Property LastWriteTime -Maximum).Maximum; if ($n -gt $e) { exit 1 }"
+  if not errorlevel 1 goto :run
+  echo The editor has changed since it was last built, so it is being built again. This takes a minute or two.
+  echo.
+)
 
 where node >nul 2>nul
 if errorlevel 1 (
