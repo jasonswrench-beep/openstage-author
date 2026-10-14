@@ -172,9 +172,10 @@ class RunOptions(unittest.TestCase):
         self.assertIsNotNone(result["ix/two"]["audio"])
 
     def test_the_command_line_is_read(self):
-        self.assertEqual(narrate.parse_args(["P"]), ("P", {"only": None, "cache_root": None}))
+        nothing_else = {"allow_network": set(), "plugins_dir": None, "plugins_enabled": set()}
+        self.assertEqual(narrate.parse_args(["P"]), ("P", {"only": None, "cache_root": None, **nothing_else}))
         self.assertEqual(narrate.parse_args(["P", "--json", "--only", "a,b", "--cache-root", "C"]),
-                         ("P", {"only": {"a", "b"}, "cache_root": "C"}))
+                         ("P", {"only": {"a", "b"}, "cache_root": "C", **nothing_else}))
         self.assertIsNone(narrate.parse_args([]))
         self.assertIsNone(narrate.parse_args(["P", "Q"]))
         self.assertIsNone(narrate.parse_args(["P", "--only"]))

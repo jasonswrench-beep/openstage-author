@@ -1,10 +1,11 @@
 """Generate narration audio and caption timings for an OpenStage project.
 
 Usage:  python narrate.py PROJECT_DIR [--no-generate] [--json] [--only ID,ID] [--cache-root DIR]
+                          [--allow-network SERVICE,SERVICE] [--plugins-dir DIR] [--plugins-enabled ID,ID]
 
 For every object, and every item of an interaction, with a narration script, work out the cache key (see narration_hash in
 narration_key.py), then look for .cache/narration/<key>.wav and <key>.json. Missing ones are
-generated with Kokoro, unless --no-generate is given. Nothing in the project files is
+generated, unless --no-generate is given. Nothing in the project files is
 changed: the cache is derived data and lives only in .cache/.
 
 --only ID,ID     generate audio only for those (the rest are looked up in the cache as usual). An object is named by
@@ -12,8 +13,15 @@ changed: the cache is derived data and lives only in .cache/.
 --cache-root DIR keep the cache in DIR/.cache instead of PROJECT_DIR/.cache. The editor uses this to
                  narrate a project as it is on screen, unsaved, from a temporary copy of its files.
 
-Captions come from the script. The only thing taken from the audio is when each word
-was spoken, which Kokoro reports as it synthesises. Speech-to-text is never used.
+Which engine makes a voice is in the voice's name (see engines/__init__.py): a bare name is Kokoro, which runs on this
+computer. A voice of an internet service (openai:alloy) is made only if the service is named in --allow-network and its
+key is in the environment (OPENSTAGE_KEY_OPENAI); the text of the script is sent to that service. A voice of a plugin
+(my-plugin:narrator) is made only if the plugin is in --plugins-enabled and in --plugins-dir. Without these options only
+Kokoro is used, which is what Publish does: publishing never sends anything anywhere.
+
+Captions come from the script. The only thing taken from the audio is when each word was spoken, which Kokoro (and a
+plugin that says so) reports as it synthesises; for other engines the times are estimated from the length of each
+sentence. Speech-to-text is never used.
 Kokoro needs its own Python (see OPENSTAGE_KOKORO_PYTHON in PUBLISH EXAMPLE.bat); the
 cache lookup and caption building here need only the standard library.
 """
@@ -23,7 +31,11 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import engines  # noqa: E402
 import narration_key  # noqa: E402
+from engines import common as engine_common  # noqa: E402
+
+CONFIG = engines.Config()
 
 SAMPLE_RATE = 24000
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
@@ -171,7 +183,36 @@ def synthesise(narration):
     return np.concatenate(audio).astype("float32"), tokens
 
 
+def spans_from_words(script, words):
+    """Word times from an engine that reports them as (word, start, end), laid on the script as the spans build_cues wants.
+    If the words do not line up with the script, no spans: captions are then timed by estimate rather than wrongly."""
+    spans, pos = [], 0
+    for text, start, end in words:
+        at = script.find(text, pos)
+        if at < 0:
+            return []
+        spans.append((at, at + len(text), start, end))
+        pos = at + len(text)
+    return spans
+
+
+def generate_elsewhere(project_dir, narration):
+    """Audio from an engine other than Kokoro: an internet service or a plugin. Needs only the standard library."""
+    key, wav, meta = cache_paths(project_dir, narration)
+    speech = engines.speak(CONFIG, narration)
+    duration = engine_common.wav_info(speech.wav)[0]
+    spans = spans_from_words(narration["script"], speech.words) if speech.words else []
+    cues, exact = build_cues(narration["script"], spans, duration)
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    wav.write_bytes(speech.wav)
+    # Who made the audio is kept with it, so a course published later (or on another computer, without the plugin) still names the right maker.
+    meta.write_text(json.dumps({"hash": "sha256:" + key, "duration": round(duration, 3), "exactTimings": exact, "cues": cues,
+                                "madeBy": engines.describe(CONFIG, narration["voice"])}, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
 def generate(project_dir, narration):
+    if engines.split_voice(narration["voice"])[0] != engines.KOKORO:
+        return generate_elsewhere(project_dir, narration)
     import soundfile as sf
 
     key, wav, meta = cache_paths(project_dir, narration)
@@ -190,46 +231,80 @@ def generate(project_dir, narration):
 
 # ---------------------------------------------------------------- entry point
 
-def run(project_dir, allow_generate=True, log=print, only=None, cache_root=None):
+def kokoro_missing(exc):
+    return (f"Kokoro is not available in this Python ({exc.name}). "
+            "Set OPENSTAGE_KOKORO_PYTHON to a Python that has it, or use --no-generate.")
+
+
+def run(project_dir, allow_generate=True, log=print, only=None, cache_root=None, config=None, failures=None):
     """Returns {key: info}, where the key is an object's id or "<object id>/<item id>" for an interaction item.
     info['audio'] is None if no audio is cached.
-    only: generate just these keys. cache_root: where .cache lives, if not in the project."""
-    out = {}
-    cache_dir = cache_root or project_dir
-    for slide_id, oid, n in narrated_objects(project_dir):
-        key, wav, meta = cache_paths(cache_dir, n)
-        wanted = only is None or oid in only
-        if allow_generate and wanted and not (wav.exists() and meta.exists()):
-            log(f"  generating  {oid}  ({len(n['script'])} characters)")
-            generate(cache_dir, n)
-        elif not (wav.exists() and meta.exists()):
-            log(f"  missing     {oid}  (not generated)")
-        else:
-            log(f"  cached      {oid}")
-        have = wav.exists() and meta.exists()
-        info = json.loads(meta.read_text(encoding="utf-8")) if have else {}
-        out[oid] = {
-            "slide": slide_id, "script": n["script"], "lang": n["lang"], "voice": n["voice"],
-            "hash": key, "audio": f".cache/narration/{key}.wav" if have else None,
-            "duration": info.get("duration"), "cues": info.get("cues"),
-            "exactTimings": info.get("exactTimings"),
-        }
-    return out
+    only: generate just these keys. cache_root: where .cache lives, if not in the project.
+    config: which engines may be used (engines.Config); the default is Kokoro only.
+    failures: a list that gets one message for each engine that failed. After an engine fails, the rest of its narrations
+    are not tried in this run, so a wrong key or an empty account is not hit again and again."""
+    global CONFIG
+    previous, CONFIG = CONFIG, (config or CONFIG)
+    try:
+        out = {}
+        cache_dir = cache_root or project_dir
+        failed = {}
+        for slide_id, oid, n in narrated_objects(project_dir):
+            key, wav, meta = cache_paths(cache_dir, n)
+            engine = engines.split_voice(n["voice"])[0]
+            who = engines.describe(CONFIG, n["voice"])
+            cached = wav.exists() and meta.exists()
+            wanted = only is None or oid in only
+            if not cached and allow_generate and wanted:
+                allowed, why = engines.status(CONFIG, n["voice"])
+                if engine in failed:
+                    log(f"  missing     {oid}  ({who['name']} failed earlier in this run)")
+                elif not allowed:
+                    log(f"  missing     {oid}  ({why})")
+                else:
+                    log(f"  generating  {oid}  ({len(n['script'])} characters, {who['name']})")
+                    try:
+                        generate(cache_dir, n)
+                    except (engine_common.EngineError, ImportError) as exc:
+                        message = kokoro_missing(exc) if isinstance(exc, ImportError) else str(exc)
+                        failed[engine] = message
+                        if failures is not None:
+                            failures.append(message)
+                        log(f"  failed      {oid}  ({message})")
+            elif not cached:
+                log(f"  missing     {oid}  (not generated)")
+            else:
+                log(f"  cached      {oid}")
+            have = wav.exists() and meta.exists()
+            info = json.loads(meta.read_text(encoding="utf-8")) if have else {}
+            who = info.get("madeBy") or who
+            out[oid] = {
+                "slide": slide_id, "script": n["script"], "lang": n["lang"], "voice": n["voice"],
+                "hash": key, "audio": f".cache/narration/{key}.wav" if have else None,
+                "duration": info.get("duration"), "cues": info.get("cues"),
+                "exactTimings": info.get("exactTimings"),
+                "engine": who["engine"], "engineName": who["name"], "where": who["where"], "home": who["home"],
+            }
+        return out
+    finally:
+        CONFIG = previous
 
 
 def parse_args(argv):
     """Returns (project dir, options), or None if the arguments do not make sense."""
-    args, options, it = [], {"only": None, "cache_root": None}, iter(argv)
+    args, it = [], iter(argv)
+    options = {"only": None, "cache_root": None, "allow_network": set(), "plugins_dir": None, "plugins_enabled": set()}
+    lists = {"--only": "only", "--allow-network": "allow_network", "--plugins-enabled": "plugins_enabled"}
+    texts = {"--cache-root": "cache_root", "--plugins-dir": "plugins_dir"}
     for a in it:
-        if a == "--only":
+        if a in lists or a in texts:
             value = next(it, None)
             if value is None:
                 return None
-            options["only"] = {v for v in value.split(",") if v}
-        elif a == "--cache-root":
-            options["cache_root"] = next(it, None)
-            if options["cache_root"] is None:
-                return None
+            if a in lists:
+                options[lists[a]] = {v for v in value.split(",") if v}
+            else:
+                options[texts[a]] = value
         elif not a.startswith("--"):
             args.append(a)
     return (args[0], options) if len(args) == 1 else None
@@ -238,19 +313,26 @@ def parse_args(argv):
 def main(argv):
     parsed = parse_args(argv)
     if parsed is None:
-        print("Usage: narrate.py PROJECT_DIR [--no-generate] [--json] [--only ID,ID] [--cache-root DIR]")
+        print("Usage: narrate.py PROJECT_DIR [--no-generate] [--json] [--only ID,ID] [--cache-root DIR] "
+              "[--allow-network SERVICE,SERVICE] [--plugins-dir DIR] [--plugins-enabled ID,ID]")
         return 2
     project_dir, options = parsed
     as_json = "--json" in argv
     log = (lambda *_: None) if as_json else print
     # With --json, progress goes to stderr so stdout stays machine-readable.
     progress = (lambda m: print(m, file=sys.stderr)) if as_json else log
+    config = engines.Config(allow_network=options["allow_network"], plugins_dir=options["plugins_dir"],
+                            plugins_enabled=options["plugins_enabled"])
+    failures = []
     try:
         result = run(project_dir, allow_generate="--no-generate" not in argv, log=progress,
-                     only=options["only"], cache_root=options["cache_root"])
-    except ImportError as exc:
-        print(f"Kokoro is not available in this Python ({exc.name}). "
-              "Set OPENSTAGE_KOKORO_PYTHON to a Python that has it, or use --no-generate.", file=sys.stderr)
+                     only=options["only"], cache_root=options["cache_root"], config=config, failures=failures)
+    finally:
+        engines.plugins.close_all()
+    if failures:
+        # The editor shows the last lines of this to the author.
+        for message in failures:
+            print(f"NOT MADE: {message}", file=sys.stderr)
         return 1
     if as_json:
         print(json.dumps(result, ensure_ascii=False))

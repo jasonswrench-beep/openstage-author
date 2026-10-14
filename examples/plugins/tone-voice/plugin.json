@@ -1,0 +1,17 @@
+{
+  "contract": 1,
+  "id": "tone-voice",
+  "name": "Tone voice (example plugin)",
+  "version": "1.0.0",
+  "licence": "Apache-2.0",
+  "network": false,
+  "description": "Not a real voice: it plays one short beep for each word, so you can see how a plugin works. Copy this folder to make your own.",
+  "kinds": ["voice"],
+  "command": ["{python}", "voice.py"],
+  "pronunciations": false,
+  "wordTimings": true,
+  "voices": [
+    { "id": "low", "name": "Low beeps", "lang": "en-US", "description": "A low tone." },
+    { "id": "high", "name": "High beeps", "lang": "en-US", "description": "A high tone." }
+  ]
+}
