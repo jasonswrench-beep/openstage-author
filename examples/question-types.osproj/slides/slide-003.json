@@ -1,0 +1,250 @@
+{
+  "id": "slide-003",
+  "name": "Multiple response",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0012",
+        "type": "text",
+        "name": "Prompt",
+        "geometry": {
+          "x": 80,
+          "y": 40,
+          "width": 1120,
+          "height": 100,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h2>Which of these leave a written record?</h2>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Which of these leave a written record?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0011",
+        "type": "quizQuestion",
+        "name": "Multiple response",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1120,
+          "height": 360,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "questionType": "multipleResponse",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Email",
+              "correct": true
+            },
+            {
+              "id": "c2",
+              "label": "Phone call",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "Text message",
+              "correct": true
+            },
+            {
+              "id": "c4",
+              "label": "Video call",
+              "correct": false
+            },
+            {
+              "id": "c5",
+              "label": "Letter",
+              "correct": true
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 2
+          },
+          "feedback": {
+            "correct": "layer-correct",
+            "incorrect": "layer-retry"
+          }
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 20,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Answer choices, choose every right one",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-correct",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0009",
+          "type": "text",
+          "name": "Correct feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Right. Email, text message and letter are written.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#0f5132"
+          },
+          "accessibility": {
+            "altText": "Right. Email, text message and letter are written.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    },
+    {
+      "id": "layer-retry",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0010",
+          "type": "text",
+          "name": "Incorrect feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Not quite. You earn part of the points for each right choice, less a wrong one.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#842029"
+          },
+          "accessibility": {
+            "altText": "Not quite. You earn part of the points for each right choice, less a wrong one.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}

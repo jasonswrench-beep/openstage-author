@@ -25,7 +25,7 @@ const parts = (c: InputContent) => (c.kind === "checkbox" ? c.items! : c.kind ==
 test("quiz questions, inputs and surveys share one menu entry that opens a picker", () => {
   assert.ok(ADD_MENU.some((e) => e.value === "group:question"));
   assert.ok(!ADD_MENU.some((e) => e.value === "group:quiz"));
-  assert.ok(ADD_MENU.length <= 8);
+  assert.ok(ADD_MENU.length <= 9);
 });
 
 test("the catalogue offers every kind of input once, with a size that fits the slide", () => {
@@ -34,7 +34,8 @@ test("the catalogue offers every kind of input once, with a size that fits the s
 });
 
 test("each input is added with its own variables of the right type, a prompt, alt text and a tab stop", () => {
-  for (const choice of INPUTS) {
+  // A choice of character needs a cast to choose from, and has its own tests in scenario.test.ts.
+  for (const choice of INPUTS.filter((i) => i.id !== "character")) {
     const m = fresh();
     const before = m.variables.length;
     const o = m.addInput(choice.id)!;

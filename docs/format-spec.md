@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.25.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -82,6 +82,31 @@ down to fit, while the window is wide enough, and shows one column instead when 
 behaviour). Nothing about that is in the project file: it is worked out from the objects' places, their reading order and whether
 they are marked decorative, so no format change was needed.
 
+`characters` is optional: the cast, the people a course can show and give a voice to. It is shared by every scenario and every choice of character in the
+course, so a person is described once.
+
+```json
+"characters": [
+  { "id": "maya", "name": "Maya Reyes", "role": "Nurse manager", "voice": "af_heart",
+    "picture": { "src": "assets/images/maya.png", "alt": "Maya, a woman in a blue coat", "decorative": false } },
+  { "id": "dev", "name": "Dev Patel", "role": "New hire", "voice": "am_adam", "picture": null }
+]
+```
+
+Up to 12 people. `id` is like any other id, except that `you` is not allowed, because in a scenario `you` means the learner. `name` is what the learner reads
+beside the person's lines, and must be different from the others' (`character-name-duplicate`, a warning). `role` is a few words on who they are, and may be
+empty. `voice` is the narration voice that reads the person's lines (`voice-unknown` if there is no such voice). `picture` is optional; when there is one it
+needs alt text that says what the person looks like, or it is marked `decorative` and then has no alt text (`character-picture-alt`), and the file has to be
+in the project (`asset-missing`). The picture is only a picture of the person: their name is always written beside it, so the picture is hidden from a
+screen reader beside a line (the name is read), and is described once where a learner has to pick a person (see the character input). (Added in 0.21.0.)
+
+`sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
+course (the cache is always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
+with a slash, such as `raw/footage`, is from the project folder, and a folder takes everything inside it. Names must be plain: no leading slash, no
+backslash, no `..`. It matters for raw recordings and interaction logs, which would otherwise be handed to every learner. The validator warns when
+recognizable raw capture material (a file called `events.jsonl`, or a folder called `capture` or `captures`) sits in the project and is not listed
+here, and always when it sits under `assets/`, because that folder is published with the course itself (`capture-material-in-project`). (Added in 0.18.0.)
+
 ## Themes
 
 A theme is the project's look: a set of named colours, two fonts, and three slide backgrounds.
@@ -110,6 +135,24 @@ theme restyles the whole course.
 
 All twelve colours are required, and the other fields too. A background is `solid`, or
 `gradient` with `from`, `to` and an `angle` in degrees; its colours name theme colours.
+
+**Logo.** A theme may carry one `logo`, shown in a corner of every slide:
+
+```json
+"logo": { "src": "assets/images/school-logo.png", "alt": "New Paltz logo", "decorative": false, "corner": "bottom-right", "width": 180, "height": 60 }
+```
+
+`src` is a picture under `assets/`. `corner` is `top-left`, `top-right`, `bottom-left` or `bottom-right`, and the logo sits 24 stage pixels in from the two
+edges of that corner. `width` (24 to 400) and `height` (24 to 200) are its size on the stage in stage pixels, kept in the shape of the picture. A
+screen reader user hears the logo on every slide, so it needs `alt` text, or it is marked `decorative` (hidden from screen readers) and then has no alt
+text; the validator checks both (`theme-logo-alt`, `theme-logo-decorative-alt`), that the file exists (`theme-logo-missing`), and warns when content a
+learner needs reaches into the logo's corner on a slide (`theme-logo-overlap`; decorative objects do not count). The logo is drawn by the shared renderer,
+behind the slide's objects, ignoring the pointer and the keyboard. In the page it comes before the slide's objects when it is at the top and after them
+when it is at the bottom, so the reading order matches what the eye sees. Where the page reflows to one column it is part of the flow, at the top or the
+bottom and to the left or the right, at most 45 percent of the width and in the shape of the picture. The margin, the limits and the four cases that fix where a logo
+sits are in `tools/theme-rules.json`, which the validator, the player and the editor all read, together with the pairs of theme colours that must
+contrast (also checked by the editor as colours are changed). A built-in theme file has no logo; a project's own `theme.json` has one if the author added it.
+(Added in 0.20.0.)
 
 **Tokens.** A style value may be a token instead of a literal:
 
@@ -193,7 +236,7 @@ same as an empty `altText`, and the validator treats them differently.
 
 ### Object types in v0.1
 
-`text`, `image`, `shape`, `button`, `hotspot`, `video`, `audio`, `quizQuestion`, `interaction`, `table`, `scrollingText`, `input`, `embed`, `results`, `certificate`, `download`.
+`text`, `image`, `shape`, `button`, `hotspot`, `video`, `audio`, `quizQuestion`, `interaction`, `table`, `scrollingText`, `input`, `embed`, `results`, `certificate`, `download`, `scenario`, `icon`.
 
 ### Machine-readable schema
 
@@ -210,6 +253,12 @@ alt text, rules, timing, narration and stacking order can still be changed. An o
 never `false`, so a project that has never used locking looks exactly as it did before. It is for the author only: the published course
 and the validator ignore it. A copy of a locked object is not locked. (Added in 0.15.0.)
 
+Optional field: `group`. Objects on one layer that carry the same `group` id are grouped: the editor selects, moves, resizes, copies, cuts, deletes and locks them
+together, and lines them up as one object. An object that is not in a group has no `group` field. A group has two or more objects, all on one layer, and is
+flat (a group cannot hold a group); the validator reports a group split across layers (`group-split`, an error) and a group of one (`group-single`, a
+warning). It is for the author only: the published course and the player ignore it. A copy of a whole group is a new group; a copy of only some of a
+group's objects is not grouped. (Added in 0.17.0.)
+
 `content` shapes fixed by the schema in v0.1:
 
 | Type | `content` |
@@ -217,18 +266,27 @@ and the validator ignore it. A copy of a locked object is not locked. (Added in 
 | `text` | `html` |
 | `image` | `src` (under `assets/`) |
 | `shape` | `shape` |
-| `button` | `label` |
-| `video`, `audio` | `src` (under `assets/`), optional `captions` (path under `assets/`, or null), optional `transcript` (HTML, as in a text object) |
+| `button` | `label`, optional `icon` and `iconPlacement` (see Icons) |
+| `icon` | `set`, `name`, `shapes` (see Icons) |
+| `video`, `audio` | `src` (under `assets/`), optional `captions` (path under `assets/`, or null), optional `transcript` (HTML, as in a text object); a `video` also has an optional `description` (see Audio description) |
 | `embed` | `provider` (`youtube` or `vimeo`), `id`, `hash`, `transcript`, `captionsConfirmed` (see Embedded video) |
 | `download` | `src` (under `assets/`), `title`, `description`, `accessibleConfirmed` (see Files to download) |
-| `quizQuestion` | `questionType` (`multipleChoice` only), `choices` (2 or more, each `id`, `label`, `correct`), `scoring` (`points`, `attemptsAllowed`), `feedback` (`correct`, `incorrect` layer ids) |
+| `quizQuestion` | `questionType` (one of eight kinds), `scoring` (`points`, `attemptsAllowed`), `feedback` (`correct`, `incorrect` layer ids), and the fields its kind needs (see Quiz questions) |
 | `input` | `kind`, `prompt`, `report`, and the parts that kind needs (see Inputs and surveys) |
 | `table` | `caption`, `headerRow`, `headerColumn`, `rows` (1 to 30 rows of 1 to 12 text cells; see Tables) |
 | `scrollingText` | `html`, like a text object |
 | `results` | `heading`, `passMessage`, `failMessage`, `review` (see Results and certificates) |
 | `certificate` | `title`, `statement`, `achievement`, `issuedBy`, `showScore`, `showDate` (see Results and certificates) |
 | `interaction` | `kind`, `orientation` (`horizontal` or `vertical`), `allowMultiple`, `items` (1 or more; see Interactions) |
-| `hotspot` | not yet defined, any object accepted |
+| `hotspot` | none: `content` is `{}` (see Hotspots below) |
+
+**Hotspots.** A `hotspot` is a transparent button to put over a picture, for something a learner has to find and press, such as a button in a
+screenshot. It has no content of its own (`content` is `{}`); the picture is a separate `image` object beneath it. It is named by `altText`, which
+is required, and it cannot be `decorative`. It is reached with Tab and pressed with Enter or Space like any button, and its `click` and
+`keyActivate` triggers run the same rules. It is drawn invisible, with the ordinary visible focus ring when it has focus, and where the page
+reflows to one column it becomes a visible button showing its name. It has to be big enough to press: at least 24 by 24 stage pixels
+(WCAG 2.2, 2.5.8 Target Size), and the validator warns under 35 each way, because the slide can be drawn at 70 percent of its size before it
+reflows, and 24 is then what is left. (Defined in 0.18.0. The `hotspot` question kind is a different thing: see Quiz questions.)
 
 `shape` draws one of these, named in `content.shape`: `rectangle`, `rounded`, `ellipse`, `triangle`,
 `diamond` or `arrow`. A name the renderer does not know draws a rectangle. `style.fill` fills it and
@@ -236,9 +294,8 @@ and the validator ignore it. A copy of a locked object is not locked. (Added in 
 vector graphics, so it stays sharp at any size, and it is hidden from assistive technology: the
 object around it carries the name, or is marked `decorative`. A line is a thin `rectangle`.
 
-A `quizQuestion` must have exactly one answer marked `correct`, and its answers must have different
-ids. The validator checks both. The object's `altText` names the group of answers for a screen
-reader; the question itself is normally a heading placed before it.
+A `quizQuestion` has to make sense: it needs an answer a learner can give that is right, and its parts must have different ids. The validator checks each
+kind (see Quiz questions). The object's `altText` names the group of controls for a screen reader; the question itself is normally a heading placed before it.
 
 ### Video, audio and embedded video
 
@@ -247,6 +304,19 @@ controls. A `video` needs `captions` (a `.vtt` file under `assets/`) or a narrat
 needs captions, a narration script or a non-empty `transcript`, because a transcript is what an audio-only
 clip needs. The player draws captions as a real `<track kind="captions">`, and a `transcript`, if there is
 one, as a native "Transcript" disclosure under the player, closed until opened. Neither plays on its own.
+
+**Audio description.** A `video` can carry an audio description for a learner who cannot see its picture (WCAG 2.2, 1.2.5, level AA): `content.description`
+is `{ "cues": [...] }`, one to 60 cues, each with an `id` (unique on the video), a `time` (whole milliseconds into the video, 0 to 24 hours), `text` (what the
+picture shows at that moment, up to 2000 letters), `pause` (whether the video waits while it is spoken, which is what makes an extended description possible) and
+`narration` (the usual narration object, or null for a description that can only be read). A cue's narration is named by the key `<object id>/<cue id>`, like
+an interaction item's, so the speech tool, the cache and the published course treat all three the same way, and an audio clip cannot carry one. Where there
+is a description, the player puts an **Audio description** button beside the video, and nowhere else. It opens a native dialog (focus moves in, Tab stays
+inside, Escape closes it and focus goes back to the button) where a learner can read every description with its time, **listen to them** one after another
+without the video, or **play the video with the description**: the video starts from the beginning and each description is spoken when its time comes, holding
+the video if it says so and letting it go when the voice ends. Descriptions that can only be read are never spoken and never hold the video. Pressing play
+while the video is held skips the rest of that description; going to another place in the video stops the one being spoken and picks up the ones still to come;
+the end of the video turns the voice off. A browser that refuses to start a sound never leaves the video held. A description with no voice is a warning
+(`description-not-voiced`), because audio description is something heard. (Added in 0.19.0.)
 
 An `embed` plays a YouTube or Vimeo video from that service in an iframe. `provider` and `id` say which video
 (a YouTube id is 11 letters, digits, `-` and `_`; a Vimeo id is digits), and `hash` is Vimeo's key for an
@@ -355,6 +425,7 @@ screen reader behaviour is the browser's own.
 | `list` | as `radio` | as `radio` | a select showing several options at once |
 | `likert` | `scale` (2 to 9 labels, lowest first), `rows` (1 to 20, each `id`, `label` = the statement, `variable`) | the number of the label chosen, from 1, in one **number** variable per row, 0 until answered | a row of radio buttons for each statement |
 | `semantic` | `points` (3 to 9), `rows` (each `id`, `label` = left word, `right` = right word, `variable`) | the point chosen, from 1 at the left word, in one **number** variable per row | a row of radio buttons between two words |
+| `character` | `variable`, `characters` (2 to 8 ids from the project's cast) | the chosen person's **id** in one **string** variable, empty until chosen | a group of picture cards, one per person, each a radio button |
 
 `prompt` is required. It is the visible name of the group (a `<legend>`, or the label of a select), so
 a screen reader announces it with the controls. If `altText` says something different it is added as a
@@ -366,6 +437,13 @@ input may share a variable, or they would overwrite each other. Option values mu
 cannot be empty, because an empty value means "nothing chosen". The validator checks all of this
 (`input-unknown-variable`, `input-variable-type`, `input-shared-variable`, `input-duplicate-value`,
 `input-empty-value`, `input-duplicate-id`, `input-semantic-pole`).
+
+**Choosing a character.** The `character` kind lets a learner pick who they will be, from people in the project's cast (`characters`, in `project.json`). Each
+person is a card with their picture (if they have one), name and role, and the cards are one radio group, so the arrow keys move between them and a screen reader
+says "Maya Reyes, Nurse manager, 1 of 2". Here the picture's alt text is read, once, since choosing by appearance is the point; the card's name is its label. The
+chosen person's id is saved in the variable, so a trigger can branch on it (`equals`, with the person's id as the value) and a scenario can show the person as
+"you" (see Scenarios). A person who is not in the cast is an error (`input-character-unknown`), and the variable has to be a string (`input-variable-type`). With
+`report`, the LMS is told a `choice` whose response is the letter of the person's place in the list, `a` for the first. (Added in 0.21.0.)
 
 When `report` is true the answers are also written to the LMS as SCORM 1.2 interactions, one for each
 part, with no correct response and no score: a checkbox as `true-false` (response `1` or `0`), a radio,
@@ -380,6 +458,87 @@ condition on the trigger; the editor has no trigger editor yet.
 
 An input paints itself in the theme's colours (text on `background`, controls in `accentStrong`), so
 only `fontFamily` and `fontSize` are read from its `style`.
+
+### Scenarios
+
+A `scenario` is a branching story that a learner steps through by choosing what to do. It is one object on one slide. Its `content`:
+
+| Field | What it is |
+| --- | --- |
+| `start` | the id of the situation the learner begins in |
+| `nodes` | 1 to 40 situations |
+| `you` | `null`, or the name of a **string** variable that holds the id of the person the learner chose to be (see the character input) |
+| `meters` | 0 to 6 meters, each `id`, `label`, `variable` (a **number** variable), `min`, `max`; they show the learner how a number is changing |
+| `allowRetry` | whether the learner can take back their last choice and choose again |
+| `finishedVariable` | `null`, or the name of a **boolean** variable that is set to true when the learner reaches an ending |
+| `reflection` | something for the learner to think about, shown with the review of their path at an ending (may be empty) |
+
+A **situation** (`nodes[]`) has an `id`, a `title` (its heading), a `prompt` (the question above the choices, for example "What do you do?"; may be empty, and then the title names the choices), `lines`
+(1 to 12) and `choices` (0 to 6). A situation with no choices is an **ending**. A **choice** has an `id`, a `label` (what the learner does, written as the
+learner would say it), `next` (the id of the situation it leads to), `effects` (0 to 6, each a `variable` and a number to `add`, which is not 0 and may be negative) and
+a `response` (0 to 6 lines shown straight after the choice, before the next situation, which is where a person's reaction or a coach's note goes). A **line**
+has an `id`, a `speaker`, `text` (plain text, up to 2000 characters) and a `narration` (or null, and then it can only be read). The speaker is `null` for the
+narrator, `"you"` for the learner's own character, or the id of a person in the project's cast.
+
+All the ids in one scenario are different, whatever they name (situation, choice, line or meter), because the learner's path is remembered by them and audio is
+filed under them (`scenario-duplicate-id`). A choice's effect adds to a number variable when the choice is made, with the same arithmetic as the rule "add to a
+number variable", so a rule can read the total with a condition, and the variable is saved with the learner's progress like any other. It does not touch quiz
+scores: a scenario is not marked.
+
+The validator checks the story is a whole one: the start exists (`scenario-start-missing`); every choice leads to a situation that exists
+(`scenario-next-missing`); every situation can be reached (`scenario-unreachable`, a warning); a learner can reach an ending (`scenario-no-ending`, a warning);
+every line has words (`scenario-line-empty`) and a speaker that is `you` or in the cast (`scenario-speaker-unknown`); effects add to number variables that
+exist (`scenario-effect-variable`); a meter shows a number variable and goes from less to more (`scenario-meter-variable`, `scenario-meter-range`);
+`finishedVariable` is a boolean (`scenario-finished-variable`); `you` is a string (`scenario-you-variable`) and some choice of character saves to it
+(`scenario-you-unset`, a warning); no two choices in one situation read the same (`scenario-choice-duplicate`, a warning, because a screen reader user
+could not tell them apart); and a line spoken by a person in the cast is read in that person's voice (`scenario-voice-differs`, a warning). A line's narration is
+checked like any narration (`voice-unknown`, `ipa-invalid`, `narration-stale`, `narration-not-generated`).
+
+**Narration.** A line's narration is named by the object's `id`, a slash and the line's `id`, for example `obj-0040/line-3`, the same way as an item of an
+interaction (see Narration of items). A choice's label has no audio of its own: it is a button with a name, and a screen reader reads it.
+
+**What the learner sees.** The scenario is a region named by the object's alt text. Meters come first, each a name with its number and a native `<meter>` bar
+(`Trust: 2`); when a choice changes them a polite message says so ("Trust is now 3, up 2."). Then the situation: its title as a heading; its lines as a list, with a
+person's name (and picture, which says nothing to a screen reader because the name is written) beside their lines, the narrator's lines without a name, and "you"
+lines showing the person the learner chose, or just "You"; a **Listen to this part** button if any line has audio; then the question and the choices as a group of
+buttons. Choosing a choice adds its changes to the number variables, shows "What happened" (the choice made, and its response) above the next situation, moves
+keyboard focus to that heading so a screen reader says where the learner now is, and speaks the response and the situation's lines in place of whatever was being
+said. Nothing is spoken when the slide opens, so it does not talk over the slide's own narration; Listen to this part plays it when asked. At an ending the learner
+sees **Your path** (each situation and the choice made there), the reflection, and **Start again**. With `allowRetry`, **Take back my last choice** also appears:
+it undoes the last choice and takes off what it added (a change of +2 becomes -2). Start again takes back every choice the same way. Setting a variable in a rule
+between times is not undone, since the course only takes back what the choices added.
+
+**What is remembered.** Where the learner is, is one short string kept with their progress: the number of the choice made in each situation, from the start (`"02"`
+is the first choice of the start situation, then the third choice of the situation it led to). It travels in the SCORM suspend data as `c`, by the scenario's object
+id, and is dropped only together with the variables when there is no room (a meter is a variable, so one without the other would return the learner to the start
+with their old numbers). If the course was edited since the learner left, the path is cut at the first step that no longer fits. A walk holds at most 120 choices;
+a story that loops back past that offers only Start again. A learner who comes back finds the same situation, the same meters, and the choices they have made in
+**Your path**; the response to their last choice is not shown again. (Added in 0.21.0.)
+
+### Icons
+
+An `icon` object is a small line drawing from the Lucide icon set, drawn in the object's colour. Its `content`:
+
+```json
+{ "set": "lucide", "name": "arrow-right", "shapes": [ { "tag": "path", "d": "M5 12h14" }, { "tag": "path", "d": "m12 5 7 7-7 7" } ] }
+```
+
+`set` is `lucide`. `name` is the icon's name in the set. `shapes` are the drawn parts, from 1 to 24, kept in the project so that a course never depends on the icon set it came from.
+Each shape has a `tag` (`path`, `circle`, `rect`, `ellipse`, `line`, `polyline` or `polygon`) and only the attributes that tag needs: `d` (path text, made only of path
+letters and numbers), `points`, the numbers `cx cy r rx ry x y width height x1 y1 x2 y2`, and `fill` (`none` or `currentColor`). Nothing else is allowed, in the schema or in the
+renderer, so an icon can never carry a script or a link. The drawing is in a 24 by 24 box with a rounded outline, no fill, and the colour of the text around it. The
+object's `style.color` is its colour (a theme colour by default, so it follows the theme), and `style.strokeWidth` the width of the line (0.5 to 4, 2 if absent).
+
+An icon is a picture, so it needs alt text that says what it means (for example "Next"), or it must be marked `decorative`; the generic alt text rule applies, and an icon
+that is not decorative and falls below 3 to 1 against the slide's background is a warning (`icon-contrast`, WCAG 2.2 1.4.11). A screen reader hears the alt text as an
+image; a decorative icon is hidden. The icon is `role: "img"` and is not a tab stop.
+
+A button can show an icon beside its label: `content.icon` (the same shape as above) and `content.iconPlacement` (`before` when absent, or `after`). The icon is
+decoration: the label is the button's name, the icon is hidden from a screen reader, and the button still needs its label.
+
+**The licence.** Lucide is ISC licensed, and its notice has to travel with its icons. A published course that uses any icon names Lucide on its credits page and carries the
+licence text as `licenses/lucide.txt`; the validator warns when the credits page is off (`icon-credit-page-off`). The editor's list of icons is `editor/web/icons/lucide.json`,
+made from the Lucide package by `tools/make_icon_catalogue.py`, with the licence text inside it; the licence is also kept in `third-party/lucide-LICENSE.txt`. (Added in 0.22.0.)
 
 ### Tables and scrolling text
 
@@ -509,14 +668,39 @@ these with its own plain-language messages.
 
 ```json
 "states": {
-  "hover":   { "style": { "color": "#0b5fff" } },
-  "visited": { "style": { "opacity": 0.7 } },
-  "disabled":{ "style": { "opacity": 0.4 } }
+  "hover":    { "style": { "color": "#0b5fff" } },
+  "visited":  { "style": { "color": "#5b21b6" } },
+  "disabled": { "style": { "opacity": 0.4 } },
+  "Done":     { "style": { "color": "#14532d", "fontSize": 28 }, "announce": "Step 1 is marked as done" }
 }
 ```
 
 A state holds only the properties that differ from the normal state. The normal state is
-the object's own top-level `style` and `content`.
+the object's own top-level `style` and `content`. The editor calls a state a **look**.
+
+**Names.** A name is 1 to 40 characters with no space at either end (a schema rule). `normal` is how a rule returns to the object's own appearance, so a look cannot be
+called that (`state-name-normal`). `hover`, `visited` and `disabled` are applied by the course on its own, as below. Any other name is applied only when a rule applies it.
+
+**What a look holds.** `style`: the style properties that differ, read the way the object's own `style` is, so a look on an object that paints itself in the theme's colours
+changes only its font and size. `opacity` (0 to 1) says how solid the object is painted: below 1 lets what is behind it show through. `announce`: text, 1 to 200 characters, that a
+screen reader says when a rule applies the look (see below). `content` is reserved and is not applied. A look is never an empty object. The editor offers looks on text, buttons, icons,
+shapes and pictures.
+
+**How looks stack.** The object is painted in its own `style`, then `visited` once the learner has used it, then the look a rule applied, then `hover` while the pointer is over it
+or the keyboard is on it. A later one wins for each property it sets.
+
+**When they apply.** The course applies `hover` and `visited` itself. A rule applies any look, including those two, with `changeState`, whose `target` is an object on the same slide and
+whose `value` is `normal` or the name of a look that object has (`trigger-state-missing`). The look a rule applied lasts until the slide closes: opening a slide, or replaying it,
+starts every object in its own appearance, and the learner's saved place does not hold looks. Anything that has to last is a variable, which a rule on the slide's start can turn into a look again.
+`disabled` also disables a button, so it cannot be pressed or reached with the keyboard, and sets `aria-disabled` on anything else.
+
+**What is said.** A look changes how something appears, and a change that is only seen is missed by a learner who cannot see it. When a rule applies a look that has an `announce`, the player says the
+words in its polite status region. It says nothing for `normal`, for the look the object already has, or for an object that is hidden, and the course applying `hover` or `visited` on its own never says anything.
+A rule that applies a look with no `announce` is a warning (`state-silent`), unless the look is `disabled` (a disabled control already says so to assistive technology) or the object is decorative. The
+editor never writes the words for the author.
+
+**Readable in every look.** The validator checks text against what is behind it for the object's own look, for each look, and for each way the looks stack. A look with `opacity` below 1 fades the
+text and its own fill into what is behind them together, and is judged as it will look. The `disabled` look is left out of this: WCAG does not ask an inactive control for contrast.
 
 ### Triggers
 
@@ -536,6 +720,18 @@ the object's own top-level `style` and `content`.
 
 v0.1 action set, deliberately small: `jumpToSlide`, `showLayer`, `hideLayer`,
 `setVariable`, `playMedia`, `pauseMedia`, `changeState`.
+
+Three more act on the course itself, so their `target` is empty (`""`), and a trigger that has a target for one of them, or an empty target for any other action, is a
+schema error: `nextSlide` goes to the slide that follows this one in the course, `previousSlide` to the one before, and `replaySlide` shows this slide again from the
+start (its `slideStart` rules run, its layers close, its timing and narration begin again). Unlike `jumpToSlide`, they do not name a slide, so they keep working when
+slides are moved, copied or deleted: a Next button is still a Next button. Like a jump, each ends the list of rules when it does move the learner. Where there is no
+slide to go to (Next on the last slide, Back on the first) nothing moves, the list carries on, and the validator warns (`trigger-next-last`,
+`trigger-previous-first`). (Added in 0.22.0.)
+
+`setVariable` has an optional `operation`: `set` (the default) puts `value` in the variable, and `add` adds `value` to a number variable. With `add`,
+`value` is the amount (it may be negative, and is 1 if there is none), and the variable must be a number. This is how a rule counts tries: add 1 to
+`attempts` each time, and let a condition on `attempts` decide what happens. A click and the key press that goes with it must have the same
+operation, like every other part of the rule. (Added in 0.18.0.)
 
 v0.1 event set: `click`, `keyActivate`, `slideStart`, `slideEnd`, `mediaComplete`,
 `variableChange`.
@@ -567,8 +763,54 @@ the path their answer chose. `examples/branching.osproj` does exactly this.
 
 The editor shows triggers as **rules**: "When *the learner presses it*, *go to a slide*, only if *choice is
 The short path*." A `click` with a `keyActivate` that does the same thing is shown, and written, as one rule,
-so a rule made in the editor is never mouse-only. Triggers the editor cannot show as a rule (`changeState`,
-a lone click) are kept exactly as they are.
+so a rule made in the editor is never mouse-only. Triggers the editor cannot show as a rule (a lone click,
+a lone key press) are kept exactly as they are.
+
+## Quiz questions
+
+Every `quizQuestion` has a `questionType`, `scoring` (`points`, `attemptsAllowed`), `feedback` (`correct` and `incorrect`, ids of layers on the
+same slide) and the fields its kind needs. The question itself is normally a heading placed before the object, and the object's `altText` names
+the group of controls for a screen reader.
+
+| `questionType` | Fields | What the learner does | How it scores |
+| --- | --- | --- | --- |
+| `multipleChoice` | `choices` (2 to 8, each `id`, `label`, `correct`; exactly one correct) | Chooses one radio button | All or nothing |
+| `multipleResponse` | `choices` (at least one correct) | Ticks every right check box | A share: the right ones ticked, less the wrong ones ticked, over the number that are right, never below nothing |
+| `shortAnswer` | `answers` (1 to 10), `caseSensitive` | Types a word or phrase | All or nothing; right if it matches any accepted answer |
+| `numeric` | `min`, `max` (an exact answer has them equal) | Types a number | All or nothing; right from `min` to `max`, ends included |
+| `fillBlanks` | `mode` (`typed`, `dropdown` or `drag`), `text` with a `{id}` where each blank goes, `blanks` (each `id`, `answers`), `wordBank`, `caseSensitive` | Types into blanks, or chooses from a drop-down in each, or drags words onto them | A share: the blanks that are right over all the blanks |
+| `matching` | `drag`, `pairs` (2 to 10, each `id`, `premise`, `match`), `extras` (0 to 5 matches that fit nothing) | Chooses a match for each item from a drop-down, or drags matches onto the items | A share: the items matched rightly over all the items |
+| `sequencing` | `drag`, `items` (2 to 10, each `id`, `text`, listed in the right order) | Puts the items in order with Move up and Move down, or drags them | A share: the items in their right place over all the items |
+| `hotspot` | `image` (`src`, `alt`), `regions` (2 to 12, each `id`, `label`, `x`, `y`, `width`, `height` in percent of the picture, `correct`) | Chooses an area of a picture, by clicking it or from a list of the areas by label | All or nothing; right if the area is one marked `correct` |
+
+**Answers.** A typed answer has its spaces tidied, and its capitals ignored unless `caseSensitive` is on. A typed number may use `1,234` for a thousand
+and more, or `1,5` for one and a half, and a sum a hair off (0.1 + 0.2 for 0.3) is accepted. In a drop-down or a dragged blank the word must be
+exactly a word of the `wordBank`, and the right word of each blank is the first of its `answers`; the bank holds every right word and may hold extras.
+Matches and extras must read differently, because a learner chooses among them. The sentence of a `fillBlanks` marks each blank `{1}`, `{2}` and so
+on, and every marker has a blank and every blank a marker.
+
+**Order.** Matches, the word bank and the starting order of a sequence are shown in an order that is the same every time (a shuffle seeded by the
+object's id) and never the order the author wrote, so the first match is not the first item's. The editor and the player show the same order.
+
+**Partial credit.** A question with several parts earns a share of its points for the parts that are right. The best of the attempts counts, so trying
+again never takes marks away. A question is finished when every part is right or the attempts are used up. Only a fully right answer shows the `correct`
+feedback layer; an answer that is partly right shows the `incorrect` one, which should say what to look at again. SCORM 1.2 has no partly right result, so
+the interaction of a partly right answer is `wrong` there, and the LMS's score is the total, sent as before. A question worth 0 points is practice: it is
+finished the same way and adds nothing to the score.
+
+**Dragging is an extra.** Where a question can be dragged (`drag`, or `mode: "drag"`), the drop-downs and buttons are still there, and are how a keyboard and a
+screen reader answer. The words or grips that are dragged are hidden from assistive technology, because the controls already say everything. Dragging only
+ever changes those same controls. Escape cancels a drag.
+
+**What a screen reader needs.** A hotspot's picture needs alt text and every area needs a label, because the areas are listed by label for anyone who cannot
+use the picture (the validator makes both errors, `quiz-hotspot-alt` and `quiz-region-label`). The editor never fills either in. A fill in the blanks reads
+as the sentence with each blank named, "Blank 1 of 2". The editor can write the question's narration from what it shows, one button, and the words are then the
+author's to change.
+
+**What the LMS is told.** Each submission is one interaction, of the SCORM type that fits: `choice` for multiple choice, multiple response and hotspot (the
+letters of the choices or areas, `a`, `b`, `c` in the order written), `fill-in` for short answer and fill in the blanks, `numeric` for a number (its range
+as `min#max`), `matching` (`1.a,2.b`, the item number and the letter of its match) and `sequencing` (the letters of the items in the learner's order). A
+long answer is cut to the 255 characters SCORM 1.2 allows.
 
 ## Timing
 
@@ -581,9 +823,10 @@ and every migrated object has, means always there, so a course with no timing be
 
 | Field | Meaning |
 | --- | --- |
-| `appear` | `"time"`: shown `start` milliseconds after the object's layer is shown (after the slide opens, for the base layer). `"narration"`: shown `start` milliseconds after the object's own narration starts playing. |
-| `start` | A whole number of milliseconds, 0 to 3,600,000. With `appear: "time"` and `start: 0` the object is there from the start. |
-| `visibleFor` | `null` to stay, or a whole number of milliseconds, 1 to 3,600,000, after which the object goes again, counted from when it appeared. |
+| `appear` | `"time"`: shown `start` milliseconds after the object's layer is shown (after the slide opens, for the base layer). `"narration"`: shown `start` milliseconds after the object's own narration starts playing. `"media"`: shown when a video or audio clip on the slide has played `start` milliseconds (see Following a video or an audio clip). |
+| `media` | Only with `appear: "media"`, and then required: the `id` of a `video` or `audio` object on the same slide. Absent otherwise. (Added in 0.23.0.) |
+| `start` | A whole number of milliseconds, 0 to 3,600,000. With `appear: "time"` and `start: 0` the object is there from the start. With `appear: "media"` it counts the clip's own time. |
+| `visibleFor` | `null` to stay, or a whole number of milliseconds, 1 to 3,600,000, after which the object goes again, counted from when it appeared. With `appear: "media"` it is that much of the clip. |
 
 All times are milliseconds, like a slide's `duration`; the editor shows seconds. The decision (settled 2026-10-12) is to keep
 timing on each object rather than in a separate timeline object per slide, so a slide's file stays easy to read and compare and
@@ -598,6 +841,19 @@ line by line as the voice reaches each. If the narration will not play, the obje
 fallbacks. An object whose narration has no audio counts as started when its layer was shown. If the browser refuses to start the
 sound (autoplay is blocked), every object still waiting for narration counts as started at that moment, and its `start` delay
 counts from then.
+
+**Following a video or an audio clip.** An object with `appear: "media"` and a `media` id follows that clip's own playing time instead of the clock. What shows depends only on where the clip is
+(`start <= time < start + visibleFor`, or from `start` to the end when `visibleFor` is `null`): the learner who plays, pauses, skips ahead or goes back sees what belongs to that moment, and nothing
+that does not. An object with `start: 0` is there from the clip's start, so before anyone presses play. The clip's time is read about ten times a second while it plays (the clip itself reports only
+about four), and at once when it is paused, finished or moved. It works for a video or audio file in the project; an embedded YouTube or Vimeo video cannot be followed, because its player only
+reports the time to scripts loaded from its own site, and the editor does not offer one.
+
+If the clip cannot play (the file is missing or not understood) or is not on the slide, everything that follows it shows and stays showing, so nothing is left hidden because a clip failed.
+**Pause timing** also pauses a clip that is playing, and **Resume timing** plays it again (the browser can refuse, and then the learner presses play on the clip itself); **Show everything now**
+shows every object that follows a clip and leaves the clip alone. Both are the same controls as before, shown on any slide where something follows a clip. The validator checks the clip exists
+and is a video or audio object (`timing-media-missing`), that an object does not follow itself (`timing-media-self`), and warns when a slide with `duration` holds objects that follow a clip
+(`timing-media-advance`), because the slide may move on before the clip has reached them. The editor keeps the reference when a slide is copied (the copies follow the copied clip), and when
+an object is copied to a slide that does not have the clip it goes back to appearing when the slide opens, and says so. (Added in 0.23.0.)
 
 **Layers.** An object on a layer other than the base layer is timed from when that layer is shown, and starts again each time the
 layer is shown. Timing never changes what a layer does, and is a separate switch from an object's states, so none undoes another.
@@ -715,7 +971,7 @@ asset and changing the script means re-recording, re-captioning and re-syncing.
 
 ### Narration of items
 
-Each item of an `interaction` can have its own `narration`, exactly the shape above. It is named by a key
+Each line of a `scenario` has one in the same way, named by the object's `id`, a slash and the line's `id`. Each item of an `interaction` can have its own `narration`, exactly the shape above. It is named by a key
 made of the object's `id`, a slash, and the item's `id`, for example `obj-0012/item-3`. The key is what
 `tools/narrate.py` calls it (`--only obj-0012/item-3`, and the result it prints), what the editor passes to
 the speech tool, and what the published course looks it up by, so audio made for a key is the audio played
@@ -737,19 +993,108 @@ Latin letters the IPA uses (`æ`, `ð`, `ø`, `ŋ`, `œ`), as in "cat", "this" a
 
 ## Provenance
 
-Present on any object that came from an import. Null otherwise.
+Present on any object that came from an import or from the Capture module. Null otherwise.
 
 ```json
 "provenance": {
   "sourceDeck": "deck-7b21",
   "slideIndex": 4,
-  "shapeId": "{A1B2C3D4-...}",
-  "importedAt": "2026-10-10T14:22:00Z"
+  "shapeId": "256/3",
+  "importedAt": "2026-10-10T14:22:00Z",
+  "slideId": "256",
+  "sourceHash": "13a5c258ca972d",
+  "base": { "type": "text", "name": "Title 1", "geometry": { "x": 48, "y": 29, "width": 864, "height": 115, "rotation": 0 },
+            "content": { "html": "<h1>Welcome</h1>" }, "style": { "fontSize": 59 }, "altText": "Welcome", "decorative": false }
 }
 ```
 
 Never dropped on edit. Re-syncing a changed source deck depends entirely on these
 fields, and they cannot be added retroactively to projects imported without them.
+
+`sourceDeck` is the id of an entry in `project.sources`. `slideIndex` is the slide's place in the deck when it was imported. `slideId` is the deck's own number for the slide
+(PowerPoint's `p:sldId`), which stays the same when slides are moved, so it, and not the place, is what finds the slide again. `shapeId` is `slideId`, a slash, and the shape's own
+number on its slide (`p:cNvPr id`), so it is the same for the life of the shape and never the same for two shapes of a deck (a background picture is `slideId/background`).
+`sourceHash` is a fingerprint of the shape as the deck had it: when it has not changed, the shape is not looked at again. `base` is the object as the import made it
+(type, name, place and size, content, style, alt text, decorative): the version a changed deck and the author's edits are both compared with. `slideId`, `sourceHash` and
+`base` are optional in the schema, and the importer always writes them.
+
+A slide made from a slide of a deck carries a provenance of its own:
+
+```json
+"provenance": { "sourceDeck": "deck-7b21", "slideId": "256", "slideIndex": 0, "importedAt": "2026-10-10T14:22:00Z", "sourceHash": "a1b2c3d4e5f6a7",
+                "base": { "name": "Welcome", "background": null, "shapes": ["2", "3", "4"] } }
+```
+
+`base.shapes` lists the shapes the import brought in, so a shape the author deleted is not brought back and a shape that is new in the deck is told apart from one that was deleted.
+(This changes what this section used to say, that an imported slide has no provenance of its own: a slide with no shapes of its own, or whose shapes were all deleted,
+still has to be found again.)
+
+The project lists the decks:
+
+```json
+"sources": [
+  { "id": "deck-7b21", "name": "Introduction to communication.pptx", "importedAt": "2026-10-10T14:22:00Z", "syncedAt": "2026-10-20T09:00:00Z",
+    "slideWidth": 12192000, "slideHeight": 6858000, "pixelsPerInch": 96, "offsetX": 0, "offsetY": 0, "seen": ["256", "257", "258"] }
+]
+```
+
+`slideWidth` and `slideHeight` are the deck's own units (English Metric Units, 914,400 to the inch). `pixelsPerInch`, `offsetX` and `offsetY` say how the deck was laid on the stage (see
+below), so a changed deck is laid the same way even if the stage has been changed. `seen` is the deck's number for every slide the deck had when it was last imported or brought
+up to date, which tells a slide the author left out from a slide the deck has since added. The validator warns of a deck that slides name and the project does not list (`import-source-missing`).
+
+An object or a slide made by the Capture module from a recorded step names the capture and the step instead, so a changed recording can be brought
+forward without losing what the author added:
+
+```json
+"provenance": {
+  "sourceCapture": "capture-2026-10-13",
+  "stepId": "step-3",
+  "capturedAt": "2026-10-13T09:30:00Z"
+}
+```
+
+`sourceCapture` and `stepId` are required and `capturedAt` is optional. A slide may carry this too, as an optional `provenance` field of its own
+(an imported slide does not; its shapes carry the deck). Several objects can come from one step, so only slides are checked for two claiming the same
+step (`provenance-duplicate`). A copy made in the editor (duplicate, paste, or duplicate slide) is the author's own, not the thing it was copied from, so it
+has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.)
+
+### PowerPoint import
+
+The editor reads a `.pptx` file (a zip file of XML parts) itself, with no library for the XML and no PowerPoint. Google Slides makes the same files. A deck is read into its slides and
+the shapes on them in the deck's own units, then turned into slides and objects. What a shape is takes more than the shape: a title or a bulleted list is a *placeholder* whose position,
+text size, bullets and colour come from the slide's layout and the deck's master, so those are read too (a position the shape does not give comes from the layout's, then the master's; text
+style from the master's title or body style, the layout's, the shape's own list style, the paragraph's and the run's, the later winning; "shrink text on overflow" is applied as the
+percentage PowerPoint stored).
+
+| In the deck | Becomes |
+| --- | --- |
+| A title placeholder | A text object that is a heading (`<h1>`), role `heading` |
+| Other text | A text object: paragraphs `<p>`; bulleted or numbered paragraphs `<ul>` or `<ol>`, nested by level; bold, italic, underline, superscript, subscript and web or mail links kept; one size, colour, font and alignment for the box |
+| A shape with text and a fill or outline | The same text object with `fill`, `stroke`, `strokeWidth` and `radius` (an ellipse is fully rounded, a rounded rectangle 12 pixels) |
+| A shape with no text | A `shape` object (rectangle, rounded, ellipse, triangle, diamond or arrow; any other form is drawn as a rectangle and counted) |
+| A straight line | A thin rectangle `shape` |
+| A picture | An `image` object, the file saved as `assets/images/pptx-<fingerprint>.<ext>` (the same picture is one file) |
+| A table | A `table` object: cell text, first row and first column as headers |
+| A picture used as a slide's background | A decorative `image` object at the back, and the slide's `background` set to the picture's average colour, so the text on it can be checked |
+| Alt text written in PowerPoint | `altText`. Nothing is made up: a picture or a table with none is left for the Problems list; a shape with none is decorative, as a new shape in this editor is; a text box's alt text is its own words |
+| "Mark as decorative" | `decorative` |
+
+Left out, and said so in the report: charts, SmartArt, embedded objects and movies or sounds (named, with the reason), pictures a web page cannot show (EMF, WMF, TIFF), slanted lines, hidden
+shapes, dates, footers and slide numbers, speaker notes, animations and transitions. Changed, and counted: fonts a web page cannot count on are replaced by the course's own font; a box with
+more than one size or colour takes the one most of its words have; a cropped picture is shown whole; merged table cells are separate.
+
+The deck is laid on the stage at one scale for the whole deck: as big as it goes without being cut, in the middle (`pixelsPerInch` and the offsets in `project.sources`). Text sizes follow the same
+scale (points to pixels at that scale). Reading order is the deck's order, which is the order PowerPoint's screen reader reads; the objects are numbered for the tab key in that order, decoration excepted.
+
+#### Bringing a deck up to date
+
+A deck is compared with the course in three parts: the deck as it was imported (`provenance.base`), the object now (the author's version), and the deck as it is now. Each object is compared one
+property at a time (its name, each of its place and size numbers, each key of its content and style, its alt text and decorative flag). A property only the deck changed comes forward; a property
+only the author changed stays; a property both changed is a *conflict*, and is offered unticked, to replace the author's. A text box whose alt text is still just its own words moves with the words.
+Nothing the author added is touched: rules, narration, timing, animation, looks, layers and objects made in the editor are not in the deck and are never compared. What is offered, each with its own
+box to tick: a new shape; a changed shape (and, separately, the conflicts on it); a shape the deck removed (ticked only if the author did nothing to it and added nothing to it); a new slide; a slide the
+deck has that the author left out or deleted (unticked); a slide the deck no longer has (unticked); a changed slide name or background. A shape the author deleted is not brought back.
+What was left unticked stays recorded as it was, and is offered again next time. The result is one undo step. The order of slides is noticed and reported, and not changed.
 
 ### Why import is one-directional
 
@@ -815,17 +1160,20 @@ left behaviour open, v0.1 fixes it as follows.
 - **Activation.** A pointer click fires `click` triggers. A click that did not come from a
   pointer (keyboard Enter or Space, or a screen reader's activate) fires `keyActivate`
   triggers.
-- **setVariable.** With no `value`, sets the variable to `true`.
-- **changeState.** The state name is the trigger's `value`. `normal` returns to the base
+- **setVariable.** With no `value`, sets the variable to `true`. With `operation` `add` it adds `value` (1 if there is none) to a number variable
+  instead, rounded to nine decimal places so that adding 0.1 three times gives 0.3. A variable that is not a number is left alone; the validator
+  reports a rule that would try.
+- **changeState.** The state name is the trigger's `value`; with no `value` it means `normal`. `normal` returns to the base
   style. Only a state's `style` is applied in v0.1, not its `content`. `hover` also applies
-  on keyboard focus, and `visited` applies after first activation.
+  on keyboard focus, and `visited` applies after first activation. A look the object does not have changes nothing. If the look has an `announce`, and the
+  object is showing and was not already in that look, the player says it (see States). Looks start over each time a slide opens.
 - **Conditions.** All conditions on a trigger must hold.
 - **variableChange.** Fires every `variableChange` trigger on the current slide whenever any
   variable changes. Trigger chains stop after 50 nested steps.
-- **quizQuestion.** Shows each choice as a radio button and a "Check answer" button. A
-  submit scores the answer, shows the `feedback.correct` or `feedback.incorrect` layer
-  (hiding the other), counts the attempt, and runs the object's `click` or `keyActivate`
-  triggers. A correct answer, or using the last attempt, locks the question.
+- **quizQuestion.** Draws the controls for its kind (see Quiz questions) and a "Check answer" button. Checking with nothing
+  answered says what is missing and counts nothing. Otherwise it grades the answer, shows the `feedback.correct` layer for a
+  fully right answer or the `feedback.incorrect` layer for any other (hiding the other), counts the attempt, keeps the best score,
+  and runs the object's `click` or `keyActivate` triggers. A fully right answer, or using the last attempt, locks the question.
 - **video, audio, embed.** Drawn by `player/src/blocks.ts`. With a transcript a media element sits in a box
   above it; `playMedia` and `pauseMedia` triggers find the element inside.
 - **input.** Drawn by `player/src/inputs.ts`. A change sets the part's variable (which fires
@@ -844,7 +1192,7 @@ left behaviour open, v0.1 fixes it as follows.
   the moving caption line is hidden from assistive technology so nothing is read twice.
   With no generated audio the bar shows only the transcript. An object is only narrated
   if it has its own `narration`: a quiz's answer choices are not read unless the quiz
-  object has a script that says so.
+  object has a script that says so, which the editor can write from the question.
 - **Item narration.** An interaction item with `narration` speaks when the learner opens it: a click or
   Enter or Space on its button (a tab, a card's front, an accordion or reveal header that is opening, a
   glossary term, a step, Next or Previous). It replaces whatever is playing, like layer narration, and its
@@ -918,8 +1266,8 @@ under `source/` (not listed in the manifest, so the LMS ignores it). The ADL sch
   Unknown ids in saved state are ignored, so a course edited since still opens.
 - **Exit.** `cmi.core.exit` is `suspend` unless the course is finished, and `session_time` is
   sent, when the page is hidden or unloaded. The final write happens once.
-- **Interactions.** Each quiz submission is recorded as a `choice` interaction with the
-  student's response (`a`, `b`, `c` by choice order), result, weighting and correct response.
+- **Interactions.** Each quiz submission is recorded as an interaction of the SCORM type that fits the kind of question (see Quiz
+  questions), with the student's response, result, weighting and correct response.
 - **Review and browse mode** are read only: nothing is written.
 
 ## How the editor writes files
@@ -945,6 +1293,16 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.24.0 | 0.25.0 | Adds what is needed to bring slides in from a PowerPoint deck and to bring them up to date: `project.sources` (the decks, and how each was laid on the stage), a slide's own import provenance, and in an object's import provenance the deck's slide number (`slideId`), a fingerprint of the shape (`sourceHash`) and the object as it was imported (`base`). Nothing in an existing project changes: nothing was imported before. |
+| 0.23.0 | 0.24.0 | Adds `announce` to a look (an object state): the words a screen reader says when a rule applies the look. Nothing in an existing project changes: no look has one. A look's name now has limits (1 to 40 characters, no space at either end). |
+| 0.22.0 | 0.23.0 | Adds `timing.appear: "media"` and `timing.media`: an object can appear and go at moments in a video or audio clip on its slide. Nothing in an existing project changes: every timing there says `time` or `narration`. |
+| 0.21.0 | 0.22.0 | Adds the `icon` object, an optional `icon` (and `iconPlacement`) on a button's content, and the trigger actions `nextSlide`, `previousSlide` and `replaySlide`, which take an empty `target`. Nothing in an existing project changes: no icon means none, and no rule uses the new actions. |
+| 0.20.0 | 0.21.0 | Adds the `scenario` object (a branching story the learner steps through by choosing), the optional project `characters` (a cast, each with a name, a picture and a voice), and the input kind `character` (the learner chooses who they are). Nothing in an existing project changes: no cast means no characters, and no scenario object means no scenario. |
+| 0.19.0 | 0.20.0 | Adds the optional `logo` to a theme: one picture in a corner of every slide. Nothing in an existing project changes, because no logo means none. |
+| 0.18.0 | 0.19.0 | Adds the optional audio `description` on a `video` (cues, each with a time, words, whether the video waits, and a voice). Nothing in an existing project changes, because no description means none. |
+| 0.17.0 | 0.18.0 | Adds the optional `operation` on a `setVariable` trigger (`add` counts), defines the `hotspot` object (a transparent button with no content, so a hotspot that had content has it cleared), lets `provenance` name a capture step and lets a slide carry it, and adds the optional `sourceExclude` list to `project.json`. Nothing else in an existing project changes. |
+| 0.16.0 | 0.17.0 | Adds the optional `group` field to objects, which groups objects in the editor. Nothing in an existing project changes, because no field means not in a group. |
+| 0.15.0 | 0.16.0 | Adds the quiz question kinds `multipleResponse`, `shortAnswer`, `numeric`, `fillBlanks`, `matching`, `sequencing` and `hotspot`, and partial credit. Existing questions are multiple choice, which has not changed. Nothing in an existing project changes. |
 | 0.14.0 | 0.15.0 | Adds the optional `locked` field to objects, which locks an object in the editor. Nothing in an existing project changes, because no field means unlocked. |
 | 0.13.0 | 0.14.0 | Every object gets an `animation`, set to no effect either way (`{ "enter": { "effect": "none", "duration": 500 }, "exit": { "effect": "none", "duration": 500 } }`), after its `timing`. Nothing moves until the author chooses an effect. |
 | 0.12.0 | 0.13.0 | Every object gets a `timing`, set to always there (`{ "appear": "time", "start": 0, "visibleFor": null }`), after its `triggers`. Nothing looks different until the author sets some. |
@@ -966,7 +1324,7 @@ Until 1.0.0 the format may still change, but every change ships a migration.
 
 Not yet decided, and worth settling before 1.0:
 
-- Quiz model. Is a question an object type, a slide type, or both?
+- Quiz model. Settled: a question is an object type (`quizQuestion`), with a kind for each way of answering.
 - Theme scope. How much can a theme override before a slide stops being portable between
   projects?
 - Reusable components. Linked instances versus independent copies, and how a linked

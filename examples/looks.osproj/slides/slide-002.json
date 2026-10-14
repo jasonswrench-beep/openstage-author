@@ -1,0 +1,389 @@
+{
+  "id": "slide-002",
+  "name": "Mark a step as done",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Mark a step as done</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Mark a step as done",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 80,
+          "y": 190,
+          "width": 700,
+          "height": 60,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {
+          "Done": {
+            "style": {
+              "color": "#14532d",
+              "fontSize": 28
+            },
+            "announce": "Step 1 is marked as done"
+          }
+        },
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Step",
+        "content": {
+          "html": "<p>Step 1: Read the chapter</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Step 1: Read the chapter",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 80,
+          "y": 290,
+          "width": 220,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {
+          "hover": {
+            "style": {
+              "fill": "#0a4fd1"
+            }
+          },
+          "visited": {
+            "style": {
+              "fill": "#5b21b6"
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0006",
+            "value": "Done",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0006",
+            "value": "Done",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Mark done",
+        "content": {
+          "label": "Mark done"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Mark step 1 as done",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0008",
+        "geometry": {
+          "x": 330,
+          "y": 290,
+          "width": 220,
+          "height": 56,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {
+          "hover": {
+            "style": {
+              "fill": "#0a4fd1"
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0006",
+            "value": "normal",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0006",
+            "value": "normal",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Mark not done",
+        "content": {
+          "label": "Not done yet"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Mark step 1 as not done",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0009",
+        "geometry": {
+          "x": 1000,
+          "y": 640,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Next",
+        "content": {
+          "label": "Next",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Next",
+          "role": "button",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -87,7 +87,7 @@
         },
         "states": {
           "hover": { "style": { "fill": "#0a4fd1" } },
-          "visited": { "style": { "opacity": 0.85 } }
+          "visited": { "style": { "fill": "#5b21b6" } }
         },
         "triggers": [
           {

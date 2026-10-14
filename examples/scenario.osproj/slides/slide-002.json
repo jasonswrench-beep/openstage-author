@@ -1,0 +1,593 @@
+{
+  "id": "slide-002",
+  "name": "The conversation",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0010",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 60,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>The conversation</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 36,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "The conversation",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "variableChange",
+            "conditions": [
+              {
+                "variable": "var-done",
+                "operator": "equals",
+                "value": true
+              }
+            ],
+            "action": "showLayer",
+            "target": "layer-done"
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0011",
+        "type": "scenario",
+        "name": "Missed deadline",
+        "geometry": {
+          "x": 80,
+          "y": 96,
+          "width": 1120,
+          "height": 560,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "start": "n-start",
+          "you": "var-who",
+          "nodes": [
+            {
+              "id": "n-start",
+              "title": "Your report is late",
+              "prompt": "How do you answer?",
+              "lines": [
+                {
+                  "id": "l-1",
+                  "speaker": null,
+                  "text": "It is Thursday afternoon. The quarterly report you promised Maya for noon is not finished, because a check of the figures has found an error that will take until tomorrow to fix.",
+                  "narration": {
+                    "script": "It is Thursday afternoon. The quarterly report you promised Maya for noon is not finished, because a check of the figures has found an error that will take until tomorrow to fix.",
+                    "voice": "bf_emma",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                },
+                {
+                  "id": "l-2",
+                  "speaker": "maya",
+                  "text": "Hi. I was expecting your report at noon. Is everything all right?",
+                  "narration": {
+                    "script": "Hi. I was expecting your report at noon. Is everything all right?",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": [
+                {
+                  "id": "c-honest",
+                  "label": "Tell her what happened and when it will be ready",
+                  "next": "n-plan",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": 2
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": 2
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-1",
+                      "speaker": "maya",
+                      "text": "Thank you for telling me straight away. That helps a lot.",
+                      "narration": {
+                        "script": "Thank you for telling me straight away. That helps a lot.",
+                        "voice": "af_heart",
+                        "speed": 1.0,
+                        "lang": "en-US",
+                        "pronunciations": [],
+                        "audioCache": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "c-busy",
+                  "label": "Say you have been busy with other work",
+                  "next": "n-pushback",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": -1
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": -1
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-2",
+                      "speaker": "maya",
+                      "text": "Busy with what, exactly? I need to understand what to tell the director.",
+                      "narration": {
+                        "script": "Busy with what, exactly? I need to understand what to tell the director.",
+                        "voice": "af_heart",
+                        "speed": 1.0,
+                        "lang": "en-US",
+                        "pronunciations": [],
+                        "audioCache": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "c-soon",
+                  "label": "Say it is nearly done and will arrive soon",
+                  "next": "n-found-out",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": -2
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": -2
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-3",
+                      "speaker": null,
+                      "text": "Maya nods and goes back to her desk.",
+                      "narration": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "n-plan",
+              "title": "Agreeing a plan",
+              "prompt": "What do you suggest?",
+              "lines": [
+                {
+                  "id": "l-3",
+                  "speaker": null,
+                  "text": "Maya sits down across from you.",
+                  "narration": null
+                },
+                {
+                  "id": "l-4",
+                  "speaker": "maya",
+                  "text": "What do you need from me to get it finished by tomorrow morning?",
+                  "narration": {
+                    "script": "What do you need from me to get it finished by tomorrow morning?",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": [
+                {
+                  "id": "c-help",
+                  "label": "Ask for the data team's help with the error",
+                  "next": "n-good",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": 1
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": 1
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-4",
+                      "speaker": "you",
+                      "text": "If the data team can look at it tonight, I can finish the report first thing.",
+                      "narration": null
+                    }
+                  ]
+                },
+                {
+                  "id": "c-alone",
+                  "label": "Say you will manage on your own",
+                  "next": "n-ok",
+                  "effects": [],
+                  "response": [
+                    {
+                      "id": "r-5",
+                      "speaker": "maya",
+                      "text": "All right. Tell me early if that changes.",
+                      "narration": {
+                        "script": "All right. Tell me early if that changes.",
+                        "voice": "af_heart",
+                        "speed": 1.0,
+                        "lang": "en-US",
+                        "pronunciations": [],
+                        "audioCache": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "n-pushback",
+              "title": "Pressed for details",
+              "prompt": "What do you say?",
+              "lines": [
+                {
+                  "id": "l-5",
+                  "speaker": null,
+                  "text": "Maya waits. She does not look cross, only careful.",
+                  "narration": null
+                },
+                {
+                  "id": "l-6",
+                  "speaker": "maya",
+                  "text": "I have to tell the director something concrete this afternoon.",
+                  "narration": {
+                    "script": "I have to tell the director something concrete this afternoon.",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": [
+                {
+                  "id": "c-admit",
+                  "label": "Admit the error in the figures and give a time",
+                  "next": "n-plan",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": 1
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": 2
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-6",
+                      "speaker": "you",
+                      "text": "You are right to ask. There is an error in the figures, and I expect to have it fixed by tomorrow morning.",
+                      "narration": null
+                    }
+                  ]
+                },
+                {
+                  "id": "c-defend",
+                  "label": "Say the deadline was never realistic",
+                  "next": "n-poor",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": -2
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-7",
+                      "speaker": "maya",
+                      "text": "That is something we should have talked about last week.",
+                      "narration": {
+                        "script": "That is something we should have talked about last week.",
+                        "voice": "af_heart",
+                        "speed": 1.0,
+                        "lang": "en-US",
+                        "pronunciations": [],
+                        "audioCache": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "n-found-out",
+              "title": "The director asks",
+              "prompt": "What do you do?",
+              "lines": [
+                {
+                  "id": "l-7",
+                  "speaker": null,
+                  "text": "At four o'clock Maya's director asks where the report is. Maya has nothing to tell her.",
+                  "narration": null
+                },
+                {
+                  "id": "l-8",
+                  "speaker": "maya",
+                  "text": "I told her it was nearly done, because that is what you told me.",
+                  "narration": {
+                    "script": "I told her it was nearly done, because that is what you told me.",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": [
+                {
+                  "id": "c-sorry",
+                  "label": "Apologise and tell Maya the whole story",
+                  "next": "n-poor",
+                  "effects": [
+                    {
+                      "variable": "var-trust",
+                      "add": 1
+                    },
+                    {
+                      "variable": "var-clarity",
+                      "add": 1
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "r-8",
+                      "speaker": "you",
+                      "text": "I should have told you at noon. I am sorry. Here is what happened.",
+                      "narration": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "n-good",
+              "title": "A report you can stand behind",
+              "prompt": "",
+              "lines": [
+                {
+                  "id": "l-9",
+                  "speaker": null,
+                  "text": "The data team corrects the figures that evening. The report goes out at nine the next morning, with a short note about what changed.",
+                  "narration": null
+                },
+                {
+                  "id": "l-10",
+                  "speaker": "maya",
+                  "text": "Thank you. This is what I would like to see every time.",
+                  "narration": {
+                    "script": "Thank you. This is what I would like to see every time.",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": []
+            },
+            {
+              "id": "n-ok",
+              "title": "On time, by a thread",
+              "prompt": "",
+              "lines": [
+                {
+                  "id": "l-11",
+                  "speaker": null,
+                  "text": "You finish the report at eight in the morning and send it with an hour to spare.",
+                  "narration": null
+                },
+                {
+                  "id": "l-12",
+                  "speaker": "maya",
+                  "text": "Good work. Next time, tell me about the problem earlier, and we can plan around it together.",
+                  "narration": {
+                    "script": "Good work. Next time, tell me about the problem earlier, and we can plan around it together.",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": []
+            },
+            {
+              "id": "n-poor",
+              "title": "A hard conversation ahead",
+              "prompt": "",
+              "lines": [
+                {
+                  "id": "l-13",
+                  "speaker": null,
+                  "text": "The report arrives a day late, and Maya has to explain that to her director.",
+                  "narration": null
+                },
+                {
+                  "id": "l-14",
+                  "speaker": "maya",
+                  "text": "I know it was a difficult week. We need to talk about how we handle this next time.",
+                  "narration": {
+                    "script": "I know it was a difficult week. We need to talk about how we handle this next time.",
+                    "voice": "af_heart",
+                    "speed": 1.0,
+                    "lang": "en-US",
+                    "pronunciations": [],
+                    "audioCache": null
+                  }
+                }
+              ],
+              "choices": []
+            }
+          ],
+          "meters": [
+            {
+              "id": "m-trust",
+              "label": "Maya's trust in you",
+              "variable": "var-trust",
+              "min": -5,
+              "max": 5
+            },
+            {
+              "id": "m-clarity",
+              "label": "How clear you have been",
+              "variable": "var-clarity",
+              "min": -5,
+              "max": 5
+            }
+          ],
+          "allowRetry": true,
+          "finishedVariable": "var-done",
+          "reflection": "Think of a time you had to give someone bad news at work. Which of these answers did you recognise, and what did it cost or save?"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "A scenario about telling your team lead that your report is late",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-done",
+      "name": "Finished",
+      "objects": [
+        {
+          "id": "obj-0020",
+          "type": "text",
+          "name": "Finished note",
+          "geometry": {
+            "x": 80,
+            "y": 664,
+            "width": 1120,
+            "height": 44,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p><strong>You have reached an ending.</strong> Use Next to carry on, or start again to try another way through.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 18,
+            "color": "#141414"
+          },
+          "accessibility": {
+            "altText": "You have reached an ending. Use Next to carry on, or start again to try another way through.",
+            "role": "paragraph",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}

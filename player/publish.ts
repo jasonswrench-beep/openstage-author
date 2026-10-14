@@ -17,6 +17,7 @@ import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { buildManifest, manifestId } from "./src/scorm-manifest.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
+import { isExcluded } from "./src/exclude.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -135,6 +136,14 @@ const assetsFile = path.join(projectDir, "assets.json");
 const recorded = existsSync(assetsFile) ? readJson<{ assets: NonNullable<CoursePackage["credits"]> }>(assetsFile).assets : [];
 const slideText = JSON.stringify(slides);
 const credits = recorded.filter((e) => slideText.includes(e.path) && (e.source.creator || e.source.provider !== "other"));
+// Icons come from an open set (Lucide, ISC licence) whose notice has to travel with them, so a course that uses any names it and carries the licence text.
+const usesIcons = slideText.includes('"set":"lucide"');
+if (usesIcons) {
+  credits.push({
+    path: "icons", title: "Icons", kind: "image",
+    source: { provider: "other", url: "https://lucide.dev", creator: "Lucide Icons and Contributors", creatorUrl: "https://lucide.dev", licence: "ISC licence (the notice is in licenses/lucide.txt)", requiresCredit: true },
+  });
+}
 // The size of each file the course offers for download, so learners are told how big it is before they save it.
 // Only files inside the project's assets folder are measured.
 const fileSizes: Record<string, number> = {};
@@ -166,6 +175,10 @@ for (const info of Object.values(narrationInfo)) {
   cpSync(path.join(projectDir, info.audio), path.join(outDir, "narration", `${info.hash}.wav`));
 }
 cpSync(path.join(here, "src", "player.css"), path.join(outDir, "player.css"));
+if (usesIcons) {
+  mkdirSync(path.join(outDir, "licenses"), { recursive: true });
+  cpSync(path.join(repoRoot, "third-party", "lucide-LICENSE.txt"), path.join(outDir, "licenses", "lucide.txt"));
+}
 await build({
   entryPoints: [path.join(here, "src", "player.ts")],
   bundle: true,
@@ -220,7 +233,9 @@ if (!preview) {
 
   const zipEntries: Record<string, Uint8Array> = { "imsmanifest.xml": new TextEncoder().encode(manifest) };
   for (const f of courseFiles) zipEntries[f] = readFileSync(path.join(outDir, f));
-  for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/"))) {
+  // The cache is never carried. Whatever the project lists in sourceExclude stays out too (raw recordings, for instance).
+  const exclude = project.sourceExclude ?? [];
+  for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/") && !isExcluded(f, exclude))) {
     zipEntries[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
   }
   writeFileSync(zipPath, zipSync(zipEntries, { level: 6 }));

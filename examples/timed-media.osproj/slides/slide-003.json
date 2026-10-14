@@ -1,0 +1,326 @@
+{
+  "id": "slide-003",
+  "name": "An audio clip with notes",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0013",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0012",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Notes that arrive with a sound</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Notes that arrive with a sound",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0014",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 560,
+          "height": 54,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "audio",
+        "name": "Test tone",
+        "content": {
+          "src": "assets/audio/tone.ogg",
+          "captions": null,
+          "transcript": "<p>A steady tone for fifteen seconds.</p>"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "A steady tone, fifteen seconds long",
+          "role": "audio",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0015",
+        "geometry": {
+          "x": 80,
+          "y": 260,
+          "width": 560,
+          "height": 70,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0014",
+          "start": 2000,
+          "visibleFor": 5000
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note at 2 seconds",
+        "content": {
+          "html": "<p>At 2 seconds: the tone has begun.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "At 2 seconds: the tone has begun.",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0016",
+        "geometry": {
+          "x": 80,
+          "y": 350,
+          "width": 560,
+          "height": 70,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0014",
+          "start": 8000,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note at 8 seconds",
+        "content": {
+          "html": "<p>At 8 seconds: half way through the tone.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "At 8 seconds: half way through the tone.",
+          "role": "paragraph",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0017",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back",
+        "content": {
+          "label": "Back",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-left",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "m12 19-7-7 7-7"
+              },
+              {
+                "tag": "path",
+                "d": "M19 12H5"
+              }
+            ]
+          },
+          "iconPlacement": "before"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back",
+          "role": "button",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -5,6 +5,8 @@
 // it is all tested directly.
 
 import voiceList from "../../tools/kokoro-voices.json" with { type: "json" };
+import { matchOptions, splitBlanks, stableShuffle } from "../../player/src/grading.ts";
+import type { QuizContent } from "../../player/src/types.ts";
 import { DOWNLOAD_HELP, fileTypeLabel } from "../../player/src/downloads.ts";
 
 // ---- SHA-256, written out so the key can be worked out on the page without any browser feature
@@ -177,6 +179,27 @@ export function downloadScript(c: { title: string; description: string; src: str
   const described = c.description.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter((line) => line !== "").map(endSentence);
   const title = c.title.trim();
   return [...(title === "" ? [] : [endSentence(title)]), ...described, `Type of file: ${fileTypeLabel(c.src)}.`, DOWNLOAD_HELP].join(" ");
+}
+
+/** The words a question says, so the course can read them aloud. A learner who cannot see the screen hears the same words as one who can. */
+export function questionScript(q: QuizContent, seed: string): string {
+  const stop = (s: string): string => endSentence(s.replace(/\s+/g, " ").trim());
+  const each = (items: string[]): string => items.map(stop).join(" ");
+  switch (q.questionType) {
+    case "multipleChoice": return `Choose one answer. Your choices are: ${each(q.choices.map((c) => c.label))}`;
+    case "multipleResponse": return `Choose every answer that is right. Your choices are: ${each(q.choices.map((c) => c.label))}`;
+    case "shortAnswer": return "Type your answer.";
+    case "numeric": return "Type a number.";
+    case "fillBlanks": {
+      const numbered = new Map(q.blanks.map((b, i) => [b.id, i + 1]));
+      const sentence = splitBlanks(q.text).map((p) => (p.type === "text" ? p.value : `blank ${numbered.get(p.id) ?? p.id}`)).join("");
+      const words = q.mode === "typed" ? "Type the missing words." : `Choose a word for each blank. The words are: ${each(stableShuffle(q.wordBank, seed))}`;
+      return `${stop(sentence)} ${words}`;
+    }
+    case "matching": return `Match each item with its match. The items are: ${each(q.pairs.map((p) => p.premise))} The matches are: ${each(stableShuffle(matchOptions(q), seed).map((o) => o.text))}`;
+    case "sequencing": return `Put these in the right order. They are: ${each(stableShuffle(q.items.map((i) => i.id), seed).map((id) => q.items.find((i) => i.id === id)!.text))}`;
+    case "hotspot": return `Choose an area of the picture. ${q.image.alt.trim() === "" ? "" : `${stop(q.image.alt)} `}The areas are: ${each(q.regions.map((r) => r.label))}`;
+  }
 }
 
 // ---- pronunciations

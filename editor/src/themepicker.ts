@@ -51,8 +51,8 @@ export interface ThemeChoice {
   current: string;
 }
 
-/** Show the picker. Resolves to the chosen built-in theme, or null if it was cancelled. */
-export function askTheme(choice: ThemeChoice): Promise<Theme | null> {
+/** Show the picker. Resolves to the chosen built-in theme, to "edit" if the author wants to change the colours, fonts and logo, or to null if it was cancelled. */
+export function askTheme(choice: ThemeChoice): Promise<Theme | "edit" | null> {
   return new Promise((resolve) => {
     const doc = document;
     const dialog = doc.createElement("dialog");
@@ -94,17 +94,20 @@ export function askTheme(choice: ThemeChoice): Promise<Theme | null> {
 
     const note = doc.createElement("p");
     note.className = "note";
-    note.textContent = "Every slide changes at once: its background, and the colours and fonts of everything that follows the theme. Colours and fonts you chose yourself stay as they are. You can undo with Ctrl+Z.";
+    note.textContent = "Every slide changes at once: its background, and the colours and fonts of everything that follows the theme. Colours and fonts you chose yourself stay as they are, and so does your logo. You can undo with Ctrl+Z. To change a theme's own colours and fonts, or add a logo, choose Edit this theme.";
 
     const ok = doc.createElement("button");
     ok.type = "submit";
     ok.textContent = "Apply theme";
+    const edit = doc.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Edit this theme...";
     const cancel = doc.createElement("button");
     cancel.type = "button";
     cancel.textContent = "Cancel";
     const actions = doc.createElement("div");
     actions.className = "dialog-actions";
-    actions.append(ok, cancel);
+    actions.append(ok, edit, cancel);
 
     const form = doc.createElement("form");
     form.method = "dialog";
@@ -112,13 +115,17 @@ export function askTheme(choice: ThemeChoice): Promise<Theme | null> {
     dialog.appendChild(form);
     doc.body.appendChild(dialog);
 
-    let result: Theme | null = null;
+    let result: Theme | "edit" | null = null;
     const finish = () => {
       dialog.close();
       dialog.remove();
       resolve(result);
     };
     cancel.addEventListener("click", finish);
+    edit.addEventListener("click", () => {
+      result = "edit";
+      finish();
+    });
     dialog.addEventListener("cancel", (e) => {
       e.preventDefault();
       finish();

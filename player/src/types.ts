@@ -18,12 +18,64 @@ export interface Project {
   theme: { ref: string } | null;
   /** Whether the published course shows its credits page. */
   credits: boolean;
+  /** Files and folders left out of the source/ copy of the project that a published package carries. See exclude.ts. */
+  sourceExclude?: string[];
+  /** The cast: people a scenario can show and a learner can choose to be. Absent means none. */
+  characters?: Character[];
   /**
    * What counts as completing the course, besides finishing every quiz: "all" is having seen every slide, "last" is
    * having reached the last slide. A course published before format 0.9.0 has no setting and counts every slide.
    */
   completion: { slides: "all" | "last" };
   scenes: { id: string; name: string; slides: string[] }[];
+  /** The PowerPoint decks slides were imported from. Absent means none. */
+  sources?: DeckSource[];
+}
+
+/** A PowerPoint deck slides were imported from, and how it was laid on the stage, so a changed deck is placed the same way. */
+export interface DeckSource {
+  id: string;
+  /** The deck's file name. */
+  name: string;
+  importedAt: string;
+  syncedAt?: string;
+  /** The deck's slide size in its own units (English Metric Units, 914,400 to the inch). */
+  slideWidth: number;
+  slideHeight: number;
+  pixelsPerInch: number;
+  offsetX: number;
+  offsetY: number;
+  /** The deck's own numbers for every slide it had when last imported or brought up to date. */
+  seen?: string[];
+}
+
+/** One drawn part of an icon. Only these tags and attributes exist. See icon.ts. */
+export interface IconShape {
+  tag: "path" | "circle" | "rect" | "ellipse" | "line" | "polyline" | "polygon";
+  d?: string;
+  points?: string;
+  cx?: number; cy?: number; r?: number; rx?: number; ry?: number;
+  x?: number; y?: number; width?: number; height?: number;
+  x1?: number; y1?: number; x2?: number; y2?: number;
+  fill?: "none" | "currentColor";
+}
+
+/** An icon, kept as its shapes. Used by the icon object, and by a button that shows one before its label. */
+export interface IconContent {
+  set: "lucide";
+  name: string;
+  shapes: IconShape[];
+}
+
+/** A person in the project's cast. See docs/format-spec.md. */
+export interface Character {
+  id: string;
+  name: string;
+  /** A few words on who they are, or empty. */
+  role: string;
+  /** The narration voice that reads their lines. */
+  voice: string;
+  picture: { src: string; alt: string; decorative: boolean } | null;
 }
 
 export type EventName =
@@ -35,6 +87,9 @@ export type EventName =
   | "variableChange";
 
 export type ActionName =
+  | "nextSlide"
+  | "previousSlide"
+  | "replaySlide"
   | "jumpToSlide"
   | "showLayer"
   | "hideLayer"
@@ -63,6 +118,8 @@ export interface Trigger {
   action: ActionName;
   target: string;
   value?: Primitive;
+  /** Only for setVariable. "set" (the default) puts the value in the variable; "add" adds the value (1 if there is none) to a number variable. */
+  operation?: "set" | "add";
   conditions: Condition[];
 }
 
@@ -71,6 +128,8 @@ export type Style = Record<string, string | number>;
 export interface ObjectState {
   style?: Style;
   content?: Record<string, unknown>;
+  /** What a screen reader says when a rule applies this look. Not said when the course applies the look on its own. */
+  announce?: string;
 }
 
 export interface Choice {
@@ -79,14 +138,114 @@ export interface Choice {
   correct: boolean;
 }
 
-export interface QuizContent {
-  questionType: "multipleChoice";
-  choices: Choice[];
+/** What every kind of question has: how many points it is worth, how many tries, and the layers shown after the answer. */
+export interface QuizBase {
   scoring: { points: number; attemptsAllowed: number };
   feedback: { correct: string; incorrect: string };
 }
 
+/** Multiple choice (exactly one right answer) and multiple response (one or more, all of which must be ticked). */
+export interface ChoiceQuiz extends QuizBase {
+  questionType: "multipleChoice" | "multipleResponse";
+  choices: Choice[];
+}
+
+/** A typed answer, right if it matches one of the accepted answers. */
+export interface ShortAnswerQuiz extends QuizBase {
+  questionType: "shortAnswer";
+  answers: string[];
+  caseSensitive: boolean;
+}
+
+/** A typed number, right if it lies from `min` to `max`. An exact answer has the two the same. */
+export interface NumericQuiz extends QuizBase {
+  questionType: "numeric";
+  min: number;
+  max: number;
+}
+
+export interface Blank {
+  id: string;
+  /** What is accepted. For a drop-down or dragged word, the first is the right word from the word bank. */
+  answers: string[];
+}
+
+/** A sentence with blanks, marked {id} in `text`. They are typed, chosen from a drop-down, or filled by dragging words. */
+export interface FillBlanksQuiz extends QuizBase {
+  questionType: "fillBlanks";
+  mode: "typed" | "dropdown" | "drag";
+  text: string;
+  blanks: Blank[];
+  /** dropdown and drag: every word offered, the right ones and the extras. Empty when the blanks are typed. */
+  wordBank: string[];
+  caseSensitive: boolean;
+}
+
+export interface Pair {
+  id: string;
+  premise: string;
+  match: string;
+}
+
+/** Each item is matched with one of the options, which are the right matches and any extra wrong ones. */
+export interface MatchingQuiz extends QuizBase {
+  questionType: "matching";
+  /** The options can also be dragged onto the items. The drop-downs are always there. */
+  drag: boolean;
+  pairs: Pair[];
+  extras: string[];
+}
+
+export interface SequenceItem {
+  id: string;
+  text: string;
+}
+
+/** Items to put in order. They are listed here in the right order; the learner is shown them in another. */
+export interface SequencingQuiz extends QuizBase {
+  questionType: "sequencing";
+  /** The items can also be dragged into place. The Move up and Move down buttons are always there. */
+  drag: boolean;
+  items: SequenceItem[];
+}
+
+/** An area of a picture, as a rectangle in percent of the picture's width and height. */
+export interface Region {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  correct: boolean;
+}
+
+/** The learner chooses an area of a picture. Every area is also listed by its label, so the picture is not the only way to answer. */
+export interface HotspotQuiz extends QuizBase {
+  questionType: "hotspot";
+  image: { src: string; alt: string };
+  regions: Region[];
+}
+
+/** Any kind of question. Code that only needs the scoring and feedback can use this; code that needs more narrows it by `questionType`. */
+export type QuizContent = ChoiceQuiz | ShortAnswerQuiz | NumericQuiz | FillBlanksQuiz | MatchingQuiz | SequencingQuiz | HotspotQuiz;
+
+export type QuestionType = QuizContent["questionType"];
+
 /** A YouTube or Vimeo video played from its own site. */
+/** One audio description of a video: at this time, say this. See description.ts. */
+export interface DescriptionCue {
+  id: string;
+  /** Milliseconds into the video when it starts. */
+  time: number;
+  /** What the picture shows, to be read. */
+  text: string;
+  /** Whether the video waits while it is spoken. */
+  pause: boolean;
+  /** What the learner hears: the usual narration, or null for a description that can only be read. Its audio is found under itemNarrationKey. */
+  narration: unknown;
+}
+
 export interface EmbedContent {
   provider: "youtube" | "vimeo";
   id: string;
@@ -142,12 +301,14 @@ export interface CertificateContent {
 }
 
 export interface InputContent {
-  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic";
+  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic" | "character";
   prompt: string;
   /** Whether the answers are sent to the LMS as interactions. */
   report: boolean;
-  /** radio, dropdown and list: the variable that receives the chosen option's value. */
+  /** radio, dropdown, list and character: the variable that receives the chosen option's value (for character, the person's id). */
   variable?: string;
+  /** character: the people from the cast the learner can choose between. */
+  characters?: string[];
   options?: { id: string; label: string; value: string }[];
   /** checkbox: each box has its own true or false variable. */
   items?: { id: string; label: string; variable: string }[];
@@ -164,6 +325,64 @@ export interface TableContent {
   headerRow: boolean;
   headerColumn: boolean;
   rows: string[][];
+}
+
+/** One thing said or told in a scenario. The speaker is null for the narrator, "you" for the learner's own character, or a person's id. */
+export interface ScenarioLine {
+  id: string;
+  speaker: string | null;
+  /** Plain text. */
+  text: string;
+  /** What the learner hears with the line. Its audio is found under itemNarrationKey (the object's id and the line's id). */
+  narration: unknown;
+}
+
+export interface ScenarioEffect {
+  /** A number variable. */
+  variable: string;
+  /** Added to it when the choice is made. May be negative. */
+  add: number;
+}
+
+export interface ScenarioChoice {
+  id: string;
+  label: string;
+  /** The situation this choice leads to. */
+  next: string;
+  effects: ScenarioEffect[];
+  /** Lines shown straight after the choice, before the next situation. */
+  response: ScenarioLine[];
+}
+
+/** A situation. One with no choices is an ending. */
+export interface ScenarioNode {
+  id: string;
+  title: string;
+  /** The question above the choices; empty means the title names them. */
+  prompt: string;
+  lines: ScenarioLine[];
+  choices: ScenarioChoice[];
+}
+
+export interface ScenarioMeter {
+  id: string;
+  label: string;
+  /** A number variable. */
+  variable: string;
+  min: number;
+  max: number;
+}
+
+export interface ScenarioContent {
+  start: string;
+  /** A string variable that holds the id of the person the learner chose to be, or null. */
+  you: string | null;
+  nodes: ScenarioNode[];
+  meters: ScenarioMeter[];
+  allowRetry: boolean;
+  /** A boolean variable set to true when the learner reaches an ending, or null. */
+  finishedVariable: string | null;
+  reflection: string;
 }
 
 export interface InteractionItem {
@@ -188,7 +407,9 @@ export interface InteractionContent {
  * `{ appear: "time", start: 0, visibleFor: null }`, means always there. See docs/format-spec.md, Timing.
  */
 export interface Timing {
-  appear: "time" | "narration";
+  appear: "time" | "narration" | "media";
+  /** Only with appear "media": the id of the video or audio clip on the same slide whose playing time this follows. Then start and visibleFor count the clip's time. */
+  media?: string;
   start: number;
   visibleFor: number | null;
 }
@@ -212,7 +433,7 @@ export interface ObjectAnimation {
 
 export interface OSObject {
   id: string;
-  type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download";
+  type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon";
   name: string;
   geometry: { x: number; y: number; width: number; height: number; rotation: number; z: number };
   content: Record<string, unknown>;
@@ -227,6 +448,8 @@ export interface OSObject {
   simulation: unknown;
   /** Editor only: the editor refuses to move, resize, rotate or delete a locked object. Absent means unlocked. The course ignores it. */
   locked?: boolean;
+  /** Editor only: objects on one layer with the same group id are selected, moved, copied and deleted together. Absent means not in a group. The course ignores it. */
+  group?: string;
 }
 
 export interface Layer {
@@ -244,6 +467,19 @@ export type ThemeBackground =
   | { type: "solid"; color: string }
   | { type: "gradient"; from: string; to: string; angle: number };
 
+/** One picture shown in a corner of every slide, such as a school's logo. See docs/format-spec.md. */
+export interface ThemeLogo {
+  /** A file under assets/. */
+  src: string;
+  /** What a screen reader says. Empty when the logo is decorative. */
+  alt: string;
+  decorative: boolean;
+  corner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  /** Its size on the stage, in stage pixels. */
+  width: number;
+  height: number;
+}
+
 /** A project's design. See docs/format-spec.md. */
 export interface Theme {
   schemaVersion: string;
@@ -252,11 +488,51 @@ export interface Theme {
   colors: ThemeColors;
   fonts: { heading: string; body: string };
   backgrounds: { default: ThemeBackground; dark: ThemeBackground; accent: ThemeBackground };
+  /** Optional: shown in a corner of every slide. */
+  logo?: ThemeLogo;
+}
+
+/** An object imported from a shape in a PowerPoint deck. `base` is the object as the import made it. */
+export interface ImportProvenance {
+  sourceDeck: string;
+  slideIndex: number;
+  shapeId: string;
+  importedAt: string;
+  slideId?: string;
+  sourceHash?: string;
+  base?: {
+    type: string;
+    name: string;
+    geometry: { x: number; y: number; width: number; height: number; rotation: number };
+    content: Record<string, unknown>;
+    style: Style;
+    altText: string;
+    decorative: boolean;
+  };
+}
+
+/** A slide imported from a slide of a PowerPoint deck. */
+export interface SlideImportProvenance {
+  sourceDeck: string;
+  slideId: string;
+  slideIndex: number;
+  importedAt: string;
+  sourceHash?: string;
+  base?: { name: string; background: string | null; shapes?: string[] };
+}
+
+/** Set on a slide or an object the Capture module made from a recorded step, so a changed recording can be brought forward. */
+export interface CaptureProvenance {
+  sourceCapture: string;
+  stepId: string;
+  capturedAt?: string;
 }
 
 export interface Slide {
   id: string;
   name: string;
+  /** Present on a slide the Capture module made from a recorded step, or that was imported from a PowerPoint deck. */
+  provenance?: CaptureProvenance | SlideImportProvenance | null;
   duration: number | null;
   /** The layout the slide was made from, or null. Layouts are built into the editor. */
   layout: string | null;

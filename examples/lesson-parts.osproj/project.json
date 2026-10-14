@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "0.25.0",
+  "meta": {
+    "title": "Giving feedback: the parts",
+    "author": "OpenStage examples",
+    "language": "en-US",
+    "created": "2026-10-13",
+    "modified": "2026-10-13"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "trust",
+      "type": "number",
+      "initial": 0
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "maya",
+      "name": "Maya Reyes",
+      "role": "Team lead",
+      "voice": "af_heart",
+      "picture": {
+        "src": "assets/images/maya.svg",
+        "alt": "Maya, with short dark brown hair, smiling, in a green shirt",
+        "decorative": false
+      }
+    },
+    {
+      "id": "alex",
+      "name": "Alex Kim",
+      "role": "Analyst on Maya's team",
+      "voice": "am_adam",
+      "picture": {
+        "src": "assets/images/alex.svg",
+        "alt": "Alex, with curly brown hair and glasses, looking concerned, in a blue hoodie",
+        "decorative": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+# Bringing a PowerPoint presentation in, and keeping it up to date
+
+OpenStage Author can bring in the slides of a PowerPoint presentation (a `.pptx` file) and, when you change the presentation later, bring the changes forward without losing what you did in OpenStage.
+It never changes your presentation. Google Slides works too: in Google Slides choose File, Download, Microsoft PowerPoint, and use that file.
+
+## Bringing slides in
+
+1. Open the project, and choose **PowerPoint** in the toolbar.
+2. Choose the `.pptx` file. (An older `.ppt` file has to be saved as `.pptx` in PowerPoint first.)
+3. Choose the slides you want. Hidden slides start unticked. They go after the slide you are on.
+4. Read the report. It tells you what came across and what did not.
+
+Try it with `examples/powerpoint/Introduction to Communication.pptx`.
+
+## What comes across
+
+- **Slides**, in order, named by their title.
+- **Text**: a title becomes a heading; bulleted and numbered lists stay lists, with their levels; bold, italic, underline and links stay. A box that has more than one size or colour uses the one most of its words have.
+- **Pictures**, with the alt text you wrote in PowerPoint. The picture files are saved in the project's images.
+- **Tables**, with their first row or column as headers.
+- **Shapes and lines**, with their fill and outline. A shape with no alt text is marked decorative, as a new shape in this editor is.
+- **Backgrounds**. A picture behind the text becomes a decorative picture at the back, and the slide gets that picture's average colour, so the Problems list can check that the text is readable. It is a guess: look at those slides yourself.
+- **Reading order**: the order PowerPoint reads a slide aloud, which is the order the shapes are in. The Objects list shows it, and it is also the tab order.
+
+## What does not come across
+
+Charts, SmartArt, embedded objects, movies and sounds (each is named in the report), slanted lines, animations and transitions, speaker notes, dates, footers and slide numbers, and hidden shapes. Fonts a web page cannot count on (Calibri, for one) are replaced by the course's own font. A cropped picture is shown whole. Merged table cells are shown as separate cells.
+
+## Nothing is made up
+
+If a picture or a table had no alt text in PowerPoint, it has none here, and the Problems list asks for it. The best time to write alt text is in PowerPoint, with its Accessibility Checker: it then comes across, and comes across again every time you bring the presentation up to date. Titles matter too: use each slide's title placeholder, so each slide has a heading and a name.
+
+## When the presentation changes
+
+Choose **PowerPoint** again and choose the changed file. The dialog works out which earlier import it is a newer version of. It then lists the changes since, each with a box:
+
+- A **changed** shape, which you did not touch, is ticked: its new text, position, picture or colours come forward. Anything you added to it (rules, narration, timing, animation, a look) stays.
+- A change that would **replace something you changed** is unticked and says so. Tick it only if the presentation should win.
+- A shape the presentation **removed** is ticked only if you did nothing to it. If it has a rule or narration of yours, it is not.
+- A **new** shape or slide is ticked. A slide you left out when you first brought slides in, or deleted since, is unticked.
+- A slide the presentation **no longer has** is unticked.
+
+Anything you leave unticked is offered again next time. A shape you deleted stays deleted. New objects and layers you made in OpenStage are never touched: put what you add on the slide, and it survives every update. It is one step to undo.
+
+The order of the slides is not changed. If the presentation has them in a different order, the dialog says so.
+
+## Why not both ways?
+
+PowerPoint and OpenStage describe things differently: an OpenStage object carries rules, timing, narration and a tab order that PowerPoint has no place for. Changes are brought one way, from the presentation into the course, and what you add stays yours. The reasons are in `docs/format-spec.md`.
+
+## Tips
+
+- Keep one presentation per module, and bring it in once. Changing the file name does not matter; the slides are found by PowerPoint's own numbers.
+- If you rebuild a slide in PowerPoint (delete it and make a new one), it counts as a new slide.
+- The **Problems** list may say that a slide mixes imported and new objects. That is only information: it is what happens when you add things to an imported slide.

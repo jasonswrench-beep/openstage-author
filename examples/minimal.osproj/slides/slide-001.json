@@ -190,7 +190,7 @@
           },
           "visited": {
             "style": {
-              "opacity": 0.85
+              "fill": "#5b21b6"
             }
           }
         },

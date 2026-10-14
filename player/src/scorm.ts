@@ -8,6 +8,7 @@
 
 import type { Runtime, Snapshot } from "./runtime.ts";
 import type { CourseResults, QuestionResult } from "./results.ts";
+import type { Graded } from "./grading.ts";
 import type { CoursePackage, QuizContent } from "./types.ts";
 
 /** Percentage of available points needed to pass. Fixed for now: a project setting needs a
@@ -87,7 +88,7 @@ export function courseResults(runtime: Runtime): CourseResults {
       if (obj.type !== "quizQuestion") continue;
       const q = obj.content as unknown as QuizContent;
       const st = runtime.quiz.get(obj.id);
-      const state = !st || st.attempts === 0 ? "unanswered" : st.locked ? (st.result === "correct" ? "correct" : "incorrect") : "open";
+      const state = !st || st.attempts === 0 ? "unanswered" : st.locked ? (st.result === "correct" ? "correct" : st.score > 0 ? "partial" : "incorrect") : "open";
       questions.push({ slideName: slide.name, objectId: obj.id, points: q.scoring.points, earned: st?.score ?? 0, state });
     }
   }
@@ -119,14 +120,16 @@ export function lessonStatus(p: Progress, current: string): string {
 // ---- suspend data
 
 export function encodeSuspend(snap: Snapshot): string {
-  const full = { v: 1, s: snap.slide, x: snap.vars, q: snap.quiz, l: snap.layers, d: snap.visited };
+  const full = { v: 1, s: snap.slide, x: snap.vars, q: snap.quiz, l: snap.layers, d: snap.visited, c: snap.scenario };
   // Over the limit: drop the least important parts first. Quiz results are never dropped,
-  // because the score depends on them.
+  // because the score depends on them. Where a learner is in a scenario goes with the variables: the
+  // meters are variables, so one without the other would put the learner back at the start with
+  // their old numbers.
   const attempts: object[] = [
     full,
     { ...full, d: undefined },
     { ...full, d: undefined, l: undefined },
-    { ...full, d: undefined, l: undefined, x: undefined },
+    { ...full, d: undefined, l: undefined, x: undefined, c: undefined },
   ];
   for (const a of attempts) {
     const text = JSON.stringify(a);
@@ -146,6 +149,7 @@ export function decodeSuspend(text: string): Snapshot | null {
       quiz: (raw["q"] as Snapshot["quiz"]) ?? {},
       layers: (raw["l"] as string[]) ?? [],
       visited: typeof raw["d"] === "string" ? raw["d"] : "",
+      ...(raw["c"] && typeof raw["c"] === "object" ? { scenario: raw["c"] as Record<string, string> } : {}),
     };
   } catch {
     return null;
@@ -200,7 +204,7 @@ export class Tracker {
     this.interactions = Number(this.get("cmi.interactions._count")) || 0;
 
     this.runtime.onEvent((e) => {
-      if (e.type === "quiz") this.recordInteraction(e.objectId, e.choiceId, e.correct);
+      if (e.type === "quiz") this.recordInteraction(e.objectId, e.graded);
       if (e.type === "input") this.recordInput(e.objectId, e.rowId, e.interaction, e.response);
       this.schedule();
     });
@@ -255,19 +259,19 @@ export class Tracker {
     setTimeout(() => this.flush(), 0);
   }
 
-  private recordInteraction(objectId: string, choiceId: string, correct: boolean): void {
+  /** One interaction for each submission, of the SCORM type that fits the question. A partly right answer is "wrong" here: the LMS's score is the total, sent separately. */
+  private recordInteraction(objectId: string, graded: Graded): void {
     const obj = this.runtime.findQuiz(objectId);
     if (!obj || this.readOnly) return;
     const q = obj.content as unknown as QuizContent;
-    const letter = (id: string) => String.fromCharCode(97 + Math.max(0, q.choices.findIndex((c) => c.id === id)));
     const n = this.interactions++;
     const base = `cmi.interactions.${n}`;
     this.set(`${base}.id`, objectId);
-    this.set(`${base}.type`, "choice");
-    this.set(`${base}.student_response`, letter(choiceId));
-    this.set(`${base}.result`, correct ? "correct" : "wrong");
+    this.set(`${base}.type`, graded.scormType);
+    this.set(`${base}.student_response`, graded.response);
+    this.set(`${base}.result`, graded.correct ? "correct" : "wrong");
     this.set(`${base}.weighting`, String(q.scoring.points));
-    q.choices.filter((c) => c.correct).forEach((c, i) => this.set(`${base}.correct_responses.${i}.pattern`, letter(c.id)));
+    graded.patterns.forEach((pattern, i) => this.set(`${base}.correct_responses.${i}.pattern`, pattern));
   }
 
   /** One interaction per part of an input, rewritten if the learner changes their answer, so the LMS holds the final one. */

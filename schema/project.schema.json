@@ -34,6 +34,46 @@
       "items": { "$ref": "#/$defs/variable" }
     },
     "credits": { "type": "boolean" },
+    "characters": {
+      "description": "Optional. The cast: the people a course can show and give a voice, shared by every scenario and choice of character in it. An id of 'you' is not allowed, because 'you' means the learner.",
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/character" }
+    },
+    "sources": {
+      "description": "Optional. The PowerPoint decks slides were imported from. An imported slide and its shapes name a deck by its id here. The deck's size and where it was placed on the stage are kept, so a changed deck is placed the same way.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "importedAt", "slideWidth", "slideHeight", "pixelsPerInch", "offsetX", "offsetY"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^deck-[a-z0-9]{3,12}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 260, "description": "The deck's file name, as a reminder of which file it was." },
+          "importedAt": { "type": "string", "format": "date-time" },
+          "syncedAt": { "type": "string", "format": "date-time", "description": "The last time a changed deck was brought forward." },
+          "slideWidth": { "type": "integer", "minimum": 1, "description": "The deck's slide width in its own units (English Metric Units, 914,400 to the inch)." },
+          "slideHeight": { "type": "integer", "minimum": 1 },
+          "pixelsPerInch": { "type": "number", "exclusiveMinimum": 0, "description": "How big the deck was drawn on the stage: stage pixels to each inch of the deck's slide." },
+          "offsetX": { "type": "number", "description": "Stage pixels from the stage's left edge to the deck's left edge (when the deck is a different shape from the stage)." },
+          "offsetY": { "type": "number" },
+          "seen": { "type": "array", "maxItems": 2000, "items": { "type": "string", "minLength": 1 }, "description": "The deck's own numbers for every slide it had when it was last imported or brought up to date, so a slide the author left out or deleted is told apart from one the deck added." }
+        }
+      }
+    },
+    "sourceExclude": {
+      "description": "Optional. Files and folders left out of the source/ copy of the project that a published package carries. A name with no slash matches that name at any depth; a path with a slash is relative to the project folder.",
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "^[^/\\\\][^\\\\]*$",
+        "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+      }
+    },
     "completion": {
       "type": "object",
       "additionalProperties": false,
@@ -76,6 +116,32 @@
   },
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "voice", "picture"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "type": "string", "maxLength": 120, "description": "A few words on who this is, such as 'Nurse manager'. May be empty." },
+        "voice": { "type": "string", "minLength": 1, "description": "The narration voice that reads this person's lines." },
+        "picture": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["src", "alt", "decorative"],
+              "properties": {
+                "src": { "$ref": "object.schema.json#/$defs/assetPath" },
+                "alt": { "type": "string" },
+                "decorative": { "type": "boolean" }
+              }
+            }
+          ]
+        }
+      }
+    },
     "semver": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
     "variable": {
       "type": "object",

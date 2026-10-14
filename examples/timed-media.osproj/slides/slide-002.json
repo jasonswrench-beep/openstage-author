@@ -1,0 +1,422 @@
+{
+  "id": "slide-002",
+  "name": "A video with notes",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Notes that arrive with the video</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Notes that arrive with the video",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 560,
+          "height": 315,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "video",
+        "name": "Test video",
+        "content": {
+          "src": "assets/video/clip.webm",
+          "captions": "assets/captions/clip.vtt",
+          "transcript": "<p>A test pattern with a moving clock. The clock keeps counting up to twenty.</p>"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "A test pattern with a clock that counts the seconds",
+          "role": "video",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 700,
+          "y": 170,
+          "width": 500,
+          "height": 90,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0006",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note from the start",
+        "content": {
+          "html": "<p>Play the video. These notes arrive as it reaches them.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Play the video. These notes arrive as it reaches them.",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0008",
+        "geometry": {
+          "x": 700,
+          "y": 280,
+          "width": 500,
+          "height": 90,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0006",
+          "start": 3000,
+          "visibleFor": 6000
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note at 3 seconds",
+        "content": {
+          "html": "<p>At 3 seconds: the clock is running. This note goes at 9 seconds.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "At 3 seconds: the clock is running. This note goes at 9 seconds.",
+          "role": "paragraph",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0009",
+        "geometry": {
+          "x": 700,
+          "y": 390,
+          "width": 500,
+          "height": 90,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0006",
+          "start": 10000,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note at 10 seconds",
+        "content": {
+          "html": "<p>At 10 seconds: halfway. This note stays until the video ends.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "At 10 seconds: halfway. This note stays until the video ends.",
+          "role": "paragraph",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0010",
+        "geometry": {
+          "x": 700,
+          "y": 500,
+          "width": 500,
+          "height": 90,
+          "rotation": 0,
+          "z": 60
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "media",
+          "media": "obj-0006",
+          "start": 15000,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Note at 15 seconds",
+        "content": {
+          "html": "<p>At 15 seconds: nearly there. Go back, and this note goes again.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "At 15 seconds: nearly there. Go back, and this note goes again.",
+          "role": "paragraph",
+          "tabOrder": 6,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0011",
+        "geometry": {
+          "x": 1040,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 70
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Next",
+        "content": {
+          "label": "Next",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Next",
+          "role": "button",
+          "tabOrder": 7,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

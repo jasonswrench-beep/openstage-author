@@ -1,0 +1,796 @@
+{
+  "id": "slide-004",
+  "name": "Three ways to open",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0015",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0014",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Three ways to open</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Three ways to open",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0016",
+        "geometry": {
+          "x": 120,
+          "y": 200,
+          "width": 96,
+          "height": 96,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "icon",
+        "name": "Icon: lightbulb",
+        "content": {
+          "set": "lucide",
+          "name": "lightbulb",
+          "shapes": [
+            {
+              "tag": "path",
+              "d": "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+            },
+            {
+              "tag": "path",
+              "d": "M9 18h6"
+            },
+            {
+              "tag": "path",
+              "d": "M10 22h4"
+            }
+          ]
+        },
+        "style": {
+          "color": "theme:color.accentStrong",
+          "strokeWidth": 2
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "img",
+          "tabOrder": 2,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0017",
+        "geometry": {
+          "x": 120,
+          "y": 320,
+          "width": 300,
+          "height": 50,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h3>An idea</h3>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "An idea",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0018",
+        "geometry": {
+          "x": 120,
+          "y": 380,
+          "width": 300,
+          "height": 110,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<p>Start with what you noticed.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Start with what you noticed.",
+          "role": "paragraph",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0019",
+        "geometry": {
+          "x": 480,
+          "y": 200,
+          "width": 96,
+          "height": 96,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "icon",
+        "name": "Icon: flag",
+        "content": {
+          "set": "lucide",
+          "name": "flag",
+          "shapes": [
+            {
+              "tag": "path",
+              "d": "M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"
+            }
+          ]
+        },
+        "style": {
+          "color": "theme:color.accentStrong",
+          "strokeWidth": 2
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "img",
+          "tabOrder": 5,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0020",
+        "geometry": {
+          "x": 480,
+          "y": 320,
+          "width": 300,
+          "height": 50,
+          "rotation": 0,
+          "z": 60
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h3>A priority</h3>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "A priority",
+          "role": "paragraph",
+          "tabOrder": 6,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0021",
+        "geometry": {
+          "x": 480,
+          "y": 380,
+          "width": 300,
+          "height": 110,
+          "rotation": 0,
+          "z": 70
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<p>Say why it matters now.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Say why it matters now.",
+          "role": "paragraph",
+          "tabOrder": 7,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0022",
+        "geometry": {
+          "x": 840,
+          "y": 200,
+          "width": 96,
+          "height": 96,
+          "rotation": 0,
+          "z": 80
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "icon",
+        "name": "Icon: message circle",
+        "content": {
+          "set": "lucide",
+          "name": "message-circle",
+          "shapes": [
+            {
+              "tag": "path",
+              "d": "M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"
+            }
+          ]
+        },
+        "style": {
+          "color": "theme:color.accentStrong",
+          "strokeWidth": 2
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "img",
+          "tabOrder": 8,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0023",
+        "geometry": {
+          "x": 840,
+          "y": 320,
+          "width": 300,
+          "height": 50,
+          "rotation": 0,
+          "z": 90
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<h3>A question</h3>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "A question",
+          "role": "paragraph",
+          "tabOrder": 9,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0024",
+        "geometry": {
+          "x": 840,
+          "y": 380,
+          "width": 300,
+          "height": 110,
+          "rotation": 0,
+          "z": 100
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Text box",
+        "content": {
+          "html": "<p>Ask what the other person sees.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Ask what the other person sees.",
+          "role": "paragraph",
+          "tabOrder": 10,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0025",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 110
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back",
+        "content": {
+          "label": "Back",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-left",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "m12 19-7-7 7-7"
+              },
+              {
+                "tag": "path",
+                "d": "M19 12H5"
+              }
+            ]
+          },
+          "iconPlacement": "before"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text",
+          "stroke": "theme:color.line",
+          "strokeWidth": 1,
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back",
+          "role": "button",
+          "tabOrder": 11,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0026",
+        "geometry": {
+          "x": 540,
+          "y": 640,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 120
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "replaySlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "replaySlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Replay this slide",
+        "content": {
+          "label": "Replay this slide",
+          "icon": {
+            "set": "lucide",
+            "name": "rotate-ccw",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+              },
+              {
+                "tag": "path",
+                "d": "M3 3v5h5"
+              }
+            ]
+          },
+          "iconPlacement": "before"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "fill": "theme:color.background",
+          "color": "theme:color.accentStrong",
+          "stroke": "theme:color.accentStrong",
+          "strokeWidth": 2,
+          "radius": 999
+        },
+        "accessibility": {
+          "altText": "Replay this slide",
+          "role": "button",
+          "tabOrder": 12,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0027",
+        "geometry": {
+          "x": 1040,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 130
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Next",
+        "content": {
+          "label": "Next",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "fill": "theme:color.accentStrong",
+          "color": "theme:color.onAccentStrong",
+          "radius": 999
+        },
+        "accessibility": {
+          "altText": "Next",
+          "role": "button",
+          "tabOrder": 13,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

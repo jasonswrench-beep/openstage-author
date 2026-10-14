@@ -83,13 +83,20 @@ export class TimelinePanel {
 
     const children: HTMLElement[] = [this.axis(view)];
     let layerId = "";
-    for (const bar of view.bars) {
+    for (const bar of view.bars.filter((b) => b.timing.appear !== "media")) {
       if (!bar.onBase && bar.layerId !== layerId) children.push(h("p", { class: "tl-layer", text: `Layer ${bar.layerName}: times count from when this layer is shown` }));
       layerId = bar.layerId;
       children.push(this.row(m, view, bar));
     }
+    // Objects that follow a video or audio clip are on that clip's own axis: seconds into the clip, not seconds of the slide.
+    for (const group of view.clips) {
+      const clipView: TimelineView = { horizon: group.horizon, ticks: group.ticks, bars: group.bars, advanceAt: null, clips: [] };
+      children.push(h("p", { class: "tl-layer", text: `Following ${group.name}: these times are seconds into the clip, not into the slide` }));
+      children.push(this.axis(clipView, "Seconds into the clip"));
+      for (const bar of group.bars) children.push(this.row(m, clipView, bar));
+    }
     if (view.bars.length === 0) children.push(h("p", { class: "note", text: "Add an object to the slide to give it a time." }));
-    children.push(h("p", { class: "note", text: "Each row is an object. Its bar shows when it is showing, and a bar that runs to the edge stays. The thin line under a bar is the object's narration, shown once its audio has been made. Left and Right arrows move a grip a tenth of a second, with Shift a second and with Page Up and Page Down five; Home and End go to the ends. You can also drag. The Timing list makes the same changes in a table." }));
+    children.push(h("p", { class: "note", text: "Each row is an object. Its bar shows when it is showing, and a bar that runs to the edge stays. An object that follows a video or audio clip is in a group of its own, on the clip's axis. The thin line under a bar is the object's narration, shown once its audio has been made. Left and Right arrows move a grip a tenth of a second, with Shift a second and with Page Up and Page Down five; Home and End go to the ends. You can also drag. The Timing list makes the same changes in a table." }));
     this.body.replaceChildren(...children);
 
     if (keep?.id) {
@@ -99,17 +106,17 @@ export class TimelinePanel {
   }
 
   /** The row of times along the top, and the line where the slide moves on. */
-  private axis(view: TimelineView): HTMLElement {
+  private axis(view: TimelineView, label = "Seconds"): HTMLElement {
     const track = h("div", { class: "tl-track tl-axis-track", "aria-hidden": "true" });
     for (const t of view.ticks) track.append(h("span", { class: "tl-tick", style: `left:${percentOf(t.ms, view.horizon)}%`, text: t.label }));
     if (view.advanceAt !== null) track.append(h("span", { class: "tl-advance", style: `left:${percentOf(view.advanceAt, view.horizon)}%`, text: "moves on" }));
-    return h("div", { class: "tl-row tl-axis" }, h("span", { class: "tl-name tl-name-axis", text: "Seconds" }), track);
+    return h("div", { class: "tl-row tl-axis" }, h("span", { class: "tl-name tl-name-axis", text: label }), track);
   }
 
   private row(m: Model, view: TimelineView, bar: Bar): HTMLElement {
     const selected = m.sel.objectId === bar.id;
     const guess = bar.approximate ? ". Its narration has no audio yet, so its place on the timeline is only a guess" : "";
-    const row = h("div", { class: "tl-row", role: "group", "aria-label": `${bar.name}: ${describeTiming(bar.timing, !bar.onBase)}${guess}`, "data-id": bar.id, ...(selected ? { "aria-current": "true" } : {}) });
+    const row = h("div", { class: "tl-row", role: "group", "aria-label": `${bar.name}: ${describeTiming(bar.timing, !bar.onBase, bar.clipName)}${guess}`, "data-id": bar.id, ...(selected ? { "aria-current": "true" } : {}) });
     const name = h("button", { type: "button", class: "tl-name", text: bar.name, title: `Select ${bar.name}` });
     name.addEventListener("click", () => { m.reveal(m.sel.slideId, bar.id); });
 
@@ -217,13 +224,13 @@ export class TimelinePanel {
     start.setAttribute("aria-valuemin", "0");
     start.setAttribute("aria-valuemax", seconds(startMax(bar, horizon)));
     start.setAttribute("aria-valuenow", seconds(bar.timing.start));
-    start.setAttribute("aria-valuetext", startText(bar.timing, bar.onBase));
+    start.setAttribute("aria-valuetext", startText(bar.timing, bar.onBase, bar.clipName));
     end.setAttribute("aria-label", `${bar.name}: when it goes`);
     end.setAttribute("aria-valuemin", seconds(MIN_STAY_MS));
     end.setAttribute("aria-valuemax", seconds(room));
     end.setAttribute("aria-valuenow", seconds(bar.timing.visibleFor ?? room));
     end.setAttribute("aria-valuetext", endText(bar.timing));
-    row.setAttribute("aria-label", `${bar.name}: ${describeTiming(bar.timing, !bar.onBase)}${bar.approximate ? ". Its narration has no audio yet, so its place on the timeline is only a guess" : ""}`);
+    row.setAttribute("aria-label", `${bar.name}: ${describeTiming(bar.timing, !bar.onBase, bar.clipName)}${bar.approximate ? ". Its narration has no audio yet, so its place on the timeline is only a guess" : ""}`);
   }
 
   /** Make a change from the keyboard, say what it did, and draw again. */

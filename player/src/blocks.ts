@@ -3,6 +3,7 @@
 // pairs the theme already guarantees, so only the font and its size come from the object's style.
 
 import { appendSanitizedHtml } from "./sanitize.ts";
+import { buildDescriptionControls, descriptionCues, type DescriptionHost } from "./description.ts";
 import type { EmbedContent, OSObject, TableContent } from "./types.ts";
 
 function make(doc: Document, tag: string, cls = ""): HTMLElement {
@@ -92,7 +93,7 @@ function transcriptOf(doc: Document, html: string): HTMLElement | null {
  * A video or audio file. Captions become a real caption track. If the object has a transcript, the
  * player sits above it in a box and the media element is found inside.
  */
-export function buildMedia(doc: Document, obj: OSObject, onEnded: (id: string) => void): HTMLElement {
+export function buildMedia(doc: Document, obj: OSObject, onEnded: (id: string) => void, description?: DescriptionHost): HTMLElement {
   const media = make(doc, obj.type, "os-media") as HTMLMediaElement;
   media.controls = true;
   media.src = String(obj.content["src"] ?? "");
@@ -107,11 +108,15 @@ export function buildMedia(doc: Document, obj: OSObject, onEnded: (id: string) =
     media.appendChild(track);
   }
   const transcript = transcriptOf(doc, String(obj.content["transcript"] ?? ""));
-  if (!transcript) return media;
+  // The audio description button, only where the author has written a description (see description.ts).
+  const descriptions = description && descriptionCues(obj).length > 0 ? buildDescriptionControls(doc, obj, media, description) : null;
+  if (!transcript && !descriptions) return media;
   const box = make(doc, "div", "os-media os-mediabox");
   media.classList.remove("os-media");
   media.classList.add("os-media-inner");
-  box.append(media, transcript);
+  box.append(media);
+  if (descriptions) box.append(descriptions);
+  if (transcript) box.append(transcript);
   return box;
 }
 

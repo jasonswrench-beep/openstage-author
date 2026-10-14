@@ -3,13 +3,15 @@
 // web server that does the same jobs. The interface is the same either way.
 
 import { DOWNLOAD_EXTENSIONS } from "../../player/src/downloads.ts";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { FileText, OpenedProject } from "./model.ts";
 import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } from "./narration.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
+import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -58,6 +60,13 @@ export interface Backend {
   pickImage(): Promise<string | null>;
   /** Copy an image into the project's assets folder. Returns its path inside the project. */
   importImage(dir: string, source: string): Promise<string>;
+  /** Save a picture the editor drew itself (an SVG) in the project's images. Returns its path inside the project. */
+  saveGeneratedImage(dir: string, nameHint: string, svg: string): Promise<string>;
+  /**
+   * Save a picture that came out of a PowerPoint deck in the project's images. `name` is the file name the importer made from what is in the
+   * picture (pptx- and 14 letters and numbers, then the extension); a name that is already there is left as it is. Returns the path in the project.
+   */
+  saveDeckPicture(dir: string, name: string, bytes: Uint8Array): Promise<string>;
   /** Ask the author for a file of one kind. Null if they cancelled. */
   pickFile(kind: AssetKindName): Promise<string | null>;
   /** Copy a file into the project's assets folder for its kind. Returns its path inside the project. */
@@ -101,6 +110,37 @@ export interface Backend {
   makeNarration(dir: string, files: FileText[], ids: string[]): Promise<MakeResult>;
   /** A URL the page can show an image from, for a file inside the project's assets folder. */
   assetUrl(dir: string, path: string): Promise<string>;
+  /**
+   * An address a video or audio element can play a file from the project's assets folder at, straight from disk with seeking, so a
+   * recording of any length can be previewed without reading it into memory.
+   */
+  mediaUrl(dir: string, path: string): Promise<string>;
+
+  // ---- the Capture recorder: a separate program the editor starts and talks to, one line of JSON at a time
+
+  /** Where the recorder is, or a message that says why it cannot be used and what to do. */
+  captureCheck(): Promise<CaptureCheck>;
+  /** Start the recorder with these options. Refused politely if one is already running. */
+  streamStart(args: string[]): Promise<void>;
+  /** Send the recorder one command: one short line of JSON. */
+  streamSend(line: string): Promise<void>;
+  /** Tell the shell the recorder has paused or resumed, so a publish or preview knows whether it may run. */
+  streamSetPaused(paused: boolean): Promise<void>;
+  streamState(): Promise<StreamState>;
+  /** Stop the recorder: it is asked to finish and print its result, given ten seconds, and only then ended by force. */
+  streamStop(stopLine?: string): Promise<boolean>;
+  /** Called with each line the recorder prints, as it prints it. Returns a function that stops listening. */
+  onStreamLine(listener: (line: string) => void): Promise<() => void>;
+  /** Called once when a recorder run ends, with how it ended. */
+  onStreamExit(listener: (exit: StreamExit) => void): Promise<() => void>;
+
+  // ---- keys that work while another program has the focus
+
+  /** Replace every registered key with these. Each comes back with whether it worked and, if not, why. */
+  hotkeysSet(bindings: HotkeyBinding[]): Promise<HotkeyResult[]>;
+  hotkeysClear(): Promise<void>;
+  /** Called with the id of a key each time it is pressed. */
+  onHotkey(listener: (id: string) => void): Promise<() => void>;
   confirm(message: string): Promise<boolean>;
   setTitle(title: string): Promise<void>;
   /** Called with a function that returns true if closing would lose work. */
@@ -108,6 +148,13 @@ export interface Backend {
 }
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/** Bytes as base64 text, in pieces so a big picture does not overflow the call stack. */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
 
 /**
  * A test seam. Automated tests of the real app cannot click a native file dialog, so they can set
@@ -148,6 +195,8 @@ const tauriBackend: Backend = {
     return typeof picked === "string" ? picked : null;
   },
   importImage: (dir, source) => invoke<string>("import_image", { dir, source }),
+  saveGeneratedImage: (dir, name, svg) => invoke<string>("save_generated_image", { dir, name, svg }),
+  saveDeckPicture: (dir, name, bytes) => invoke<string>("save_deck_picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     const forced = testPick(kind);
     if (forced !== undefined) return forced;
@@ -185,6 +234,30 @@ const tauriBackend: Backend = {
   // The file comes back as a data URL string, which needs no binary transfer and no special
   // permission, and works for every image type including SVG.
   assetUrl: (dir, path) => invoke<string>("read_asset_url", { dir, path }),
+  async mediaUrl(dir, path) {
+    // Only the project's own assets folder is ever opened up, and a path that climbs out of it is not a path.
+    if (!/^assets\/[^.]/.test(path) || path.split("/").includes("..")) throw new Error("That file is not in the project's assets.");
+    await invoke<void>("allow_project_media", { dir });
+    const sep = dir.includes("\\") ? "\\" : "/";
+    return convertFileSrc(`${dir.replace(/[\\/]+$/, "")}${sep}${path.split("/").join(sep)}`);
+  },
+  async captureCheck() {
+    try {
+      return { ok: true, path: await invoke<string>("capture_check") };
+    } catch (err) {
+      return { ok: false, message: errorText(err) };
+    }
+  },
+  streamStart: (args) => invoke<void>("stream_start", { args }),
+  streamSend: (line) => invoke<void>("stream_send", { line }),
+  streamSetPaused: (paused) => invoke<void>("stream_set_paused", { paused }),
+  streamState: () => invoke<StreamState>("stream_state"),
+  streamStop: (stopLine) => invoke<boolean>("stream_stop", { stopLine: stopLine ?? null }),
+  onStreamLine: (listener) => listen<string>("stream-line", (e) => listener(e.payload)),
+  onStreamExit: (listener) => listen<StreamExit>("stream-exit", (e) => listener(e.payload)),
+  hotkeysSet: (bindings) => invoke<HotkeyResult[]>("hotkeys_set", { bindings }),
+  hotkeysClear: () => invoke<void>("hotkeys_clear"),
+  onHotkey: (listener) => listen<string>("hotkey", (e) => listener(e.payload)),
   confirm: (message) => confirmDialog(message, { title: "OpenStage Author", kind: "warning" }),
   setTitle: (title) => getCurrentWindow().setTitle(title),
   guardClose(hasUnsaved) {
@@ -220,6 +293,8 @@ const previewBackend: Backend = {
     return new URLSearchParams(location.search).get("image") ?? window.prompt("Path of an image file");
   },
   importImage: (dir, source) => post<string>("/api/import", { dir, source }),
+  saveGeneratedImage: (dir, name, svg) => post<string>("/api/save-generated", { dir, name, svg }),
+  saveDeckPicture: (dir, name, bytes) => post<string>("/api/save-deck-picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     return new URLSearchParams(location.search).get(kind) ?? window.prompt(`Path of a ${kind} file`);
   },
@@ -280,6 +355,38 @@ const previewBackend: Backend = {
     if (!res.ok) throw new Error(await res.text());
     const type = path.toLowerCase().endsWith(".svg") ? "image/svg+xml" : undefined;
     return URL.createObjectURL(new Blob([await res.arrayBuffer()], type ? { type } : {}));
+  },
+  async mediaUrl() {
+    throw new Error("Playing a large video needs the desktop app.");
+  },
+  async captureCheck() {
+    return { ok: false, message: "The recorder needs the desktop app." };
+  },
+  async streamStart() {
+    throw new Error("The recorder needs the desktop app.");
+  },
+  async streamSend() {
+    throw new Error("The recorder needs the desktop app.");
+  },
+  async streamSetPaused() {},
+  async streamState() {
+    return { running: false, paused: false };
+  },
+  async streamStop() {
+    return false;
+  },
+  async onStreamLine() {
+    return () => {};
+  },
+  async onStreamExit() {
+    return () => {};
+  },
+  async hotkeysSet(bindings) {
+    return bindings.map((b) => ({ id: b.id, ok: false, message: "Keys that work in other programs need the desktop app." }));
+  },
+  async hotkeysClear() {},
+  async onHotkey() {
+    return () => {};
   },
   async confirm(message) {
     return window.confirm(message);

@@ -7,7 +7,10 @@
 //   appear "narration": shown start ms after the object's own narration starts. If that narration will not play (it has
 //                       no audio, or the browser refused to start the sound), it counts as having started when the
 //                       layer was shown, so nothing is ever left hidden because a sound did not play.
-//   visibleFor:         hidden again this many ms after it appeared, or null to stay.
+//   appear "media":     shown when a video or audio clip on the slide has played start ms. What shows then depends only on where the clip
+//                       is, so it follows the learner playing, pausing, skipping ahead and going back. If the clip cannot play, or is not
+//                       there, everything that follows it shows, so nothing is ever left hidden because a clip did not play.
+//   visibleFor:         hidden again this many ms after it appeared, or null to stay. For a clip it is that much of the clip.
 // A learner can pause the clock, and can show everything at once. Both are for people who need longer, and are the reason
 // timing is acceptable at all.
 
@@ -62,6 +65,8 @@ export class Timeline {
   private readonly narrationStart = new Map<string, number>();
   /** What the page was last told about each object, so only changes are reported. */
   private readonly shown = new Map<string, boolean>();
+  /** Where each clip that objects follow is, in milliseconds, and whether it has failed. A clip not reported yet is at the start. */
+  private readonly clips = new Map<string, { ms: number; failed: boolean }>();
   private elapsed = 0;
   private lastReading: number;
   private running = true;
@@ -85,6 +90,7 @@ export class Timeline {
     this.entries.clear();
     this.narrationStart.clear();
     this.shown.clear();
+    this.clips.clear();
     this.elapsed = 0;
     this.lastReading = this.clock.now();
     this.running = true;
@@ -145,6 +151,22 @@ export class Timeline {
     this.sync();
   }
 
+  /** A clip is at this many milliseconds: it played, was paused, or the learner skipped or went back. */
+  clipTime(id: string, ms: number): void {
+    const clip = this.clips.get(id) ?? { ms: 0, failed: false };
+    if (clip.ms === ms && this.clips.has(id)) return;
+    this.clips.set(id, { ...clip, ms });
+    this.sync();
+  }
+
+  /** A clip cannot play or is not there. What follows it shows, and stays showing. */
+  clipFailed(id: string): void {
+    const clip = this.clips.get(id) ?? { ms: 0, failed: false };
+    if (clip.failed) return;
+    this.clips.set(id, { ...clip, failed: true });
+    this.sync();
+  }
+
   pause(): void {
     if (!this.running) return;
     this.advanceClock();
@@ -199,15 +221,22 @@ export class Timeline {
     this.handle = null;
   }
 
-  /** When the object appears, or Infinity while it is still waiting for its narration to start. */
+  /** When the object appears, or Infinity while it is still waiting for its narration to start. (Not for a clip: see isShown.) */
   private appearsAt(e: Entry): number {
     if (e.timing.appear === "time") return e.from + e.timing.start;
+    if (e.timing.appear === "media") return Infinity;
     const started = this.narrationStart.get(e.id);
     return started === undefined ? Infinity : started + e.timing.start;
   }
 
   private isShown(e: Entry): boolean {
     if (this.everything) return true;
+    if (e.timing.appear === "media") {
+      // Counted on the clip's own time, not the clock. A clip that failed shows what follows it, whatever its time.
+      const clip = this.clips.get(e.timing.media ?? "") ?? { ms: 0, failed: false };
+      if (clip.failed) return true;
+      return clip.ms >= e.timing.start && (e.timing.visibleFor === null || clip.ms < e.timing.start + e.timing.visibleFor);
+    }
     const at = this.appearsAt(e);
     return this.elapsed >= at && (e.timing.visibleFor === null || this.elapsed < at + e.timing.visibleFor);
   }

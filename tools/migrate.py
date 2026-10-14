@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CURRENT = "0.15.0"
+CURRENT = "0.25.0"
 
 
 def version_tuple(text):
@@ -154,9 +154,86 @@ def step_0_14_to_0_15(project, slides, files):
     return ["Objects can now be locked in the editor, so they are not moved or deleted by accident. All your existing objects are unlocked."]
 
 
+def step_0_15_to_0_16(project, slides, files):
+    """0.15.0 to 0.16.0: more kinds of quiz question. Existing questions are multiple choice, which has not changed."""
+    project["schemaVersion"] = "0.16.0"
+    return ["Quiz questions can now be multiple response, short answer, numeric, fill in the blanks (typed, from a drop-down, or by dragging words), matching, sequencing or a hotspot, and a question with several parts can earn part of its points. Your existing questions are unchanged."]
+
+
+def step_0_16_to_0_17(project, slides, files):
+    """0.16.0 to 0.17.0: objects can be grouped in the editor. Nothing in an existing project has to change: no tag means not in a group."""
+    project["schemaVersion"] = "0.17.0"
+    return ["Objects can now be grouped in the editor, so they are selected, moved and copied together. None of your existing objects are in a group."]
+
+
+def step_0_17_to_0_18(project, slides, files):
+    """0.17.0 to 0.18.0: a rule can add to a number variable, a hotspot is defined (a transparent button with no content of its own),
+    provenance can name a capture step, and a project can list what to leave out of a package's source copy. Only the hotspot
+    can touch an existing project: one whose content was never defined is emptied, because its content was never used."""
+    emptied = 0
+    for slide in slides.values():
+        for layer in [slide["baseLayer"], *slide["layers"]]:
+            for obj in layer["objects"]:
+                if obj["type"] == "hotspot" and obj["content"]:
+                    obj["content"] = {}
+                    emptied += 1
+    project["schemaVersion"] = "0.18.0"
+    notes = ["A rule can now add to a number variable, such as a count of tries."]
+    if emptied:
+        notes.append(f"{emptied} hotspot{' had' if emptied == 1 else 's had'} content that was never used, so it was cleared. A hotspot is a named, transparent button and has no content of its own.")
+    return notes
+
+
+def step_0_18_to_0_19(project, slides, files):
+    """0.18.0 to 0.19.0: a video can have an audio description. Nothing in an existing project has to change: no description means none."""
+    project["schemaVersion"] = "0.19.0"
+    return ["A video can now have an audio description: words, and a voice, that say what the picture shows. None of your videos has one."]
+
+
+def step_0_19_to_0_20(project, slides, files):
+    """0.19.0 to 0.20.0: a theme can carry a logo. Nothing in an existing project has to change: no logo means none."""
+    project["schemaVersion"] = "0.20.0"
+    return ["A theme can now carry a logo, shown in a corner of every slide. None of your themes has one."]
+
+
+def step_0_20_to_0_21(project, slides, files):
+    """0.20.0 to 0.21.0: scenarios, and a cast of characters with a way for the learner to choose one. Nothing in an existing project has to change:
+    no cast means no characters, and no scenario object means no scenario."""
+    project["schemaVersion"] = "0.21.0"
+    return ["A slide can now hold a branching scenario, and the project can have a cast of characters, each with a name, a picture and a voice. Your course has neither yet."]
+
+
+def step_0_21_to_0_22(project, slides, files):
+    """0.21.0 to 0.22.0: an icon object, an optional icon on a button, and the rule actions next slide, previous slide and replay this slide.
+    Nothing in an existing project has to change: no icon means none, and no rule uses the new actions."""
+    project["schemaVersion"] = "0.22.0"
+    return ["A slide can now hold an icon, a button can show one before its words, and a rule can go to the next or previous slide or replay the slide it is on. Your course uses none of these yet."]
+
+
+def step_0_22_to_0_23(project, slides, files):
+    """0.22.0 to 0.23.0: an object can appear and go at moments in a video or audio clip (timing.appear "media"). Nothing in an existing
+    project has to change: every timing there is says "time" or "narration", and neither is touched."""
+    project["schemaVersion"] = "0.23.0"
+    return ["An object can now appear and go at moments in a video or an audio clip. None of your objects does yet."]
+
+
+def step_0_23_to_0_24(project, slides, files):
+    """0.23.0 to 0.24.0: a look (an object state) can carry a spoken message, `announce`, which a screen reader says when a rule applies the
+    look. Nothing in an existing project has to change: no look has one, and a look that did not name a message says nothing, as before."""
+    project["schemaVersion"] = "0.24.0"
+    return ["A look an object can take (for instance when the pointer is over it, or when a rule changes it) can now have a spoken message for screen reader users. None of your looks has one yet."]
+
+
+def step_0_24_to_0_25(project, slides, files):
+    """0.24.0 to 0.25.0: slides and shapes imported from a PowerPoint deck can record where they came from and what they looked like when they were
+    imported (provenance), and the project can list its source decks. Nothing in an existing project has to change: nothing was imported before."""
+    project["schemaVersion"] = "0.25.0"
+    return ["Slides can now be imported from a PowerPoint deck, and brought up to date when the deck changes. None of your slides came from a deck."]
+
+
 STEPS = {"0.1.0": ("0.2.0", step_0_1_to_0_2), "0.2.0": ("0.3.0", step_0_2_to_0_3), "0.3.0": ("0.4.0", step_0_3_to_0_4),
          "0.4.0": ("0.5.0", step_0_4_to_0_5), "0.5.0": ("0.6.0", step_0_5_to_0_6), "0.6.0": ("0.7.0", step_0_6_to_0_7),
-         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15)}
+         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15), "0.15.0": ("0.16.0", step_0_15_to_0_16), "0.16.0": ("0.17.0", step_0_16_to_0_17), "0.17.0": ("0.18.0", step_0_17_to_0_18), "0.18.0": ("0.19.0", step_0_18_to_0_19), "0.19.0": ("0.20.0", step_0_19_to_0_20), "0.20.0": ("0.21.0", step_0_20_to_0_21), "0.21.0": ("0.22.0", step_0_21_to_0_22), "0.22.0": ("0.23.0", step_0_22_to_0_23), "0.23.0": ("0.24.0", step_0_23_to_0_24), "0.24.0": ("0.25.0", step_0_24_to_0_25)}
 
 
 def migrate(project_dir):

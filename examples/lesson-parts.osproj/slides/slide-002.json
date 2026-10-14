@@ -1,0 +1,232 @@
+{
+  "id": "slide-002",
+  "name": "Welcome",
+  "duration": null,
+  "layout": null,
+  "background": "theme:bg.dark",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 80,
+          "y": 190,
+          "width": 160,
+          "height": 8,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 220,
+          "width": 1120,
+          "height": 110,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Giving feedback</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 56,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Giving feedback",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 80,
+          "y": 350,
+          "width": 1120,
+          "height": 70,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Subtitle",
+        "content": {
+          "html": "<p>A short lesson on saying what you saw, and what to do next.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 28,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "A short lesson on saying what you saw, and what to do next.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 80,
+          "y": 470,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 200
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Begin",
+        "content": {
+          "label": "Begin",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Begin",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

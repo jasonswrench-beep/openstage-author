@@ -31,7 +31,7 @@ test("a file's name becomes a title to start from", () => {
 });
 
 test("the Add menu is still short, and files are in the media picker", () => {
-  assert.ok(ADD_MENU.length <= 8);
+  assert.ok(ADD_MENU.length <= 9);
   assert.equal(ADD_MENU.find((e) => e.value === "group:media")?.label, "Image, video, audio or file...");
 });
 

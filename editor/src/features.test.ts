@@ -7,7 +7,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
-import type { QuizContent } from "../../player/src/types.ts";
+import type { ChoiceQuiz } from "../../player/src/types.ts";
 import { colorName, contrastNote, contrastRatio, normalizeHex, PALETTE } from "./content.ts";
 import { NEW_OPTIONS, previewBlocks, SLIDE_LAYOUTS } from "./factory.ts";
 import { Model } from "./model.ts";
@@ -108,7 +108,7 @@ test("adding a multiple-choice question builds the prompt, the answers and two f
   const m = open();
   m.selectSlide("slide-001");
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   assert.equal(q.choices.length, 3);
   assert.equal(q.choices.filter((c) => c.correct).length, 1);
   assert.equal(quiz.accessibility.role, "radiogroup");
@@ -123,7 +123,7 @@ test("adding a multiple-choice question builds the prompt, the answers and two f
 
 test("a true or false question has two answers and one attempt", () => {
   const m = open();
-  const q = m.addQuiz("tf")!.content as unknown as QuizContent;
+  const q = m.addQuiz("tf")!.content as unknown as ChoiceQuiz;
   assert.deepEqual(q.choices.map((c) => c.label), ["True", "False"]);
   assert.equal(q.scoring.attemptsAllowed, 1);
 });
@@ -133,7 +133,7 @@ test("a second quiz on the same slide gets its own feedback layers", () => {
   m.selectSlide("slide-002");
   const before = m.slide!.layers.map((l) => l.id);
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   assert.ok(!before.includes(q.feedback.correct) && !before.includes(q.feedback.incorrect));
   assert.notEqual(q.feedback.correct, q.feedback.incorrect);
 });
@@ -147,14 +147,14 @@ test("a question added to a slide that already has content goes below it", () =>
   const second = m.addQuiz("tf")!;
   const prompt2 = m.objects.filter((o) => o.name === "Question")[1]!;
   assert.ok(prompt2.geometry.y > prompt1.geometry.y, "the second question starts lower");
-  assert.ok(prompt2.geometry.y + 370 <= m.project.stage.height, "and still fits on the slide");
+  assert.ok(prompt2.geometry.y + 110 + second.geometry.height <= m.project.stage.height, "and the whole question still fits on the slide");
   assert.notEqual(first.id, second.id);
 });
 
 test("choosing the correct answer clears the others, so there is always exactly one", () => {
   const m = open();
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   assert.match(m.setCorrectChoice(quiz.id, "c3") ?? "", /correct answer/);
   assert.deepEqual(q.choices.map((c) => c.correct), [false, false, true]);
   assert.equal(m.setCorrectChoice(quiz.id, "c3"), null);
@@ -164,7 +164,7 @@ test("choosing the correct answer clears the others, so there is always exactly 
 test("answers can be added and removed within limits, and removing the right one is flagged", () => {
   const m = open();
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   assert.match(m.addChoice(quiz.id) ?? "", /Added answer 4/);
   assert.equal(q.choices[3]!.id, "c4");
   for (let i = 0; i < 4; i++) m.addChoice(quiz.id);
@@ -178,7 +178,7 @@ test("answers can be added and removed within limits, and removing the right one
 test("deleting the correct answer makes another correct and says so", () => {
   const m = open();
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   const msg = m.deleteChoice(quiz.id, "c1");
   assert.match(msg ?? "", /now the correct answer/);
   assert.equal(q.choices.filter((c) => c.correct).length, 1);
@@ -187,7 +187,7 @@ test("deleting the correct answer makes another correct and says so", () => {
 test("scoring and feedback layers are validated", () => {
   const m = open();
   const quiz = m.addQuiz("mc")!;
-  const q = quiz.content as unknown as QuizContent;
+  const q = quiz.content as unknown as ChoiceQuiz;
   assert.equal(m.setScoring(quiz.id, { points: 5 }), "Scoring updated");
   assert.equal(q.scoring.points, 5);
   assert.equal(m.setScoring(quiz.id, { points: -1 }), null);

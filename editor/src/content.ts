@@ -68,13 +68,16 @@ export function isHexColor(v: string): boolean {
 
 export type Activation =
   | { kind: "none" }
+  | { kind: "next" }
+  | { kind: "previous" }
+  | { kind: "replay" }
   | { kind: "jump"; slideId: string }
   | { kind: "show"; layerId: string }
   | { kind: "hide"; layerId: string }
   /** Triggers the editor cannot show yet. They are left exactly as they are. */
   | { kind: "custom" };
 
-const ACTION_OF = { jump: "jumpToSlide", show: "showLayer", hide: "hideLayer" } as const;
+const ACTION_OF = { jump: "jumpToSlide", show: "showLayer", hide: "hideLayer", next: "nextSlide", previous: "previousSlide", replay: "replaySlide" } as const;
 
 /** Read a button's triggers back as one simple action, or "custom" if they are anything else. */
 export function readActivation(triggers: Trigger[]): Activation {
@@ -86,6 +89,9 @@ export function readActivation(triggers: Trigger[]): Activation {
   if (click.action !== key.action || click.target !== key.target) return { kind: "custom" };
   if (click.conditions.length > 0 || key.conditions.length > 0) return { kind: "custom" };
   if (click.value !== undefined || key.value !== undefined) return { kind: "custom" };
+  if (click.action === "nextSlide") return { kind: "next" };
+  if (click.action === "previousSlide") return { kind: "previous" };
+  if (click.action === "replaySlide") return { kind: "replay" };
   if (click.action === "jumpToSlide") return { kind: "jump", slideId: click.target };
   if (click.action === "showLayer") return { kind: "show", layerId: click.target };
   if (click.action === "hideLayer") return { kind: "hide", layerId: click.target };
@@ -98,7 +104,7 @@ export function readActivation(triggers: Trigger[]): Activation {
  */
 export function buildActivation(a: Exclude<Activation, { kind: "custom" }>): Trigger[] {
   if (a.kind === "none") return [];
-  const target = a.kind === "jump" ? a.slideId : a.layerId;
+  const target = a.kind === "jump" ? a.slideId : a.kind === "show" || a.kind === "hide" ? a.layerId : "";
   const action = ACTION_OF[a.kind];
   return [
     { id: "trg-0001", event: "click", action, target, conditions: [] },
@@ -251,9 +257,15 @@ export function parseVideoAddress(input: string, provider?: "youtube" | "vimeo")
 // shown, and written, as a single rule that happens "when the learner presses the button".
 
 export type RuleEvent = "activate" | "slideStart" | "slideEnd" | "mediaComplete" | "variableChange";
-export type RuleAction = "jumpToSlide" | "showLayer" | "hideLayer" | "setVariable" | "playMedia" | "pauseMedia";
+// "addToVariable" is the editor's name for setVariable with the operation "add": to an author, adding to a count is a different thing
+// from setting a variable, and it works on different variables (numbers).
+export type RuleAction = "jumpToSlide" | "nextSlide" | "previousSlide" | "replaySlide" | "showLayer" | "hideLayer" | "setVariable" | "addToVariable" | "playMedia" | "pauseMedia" | "changeState";
 
-export const RULE_ACTIONS: RuleAction[] = ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia"];
+export const RULE_ACTIONS: RuleAction[] = ["jumpToSlide", "nextSlide", "previousSlide", "replaySlide", "showLayer", "hideLayer", "setVariable", "addToVariable", "playMedia", "pauseMedia", "changeState"];
+
+/** The actions that act on the course itself, so they have no target. */
+export const COURSE_ACTIONS: RuleAction[] = ["nextSlide", "previousSlide", "replaySlide"];
+export const isCourseAction = (a: RuleAction): boolean => COURSE_ACTIONS.includes(a);
 
 export interface Rule {
   event: RuleEvent;
@@ -271,8 +283,14 @@ export type RuleItem =
   /** Triggers the editor cannot show as a rule. They are left exactly as they are. */
   | { kind: "raw"; triggers: Trigger[]; why: string };
 
-const body = (t: Trigger) => JSON.stringify([t.action, t.target, t.value ?? null, t.conditions]);
+const body = (t: Trigger) => JSON.stringify([t.action, t.operation ?? null, t.target, t.value ?? null, t.conditions]);
 const isRuleAction = (a: string): a is RuleAction => (RULE_ACTIONS as string[]).includes(a);
+
+/** What the editor calls a trigger's action, or null if it cannot show it as a rule. */
+function ruleActionOf(t: Trigger): RuleAction | null {
+  if (t.action === "setVariable" && t.operation === "add") return "addToVariable";
+  return t.action !== ("addToVariable" as string) && isRuleAction(t.action) ? t.action : null;
+}
 
 /** Read an object's triggers as rules, in order. Anything that is not a plain rule is kept aside as it is. */
 export function readRules(triggers: Trigger[]): RuleItem[] {
@@ -282,8 +300,9 @@ export function readRules(triggers: Trigger[]): RuleItem[] {
     const next = triggers[i + 1];
     if (t.event === "click") {
       if (next && next.event === "keyActivate" && body(next) === body(t)) {
-        items.push(isRuleAction(t.action)
-          ? { kind: "rule", rule: { event: "activate", action: t.action, target: t.target, ...(t.value === undefined ? {} : { value: t.value }), conditions: t.conditions, ids: [t.id, next.id] } }
+        const action = ruleActionOf(t);
+        items.push(action
+          ? { kind: "rule", rule: { event: "activate", action, target: t.target, ...(t.value === undefined ? {} : { value: t.value }), conditions: t.conditions, ids: [t.id, next.id] } }
           : { kind: "raw", triggers: [t, next], why: `It uses "${t.action}", which this editor cannot edit yet.` });
         i++;
       } else {
@@ -295,8 +314,9 @@ export function readRules(triggers: Trigger[]): RuleItem[] {
       items.push({ kind: "raw", triggers: [t], why: "It responds to a key press with no matching mouse click." });
       continue;
     }
-    if (isRuleAction(t.action)) {
-      items.push({ kind: "rule", rule: { event: t.event as RuleEvent, action: t.action, target: t.target, ...(t.value === undefined ? {} : { value: t.value }), conditions: t.conditions, ids: [t.id] } });
+    const action = ruleActionOf(t);
+    if (action) {
+      items.push({ kind: "rule", rule: { event: t.event as RuleEvent, action, target: t.target, ...(t.value === undefined ? {} : { value: t.value }), conditions: t.conditions, ids: [t.id] } });
     } else {
       items.push({ kind: "raw", triggers: [t], why: `It uses "${t.action}", which this editor cannot edit yet.` });
     }
@@ -310,8 +330,10 @@ export function writeRules(items: RuleItem[], nextId: () => string): Trigger[] {
   for (const item of items) {
     if (item.kind === "raw") { out.push(...item.triggers); continue; }
     const r = item.rule;
+    const adding = r.action === "addToVariable";
     const make = (id: string | undefined, event: Trigger["event"]): Trigger => ({
-      id: id ?? nextId(), event, action: r.action, target: r.target, ...(r.value === undefined ? {} : { value: r.value }), conditions: r.conditions,
+      id: id ?? nextId(), event, action: adding ? "setVariable" : (r.action as Trigger["action"]), target: r.target,
+      ...(r.value === undefined ? {} : { value: r.value }), ...(adding ? { operation: "add" as const } : {}), conditions: r.conditions,
     });
     if (r.event === "activate") out.push(make(r.ids?.[0], "click"), make(r.ids?.[1], "keyActivate"));
     else out.push(make(r.ids?.[0], r.event));

@@ -10,7 +10,9 @@ import { StageRenderer } from "../../player/src/stage.ts";
 import type { ObjectAnimation } from "../../player/src/types.ts";
 import type { OSObject } from "../../player/src/types.ts";
 import type { Backend } from "./backend.ts";
+import { scaleBoxes } from "./group.ts";
 import type { Change, Model } from "./model.ts";
+import { SNAP_SCREEN_PX, snapMove, snapResize, type Box, type Guide } from "./snap.ts";
 import { DEFAULT_THEME } from "./themes.ts";
 
 type Handle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -18,10 +20,38 @@ const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_DRAG_SIZE = 8;
 
 export const CANVAS_HINT =
-  "Arrow keys move the selected objects by 1, or 10 with Shift. Alt with arrow keys resizes one object. " +
+  "Arrow keys move the selected objects by 1, or 10 with Shift. Alt with arrow keys resizes one object or one whole group. " +
   "Page Down and Page Up select the next or previous object, and Shift with them adds to the selection. " +
   "Shift and click adds or removes an object, and dragging a box round objects selects them. Ctrl and A selects everything. " +
-  "Escape clears the selection. You can also type exact values in the Properties panel.";
+  "Clicking an object that is in a group chooses the whole group: hold Alt while you click to choose just that object. " +
+  "Dragging snaps to the slide's edges and middle and to other objects: hold Alt to drag freely, or use the Snap button. " +
+  "Escape clears the selection. You can also type exact values in the Properties panel, and use Line up.";
+
+const SNAP_KEY = "openstage.snap";
+
+/** Whether snapping is on. It is the author's own setting, kept on this computer and not in the project, and it starts on. */
+function readSnapSetting(): boolean {
+  try {
+    return localStorage.getItem(SNAP_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function saveSnapSetting(on: boolean): void {
+  try {
+    localStorage.setItem(SNAP_KEY, on ? "on" : "off");
+  } catch {
+    // If it cannot be kept, it lasts until the editor is closed.
+  }
+}
+
+/** The smallest box that holds all of these. */
+function unionOf(boxes: Box[]): Box {
+  const x0 = Math.min(...boxes.map((b) => b.x));
+  const y0 = Math.min(...boxes.map((b) => b.y));
+  return { x: x0, y: y0, width: Math.max(...boxes.map((b) => b.x + b.width)) - x0, height: Math.max(...boxes.map((b) => b.y + b.height)) - y0 };
+}
 
 /** A box dragged across empty canvas shorter than this, in stage pixels, was a click, not a box. */
 const MIN_MARQUEE = 4;
@@ -37,6 +67,10 @@ interface Drag {
   moved: boolean;
   /** A click without a drag on an object in a selection of several narrows the selection to it. */
   collapseTo: string | null;
+  /** The narrowing was asked to be to that one object, even if it is in a group (Alt and click). */
+  collapseSingle: boolean;
+  /** Where a whole group began, when its handles are being dragged. The members are scaled with it. */
+  groupBox: Box | null;
 }
 
 export class Canvas {
@@ -51,7 +85,14 @@ export class Canvas {
   private marks: HTMLElement[] = [];
   /** The box being dragged across empty canvas to select what it touches. */
   private readonly marquee: HTMLElement;
+  /** Snapping while dragging is on. */
+  private snapOn = true;
+  private readonly snapButton: HTMLButtonElement;
+  /** The lines drawn while a drag lines up with something. */
+  private guideEls: HTMLElement[] = [];
   private readonly stage: StageRenderer;
+  /** The look the author is working on, shown on the selected object, so it can be put back when they choose another. */
+  private previewed: { objectId: string; look: string } | null = null;
   private readonly model: () => Model | null;
   private readonly backend: Backend;
   private readonly announce: (message: string) => void;
@@ -110,10 +151,25 @@ export class Canvas {
     hint.id = "canvas-hint";
     hint.className = "canvas-hint";
     hint.textContent = CANVAS_HINT;
-    this.element.append(this.viewport, hint);
+    // The Snap switch. A button that is pressed or not, so it is a stop for the keyboard and a screen reader says which.
+    this.snapOn = readSnapSetting();
+    this.snapButton = doc.createElement("button");
+    this.snapButton.type = "button";
+    this.snapButton.className = "small";
+    this.snapButton.addEventListener("click", () => {
+      this.snapOn = !this.snapOn;
+      saveSnapSetting(this.snapOn);
+      this.showSnapState();
+      this.announce(`Snapping is ${this.snapOn ? "on" : "off"}.`);
+    });
+    this.showSnapState();
+    const tools = doc.createElement("div");
+    tools.className = "canvas-tools";
+    tools.appendChild(this.snapButton);
+    this.element.append(this.viewport, tools, hint);
 
     // Editing mode: objects are drawn but inert. The shared renderer draws them.
-    this.stage = new StageRenderer(doc, this.stageEl, { editing: true }, DEFAULT_THEME);
+    this.stage = new StageRenderer(doc, this.stageEl, { editing: true, characters: () => this.model()?.characters ?? [] }, DEFAULT_THEME);
     // The stage clears its own children on render, so the overlay is re-attached after.
     this.group.addEventListener("keydown", (e) => this.onKey(e));
     this.overlay.addEventListener("pointerdown", (e) => this.onPointerDown(e));
@@ -125,6 +181,46 @@ export class Canvas {
 
   focus(): void {
     this.group.focus();
+  }
+
+  private showSnapState(): void {
+    const state = this.snapButton.ownerDocument.createElement("span");
+    state.setAttribute("aria-hidden", "true");
+    state.textContent = this.snapOn ? " on" : " off";
+    this.snapButton.replaceChildren("Snap", state);
+    this.snapButton.setAttribute("aria-pressed", String(this.snapOn));
+    this.snapButton.title = "Snap to the slide's edges and middle, and to other objects, while dragging. Hold Alt while dragging to turn it off for that drag. Line up in the Properties panel does the same from the keyboard.";
+  }
+
+  /** What a drag can line up with: everything on this layer that is not itself being dragged. */
+  private snapTargets(m: Model, dragged: Map<string, unknown>): Box[] {
+    return (m.layer?.objects ?? []).filter((o) => !dragged.has(o.id)).map((o) => ({ x: o.geometry.x, y: o.geometry.y, width: o.geometry.width, height: o.geometry.height }));
+  }
+
+  private showGuides(guides: Guide[]): void {
+    this.clearGuides();
+    for (const g of guides) {
+      const el = this.overlay.ownerDocument.createElement("div");
+      el.className = `edit-guide ${g.axis}`;
+      el.setAttribute("aria-hidden", "true");
+      if (g.axis === "vertical") {
+        el.style.left = `${g.at}px`;
+        el.style.top = `${g.from}px`;
+        el.style.height = `${g.to - g.from}px`;
+      } else {
+        el.style.top = `${g.at}px`;
+        el.style.left = `${g.from}px`;
+        el.style.width = `${g.to - g.from}px`;
+      }
+      el.style.setProperty("--line", `${1 / this.scale}px`);
+      this.overlay.appendChild(el);
+      this.guideEls.push(el);
+    }
+  }
+
+  private clearGuides(): void {
+    for (const el of this.guideEls) el.remove();
+    this.guideEls = [];
   }
 
   /** Redraw the whole slide. */
@@ -142,6 +238,7 @@ export class Canvas {
     this.drawn = `${m.sel.slideId}/${m.sel.layerId}`;
     const shown = new Set([m.sel.layerId]);
     const section = this.stage.render(m.slide, shown);
+    this.previewed = null; // everything was drawn again in its own look
     // Objects are drawn for the eye. They are not the way to reach them with a keyboard or
     // a screen reader: the Objects list is.
     section.inert = true;
@@ -150,6 +247,21 @@ export class Canvas {
     void this.loadAssets(m.dir);
     this.fit();
     this.updateSelection();
+    this.syncLook();
+  }
+
+  /** Show the look the author is working on for the selected object, and put back the object an earlier look was shown on. */
+  private syncLook(): void {
+    const want = this.model()?.lookPreview ?? null;
+    const had = this.previewed;
+    if (had && (!want || want.objectId !== had.objectId || want.look !== had.look)) {
+      this.stage.setObjectState(had.objectId, "normal");
+      this.previewed = null;
+    }
+    if (want && !this.previewed) {
+      this.stage.setObjectState(want.objectId, want.look);
+      this.previewed = want;
+    }
   }
 
   /** Apply a change from the model without rebuilding everything when possible. */
@@ -166,6 +278,7 @@ export class Canvas {
     } else {
       this.render();
     }
+    this.syncLook();
   }
 
   private async loadAssets(dir: string): Promise<void> {
@@ -211,9 +324,12 @@ export class Canvas {
       this.box.hidden = true;
       return;
     }
-    // Several selected: each is outlined, and there are no handles, because a handle could only resize one of them.
+    // Several selected: each is outlined. There are no handles, because a handle could only resize one of them, unless the several are
+    // exactly one group: that is resized as one, so a box round the whole group has the handles.
     if (sel.length > 1) {
-      this.box.hidden = true;
+      const group = this.model()?.selectedGroup ?? null;
+      this.box.hidden = group === null;
+      this.box.classList.toggle("edit-box-group", group !== null);
       for (const each of sel) {
         const mark = this.overlay.ownerDocument.createElement("div");
         mark.className = `edit-box edit-box-multi${each.locked ? " edit-box-locked" : ""}`;
@@ -227,8 +343,20 @@ export class Canvas {
         this.overlay.appendChild(mark);
         this.marks.push(mark);
       }
+      if (group) {
+        const all = unionOf(group.map((member) => member.geometry));
+        this.box.classList.toggle("edit-box-locked", group.some((member) => member.locked));
+        this.box.style.left = `${all.x}px`;
+        this.box.style.top = `${all.y}px`;
+        this.box.style.width = `${all.width}px`;
+        this.box.style.height = `${all.height}px`;
+        this.box.style.transform = "";
+        this.box.style.setProperty("--handle", `${10 / this.scale}px`);
+        this.box.style.setProperty("--line", `${2 / this.scale}px`);
+      }
       return;
     }
+    this.box.classList.remove("edit-box-group");
     // A locked object has no handles, and a dotted outline.
     this.box.classList.toggle("edit-box-locked", o.locked === true);
     const g = o.geometry;
@@ -336,14 +464,20 @@ export class Canvas {
     const p = this.toStage(e);
     const handle = (e.target as HTMLElement).dataset["handle"] as Handle | undefined;
     this.group.focus({ preventScroll: true });
-    const start = (mode: Drag["mode"], geoms: Map<string, OSObject["geometry"]>, objectId: string, collapseTo: string | null) => {
-      this.drag = { mode, startX: p.x, startY: p.y, geoms, objectId, moved: false, collapseTo };
+    const start = (mode: Drag["mode"], geoms: Map<string, OSObject["geometry"]>, objectId: string, collapseTo: string | null, groupBox: Box | null = null, collapseSingle = false) => {
+      this.drag = { mode, startX: p.x, startY: p.y, geoms, objectId, moved: false, collapseTo, collapseSingle, groupBox };
       this.overlay.setPointerCapture(e.pointerId);
       e.preventDefault();
     };
 
-    // A handle resizes the one selected object. (There are no handles while several are selected.)
+    // A handle resizes the one selected object, or the one selected group as a whole. (There are no handles for any other set of several.)
     if (handle) {
+      const members = m.selectedGroup;
+      if (members) {
+        m.beginGesture();
+        start(handle, new Map(members.map((member) => [member.id, { ...member.geometry }])), members[0]!.id, null, unionOf(members.map((member) => member.geometry)));
+        return;
+      }
       const target = m.object;
       if (!target) return;
       m.beginGesture();
@@ -352,10 +486,12 @@ export class Canvas {
     }
 
     const target = this.hit(p.x, p.y);
-    // Shift or Ctrl and click adds an object to the selection, or takes it out.
+    // Clicking an object in a group chooses the whole group. Alt and click chooses just that object.
+    const alone = e.altKey;
+    // Shift or Ctrl and click adds an object (with its group) to the selection, or takes it out.
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       if (target) {
-        const msg = m.toggleSelected(target.id);
+        const msg = alone ? m.toggleSelected(target.id) : m.toggleGroupSelected(target.id);
         if (msg) this.say(msg);
       }
       e.preventDefault();
@@ -369,22 +505,26 @@ export class Canvas {
     }
     // On one of several selected objects, a drag moves them all together. A click without a drag narrows the selection to it.
     const inside = m.selected.length > 1 && m.selected.some((o) => o.id === target.id);
+    const choose = () => (alone ? (m.selectObject(target.id), m.describeSelection()) : m.selectWithGroup(target.id));
+    // Locked objects are not dragged, and a group with a locked object in it is held whole. If none of what was grabbed can move, there is
+    // no drag, and a click narrows the selection as usual.
+    const heldNote = () => (m.selected.length === 1 ? " It is locked, so it cannot be moved." : " A locked object holds the group, so it cannot be moved.");
     if (!inside) {
-      m.selectObject(target.id);
-      this.say(`Selected ${m.describe(target)}${target.locked ? ". It is locked, so it cannot be moved." : ""}`);
+      choose();
+      const stuck = m.movable(m.selected).free.length === 0;
+      this.say(m.selected.length === 1 ? `${m.describeSelection()}${stuck ? ". It is locked, so it cannot be moved." : ""}` : `${m.describeSelection()}${stuck ? heldNote() : ""}`);
     }
-    // Locked objects are not dragged. If none of what was grabbed can move, there is no drag, and a click narrows the selection as usual.
-    const moving = (inside ? m.selected : [target]).filter((o) => !o.locked);
-    if (moving.length === 0) {
+    const { free } = m.movable(m.selected);
+    if (free.length === 0) {
       if (inside) {
-        m.selectObject(target.id);
-        this.say(`${m.describeSelection()} It is locked, so it cannot be moved.`);
+        choose();
+        this.say(`${m.describeSelection()}${heldNote()}`);
       }
       e.preventDefault();
       return;
     }
     m.beginGesture();
-    start("move", new Map(moving.map((o) => [o.id, { ...o.geometry }])), target.id, inside ? target.id : null);
+    start("move", new Map(free.map((o) => [o.id, { ...o.geometry }])), target.id, inside ? target.id : null, null, alone);
   }
 
   private onPointerMove(e: PointerEvent): void {
@@ -406,10 +546,21 @@ export class Canvas {
       return;
     }
     if (d.mode === "move") {
-      for (const [id, g0] of d.geoms) m.setGeometry(id, { x: g0.x + dx, y: g0.y + dy });
+      let sx = dx;
+      let sy = dy;
+      this.clearGuides();
+      // Where the pointer has taken the whole group (or the one object), and then where it would jump to if a line is near. Alt drags freely.
+      if (this.snapOn && !e.altKey) {
+        const start = unionOf([...d.geoms.values()]);
+        const r = snapMove({ ...start, x: start.x + dx, y: start.y + dy }, this.snapTargets(m, d.geoms), m.project.stage, SNAP_SCREEN_PX / this.scale);
+        sx += r.dx;
+        sy += r.dy;
+        this.showGuides(r.guides);
+      }
+      for (const [id, g0] of d.geoms) m.setGeometry(id, { x: g0.x + sx, y: g0.y + sy });
       return;
     }
-    const g = d.geoms.get(d.objectId)!;
+    const g = d.groupBox ?? d.geoms.get(d.objectId)!;
     let { x, y, width, height } = g;
     if (d.mode.includes("e")) width = Math.max(MIN_DRAG_SIZE, g.width + dx);
     if (d.mode.includes("s")) height = Math.max(MIN_DRAG_SIZE, g.height + dy);
@@ -420,6 +571,18 @@ export class Canvas {
     if (d.mode.includes("n")) {
       height = Math.max(MIN_DRAG_SIZE, g.height - dy);
       y = g.y + g.height - height;
+    }
+    this.clearGuides();
+    if (this.snapOn && !e.altKey) {
+      const r = snapResize({ x, y, width, height }, d.mode, this.snapTargets(m, d.geoms), m.project.stage, SNAP_SCREEN_PX / this.scale, MIN_DRAG_SIZE);
+      ({ x, y, width, height } = r.box);
+      this.showGuides(r.guides);
+    }
+    if (d.groupBox) {
+      // A whole group: every member is scaled with the box, from where each began, so there is no drift as the drag goes on.
+      const next = scaleBoxes([...d.geoms.values()], d.groupBox, { x, y, width, height });
+      [...d.geoms.keys()].forEach((id, i) => m.setGeometry(id, next[i]!));
+      return;
     }
     m.setGeometry(d.objectId, { x, y, width, height });
   }
@@ -434,6 +597,7 @@ export class Canvas {
     const d = this.drag;
     if (!d || !m) return;
     this.drag = null;
+    this.clearGuides();
     if (this.overlay.hasPointerCapture(e.pointerId)) this.overlay.releasePointerCapture(e.pointerId);
     if (d.mode === "marquee") {
       this.marquee.hidden = true;
@@ -443,19 +607,21 @@ export class Canvas {
         const g = o.geometry;
         return g.x < box.x + box.width && g.x + g.width > box.x && g.y < box.y + box.height && g.y + g.height > box.y;
       });
-      const msg = m.selectIds(touched.map((o) => o.id));
+      // Touching part of a group takes the whole group.
+      const msg = m.selectIds(m.expandGroups(touched.map((o) => o.id)));
       if (msg) this.say(msg);
       return;
     }
     m.endGesture();
     if (d.collapseTo && !d.moved) {
-      m.selectObject(d.collapseTo);
+      if (d.collapseSingle) m.selectObject(d.collapseTo); else m.selectWithGroup(d.collapseTo);
       this.say(m.describeSelection());
       return;
     }
     const sel = m.selected;
-    const stayed = sel.filter((o) => o.locked).length;
-    const note = stayed > 0 && sel.length > 1 ? ` ${stayed} locked ${stayed === 1 ? "object stayed" : "objects stayed"} where ${stayed === 1 ? "it was" : "they were"}.` : "";
+    const { heldUnits, groups } = m.movable(sel);
+    const noun = groups ? "item" : "object";
+    const note = heldUnits > 0 && sel.length > 1 ? ` ${heldUnits} locked ${heldUnits === 1 ? `${noun} stayed` : `${noun}s stayed`} where ${heldUnits === 1 ? "it was" : "they were"}.` : "";
     if (sel.length === 1) this.say(m.describe(sel[0]!));
     else if (sel.length > 1) this.say(`${m.describeSelection()}${note}`);
   }

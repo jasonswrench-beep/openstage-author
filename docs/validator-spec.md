@@ -47,7 +47,7 @@ Required inside `accessibility`: `altText`, `role`, `tabOrder`, `decorative`.
 | An interactive object (`button`, `hotspot`, `quizQuestion`) has `tabOrder: 0` or null | Interactive objects must be reachable by keyboard |
 | An interactive object has a `click` trigger with no `keyActivate` equivalent | Interactive objects must be operable by keyboard |
 | A `video` or `audio` object has no caption track and no narration script | Time-based media needs captions |
-| Text contrast against its background is below WCAG 2.2 AA | Contrast too low |
+| Text contrast against its background is below WCAG 2.2 AA, for the object's own look, for each look it can take, and for each way the looks stack (a look that makes the object see-through counts; `disabled` is left out) | Contrast too low |
 
 The `click` without `keyActivate` rule is the one that will be most tempting to soften.
 It should not be softened. It is the difference between a tool that produces accessible
@@ -76,13 +76,136 @@ Duplicates, which do make the order ambiguous, remain errors.
 | `schemaVersion` is older than the validator understands (`needs-migration`) | Project was made with an older version and needs updating |
 | A style uses a `theme:` token that the theme does not define (`theme-token-unknown`) | Style uses a theme value that does not exist |
 | Pairs of theme colours that are used together fall below WCAG AA (`theme-contrast`) | Theme colours do not contrast enough |
+| A theme's logo has no alt text and is not marked decorative (`theme-logo-alt`) | The logo needs alt text, or must be marked decorative |
+| A theme's logo is marked decorative and has alt text (`theme-logo-decorative-alt`) | A decorative logo must not have alt text |
+| A theme's logo file is not in the project (`theme-logo-missing`) | The logo file is missing |
+| Non-decorative content on a slide reaches into the logo's corner (`theme-logo-overlap`, warning) | The logo overlaps content on this slide |
+
+### Hotspots
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A hotspot is marked decorative (`hotspot-decorative`) | Error | A hotspot cannot be decorative |
+| A hotspot is under 24 pixels either way (`hotspot-too-small`) | Error | A hotspot is too small to press |
+| A hotspot is under 35 pixels either way (`hotspot-small`) | Warning | A hotspot may be too small to press when the slide is drawn smaller |
+| A hotspot has content (`hotspot-content`) | Warning | A hotspot has no content of its own |
+
+A hotspot with no alt text or no tab order is reported by the general accessibility rules, and content in a hotspot is also a schema error.
+
+### Audio description: errors and a warning
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A description has no words (`description-text-missing`) | Error | A description has no words |
+| Two descriptions on a video have the same id (`description-duplicate-id`) | Error | Two descriptions have the same id |
+| An audio clip has a description (`description-on-audio`) | Error | An audio clip cannot have an audio description |
+| A description has no voice (`description-not-voiced`) | Warning | A description is not spoken |
+
+The voice of a description is checked like any narration: an unknown voice (`voice-unknown`), a pronunciation that is not IPA (`ipa-invalid`) and audio that is out
+of date (`narration-stale`) are reported against the video, naming the description by its time. A time, a pause setting or a list that is not well formed is a
+schema error.
+
+### Scenarios and the cast
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A scenario's start is not one of its situations (`scenario-start-missing`) | Error | A scenario has to start in a situation that exists |
+| A choice leads to a situation that does not exist (`scenario-next-missing`) | Error | A choice leads to a situation that does not exist |
+| Two parts of a scenario (situation, choice, line, meter) share an id (`scenario-duplicate-id`) | Error | Two parts of a scenario have the same id |
+| A line has no text (`scenario-line-empty`) | Error | A line has no words |
+| A choice has no text (`scenario-choice-empty`) | Error | A choice has no words |
+| A line's speaker is neither `you` nor in the cast (`scenario-speaker-unknown`) | Error | A line is spoken by someone who is not in the cast |
+| A choice adds to a variable that is missing or not a number (`scenario-effect-variable`) | Error | A choice can only add to a number variable |
+| A meter shows a variable that is missing or not a number (`scenario-meter-variable`) | Error | A meter shows something that is not a number variable |
+| A meter's smallest value is not less than its largest (`scenario-meter-range`) | Error | A meter's smallest value must be less than its largest |
+| The variable set at an ending is missing or not a boolean (`scenario-finished-variable`) | Error | The variable set at an ending must be a true or false variable |
+| The variable that holds the learner's character is missing or not a string (`scenario-you-variable`) | Error | The variable that holds the learner's character must be a text variable |
+| A situation can never be reached (`scenario-unreachable`) | Warning | A situation can never be reached |
+| No ending can be reached (`scenario-no-ending`) | Warning | A learner can never finish this scenario |
+| Two choices in one situation read the same (`scenario-choice-duplicate`) | Warning | Two choices say the same thing |
+| A line by a person in the cast is read in a different voice (`scenario-voice-differs`) | Warning | A line is not read in its speaker's voice |
+| The scenario shows the learner's chosen character but no choice of character saves to its variable (`scenario-you-unset`) | Warning | Nothing lets the learner choose who they are |
+| A choice of character names someone who is not in the cast (`input-character-unknown`) | Error | A choice of character names someone who is not in the cast |
+| Two people in the cast share an id (`character-duplicate-id`) | Error | Two people in the cast have the same id |
+| A person in the cast has the id `you` (`character-id-reserved`) | Error | A person in the cast cannot have the id 'you' |
+| A person in the cast has no name (`character-name-empty`) | Error | A person in the cast needs a name |
+| Two people in the cast have the same name (`character-name-duplicate`) | Warning | Two people in the cast have the same name |
+| A person's picture has no alt text and is not decorative, or is decorative with alt text (`character-picture-alt`) | Error | A picture of a person needs alt text, or must be marked decorative |
+
+A person's voice that does not exist, or a line's narration with one that does not, is `voice-unknown`, like any narration; a picture that is missing is `asset-missing`.
+
+### Icons and the course actions
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A picture that carries meaning is below 3 to 1 against the slide, in its own look or in any look it can take (`icon-contrast`) | Warning | An icon is hard to see |
+| Icons are used and the credits page is off (`icon-credit-page-off`) | Warning | This course uses icons, but the credits page is off |
+| Next is used on the last slide (`trigger-next-last`) | Warning | Next goes nowhere on the last slide |
+| Back is used on the first slide (`trigger-previous-first`) | Warning | Back goes nowhere on the first slide |
+
+An icon with no alt text that is not decorative is the same `alt-text-missing` as any other object, and a shape that is not on the list of drawing parts, or has an attribute that is not on
+its list, is a schema error. A `nextSlide`, `previousSlide` or `replaySlide` trigger with a target, or any other action with an empty one, is a schema error.
+
+### Imported slides
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| Slides or shapes name a deck that `project.sources` does not list (`import-source-missing`) | Warning | Imported slides name a deck that the project does not list |
+| Two slides are the same slide of the same deck (`provenance-duplicate`) | Warning | Duplicate provenance, re-sync behaviour undefined |
+
+A deck's entry in `project.sources`, a slide's import provenance and an object's (`slideId`, `sourceHash`, `base`) are schema rules. Everything else about an imported slide is checked like any other slide:
+alt text, contrast (against the slide's background colour, which for a slide with a background picture is the picture's average colour), tab order and the rest.
+
+### Looks (object states)
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A look is named `normal` (`state-name-normal`) | Error | A look cannot be named normal |
+| A rule applies a look the target object does not have (`trigger-state-missing`) | Error | A rule applies a look the object does not have |
+| A rule's look is not text (`trigger-value-type`) | Error | A look is named by text |
+| A rule applies a look that has no spoken message, unless the look is `disabled` or the object is decorative (`state-silent`) | Warning | A screen reader user is not told about this change |
+
+A look's name (1 to 40 characters, no space at either end) and its `announce` (1 to 200 characters) are schema rules. A `changeState` rule pointing at an object that is not on its slide is
+`trigger-target-missing`, as for any rule, and then no look is checked. A click and its matching key press are one rule, so a silent look is reported once.
+
+### Groups
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| Objects with the same `group` are on more than one layer (`group-split`) | Error | A group has objects on different layers |
+| A `group` is shared by only one object (`group-single`) | Warning | A group has only one object |
 
 ### Quizzes — errors
 
 | Rule | Message |
 | --- | --- |
-| A `quizQuestion` does not have exactly one answer marked `correct` | Quiz needs exactly one correct answer |
-| Two answers in one `quizQuestion` share an id | Quiz answers must have different ids |
+| A multiple choice question does not have exactly one answer marked `correct`, or a multiple response one has none (`quiz-correct-answer`) | Quiz needs exactly one correct answer, or at least one |
+| Two answers in one `quizQuestion` share an id (`quiz-duplicate-choice`) | Quiz answers must have different ids |
+| A short answer or a blank has an empty accepted answer (`quiz-empty-answer`) | An accepted answer is empty |
+| A numeric question's lowest number is above its highest (`quiz-numeric-range`) | The lowest accepted number is above the highest |
+| The sentence has a blank `{id}` with no answer set for it (`quiz-blank-missing`) | The sentence has a blank with no answer |
+| A blank has answers but is not in the sentence (`quiz-blank-unused`) | A blank is not in the sentence |
+| Two blanks share an id (`quiz-duplicate-blank`) | Blanks must have different ids |
+| In a drop-down or drag question, a blank's right word is not in the word bank (`quiz-word-bank`) | A right answer is not in the word bank |
+| The word bank repeats a word, whatever its capitals (`quiz-word-bank-duplicate`) | The word bank repeats a word |
+| Two pairs share an id (`quiz-duplicate-pair`) | Pairs must have different ids |
+| Two matches, or a match and an extra, read the same (`quiz-match-duplicate`) | Two matches read the same |
+| Two sequence items share an id (`quiz-duplicate-item`) | Items must have different ids |
+| A hotspot's picture has no alt text (`quiz-hotspot-alt`) | The picture needs alt text |
+| Two hotspot areas share an id (`quiz-duplicate-region`) | Areas must have different ids |
+| No hotspot area is marked `correct` (`quiz-correct-answer`) | Quiz needs at least one correct area |
+| A hotspot area has no label (`quiz-region-label`) | An area needs a label |
+| A hotspot area runs off the picture (`quiz-region-bounds`) | An area runs off the picture |
+| A hotspot's picture is not in the project (`asset-missing`) | Asset missing |
+| A question has a field that belongs to another kind, or lacks one its kind needs | A schema error |
+
+### Quizzes: warnings
+
+| Rule | Message |
+| --- | --- |
+| Every answer of a multiple response question is marked correct (`quiz-all-correct`) | Every answer in this question is marked correct |
+| Two sequence items read the same (`quiz-item-duplicate`) | Two items read the same |
+| Two hotspot areas have the same label (`quiz-region-duplicate`) | Two areas have the same label |
 
 ### Interactions — errors
 
@@ -107,6 +230,10 @@ project is reported as `asset-missing`, and an interaction with a tab order of 0
 | A condition on a variable an input saves to asks for a value no answer saves, or a scale point past the end (`condition-never-true`, warning) | This condition can never be true |
 | A `click` or `keyActivate` rule on an object that cannot be pressed, or `mediaComplete` on one that is not media (`trigger-event-never`, warning) | This rule's event never happens on this kind of object |
 
+| A rule that adds names a variable that is not a number (`trigger-operation-type`) | Adding needs a number variable |
+| A rule that adds has an amount that is not a number (`trigger-value-type`) | Adding something that is not a number |
+| `add` on an action other than `setVariable` (`trigger-operation-action`) | Only setting a variable can add |
+
 A click and its matching key press are one rule to an author, so a problem with a rule is reported once.
 Triggers that point at a missing target or variable are `trigger-target-missing` and
 `condition-unknown-variable`, as before.
@@ -118,6 +245,9 @@ Triggers that point at a missing target or variable are `trigger-target-missing`
 | An object is set to appear with its narration but has none (`timing-narration-missing`) | Error | This object is set to appear with its narration, but it has none |
 | A slide has a `duration` and holds a question (`slide-advances-with-question`) | Warning | A slide with a question moves on by itself |
 | A base layer object appears at or after its slide's `duration` (`timing-after-advance`) | Warning | This object would appear after the slide has moved on |
+| An object follows a clip that is not a video or audio object on its slide (`timing-media-missing`) | Error | This object follows a video or audio clip that is not on its slide |
+| An object follows itself (`timing-media-self`) | Error | An object cannot follow itself |
+| A slide has a `duration` and holds an object that follows a clip (`timing-media-advance`) | Warning | A slide that moves on by itself holds objects that follow a video or audio clip |
 | A control (a button, an input, a question, an interaction, a download and the like) has a `visibleFor` (`timing-control-disappears`) | Warning | A control that disappears can leave a learner stuck |
 | A text or scrolling text object stays for less than three seconds, or for fewer seconds than its words need at 3 words a second (`timing-too-brief`) | Warning | This text may disappear before it can be read |
 | An object has an exit effect but no time to stay, so it never goes (`animation-exit-never`) | Warning | This object has an exit effect but never goes |
@@ -218,6 +348,15 @@ as derived is that a project with an empty cache is a complete project.
 | --- | --- |
 | Some objects on a slide have provenance and others do not | Slide mixes imported and new objects; re-sync will only affect imported ones |
 | Two objects share the same `sourceDeck` and `shapeId` | Duplicate provenance, re-sync behaviour undefined |
+| Two slides name the same capture and step (`provenance-duplicate`) | Duplicate provenance, re-sync behaviour undefined |
+
+Objects from a capture step are not counted by the first rule, and several objects can come from one step.
+
+### Raw recording material: warning
+
+| Rule | Message |
+| --- | --- |
+| A file called `events.jsonl`, or a folder called `capture` or `captures`, is in the project and not listed in `sourceExclude`, or is under `assets/` (`capture-material-in-project`) | Raw recording material is inside the project / in the published assets |
 
 ## Output
 

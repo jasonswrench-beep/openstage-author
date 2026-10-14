@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <rect width="800" height="500" fill="#e8eef7"/>
+  <rect x="40" y="40" width="240" height="160" fill="#9bb8e6" stroke="#0b2a6f" stroke-width="3"/>
+  <text x="160" y="125" font-family="sans-serif" font-size="26" text-anchor="middle" fill="#0b2a6f">Library</text>
+  <rect x="520" y="40" width="240" height="160" fill="#f0c987" stroke="#6b4a00" stroke-width="3"/>
+  <text x="640" y="125" font-family="sans-serif" font-size="26" text-anchor="middle" fill="#3d2b00">Cafe</text>
+  <rect x="40" y="300" width="240" height="160" fill="#a8d5ba" stroke="#0f5132" stroke-width="3"/>
+  <text x="160" y="385" font-family="sans-serif" font-size="26" text-anchor="middle" fill="#0f5132">Gym</text>
+  <rect x="520" y="300" width="240" height="160" fill="#e6a8a8" stroke="#842029" stroke-width="3"/>
+  <text x="640" y="385" font-family="sans-serif" font-size="26" text-anchor="middle" fill="#5c1319">Lab</text>
+  <path d="M0 250 H800" stroke="#7a8696" stroke-width="30" opacity="0.5"/>
+</svg>

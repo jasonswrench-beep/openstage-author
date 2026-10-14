@@ -12,7 +12,7 @@
   "properties": {
     "id": { "$ref": "project.schema.json#/$defs/id" },
     "type": {
-      "enum": ["text", "image", "shape", "button", "hotspot", "video", "audio", "quizQuestion", "interaction", "table", "scrollingText", "input", "embed", "results", "certificate", "download"]
+      "enum": ["text", "image", "shape", "button", "hotspot", "video", "audio", "quizQuestion", "interaction", "table", "scrollingText", "input", "embed", "results", "certificate", "download", "scenario", "icon"]
     },
     "name": { "type": "string", "minLength": 1 },
     "geometry": {
@@ -43,11 +43,14 @@
     },
     "states": {
       "type": "object",
+      "description": "The looks the object can take besides its own. A name is 1 to 40 characters with no space at either end. hover, visited and disabled are used by the course on their own; any other name is used only when a rule applies it. The name normal is the object's own appearance and cannot be a look (the validator says so in plain words).",
+      "propertyNames": { "minLength": 1, "maxLength": 40, "pattern": "^\\S(.*\\S)?$" },
       "additionalProperties": { "$ref": "#/$defs/state" }
     },
     "triggers": { "type": "array", "items": { "$ref": "#/$defs/trigger" } },
     "timing": { "$ref": "#/$defs/timing" },
     "animation": { "$ref": "#/$defs/animation" },
+    "group": { "$ref": "project.schema.json#/$defs/id", "description": "Editor only. Objects on one layer with the same group id are grouped: the editor selects, moves, copies and deletes them together. Absent means not in a group. The published course ignores it." },
     "locked": { "type": "boolean", "description": "Editor only. True means the editor refuses to move, resize, rotate or delete the object until it is unlocked. Absent means unlocked. The published course ignores it." },
     "narration": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
@@ -94,6 +97,26 @@
         "properties": {
           "accessibility": { "properties": { "tabOrder": { "type": "integer", "minimum": 1 } } }
         }
+      }
+    },
+    {
+      "$comment": "A hotspot is a transparent button with a name, and nothing else: it has no content of its own.",
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "hotspot" } }
+      },
+      "then": {
+        "properties": { "content": { "type": "object", "maxProperties": 0 } }
+      }
+    },
+    {
+      "$comment": "A video may carry an audio description: cues, each with a time and the words that say what the picture shows.",
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "video" } }
+      },
+      "then": {
+        "properties": { "content": { "properties": { "description": { "$ref": "#/$defs/description" } } } }
       }
     },
     {
@@ -208,6 +231,14 @@
     {
       "if": { "required": ["type"], "properties": { "type": { "const": "download" } } },
       "then": { "properties": { "content": { "$ref": "#/$defs/contentDownload" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "scenario" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentScenario" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "icon" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentIcon" } } }
     }
   ],
   "$defs": {
@@ -215,15 +246,23 @@
     "assetPath": { "type": "string", "pattern": "^assets/.+" },
 
     "timing": {
-      "$comment": "When the object appears and disappears, counted from when its layer is shown (the slide opening, for the base layer). Milliseconds, like a slide's duration.",
+      "$comment": "When the object appears and disappears, counted from when its layer is shown (the slide opening, for the base layer), or from a moment in a video or audio clip. Milliseconds, like a slide's duration.",
       "type": "object",
       "additionalProperties": false,
       "required": ["appear", "start", "visibleFor"],
       "properties": {
-        "appear": { "enum": ["time", "narration"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts." },
+        "appear": { "enum": ["time", "narration", "media"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts. media: start milliseconds into the video or audio clip named by media." },
+        "media": { "$ref": "project.schema.json#/$defs/id", "description": "Only with appear media: the id of a video or audio object on the same slide, whose playing time this object follows." },
         "start": { "type": "integer", "minimum": 0, "maximum": 3600000 },
-        "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends." }
-      }
+        "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends. With appear media it is a length of the video or audio clip, not of the clock." }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["appear"], "properties": { "appear": { "const": "media" } } },
+          "then": { "required": ["media"] },
+          "else": { "not": { "required": ["media"] } }
+        }
+      ]
     },
     "animation": {
       "$comment": "How an object arrives and leaves when its timing shows and hides it. An entrance plays when the object appears (including when the slide opens, for an object that is there from the start). An exit plays when it disappears at the end of its time.",
@@ -302,7 +341,39 @@
     "contentButton": {
       "type": "object",
       "required": ["label"],
-      "properties": { "label": { "type": "string", "minLength": 1 } }
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "icon": { "$ref": "#/$defs/contentIcon", "description": "Optional. A small picture drawn beside the label. It is decoration: the label is the button's name." },
+        "iconPlacement": { "enum": ["before", "after"], "description": "Which side of the label the icon is on. Before when absent." }
+      }
+    },
+    "iconShape": {
+      "$comment": "One drawn part of an icon. Only these tags and these attributes exist, so an icon can never carry a script or a link.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag"],
+      "properties": {
+        "tag": { "enum": ["path", "circle", "rect", "ellipse", "line", "polyline", "polygon"] },
+        "d": { "type": "string", "maxLength": 2000, "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9eE.,\\s+-]*$" },
+        "points": { "type": "string", "maxLength": 1000, "pattern": "^[0-9eE.,\\s+-]*$" },
+        "cx": { "type": "number" }, "cy": { "type": "number" }, "r": { "type": "number", "minimum": 0 },
+        "rx": { "type": "number", "minimum": 0 }, "ry": { "type": "number", "minimum": 0 },
+        "x": { "type": "number" }, "y": { "type": "number" },
+        "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 },
+        "x1": { "type": "number" }, "y1": { "type": "number" }, "x2": { "type": "number" }, "y2": { "type": "number" },
+        "fill": { "enum": ["none", "currentColor"] }
+      }
+    },
+    "contentIcon": {
+      "$comment": "An icon drawn in a 24 by 24 box with a rounded outline in the object's colour. The shapes are kept in the project, so the course does not depend on the icon set.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["set", "name", "shapes"],
+      "properties": {
+        "set": { "enum": ["lucide"], "description": "The icon set it came from. Lucide is ISC licensed, and a course that uses it names it on its credits page." },
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "maxLength": 80 },
+        "shapes": { "type": "array", "minItems": 1, "maxItems": 24, "items": { "$ref": "#/$defs/iconShape" } }
+      }
     },
     "contentMedia": {
       "type": "object",
@@ -330,10 +401,17 @@
       "additionalProperties": false,
       "required": ["kind", "prompt", "report"],
       "properties": {
-        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic"] },
+        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character"] },
         "prompt": { "type": "string", "minLength": 1 },
         "report": { "type": "boolean" },
         "variable": { "$ref": "project.schema.json#/$defs/id" },
+        "characters": {
+          "$comment": "For kind character: which people from the project's cast the learner can choose between. The variable then holds the id of the one chosen.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "$ref": "project.schema.json#/$defs/id" }
+        },
         "options": {
           "type": "array",
           "minItems": 2,
@@ -385,11 +463,103 @@
       },
       "allOf": [
         { "if": { "required": ["kind"], "properties": { "kind": { "enum": ["radio", "dropdown", "list"] } } }, "then": { "required": ["variable", "options"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "character" } } }, "then": { "required": ["variable", "characters"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "checkbox" } } }, "then": { "required": ["items"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "likert" } } }, "then": { "required": ["scale", "rows"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "semantic" } } }, "then": { "required": ["points", "rows"] } }
       ]
     },
+    "scenarioLine": {
+      "$comment": "One thing said or told in a scenario: by the narrator (speaker null), by the learner's own character (speaker \"you\"), or by a person from the project's cast (their id). Plain text.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "speaker", "text", "narration"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "speaker": { "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }] },
+        "text": { "type": "string", "maxLength": 2000 },
+        "narration": {
+          "$comment": "What the learner hears when this line is shown. Same shape as an object's narration. Null means the line can only be read.",
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
+        }
+      }
+    },
+
+    "scenarioChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "next", "effects", "response"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "next": { "$ref": "project.schema.json#/$defs/id", "description": "The situation this choice leads to. A situation with no choices is an ending." },
+        "effects": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["variable", "add"],
+            "properties": {
+              "variable": { "$ref": "project.schema.json#/$defs/id" },
+              "add": { "type": "number", "minimum": -1000, "maximum": 1000, "not": { "const": 0 }, "description": "Added to a number variable when this choice is made. A negative number takes away." }
+            }
+          }
+        },
+        "response": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/scenarioLine" }, "description": "What happens straight after this choice, shown before the next situation." }
+      }
+    },
+
+    "scenarioNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "prompt", "lines", "choices"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "prompt": { "type": "string", "maxLength": 300, "description": "The question put to the learner above the choices. Empty means the title names the choices." },
+        "lines": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/scenarioLine" } },
+        "choices": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/scenarioChoice" } }
+      }
+    },
+
+    "contentScenario": {
+      "$comment": "A branching scenario: situations the learner responds to by choosing, each choice leading to another situation, until an ending (a situation with no choices).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "you", "nodes", "meters", "allowRetry", "finishedVariable", "reflection"],
+      "properties": {
+        "start": { "$ref": "project.schema.json#/$defs/id" },
+        "you": {
+          "$comment": "The name of a string variable that holds the id of the person the learner chose to be (see the input kind character). Null means the learner is just \"you\".",
+          "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }]
+        },
+        "nodes": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "$ref": "#/$defs/scenarioNode" } },
+        "meters": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "variable", "min", "max"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "variable": { "$ref": "project.schema.json#/$defs/id" },
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            }
+          }
+        },
+        "allowRetry": { "type": "boolean", "description": "Whether the learner can take back their last choice and choose again." },
+        "finishedVariable": {
+          "$comment": "A true/false variable set to true when the learner reaches an ending, so rules can carry on from there.",
+          "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }]
+        },
+        "reflection": { "type": "string", "maxLength": 1000, "description": "Something for the learner to think about, shown with the review of their path at an ending." }
+      }
+    },
+
     "contentTable": {
       "type": "object",
       "additionalProperties": false,
@@ -406,6 +576,31 @@
         }
       }
     },
+    "descriptionCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "time", "text", "pause", "narration"],
+      "properties": {
+        "id": { "$ref": "project.schema.json#/$defs/id" },
+        "time": { "type": "integer", "minimum": 0, "maximum": 86400000, "description": "Milliseconds into the video when the description starts." },
+        "text": { "type": "string", "maxLength": 2000, "description": "What the picture shows, in words a learner can read. An empty one is reported by the validator." },
+        "pause": { "type": "boolean", "description": "Whether the video waits while the description is spoken (an extended description)." },
+        "narration": {
+          "$comment": "What the learner hears at that time. Same shape as an object's narration. Null means the description can only be read.",
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
+        }
+      }
+    },
+
+    "description": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cues"],
+      "properties": {
+        "cues": { "type": "array", "minItems": 1, "maxItems": 60, "items": { "$ref": "#/$defs/descriptionCue" } }
+      }
+    },
+
     "contentInteraction": {
       "type": "object",
       "additionalProperties": false,
@@ -453,24 +648,9 @@
 
     "contentQuiz": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["questionType", "choices", "scoring", "feedback"],
+      "required": ["questionType", "scoring", "feedback"],
       "properties": {
-        "questionType": { "enum": ["multipleChoice"] },
-        "choices": {
-          "type": "array",
-          "minItems": 2,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "label", "correct"],
-            "properties": {
-              "id": { "$ref": "project.schema.json#/$defs/id" },
-              "label": { "type": "string", "minLength": 1 },
-              "correct": { "type": "boolean" }
-            }
-          }
-        },
+        "questionType": { "enum": ["multipleChoice", "multipleResponse", "shortAnswer", "numeric", "fillBlanks", "matching", "sequencing", "hotspot"] },
         "scoring": {
           "type": "object",
           "additionalProperties": false,
@@ -488,8 +668,118 @@
             "correct": { "$ref": "project.schema.json#/$defs/id" },
             "incorrect": { "$ref": "project.schema.json#/$defs/id" }
           }
+        },
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "correct"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "correct": { "type": "boolean" }
+            }
+          }
+        },
+        "answers": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "minLength": 1 } },
+        "caseSensitive": { "type": "boolean" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "mode": { "enum": ["typed", "dropdown", "drag"] },
+        "text": { "type": "string", "minLength": 1 },
+        "blanks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "answers"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+              "answers": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "wordBank": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1 } },
+        "drag": { "type": "boolean" },
+        "pairs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "premise", "match"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "premise": { "type": "string", "minLength": 1 },
+              "match": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "extras": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 1 } },
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["src", "alt"],
+          "properties": {
+            "src": { "$ref": "#/$defs/assetPath" },
+            "alt": { "type": "string" }
+          }
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "x", "y", "width", "height", "correct"],
+            "properties": {
+              "id": { "$ref": "project.schema.json#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "x": { "type": "number", "minimum": 0, "maximum": 100 },
+              "y": { "type": "number", "minimum": 0, "maximum": 100 },
+              "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+              "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+              "correct": { "type": "boolean" }
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "questionType": { "enum": ["multipleChoice", "multipleResponse"] } } },
+          "then": { "required": ["choices"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "choices"] } } },
+        { "if": { "properties": { "questionType": { "const": "shortAnswer" } } },
+          "then": { "required": ["answers", "caseSensitive"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "answers", "caseSensitive"] } } },
+        { "if": { "properties": { "questionType": { "const": "numeric" } } },
+          "then": { "required": ["min", "max"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "min", "max"] } } },
+        { "if": { "properties": { "questionType": { "const": "fillBlanks" } } },
+          "then": { "required": ["mode", "text", "blanks", "wordBank", "caseSensitive"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "mode", "text", "blanks", "wordBank", "caseSensitive"] } } },
+        { "if": { "properties": { "questionType": { "const": "matching" } } },
+          "then": { "required": ["drag", "pairs", "extras"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "drag", "pairs", "extras"] } } },
+        { "if": { "properties": { "questionType": { "const": "sequencing" } } },
+          "then": { "required": ["drag", "items"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "drag", "items"] } } },
+        { "if": { "properties": { "questionType": { "const": "hotspot" } } },
+          "then": { "required": ["image", "regions"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "image", "regions"] } } }
+      ]
     },
 
     "state": {
@@ -498,7 +788,8 @@
       "minProperties": 1,
       "properties": {
         "style": { "type": "object" },
-        "content": { "type": "object" }
+        "content": { "type": "object" },
+        "announce": { "type": "string", "minLength": 1, "maxLength": 200, "description": "What a screen reader says when a rule applies this look. Not said when the course applies the look on its own (pointer over it, keyboard focus, used)." }
       }
     },
 
@@ -512,10 +803,15 @@
           "enum": ["click", "keyActivate", "slideStart", "slideEnd", "mediaComplete", "variableChange"]
         },
         "action": {
-          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "changeState"]
+          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "changeState", "nextSlide", "previousSlide", "replaySlide"],
+          "description": "nextSlide, previousSlide and replaySlide act on the course itself, so their target is empty."
         },
-        "target": { "$ref": "project.schema.json#/$defs/id" },
+        "target": { "type": "string", "pattern": "^([a-z][a-z0-9_-]*)?$" },
         "value": { "type": ["number", "boolean", "string"] },
+        "operation": {
+          "enum": ["set", "add"],
+          "description": "Only for setVariable. set (the default) puts value in the variable; add adds value (1 if there is none) to a number variable."
+        },
         "conditions": {
           "type": "array",
           "items": {
@@ -531,7 +827,14 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "enum": ["nextSlide", "previousSlide", "replaySlide"] } } },
+          "then": { "properties": { "target": { "const": "" } } },
+          "else": { "properties": { "target": { "minLength": 1 } } }
+        }
+      ]
     },
 
     "narration": {
@@ -572,7 +875,8 @@
       }
     },
 
-    "provenance": {
+    "importProvenance": {
+      "description": "An object made from a shape in a PowerPoint deck. `base` is the object as the import made it, so a changed deck can be compared with what the author has done since (a three-way comparison).",
       "type": "object",
       "additionalProperties": false,
       "required": ["sourceDeck", "slideIndex", "shapeId", "importedAt"],
@@ -580,8 +884,72 @@
         "sourceDeck": { "type": "string", "minLength": 1 },
         "slideIndex": { "type": "integer", "minimum": 0 },
         "shapeId": { "type": "string", "minLength": 1 },
-        "importedAt": { "type": "string", "format": "date-time" }
+        "importedAt": { "type": "string", "format": "date-time" },
+        "slideId": { "type": "string", "minLength": 1, "description": "The deck's own number for the slide the shape was on (p:sldId), which stays the same when slides are moved." },
+        "sourceHash": { "type": "string", "minLength": 1, "description": "A fingerprint of the shape as the deck had it, so an unchanged shape is known without comparing it." },
+        "base": { "$ref": "#/$defs/importBase" }
       }
+    },
+
+    "importBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name", "geometry", "content", "style", "altText", "decorative"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "width", "height", "rotation"],
+          "properties": {
+            "x": { "type": "number" }, "y": { "type": "number" }, "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" }
+          }
+        },
+        "content": { "type": "object" },
+        "style": { "type": "object" },
+        "altText": { "type": "string" },
+        "decorative": { "type": "boolean" }
+      }
+    },
+
+    "slideImportProvenance": {
+      "description": "A slide made from a slide in a PowerPoint deck.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceDeck", "slideId", "slideIndex", "importedAt"],
+      "properties": {
+        "sourceDeck": { "type": "string", "minLength": 1 },
+        "slideId": { "type": "string", "minLength": 1 },
+        "slideIndex": { "type": "integer", "minimum": 0 },
+        "importedAt": { "type": "string", "format": "date-time" },
+        "sourceHash": { "type": "string", "minLength": 1 },
+        "base": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "background"],
+          "properties": {
+            "name": { "type": "string" },
+            "background": { "type": ["string", "null"] },
+            "shapes": { "type": "array", "maxItems": 2000, "items": { "type": "string", "minLength": 1 }, "description": "The shapes of the slide that the import brought in, by their number on the slide, so one the author deleted is not brought back." }
+          }
+        }
+      }
+    },
+
+    "captureProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceCapture", "stepId"],
+      "properties": {
+        "sourceCapture": { "type": "string", "minLength": 1 },
+        "stepId": { "type": "string", "minLength": 1 },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "provenance": {
+      "oneOf": [{ "$ref": "#/$defs/importProvenance" }, { "$ref": "#/$defs/captureProvenance" }]
     },
 
     "simulation": {

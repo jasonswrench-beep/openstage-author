@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.25.0",
+  "meta": {
+    "title": "Looks",
+    "author": "OpenStage examples",
+    "language": "en-US",
+    "created": "2026-10-13",
+    "modified": "2026-10-13"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-002",
+        "slide-003",
+        "slide-004"
+      ]
+    }
+  ]
+}

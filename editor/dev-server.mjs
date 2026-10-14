@@ -15,7 +15,7 @@ const web = path.join(here, "web");
 const repo = path.join(here, "..");
 const port = Number(process.argv[2] ?? 5173);
 const python = process.env.OPENSTAGE_PYTHON ?? "python";
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".json": "application/json" };
 
 const safe = (p) => p === "project.json" || p === "theme.json" || p === "assets.json" || (/^slides\/[^/\\.:][^/\\:]*\.json$/.test(p) && !p.includes(".."));
 const body = (req) =>
@@ -44,6 +44,8 @@ function open(dir) {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://x");
+    // The accessibility audit (editor/audit): a developer tool, served here and never packaged with the app.
+    if (url.pathname === "/__audit.js") return send(res, 200, readFileSync(path.join(here, "audit", "a11y-audit.js")), "text/javascript");
     if (url.pathname === "/api/open") return send(res, 200, open(url.searchParams.get("dir")));
     if (url.pathname === "/api/save") {
       const { dir, files, remove } = await body(req);
@@ -72,6 +74,37 @@ createServer(async (req, res) => {
       for (let n = 2; existsSync(path.join(dir, "assets", k[0], name)); n++) name = `${stem}-${n}.${ext}`;
       writeFileSync(path.join(dir, "assets", k[0], name), readFileSync(source));
       return send(res, 200, JSON.stringify(`assets/${k[0]}/${name}`));
+    }
+    if (url.pathname === "/api/save-deck-picture") {
+      // The same checks as save_deck_picture_at in src-tauri/src/lib.rs: a name made from the picture, bytes that are what the name says.
+      const { dir, name, data } = await body(req);
+      const bytes = Buffer.from(String(data), "base64");
+      const m = /^pptx-([0-9a-f]{14})\.(png|jpg|gif|webp|bmp)$/.exec(String(name));
+      const starts = (b) => bytes.subarray(0, b.length).equals(Buffer.from(b));
+      const ok = m && existsSync(path.join(dir, "project.json")) && bytes.length <= 50 * 1024 * 1024 && ({
+        png: () => starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpg: () => starts([0xff, 0xd8, 0xff]), gif: () => bytes.subarray(0, 6).toString("latin1").startsWith("GIF8"),
+        webp: () => bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP", bmp: () => starts([0x42, 0x4d]),
+      })[m[2]]();
+      if (!ok) return send(res, 400, "That is not a picture of the kind its name says.", "text/plain");
+      mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
+      const target = path.join(dir, "assets", "images", String(name));
+      if (!existsSync(target)) writeFileSync(target, bytes);
+      return send(res, 200, JSON.stringify(`assets/images/${name}`));
+    }
+    if (url.pathname === "/api/save-generated") {
+      // The same checks as save_generated_svg_at in src-tauri/src/lib.rs: a plain drawing, nothing that can run or reach out.
+      const { dir, name, svg } = await body(req);
+      const lower = String(svg).toLowerCase();
+      const bad = ["<script", "javascript:", "<foreignobject", "<iframe", "<image", "<use", "<style", "<!entity", "<!doctype", "href=", "xlink:", "@import", "url("].find((b) => lower.includes(b));
+      if (!existsSync(path.join(dir, "project.json")) || svg.length > 200 * 1024 || !lower.trimStart().startsWith("<svg") || bad || /[\s"']on[a-z]+\s*=/.test(lower)) {
+        return send(res, 400, "That is not a picture the editor drew.", "text/plain");
+      }
+      const stem = String(name).replace(/[^A-Za-z0-9_-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "picture";
+      mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
+      let file = `${stem}.svg`;
+      for (let n = 2; existsSync(path.join(dir, "assets", "images", file)); n++) file = `${stem}-${n}.svg`;
+      writeFileSync(path.join(dir, "assets", "images", file), svg);
+      return send(res, 200, JSON.stringify(`assets/images/${file}`));
     }
     if (url.pathname === "/api/assets") {
       const { dir } = await body(req);

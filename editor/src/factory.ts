@@ -2,12 +2,14 @@
 // built-in slide layouts. Everything a person must write themselves (alt text for an image) is
 // left empty so the validator flags it. Nothing is invented on their behalf.
 
-import type { CertificateContent, DownloadContent, EmbedContent, InputContent, InteractionContent, InteractionItem, Layer, OSObject, QuizContent, ResultsContent, Slide, TableContent } from "../../player/src/types.ts";
+import type { IconContent } from "../../player/src/types.ts";
+import type { CertificateContent, DownloadContent, EmbedContent, InputContent, InteractionContent, InteractionItem, Layer, OSObject, QuizContent, ResultsContent, ScenarioContent, Slide, TableContent } from "../../player/src/types.ts";
+import { QUIZ_KINDS, quizKind, startingQuestion, type QuizType } from "./questionedit.ts";
 import type { InputKind } from "../../player/src/inputs.ts";
 import { colorRef, isThemeRef } from "../../player/src/theme.ts";
-import { BLOCK_SIZES, buildSimpleText, parseSimpleText } from "./content.ts";
+import { BLOCK_SIZES, buildActivation, buildSimpleText, parseSimpleText, type Activation } from "./content.ts";
 
-export type NewKind = "text" | "button" | "shape" | "image" | "table" | "scrollingText" | "results" | "certificate";
+export type NewKind = "text" | "button" | "hotspot" | "shape" | "image" | "table" | "scrollingText" | "results" | "certificate";
 
 /** What a slide sits on, which decides what colour text on it should be. */
 export type Tone = "light" | "dark" | "accent";
@@ -38,8 +40,7 @@ export const NEW_OPTIONS: { value: string; label: string }[] = [
   { value: "shape:line", label: "Shape: line" },
   { value: "content:table", label: "Content: table" },
   { value: "content:scrollingText", label: "Content: scrolling text" },
-  { value: "quiz:mc", label: "Quiz question: multiple choice" },
-  { value: "quiz:tf", label: "Quiz question: true or false" },
+  ...QUIZ_KINDS.map((k) => ({ value: `quiz:${k.id}`, label: `Quiz question: ${k.label}` })),
 ];
 
 /** Ids for new objects and layers that no one else is using. */
@@ -73,7 +74,8 @@ interface NewOptions {
   shape?: string;
 }
 
-const box = (id: string, x: number, y: number, w: number, h: number, z: number) => ({
+/** The parts every object has the same way, with nothing added to it yet. */
+export const box = (id: string, x: number, y: number, w: number, h: number, z: number) => ({
   id,
   geometry: { x, y, width: w, height: h, rotation: 0, z },
   states: {},
@@ -110,6 +112,16 @@ export function newObject(kind: NewKind, p: Placement, opts: NewOptions = {}): O
         content: { label: "Button" },
         style: { fontFamily: "theme:font.body", fontSize: 18, color: colorRef("onAccentStrong"), fill: colorRef("accentStrong"), radius: 8 },
         accessibility: { altText: "Button", role: "button", tabOrder: p.tabOrder, decorative: false },
+      };
+    }
+    case "hotspot": {
+      // A transparent button to put over a picture. Its name starts empty, so the validator asks the author for it: what pressing it does.
+      const at = stagger(p, 300, 300);
+      return {
+        ...box(p.id, at.x, at.y, 200, 100, p.z), type: "hotspot", name: "Hotspot",
+        content: {},
+        style: {},
+        accessibility: { altText: "", role: "button", tabOrder: p.tabOrder, decorative: false },
       };
     }
     case "shape": {
@@ -185,14 +197,14 @@ export function newObject(kind: NewKind, p: Placement, opts: NewOptions = {}): O
 
 // ---- quiz questions
 
-export type QuizType = "mc" | "tf";
+export type { QuizType } from "./questionedit.ts";
 
 /**
  * A question, its answers and two feedback layers, wired together. The prompt is a heading so it
  * is a real heading to a screen reader. The first answer starts as the correct one, and the
  * author changes that.
  */
-export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: number; tab: number; tone?: Tone }): { objects: OSObject[]; layers: Layer[] } {
+export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: number; tab: number; tone?: Tone; imageSrc?: string }): { objects: OSObject[]; layers: Layer[] } {
   const tone = at.tone ?? "light";
   const correctLayer = emptyLayer(alloc.layer(), "Correct feedback");
   const wrongLayer = emptyLayer(alloc.layer(), "Incorrect feedback");
@@ -209,9 +221,7 @@ export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: numb
   feedback(correctLayer, "Correct. Explain why this answer is right.", colorRef(tone === "light" ? "good" : textRole(tone)));
   feedback(wrongLayer, "Not quite. Give a hint, then let the learner try again.", colorRef(tone === "light" ? "bad" : textRole(tone)));
 
-  const choices: QuizContent["choices"] = type === "tf"
-    ? [{ id: "c1", label: "True", correct: true }, { id: "c2", label: "False", correct: false }]
-    : [{ id: "c1", label: "First answer", correct: true }, { id: "c2", label: "Second answer", correct: false }, { id: "c3", label: "Third answer", correct: false }];
+  const kind = quizKind(type)!;
 
   const prompt: OSObject = {
     ...box(alloc.object(), 80, at.y, 1120, 90, at.z), type: "text", name: "Question",
@@ -220,16 +230,15 @@ export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: numb
     accessibility: { altText: "Type your question here", role: "heading", tabOrder: at.tab, decorative: false },
   };
   const quiz: OSObject = {
-    ...box(alloc.object(), 80, at.y + 110, 720, type === "tf" ? 200 : 260, at.z + 10), type: "quizQuestion", name: type === "tf" ? "True or false question" : "Multiple choice question",
+    ...box(alloc.object(), 80, at.y + 110, kind.size.w, kind.size.h, at.z + 10), type: "quizQuestion", name: kind.name,
     content: {
-      questionType: "multipleChoice",
-      choices,
-      scoring: { points: 10, attemptsAllowed: type === "tf" ? 1 : 2 },
+      ...startingQuestion(type, at.imageSrc),
+      scoring: { points: 10, attemptsAllowed: type === "tf" || type === "hotspot" ? 1 : 2 },
       feedback: { correct: correctLayer.id, incorrect: wrongLayer.id },
     },
     style: { fontFamily: "theme:font.body", fontSize: 20, color: colorRef(textRole(tone)) },
     // The name a screen reader gives the group of answers. The question itself is the heading before it.
-    accessibility: { altText: "Answer choices", role: "radiogroup", tabOrder: at.tab + 1, decorative: false },
+    accessibility: { altText: kind.alt, role: type === "mc" || type === "tf" ? "radiogroup" : "group", tabOrder: at.tab + 1, decorative: false },
   };
   return { objects: [prompt, quiz], layers: [correctLayer, wrongLayer] };
 }
@@ -280,10 +289,10 @@ export interface SlideLayout {
   /** The slide's background: "theme:bg.dark" and so on. Omitted for the theme's default. */
   background?: string;
 }
-const heading = (name: string, text: string, rect: Rect, size: number, block: Slot["block"] = "h1"): Slot => ({ kind: "title", name, block, text, rect, size });
-const body = (name: string, text: string, rect: Rect, size: number, block: Slot["block"] = "p", muted = false): Slot => ({ kind: "body", name, block, text, rect, size, ...(muted ? { muted } : {}) });
+export const heading = (name: string, text: string, rect: Rect, size: number, block: Slot["block"] = "h1"): Slot => ({ kind: "title", name, block, text, rect, size });
+export const body = (name: string, text: string, rect: Rect, size: number, block: Slot["block"] = "p", muted = false): Slot => ({ kind: "body", name, block, text, rect, size, ...(muted ? { muted } : {}) });
 const subhead = (name: string, text: string, rect: Rect, size: number): Slot => ({ kind: "heading", name, block: "h3", text, rect, size });
-const accent = (rect: Rect, fill = colorRef("accent")): Decoration => ({ name: "Accent", rect, fill });
+export const accent = (rect: Rect, fill = colorRef("accent")): Decoration => ({ name: "Accent", rect, fill });
 
 const pictureArea = (rect: Rect): Decoration => ({ name: "Picture area", rect, fill: colorRef("surface") });
 const chartArea = (rect: Rect): Decoration => ({ name: "Chart area", rect, fill: colorRef("surface") });
@@ -589,16 +598,17 @@ export function buildLayoutSlide(layout: SlideLayout, id: string, alloc: Alloc):
 // ---- layout previews
 
 export interface PreviewBlock {
-  kind: "title" | "heading" | "body" | "accent" | "picture" | "chart";
+  kind: "title" | "heading" | "body" | "accent" | "picture" | "chart" | "button" | "panel";
   rect: Rect;
   fill?: string;
 }
 
 /** What to draw in the small picture of a layout, in slide units (1280 by 720). */
-export function previewBlocks(layout: SlideLayout): PreviewBlock[] {
+export function previewBlocks(layout: SlideLayout, extras: PreviewBlock[] = []): PreviewBlock[] {
   return [
     ...layout.decorations.map((d): PreviewBlock => ({ kind: d.name === "Picture area" ? "picture" : d.name === "Chart area" ? "chart" : "accent", rect: d.rect, fill: d.fill })),
     ...layout.slots.map((s): PreviewBlock => ({ kind: s.kind, rect: s.rect })),
+    ...extras,
   ];
 }
 
@@ -608,12 +618,13 @@ export function previewBlocks(layout: SlideLayout): PreviewBlock[] {
  */
 export const ADD_MENU: { value: string; label: string }[] = [
   { value: "text", label: "Text box" },
-  { value: "button", label: "Button" },
+  { value: "group:button", label: "Button..." },
+  { value: "hotspot", label: "Hotspot (a clickable area)" },
   { value: "group:media", label: "Image, video, audio or file..." },
   { value: "group:shape", label: "Shape..." },
   { value: "group:content", label: "Table or scrolling text..." },
   { value: "group:question", label: "Question, input or survey..." },
-  { value: "group:interaction", label: "Interaction..." },
+  { value: "group:interaction", label: "Interaction or scenario..." },
   { value: "group:course", label: "Results or certificate..." },
 ];
 
@@ -698,6 +709,69 @@ export function newInteraction(choice: InteractionChoice, p: Placement): OSObjec
   };
 }
 
+// ---- icons, and buttons that go somewhere
+
+/** An icon: 64 by 64 in the theme's strong colour. It starts with no alt text, so the validator asks for it, or for the icon to be marked decorative. */
+export function newIcon(p: Placement, icon: IconContent): OSObject {
+  const at = stagger(p, 200, 200);
+  return {
+    ...box(p.id, at.x, at.y, 64, 64, p.z), type: "icon", name: `Icon: ${icon.name.replace(/-/g, " ")}`,
+    content: icon as unknown as Record<string, unknown>,
+    style: { color: colorRef("accentStrong"), strokeWidth: 2 },
+    accessibility: { altText: "", role: "img", tabOrder: p.tabOrder, decorative: false },
+  };
+}
+
+/** The ready-made buttons that move around the course: what they say, the icon they show, and which side it is on. */
+export interface NavigationButton {
+  id: "next" | "previous" | "replay";
+  label: string;
+  description: string;
+  icon: IconContent;
+  placement: "before" | "after";
+}
+
+// The three arrows are Lucide's own (a test checks they are the same as in the icon list).
+export const NAVIGATION_BUTTONS: NavigationButton[] = [
+  { id: "next", label: "Next", description: "Goes to the next slide of the course. If the slides are moved about, it still goes to the one that follows.", placement: "after",
+    icon: { set: "lucide", name: "arrow-right", shapes: [{ tag: "path", d: "M5 12h14" }, { tag: "path", d: "m12 5 7 7-7 7" }] } },
+  { id: "previous", label: "Back", description: "Goes to the slide before this one.", placement: "before",
+    icon: { set: "lucide", name: "arrow-left", shapes: [{ tag: "path", d: "m12 19-7-7 7-7" }, { tag: "path", d: "M19 12H5" }] } },
+  { id: "replay", label: "Replay this slide", description: "Shows this slide again from the start: its timing, its narration and its layers.", placement: "before",
+    icon: { set: "lucide", name: "rotate-ccw", shapes: [{ tag: "path", d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }, { tag: "path", d: "M3 3v5h5" }] } },
+];
+
+export function navigationButtonById(id: string): NavigationButton | undefined {
+  return NAVIGATION_BUTTONS.find((b) => b.id === id);
+}
+
+/** A button already wired to move around the course. Its words are its name, and it works from the keyboard as well as the mouse. */
+export function newNavigationButton(choice: NavigationButton, p: Placement): OSObject {
+  const base = newObject("button", p);
+  const action: Exclude<Activation, { kind: "custom" }> = { kind: choice.id };
+  return {
+    ...base,
+    name: choice.label,
+    content: { label: choice.label, icon: { ...choice.icon, shapes: choice.icon.shapes.map((s) => ({ ...s })) }, iconPlacement: choice.placement },
+    accessibility: { ...base.accessibility, altText: choice.label },
+    triggers: buildActivation(action),
+  };
+}
+
+// ---- scenarios
+
+/** A scenario with a small story to write over. It is large, because it holds a heading, lines of text and buttons. */
+export function newScenario(p: Placement, content: ScenarioContent): OSObject {
+  const at = stagger(p, 140, 120);
+  return {
+    ...box(p.id, at.x, at.y, 1000, 540, p.z), type: "scenario", name: "Scenario",
+    content: content as unknown as Record<string, unknown>,
+    style: { fontFamily: "theme:font.body", fontSize: 20 },
+    // The name a screen reader gives the scenario. The author should make it say what the scenario is about.
+    accessibility: { altText: "A scenario", role: "group", tabOrder: p.tabOrder, decorative: false },
+  };
+}
+
 // ---- inputs and surveys
 
 export interface InputChoice {
@@ -709,6 +783,7 @@ export interface InputChoice {
 }
 
 export const INPUTS: InputChoice[] = [
+  { id: "character", group: "Inputs", label: "Choose a character", description: "The learner picks who they will be, from the people in the project's cast, shown as picture cards. The choice is saved in one variable, and a scenario can show it.", size: { w: 700, h: 340 } },
   { id: "checkbox", group: "Inputs", label: "Checkboxes", description: "Tick any number of boxes. Each box is saved in its own true or false variable.", size: { w: 560, h: 230 } },
   { id: "radio", group: "Inputs", label: "Radio buttons", description: "Choose one of several. The choice is saved in one variable.", size: { w: 560, h: 230 } },
   { id: "dropdown", group: "Inputs", label: "Drop-down", description: "Choose one from a menu that opens.", size: { w: 560, h: 150 } },
@@ -733,11 +808,13 @@ export const LIKERT_SCALE = ["Strongly disagree", "Disagree", "Neither agree nor
  * A new input. Every part that saves something gets its own new variable, made by `makeVar`, so a
  * new input works straight away and no two parts overwrite each other.
  */
-export function newInput(choice: InputChoice, p: Placement, makeVar: (type: "boolean" | "string" | "number", base: string) => string): OSObject {
+export function newInput(choice: InputChoice, p: Placement, makeVar: (type: "boolean" | "string" | "number", base: string) => string, cast: readonly { id: string }[] = []): OSObject {
   const kind = choice.id;
   const ids = (n: number, prefix: string) => Array.from({ length: n }, (_, i) => `${prefix}${i + 1}`);
   let content: InputContent;
-  if (kind === "checkbox") {
+  if (kind === "character") {
+    content = { kind, prompt: "Choose who you will be", report: false, variable: makeVar("string", "character"), characters: cast.slice(0, 3).map((x) => x.id) };
+  } else if (kind === "checkbox") {
     content = { kind, prompt: "Select all that apply", report: false, items: ids(3, "box-").map((id, i) => ({ id, label: `Option ${i + 1}`, variable: makeVar("boolean", `option${i + 1}`) })) };
   } else if (kind === "radio" || kind === "dropdown" || kind === "list") {
     const n = kind === "list" ? 4 : 3;

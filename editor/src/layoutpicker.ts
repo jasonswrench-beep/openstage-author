@@ -6,7 +6,8 @@
 
 import { backgroundColors, resolveValue } from "../../player/src/theme.ts";
 import type { Theme } from "../../player/src/types.ts";
-import { previewBlocks, SLIDE_LAYOUTS, textRole, type SlideLayout } from "./factory.ts";
+import { previewBlocks, SLIDE_LAYOUTS, textRole, type PreviewBlock, type SlideLayout } from "./factory.ts";
+import { SLIDE_TEMPLATES, TEMPLATE_PREFIX } from "./templates.ts";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -26,7 +27,7 @@ function rect(doc: Document, x: number, y: number, w: number, h: number, fill: s
  * A small drawing of a layout on its background: bars for titles, lines for text, and the
  * decorations, all in the theme's colours.
  */
-export function previewSvg(doc: Document, layout: SlideLayout, theme: Theme): SVGSVGElement {
+export function previewSvg(doc: Document, layout: SlideLayout, theme: Theme, extras: PreviewBlock[] = []): SVGSVGElement {
   const svg = doc.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 1280 720");
   svg.setAttribute("aria-hidden", "true");
@@ -40,10 +41,18 @@ export function previewSvg(doc: Document, layout: SlideLayout, theme: Theme): SV
   page.setAttribute("stroke-width", "6");
   svg.appendChild(page);
 
-  for (const b of previewBlocks(layout)) {
+  for (const b of previewBlocks(layout, extras)) {
     const [x, y, w, h] = b.rect;
     const fill = String(resolveValue(theme, b.fill ?? "#cccccc"));
-    if (b.kind === "accent") {
+    if (b.kind === "button") {
+      svg.appendChild(rect(doc, x, y, w, h, theme.colors.accentStrong, 18));
+    } else if (b.kind === "panel") {
+      const box = rect(doc, x, y, w, h, theme.colors.surface, 10);
+      box.setAttribute("stroke", theme.colors.muted);
+      box.setAttribute("stroke-width", "4");
+      box.setAttribute("stroke-dasharray", "14 10");
+      svg.appendChild(box);
+    } else if (b.kind === "accent") {
       svg.appendChild(rect(doc, x, y, w, h, fill));
     } else if (b.kind === "picture") {
       svg.appendChild(rect(doc, x, y, w, h, fill, 8));
@@ -85,6 +94,8 @@ export interface LayoutChoice {
   /** The project's theme, so the drawings show its colours. */
   theme: Theme;
   note?: string;
+  /** Also offer the ready-made lesson slides. Their ids come back as "template:<id>". Only for adding a slide, not for changing a layout. */
+  templates?: boolean;
 }
 
 /** Show the picker. Resolves to the chosen layout's id, or null if it was cancelled. */
@@ -105,32 +116,41 @@ export function askLayout(choice: LayoutChoice): Promise<string | null> {
     legend.textContent = "Layout";
     fieldset.appendChild(legend);
 
+    // A layout is a place for text. A ready-made lesson slide also has its buttons, question or story, already working.
+    interface Offer { value: string; layout: SlideLayout; label: string; description: string; extras: PreviewBlock[] }
+    const offers: { group: string; items: Offer[] }[] = [];
     const groups: string[] = [];
     for (const layout of SLIDE_LAYOUTS) if (!groups.includes(layout.group)) groups.push(layout.group);
     for (const group of groups) {
+      offers.push({ group, items: SLIDE_LAYOUTS.filter((l) => l.group === group).map((l) => ({ value: l.id, layout: l, label: l.label, description: l.description, extras: [] })) });
+    }
+    if (choice.templates) {
+      offers.push({ group: "Lesson slides, ready-made", items: SLIDE_TEMPLATES.map((t) => ({ value: `${TEMPLATE_PREFIX}${t.id}`, layout: t.layout, label: t.label, description: t.description, extras: t.extras })) });
+    }
+    for (const { group, items } of offers) {
       const h3 = doc.createElement("h3");
       h3.className = "layout-group";
       h3.textContent = group;
       fieldset.appendChild(h3);
       const grid = doc.createElement("div");
       grid.className = "layout-grid";
-      for (const layout of SLIDE_LAYOUTS.filter((l) => l.group === group)) {
+      for (const offer of items) {
         const label = doc.createElement("label");
         label.className = "layout-card";
         const radio = doc.createElement("input");
         radio.type = "radio";
         radio.name = "layout";
-        radio.value = layout.id;
-        radio.checked = layout.id === choice.initial;
+        radio.value = offer.value;
+        radio.checked = offer.value === choice.initial;
         const card = doc.createElement("span");
         card.className = "card-body";
         const name = doc.createElement("span");
         name.className = "card-title";
-        name.textContent = layout.label;
+        name.textContent = offer.label;
         const desc = doc.createElement("span");
         desc.className = "card-desc";
-        desc.textContent = layout.description;
-        card.append(previewSvg(doc, layout, choice.theme), name, desc);
+        desc.textContent = offer.description;
+        card.append(previewSvg(doc, offer.layout, choice.theme, offer.extras), name, desc);
         label.append(radio, card);
         grid.appendChild(label);
       }

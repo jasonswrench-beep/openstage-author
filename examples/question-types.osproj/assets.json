@@ -1,0 +1,17 @@
+{
+  "assets": [
+    {
+      "path": "assets/images/campus-map.svg",
+      "title": "Campus map",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "",
+        "creator": "OpenStage Author sample",
+        "creatorUrl": "",
+        "licence": "Made for this sample. Free to reuse.",
+        "requiresCredit": false
+      }
+    }
+  ]
+}

@@ -7,14 +7,21 @@
 
 import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNeeded } from "./blocks.ts";
 import { buildInput, type InputChange } from "./inputs.ts";
-import { Presenter } from "./animation.ts";
+import { HIDDEN_CLASS, Presenter } from "./animation.ts";
 import { buildDownload } from "./downloads.ts";
 import { buildInteraction, type ItemSound } from "./interactions.ts";
+import type { DescriptionHost } from "./description.ts";
+import { emptyMessage, isAnswered } from "./grading.ts";
+import { buildQuestion } from "./questions.ts";
 import { planReflow, type ReflowNote } from "./reflow.ts";
+import { buildScenario, type Move, type ScenarioSound } from "./scenario.ts";
 import { buildCertificate, buildResults, type CourseInfo, type CourseResults } from "./results.ts";
+import { buildLogo, logoFirst } from "./logo.ts";
+import { buildIcon, strokeWidthOf } from "./icon.ts";
+import { lookLayers, spokenOnChange } from "./looks.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
 import { backgroundCss, resolveStyle } from "./theme.ts";
-import type { Effect, OSObject, QuizContent, Slide, Style, Theme } from "./types.ts";
+import type { Character, Effect, IconContent, OSObject, QuizContent, Slide, Style, Theme } from "./types.ts";
 
 export type Activation = "click" | "keyActivate";
 
@@ -23,7 +30,8 @@ export interface StageBehavior {
   editing?: boolean;
   onActivate?(obj: OSObject, via: Activation): void;
   /** Return null if nothing happened (no answer chosen). */
-  onQuizSubmit?(obj: OSObject, choiceId: string, via: Activation): { locked: boolean } | null;
+  /** A learner checked an answer, in the form grading.ts reads. Return null if nothing was checked. */
+  onQuizSubmit?(obj: OSObject, answer: string, via: Activation): { locked: boolean } | null;
   quizStatus?(objectId: string): { choice: string | null; locked: boolean } | undefined;
   announce?(message: string): void;
   onMediaEnded?(objectId: string): void;
@@ -39,8 +47,18 @@ export interface StageBehavior {
   fileSize?(path: string): number | undefined;
   /** Does this interaction item have audio the learner can start? */
   itemAudio?(objectId: string, itemId: string): boolean;
+  /** Where the spoken form of one audio description of a video is, or null if it can only be read. */
+  descriptionAudio?(objectId: string, cueId: string): string | null;
   /** A learner opened an interaction item, or asked to hear it: say it now. */
   playItem?(objectId: string, itemId: string): void;
+  /** Say several items of one object (the lines of a scenario) one after another, in place of anything already being said. */
+  playItems?(objectId: string, itemIds: string[]): void;
+  /** The project's cast, for a scenario and a choice of character. */
+  characters?(): Character[];
+  /** Where the learner is in a scenario: the path saved with their progress, or "". */
+  scenarioPath?(objectId: string): string;
+  /** A learner made a choice in a scenario, or took one back. */
+  onScenarioMove?(obj: OSObject, move: Move): void;
 }
 
 const COLOR_PROPS: Record<string, string> = { color: "color", fill: "background-color", background: "background-color" };
@@ -70,6 +88,8 @@ export class StageRenderer {
   private readonly presenter = new Presenter();
   private layerEls = new Map<string, HTMLElement>();
   private fillers = new Map<string, { el: HTMLElement; html: string }[]>();
+  /** Shows a scenario's meters and character as they are now, by object id. */
+  private scenarios = new Map<string, () => void>();
   private section: HTMLElement | null = null;
   /** The slide is shown in one column instead of on the fixed stage (see reflow.ts). */
   private reflow = false;
@@ -99,6 +119,7 @@ export class StageRenderer {
     for (const m of this.mounted.values()) {
       this.refresh(m);
       if (m.obj.type === "table" && !this.behavior.editing) scrollableIfNeeded(m.el);
+      if (m.obj.type === "quizQuestion" && !this.behavior.editing) this.scrollRegion(m.el, m.obj.accessibility.altText);
     }
   }
 
@@ -118,6 +139,7 @@ export class StageRenderer {
     this.mounted.clear();
     this.layerEls.clear();
     this.fillers.clear();
+    this.scenarios.clear();
     this.reflowNotes.clear();
     for (const layer of [slide.baseLayer, ...slide.layers]) {
       for (const [id, note] of planReflow(layer.objects, this.theme)) this.reflowNotes.set(id, note);
@@ -144,6 +166,9 @@ export class StageRenderer {
     section.style.setProperty("--os-on-dark", this.theme.colors.onDark);
     this.section = section;
 
+    // The theme's logo, if it has one, behind everything, in the page where the eye would meet it.
+    const logo = this.theme.logo;
+    if (logo && logoFirst(logo)) section.appendChild(buildLogo(doc, logo));
     for (const [i, layer] of [slide.baseLayer, ...slide.layers].entries()) {
       const visible = i === 0 || shown.has(layer.id);
       const layerEl = el(doc, "div", "os-layer");
@@ -153,6 +178,7 @@ export class StageRenderer {
       for (const obj of readingOrder(layer.objects)) layerEl.appendChild(this.buildObject(obj, layer.id, visible));
       section.appendChild(layerEl);
     }
+    if (logo && !logoFirst(logo)) section.appendChild(buildLogo(doc, logo));
     this.stageEl.appendChild(section);
     return section;
   }
@@ -207,11 +233,31 @@ export class StageRenderer {
     this.mediaOf(objectId)?.pause();
   }
 
-  setObjectState(objectId: string, state: string): void {
+  /**
+   * Show an object in one of its looks ("normal" is its own). Returns what a screen reader should be told, if the look has a message
+   * and the object is there to be told about: nothing is said about something that is hidden, or is not changing.
+   */
+  setObjectState(objectId: string, state: string): string | null {
     const m = this.mounted.get(objectId);
-    if (!m) return;
+    if (!m) return null;
+    const said = spokenOnChange(m.obj.states, m.stateName, state);
     m.stateName = state;
     this.refresh(m);
+    // An object that is not there (its layer is closed, or its timing has it out of the page) is not announced.
+    return said !== null && !m.el.closest(`[hidden], .${HIDDEN_CLASS}`) ? said : null;
+  }
+
+  /** The video or audio element of a media object, or null if it has none (or is not on the slide). Used to follow the clip's time. */
+  mediaElement(objectId: string): HTMLMediaElement | null {
+    const node = this.mounted.get(objectId)?.el;
+    if (!node) return null;
+    if (node instanceof HTMLMediaElement) return node;
+    return node.querySelector<HTMLMediaElement>("video, audio");
+  }
+
+  /** The course's variables changed: a scenario on screen shows its meters, and the character the learner chose, as they are now. */
+  refreshScenarios(): void {
+    for (const refresh of this.scenarios.values()) refresh();
   }
 
   /** Re-apply position, size and style after the object's data changed. */
@@ -262,6 +308,16 @@ export class StageRenderer {
       case "hotspot": {
         const label = obj.type === "button" ? String(obj.content["label"] ?? "") : "";
         const b = button(doc, label, obj.type === "button" ? "os-button" : "os-hotspot");
+        // A button can show an icon before its words. The words are its name, so the icon says nothing of its own.
+        const icon = obj.type === "button" ? (obj.content["icon"] as IconContent | undefined) : undefined;
+        if (icon && Array.isArray(icon.shapes)) {
+          const svg = buildIcon(doc, icon);
+          svg.classList.add("os-button-icon");
+          b.classList.add("os-button-has-icon");
+          b.textContent = "";
+          if (obj.content["iconPlacement"] === "after") b.append(doc.createTextNode(label), svg);
+          else b.append(svg, doc.createTextNode(label));
+        }
         this.nameControl(b, label, a.altText);
         this.wireActivation(b, obj);
         node = b;
@@ -270,6 +326,18 @@ export class StageRenderer {
       case "quizQuestion":
         node = this.buildQuiz(obj);
         break;
+      case "icon": {
+        // Drawn in the object's colour. A screen reader hears its alt text, or nothing if it is decoration (the generic code below hides it).
+        const svg = buildIcon(doc, obj.content as unknown as IconContent, strokeWidthOf(obj.style["strokeWidth"]));
+        svg.classList.add("os-icon");
+        if (!a.decorative) {
+          svg.setAttribute("role", "img");
+          svg.setAttribute("aria-label", a.altText);
+          svg.removeAttribute("aria-hidden");
+        }
+        node = svg as unknown as HTMLElement;
+        break;
+      }
       case "interaction":
         node = buildInteraction(doc, obj, !!this.behavior.editing, this.itemSound(obj));
         break;
@@ -278,8 +346,23 @@ export class StageRenderer {
           editing: !!this.behavior.editing,
           value: (id) => this.behavior.variableValue?.(id),
           onChange: (change) => this.behavior.onInput?.(obj, change),
+          characters: () => this.behavior.characters?.() ?? [],
         });
         break;
+      case "scenario": {
+        const built = buildScenario(doc, obj, {
+          editing: !!this.behavior.editing,
+          cast: this.behavior.characters?.() ?? [],
+          value: (id) => this.behavior.variableValue?.(id),
+          path: () => this.behavior.scenarioPath?.(obj.id) ?? "",
+          onMove: (move) => this.behavior.onScenarioMove?.(obj, move),
+          announce: (message) => this.behavior.announce?.(message),
+          sound: this.scenarioSound(obj),
+        });
+        this.scenarios.set(obj.id, built.refresh);
+        node = built.el;
+        break;
+      }
       case "table":
         node = buildTable(doc, obj, !!this.behavior.editing);
         break;
@@ -288,7 +371,7 @@ export class StageRenderer {
         break;
       case "video":
       case "audio":
-        node = buildMedia(doc, obj, (id) => this.behavior.onMediaEnded?.(id));
+        node = buildMedia(doc, obj, (id) => this.behavior.onMediaEnded?.(id), this.descriptionHost(obj));
         break;
       case "embed":
         node = buildEmbed(doc, obj, !!this.behavior.editing);
@@ -351,6 +434,32 @@ export class StageRenderer {
     });
   }
 
+  /** Where a video's audio descriptions are spoken from: nothing in the editor, and nothing where the host cannot say where the audio is. */
+  private descriptionHost(obj: OSObject): DescriptionHost | undefined {
+    const behavior = this.behavior;
+    if (behavior.editing || !behavior.descriptionAudio || obj.type !== "video") return undefined;
+    const doc = this.doc;
+    return {
+      audioUrl: (cueId) => behavior.descriptionAudio?.(obj.id, cueId) ?? null,
+      makeAudio: (url) => {
+        const audio = doc.createElement("audio");
+        audio.preload = "auto";
+        audio.src = url;
+        return audio;
+      },
+    };
+  }
+
+  /** How a scenario speaks its lines: nothing in the editor, and nothing where the host cannot play audio. */
+  private scenarioSound(obj: OSObject): ScenarioSound | undefined {
+    const behavior = this.behavior;
+    if (behavior.editing || !behavior.playItems) return undefined;
+    return {
+      has: (lineId) => behavior.itemAudio?.(obj.id, lineId) ?? false,
+      play: (lineIds) => behavior.playItems?.(obj.id, lineIds),
+    };
+  }
+
   /** How an interaction speaks its items: nothing in the editor, and nothing where the host cannot play audio. */
   private itemSound(obj: OSObject): ItemSound | undefined {
     const behavior = this.behavior;
@@ -361,50 +470,49 @@ export class StageRenderer {
     };
   }
 
+  /** A question of any kind: its controls (see questions.ts), and the button that checks them. */
   private buildQuiz(obj: OSObject): HTMLElement {
     const doc = this.doc;
     const q = obj.content as unknown as QuizContent;
-    const box = el(doc, "div", "os-quiz");
-    const group = el(doc, "div", "os-quiz-group");
-    group.setAttribute("role", "radiogroup");
-    group.setAttribute("aria-label", obj.accessibility.altText);
-    for (const c of q.choices) {
-      const label = el(doc, "label", "os-choice");
-      const input = el(doc, "input", "") as HTMLInputElement;
-      input.type = "radio";
-      input.name = obj.id;
-      input.value = c.id;
-      label.append(input, doc.createTextNode(` ${c.label}`));
-      group.appendChild(label);
-    }
+    const view = buildQuestion(doc, obj, { editing: !!this.behavior.editing, announce: (m) => this.behavior.announce?.(m) });
     const check = button(doc, "Check answer", "os-button os-quiz-check");
-    box.append(group, check);
-    if (this.behavior.editing) return box;
+    view.el.appendChild(check);
+    if (this.behavior.editing) return view.el;
 
     // A resumed attempt shows the answer the learner gave, and stays locked if it was.
     const saved = this.behavior.quizStatus?.(obj.id);
     if (saved) {
-      group.querySelectorAll<HTMLInputElement>("input").forEach((i) => {
-        i.checked = i.value === saved.choice;
-        if (saved.locked) i.disabled = true;
-      });
-      if (saved.locked) check.setAttribute("aria-disabled", "true");
+      if (saved.choice) view.setAnswer(saved.choice);
+      if (saved.locked) {
+        view.lock();
+        check.setAttribute("aria-disabled", "true");
+      }
     }
 
     check.addEventListener("click", (e) => {
       if (check.getAttribute("aria-disabled") === "true") return;
-      const picked = group.querySelector<HTMLInputElement>("input:checked");
-      if (!picked) {
-        this.behavior.announce?.("Choose an answer first.");
+      const answer = view.answer();
+      if (answer === null || !isAnswered(q, answer)) {
+        this.behavior.announce?.(emptyMessage(q));
         return;
       }
-      const outcome = this.behavior.onQuizSubmit?.(obj, picked.value, activation(e));
+      const outcome = this.behavior.onQuizSubmit?.(obj, answer, activation(e));
       if (outcome?.locked) {
         check.setAttribute("aria-disabled", "true");
-        group.querySelectorAll("input").forEach((i) => (i.disabled = true));
+        view.lock();
       }
     });
-    return box;
+    // A question taller than its box scrolls, and then the keyboard must be able to reach the scrolling.
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => this.scrollRegion(view.el, obj.accessibility.altText));
+    return view.el;
+  }
+
+  /** Make a box that scrolls a stop for the keyboard, named so a screen reader can say what it is. Looked at again when the page changes shape. */
+  private scrollRegion(box: HTMLElement, name: string): void {
+    if (box.scrollHeight <= box.clientHeight + 1 && box.scrollWidth <= box.clientWidth + 1) return;
+    box.tabIndex = 0;
+    box.setAttribute("role", "region");
+    box.setAttribute("aria-label", name);
   }
 
   // ---- styling
@@ -425,17 +533,14 @@ export class StageRenderer {
     set("--os-ar", `${g.width} / ${Math.max(1, g.height)}`);
 
     const theme = this.theme;
-    const layers: Style[] = [resolveStyle(theme, obj.style)];
-    if (m.visited && obj.states["visited"]?.style) layers.push(resolveStyle(theme, obj.states["visited"].style));
-    if (m.stateName !== "normal" && obj.states[m.stateName]?.style) layers.push(resolveStyle(theme, obj.states[m.stateName]!.style!));
-    if (m.hover && obj.states["hover"]?.style) layers.push(resolveStyle(theme, obj.states["hover"].style));
+    const layers: Style[] = [resolveStyle(theme, obj.style), ...lookLayers(obj.states, { name: m.stateName, visited: m.visited, hover: m.hover }).map((s) => resolveStyle(theme, s))];
     if (obj.type === "shape") {
       // Fill and outline belong to the drawn figure. The box around it must stay transparent,
       // or a circle would sit in a square of colour.
       const own = ["fill", "background", "stroke", "strokeWidth", "radius"];
       for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => !own.includes(k))));
       applyShapeStyle(node, Object.assign({}, ...layers) as Style);
-    } else if (obj.type === "interaction" || obj.type === "table" || obj.type === "scrollingText" || obj.type === "input" || obj.type === "embed" || obj.type === "results" || obj.type === "certificate" || obj.type === "download") {
+    } else if (obj.type === "interaction" || obj.type === "table" || obj.type === "scrollingText" || obj.type === "input" || obj.type === "embed" || obj.type === "results" || obj.type === "certificate" || obj.type === "download" || obj.type === "scenario") {
       // An interaction, table or scrolling text box paints itself in the theme's colours, which are known to read well together,
       // so only the font and its size can be changed.
       for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => k === "fontFamily" || k === "fontSize")));

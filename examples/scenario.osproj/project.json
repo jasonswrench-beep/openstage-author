@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "0.25.0",
+  "meta": {
+    "title": "A Missed Deadline",
+    "author": "OpenStage examples",
+    "language": "en-US",
+    "created": "2026-10-13",
+    "modified": "2026-10-13"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-who",
+      "name": "who",
+      "type": "string",
+      "initial": ""
+    },
+    {
+      "id": "var-trust",
+      "name": "trust",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-clarity",
+      "name": "clarity",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-done",
+      "name": "done",
+      "type": "boolean",
+      "initial": false
+    }
+  ],
+  "characters": [
+    {
+      "id": "maya",
+      "name": "Maya Reyes",
+      "role": "Team lead",
+      "voice": "af_heart",
+      "picture": {
+        "src": "assets/images/maya.svg",
+        "alt": "Maya, a woman with short dark hair in a green jacket",
+        "decorative": false
+      }
+    },
+    {
+      "id": "alex",
+      "name": "Alex Kim",
+      "role": "Analyst on Maya's team",
+      "voice": "am_adam",
+      "picture": {
+        "src": "assets/images/alex.svg",
+        "alt": "Alex, a man with glasses in a yellow shirt",
+        "decorative": false
+      }
+    },
+    {
+      "id": "jordan",
+      "name": "Jordan Lee",
+      "role": "Analyst on Maya's team",
+      "voice": "af_sarah",
+      "picture": {
+        "src": "assets/images/jordan.svg",
+        "alt": "Jordan, a person with short black hair in a blue shirt",
+        "decorative": false
+      }
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": false,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003"
+      ]
+    }
+  ]
+}

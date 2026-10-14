@@ -1,0 +1,240 @@
+{
+  "id": "slide-001",
+  "name": "Multiple choice",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0004",
+        "type": "text",
+        "name": "Prompt",
+        "geometry": {
+          "x": 80,
+          "y": 40,
+          "width": 1120,
+          "height": 100,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h2>Which channel keeps a written record?</h2>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Which channel keeps a written record?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0003",
+        "type": "quizQuestion",
+        "name": "Multiple choice",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1120,
+          "height": 300,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "A phone call",
+              "correct": false
+            },
+            {
+              "id": "c2",
+              "label": "An email",
+              "correct": true
+            },
+            {
+              "id": "c3",
+              "label": "A hallway chat",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 2
+          },
+          "feedback": {
+            "correct": "layer-correct",
+            "incorrect": "layer-retry"
+          }
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 20,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-correct",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0001",
+          "type": "text",
+          "name": "Correct feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Right. An email is kept.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#0f5132"
+          },
+          "accessibility": {
+            "altText": "Right. An email is kept.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    },
+    {
+      "id": "layer-retry",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0002",
+          "type": "text",
+          "name": "Incorrect feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Not quite. Think about which one is written down.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#842029"
+          },
+          "accessibility": {
+            "altText": "Not quite. Think about which one is written down.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}

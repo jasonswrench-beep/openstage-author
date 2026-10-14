@@ -4,21 +4,34 @@
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
-import type { CertificateContent, Condition, CreditEntry, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
+import type { Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
-import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
+import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
+import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
+import type { DeckSource, ObjectState } from "../../player/src/types.ts";
+import type { Deck } from "./pptx/deck.ts";
+import type { Tones } from "./pptx/convert.ts";
+import type { Pkg } from "./pptx/package.ts";
+import { prepareImport, type PreparedImport } from "./pptx/import.ts";
+import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
-import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment } from "./align.ts";
+import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
+import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment, type Box } from "./align.ts";
+import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } from "./group.ts";
 import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
-import { downloadScript, isValidIpa, itemScript, langForVoice, newNarration, SPEED_MAX, SPEED_MIN, VOICES, voiceOption, type Narration } from "./narration.ts";
+import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
+import { templateById } from "./templates.ts";
+import { castUse, cloneCast, draftProblems as castProblems, voiceChanges } from "./characters.ts";
+import * as S from "./scenarioedit.ts";
+import { downloadScript, isValidIpa, itemScript, langForVoice, newNarration, questionScript, SPEED_MAX, SPEED_MIN, VOICES, voiceOption, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.15.0";
+export const FORMAT_VERSION = "0.25.0";
 
 export interface OpenedProject {
   dir: string;
@@ -51,8 +64,12 @@ export interface NarratedObject {
   object: OSObject;
   /** What the speech tool and the published course call it: the object's id, or "<object id>/<item id>" for an item. */
   key: string;
-  /** The interaction item the narration belongs to, or null when it is the object's own. */
+  /** The interaction item the narration belongs to, or null when it is not an item's. */
   item: InteractionItem | null;
+  /** The audio description of a video the narration belongs to, or null when it is not one's. */
+  cue: DescriptionCue | null;
+  /** The line of a scenario the narration belongs to, or null when it is not one's. */
+  line: ScenarioLine | null;
   narration: Narration;
 }
 
@@ -81,6 +98,14 @@ export function canonical(value: unknown): string {
 }
 
 const MAX_HISTORY = 200;
+/** The most audio descriptions one video can have (the format's limit). */
+export const DESCRIPTION_LIMIT = 60;
+
+/** A time in a video as people write it: 1:05. */
+export function clockText(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 const COALESCE_MS = 700;
 
 const nextNumber = (ids: string[], prefix: string): number =>
@@ -119,6 +144,8 @@ export class Model {
   /** Where a range of selected objects began, for Shift and click. */
   private anchor: string | null = null;
   private listeners: ((c: Change) => void)[] = [];
+  /** The look the author is working on, for the selected object. Only what is shown: it is not in the course, so it is not undone. */
+  private lookEdit: { objectId: string; look: string } | null = null;
   sel: Selection;
 
   constructor(opened: OpenedProject) {
@@ -248,7 +275,8 @@ export class Model {
     const s = this.selected;
     if (s.length === 0) return "Nothing is selected.";
     if (s.length === 1) return `Selected ${this.describe(s[0]!)}`;
-    return `${s.length} objects selected: ${s.map((o) => o.name).join(", ")}.`;
+    const names = s.map((o) => o.name).join(", ");
+    return this.selectedGroup ? `Group of ${s.length} objects selected: ${names}.` : `${s.length} objects selected: ${names}.`;
   }
 
   /** Add an object to the selection, or take it out if it is already there (Shift or Ctrl and click, Ctrl and Space). */
@@ -337,6 +365,138 @@ export class Model {
     return true;
   }
 
+  // ---- groups
+
+  /** The selection, if it is exactly one whole group: all of its members and nothing else. */
+  get selectedGroup(): OSObject[] | null {
+    const layer = this.layer;
+    return layer ? wholeGroup(layer.objects, this.selected) : null;
+  }
+
+  /** How many objects are in this object's group, or 0 if it is in none. */
+  groupSize(objectId: string): number {
+    const tag = this.find(objectId)?.group;
+    return tag ? (this.layer?.objects.filter((o) => o.group === tag).length ?? 0) : 0;
+  }
+
+  /** These ids, and everything grouped with any of them, on the layer being edited. */
+  expandGroups(ids: string[]): string[] {
+    return this.layer ? expandGroups(this.layer.objects, ids) : [];
+  }
+
+  /** How many things the selection is, counting a whole group as one. Line up and space out work on these. */
+  get selectedUnits(): number {
+    const layer = this.layer;
+    return layer ? unitsOf(layer.objects, this.selected).length : 0;
+  }
+
+  /** Whether Group would do anything: two or more are selected and they are not already exactly one group. */
+  get canGroup(): boolean {
+    return this.selected.length >= 2 && this.selectedGroup === null;
+  }
+
+  /** Whether Ungroup would do anything: some selected object is in a group. */
+  get canUngroup(): boolean {
+    return this.selected.some((o) => o.group !== undefined);
+  }
+
+  /** Whether Select group would add anything: some selected object is grouped with one that is not selected. */
+  get canSelectGroup(): boolean {
+    const sel = this.selected;
+    return sel.length > 0 && this.expandGroups(sel.map((o) => o.id)).length > sel.length;
+  }
+
+  /** Ids for new groups: ones no other group in the project uses. */
+  private groupAllocator(): () => string {
+    const used = new Set(this.docs.flatMap((d) => [d.slide.baseLayer, ...d.slide.layers].flatMap((l) => l.objects.flatMap((o) => (o.group ? [o.group] : [])))));
+    let next = nextNumber([...used], "group-");
+    return () => {
+      let id = `group-${next++}`;
+      while (used.has(id)) id = `group-${next++}`;
+      used.add(id);
+      return id;
+    };
+  }
+
+  /** After objects leave a layer: a group left with one object groups nothing, so its tag is cleared. */
+  private pruneGroups(layer: Layer): void {
+    const lone = new Set(loneGroups(layer.objects));
+    if (lone.size === 0) return;
+    for (const o of layer.objects) if (o.group !== undefined && lone.has(o.group)) delete o.group;
+  }
+
+  /** Click on the canvas: choose this object and, if it is in a group, the whole group. */
+  selectWithGroup(id: string): string | null {
+    if (!this.layer?.objects.some((o) => o.id === id)) return null;
+    const ids = this.expandGroups([id]);
+    if (ids.length < 2) {
+      this.selectObject(id);
+      return this.describeSelection();
+    }
+    this.anchor = id;
+    this.setSelection(ids, id);
+    return this.describeSelection();
+  }
+
+  /** Shift or Ctrl and click on the canvas: add this object, with its whole group, to the selection, or take them out if all of them are in it already. */
+  toggleGroupSelected(id: string): string | null {
+    if (!this.layer?.objects.some((o) => o.id === id)) return null;
+    const these = this.expandGroups([id]);
+    const now = this.selected.map((o) => o.id);
+    const allIn = these.every((i) => now.includes(i));
+    const ids = allIn ? now.filter((i) => !these.includes(i)) : [...now, ...these.filter((i) => !now.includes(i))];
+    this.anchor = id;
+    if (ids.length === 0) {
+      this.selectObject(null);
+      return this.describeSelection();
+    }
+    this.setSelection(ids, allIn ? ids[ids.length - 1]! : id);
+    return this.describeSelection();
+  }
+
+  /** Add to the selection everything grouped with a selected object (the Select group button). */
+  selectGroup(): string | null {
+    const sel = this.selected;
+    if (sel.length === 0) return null;
+    if (!sel.some((o) => o.group !== undefined)) return sel.length === 1 ? `${sel[0]!.name} is not in a group.` : "None of the selected objects is in a group.";
+    const ids = this.expandGroups(sel.map((o) => o.id));
+    if (ids.length === sel.length) return "The whole group is already selected.";
+    this.setSelection(ids, this.sel.objectId ?? ids[0]!);
+    return this.describeSelection();
+  }
+
+  /** Tie the selected objects into one group, as one undo step. An object that was in another group leaves it. */
+  group(): string | null {
+    const layer = this.layer;
+    const sel = this.selected;
+    if (!layer || sel.length === 0) return null;
+    if (sel.length < 2) return "Choose two or more objects to group them. Shift and click adds an object to the selection.";
+    if (this.selectedGroup) return `These ${sel.length} objects are already a group.`;
+    this.record("");
+    const tag = this.groupAllocator()();
+    for (const o of sel) o.group = tag;
+    // Leaving a group can leave it with one object, which groups nothing.
+    this.pruneGroups(layer);
+    this.emit({ kind: "structure", objectId: sel[0]!.id });
+    return `Grouped ${sel.length} objects. Clicking one on the slide now chooses them all, and they move, resize, copy and delete together.`;
+  }
+
+  /** Break the groups of the selected objects apart, as one undo step. Everything that was in them stays selected. */
+  ungroup(): string | null {
+    const layer = this.layer;
+    const sel = this.selected;
+    if (!layer || sel.length === 0) return null;
+    const tags = new Set(sel.flatMap((o) => (o.group !== undefined ? [o.group] : [])));
+    if (tags.size === 0) return sel.length === 1 ? `${sel[0]!.name} is not in a group.` : "None of the selected objects is in a group.";
+    const members = layer.objects.filter((o) => o.group !== undefined && tags.has(o.group));
+    this.record("");
+    for (const o of members) delete o.group;
+    const ids = [...new Set([...sel.map((o) => o.id), ...members.map((o) => o.id)])];
+    this.setSelection(ids, this.sel.objectId ?? ids[0]!);
+    this.emit({ kind: "structure", objectId: sel[0]!.id });
+    return `Ungrouped ${members.length} objects. They are separate again, and still selected.`;
+  }
+
   // ---- changes to one object
 
   private find(objectId: string): OSObject | undefined {
@@ -361,6 +521,27 @@ export class Model {
     return this.describe(obj);
   }
 
+  /**
+   * Which of these objects can move. A group moves whole or not at all, so one locked object holds its whole group back. `heldUnits` counts
+   * what was held back as the author sees it: a group is one.
+   */
+  movable(sel: OSObject[] = this.selected): { free: OSObject[]; held: OSObject[]; heldUnits: number; groups: boolean } {
+    const layer = this.layer;
+    const units = layer ? unitsOf(layer.objects, sel) : sel.map((o) => [o]);
+    const free: OSObject[] = [];
+    const held: OSObject[] = [];
+    let heldUnits = 0;
+    for (const unit of units) {
+      if (unit.some((o) => o.locked)) {
+        held.push(...unit);
+        heldUnits++;
+      } else {
+        free.push(...unit);
+      }
+    }
+    return { free, held, heldUnits, groups: units.some((u) => u.length > 1) };
+  }
+
   /** Move the selected object, or all the selected objects together, by this much. */
   nudge(dx: number, dy: number): string | null {
     const sel = this.selected;
@@ -369,25 +550,61 @@ export class Model {
       const o = sel[0]!;
       return this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, `move:${o.id}`);
     }
-    const free = sel.filter((o) => !o.locked);
-    if (free.length === 0) return `All ${sel.length} selected objects are locked. Unlock them first to move them.`;
+    const { free, held, heldUnits, groups } = this.movable(sel);
+    if (free.length === 0) {
+      return held.every((o) => o.locked)
+        ? `All ${sel.length} selected objects are locked. Unlock them first to move them.`
+        : "A locked object holds its group in place, so none of the selected objects can move. Unlock it first.";
+    }
     // One key for the whole group, so the moves of one key press, and quick presses after it, are one undo step.
     const key = `move:${free.map((o) => o.id).join("+")}`;
     let moved = 0;
     for (const o of free) if (this.setGeometry(o.id, { x: o.geometry.x + dx, y: o.geometry.y + dy }, key)) moved++;
     if (moved === 0) return null;
     const box = bounds(free.map((o) => o.geometry));
-    const stayed = sel.length - free.length;
-    return `${free.length === 1 ? free[0]!.name : `${free.length} objects`}, at ${box.x}, ${box.y}${stayed > 0 ? `.${this.stayedNote(stayed)}` : ""}`;
+    const layer = this.layer;
+    const name = layer && wholeGroup(layer.objects, free) ? `Group of ${free.length} objects` : free.length === 1 ? free[0]!.name : `${free.length} objects`;
+    return `${name}, at ${box.x}, ${box.y}${heldUnits > 0 ? `.${this.stayedNote(heldUnits, groups ? "item" : "object")}` : ""}`;
   }
 
   resizeBy(dw: number, dh: number): string | null {
-    if (this.selected.length > 1) return "Resizing works on one object at a time. Choose one object, or type exact sizes in the Properties panel.";
+    const group = this.selectedGroup;
+    if (group) {
+      const box = groupBox(group);
+      return this.setGroupBox({ width: Math.max(1, box.width + dw), height: Math.max(1, box.height + dh) }, `size:${group[0]!.group}`);
+    }
+    if (this.selected.length > 1) return "Resizing works on one object, or one whole group, at a time. Choose one, or type exact sizes in the Properties panel.";
     const o = this.object;
     if (!o) return null;
     const width = Math.max(1, o.geometry.width + dw);
     const height = Math.max(1, o.geometry.height + dh);
     return this.setGeometry(o.id, { width, height }, `size:${o.id}`);
+  }
+
+  /**
+   * Place or size the selected group as one thing: its members are moved and scaled together, so each keeps its place and size relative to
+   * the rest. Text is not made bigger or smaller, only the boxes. Returns a message when it is refused, and null when nothing changed.
+   */
+  setGroupBox(patch: Partial<Box>, key = ""): string | null {
+    const members = this.selectedGroup;
+    if (!members) return null;
+    if (members.some((o) => o.locked)) return "The group has a locked object in it. Unlock that object first to move or resize the group.";
+    const from = groupBox(members);
+    const to: Box = { ...from };
+    for (const [k, v] of Object.entries(patch) as [keyof Box, number][]) {
+      if (typeof v !== "number" || !Number.isFinite(v)) return null;
+      to[k] = Math.round(v * 100) / 100;
+    }
+    if (to.width < 1 || to.height < 1) return null;
+    const next = scaleBoxes(members.map((o) => o.geometry), from, to);
+    if (members.every((o, i) => o.geometry.x === next[i]!.x && o.geometry.y === next[i]!.y && o.geometry.width === next[i]!.width && o.geometry.height === next[i]!.height)) return null;
+    this.record(key);
+    members.forEach((o, i) => {
+      o.geometry = { ...o.geometry, ...next[i]! };
+      this.emit({ kind: "geometry", objectId: o.id });
+    });
+    const now = groupBox(members);
+    return `Group of ${members.length} objects, at ${now.x}, ${now.y}, size ${now.width} by ${now.height}`;
   }
 
   /** Edits made as one drag: many setGeometry calls, one undo step. */
@@ -487,17 +704,23 @@ export class Model {
     return "Label updated";
   }
 
-  /** Set one style value. An empty string removes it. Returns an explanation if it is refused. */
-  setStyle(objectId: string, key: "color" | "fill" | "fontSize" | "fontFamily" | "stroke" | "strokeWidth", value: string): { ok: boolean; message: string } {
+  /**
+   * Set one style value on the object, or on one of its looks. An empty string removes it (on a look, that means "the same as normal").
+   * Returns an explanation if it is refused. How solid an object is (`opacity`) is typed as a percentage from 10 to 100 and kept as 0.1 to 1.
+   */
+  setStyle(objectId: string, key: LookField, value: string, look = "normal"): { ok: boolean; message: string } {
     const obj = this.find(objectId);
     if (!obj) return { ok: false, message: "" };
-    const style: Style = { ...obj.style };
+    const onLook = look !== "normal";
+    if (onLook && !editableLook(obj, look)) return { ok: false, message: "This object has no look with that name." };
+    const before: Style = onLook ? obj.states[look]?.style ?? {} : obj.style;
+    const style: Style = { ...before };
     const v = value.trim();
     if (v === "") delete style[key];
     else if (isThemeRef(v)) {
       // A reference to the theme: a colour for a colour property, a font for the font, and it must exist.
       const wanted = key === "fontFamily" ? "theme:font." : "theme:color.";
-      if (key === "fontSize" || key === "strokeWidth" || !v.startsWith(wanted) || !this.knows(v)) {
+      if (key === "fontSize" || key === "strokeWidth" || key === "opacity" || !v.startsWith(wanted) || !this.knows(v)) {
         return { ok: false, message: "That theme colour or font does not exist in this theme." };
       }
       style[key] = v;
@@ -505,6 +728,12 @@ export class Model {
       const n = Number(v);
       if (!Number.isFinite(n) || n < 0 || n > 40) return { ok: false, message: "Outline width must be a number from 0 to 40." };
       style[key] = n;
+    } else if (key === "opacity") {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 10 || n > 100) return { ok: false, message: "How solid it is must be a number from 10 to 100. 100 is fully solid." };
+      // Fully solid is how every object starts, so on the object itself it is simply "not set". A look keeps it, to undo a fade.
+      if (n === 100 && !onLook) delete style[key];
+      else style[key] = Math.round(n) / 100;
     } else if (key === "stroke" && v === "none") style[key] = "none";
     else if (key === "fontFamily") {
       if (!isFontValue(v)) return { ok: false, message: "That is not a usable font name." };
@@ -517,11 +746,163 @@ export class Model {
       if (!isHexColor(v)) return { ok: false, message: "Colour must be a hex code such as #1a1a1a." };
       style[key] = v;
     }
-    if (JSON.stringify(style) === JSON.stringify(obj.style)) return { ok: true, message: "" };
-    this.record(`style:${objectId}:${key}`);
-    obj.style = style;
+    if (JSON.stringify(style) === JSON.stringify(before)) return { ok: true, message: "" };
+    this.record(`style:${objectId}:${look}:${key}`);
+    if (onLook) this.writeLook(obj, look, { style });
+    else obj.style = style;
     this.emit({ kind: "content", objectId });
-    return { ok: true, message: "Style updated" };
+    return { ok: true, message: onLook ? "Look updated" : "Style updated" };
+  }
+
+  // ---- looks (the format calls them states)
+
+  /** The looks of an object: the three the course applies on its own, then any other it has. */
+  looksOf(objectId: string): LookInfo[] {
+    const obj = this.find(objectId);
+    return obj ? looksInfoOf(obj) : [];
+  }
+
+  /** Which look the author is working on for this object. "normal" is its own appearance, in the Appearance box. */
+  editingLookOf(objectId: string): string {
+    const e = this.lookEdit;
+    const obj = this.find(objectId);
+    return e && obj && e.objectId === objectId && editableLook(obj, e.look) ? e.look : "normal";
+  }
+
+  /** Choose the look to work on. This is only what is shown, not part of the course, so it is not undone. */
+  setEditingLook(objectId: string, look: string): void {
+    const obj = this.find(objectId);
+    if (!obj || !editableLook(obj, look)) return;
+    this.lookEdit = look === "normal" ? null : { objectId, look };
+    this.emit({ kind: "selection", objectId });
+  }
+
+  /** The look to show on the canvas: the selected object in the look being worked on, so the author sees what they are making. */
+  get lookPreview(): { objectId: string; look: string } | null {
+    const o = this.object;
+    const e = this.lookEdit;
+    if (!e || !o || this.selected.length !== 1 || o.id !== e.objectId || e.look === "normal" || !editableLook(o, e.look)) return null;
+    return { objectId: e.objectId, look: e.look };
+  }
+
+  /** Put a look's style or message back. A ready-made look left holding nothing is dropped, so no empty look lingers. */
+  private writeLook(obj: OSObject, look: string, patch: { style?: Style; announce?: string }): void {
+    const next: ObjectState = { ...(obj.states[look] ?? {}) };
+    if (patch.style !== undefined) next.style = patch.style;
+    if (patch.announce !== undefined) {
+      if (patch.announce === "") delete next.announce;
+      else next.announce = patch.announce;
+    }
+    const empty = Object.keys(next.style ?? {}).length === 0 && next.announce === undefined && next.content === undefined;
+    const states = { ...obj.states };
+    if (empty && isReadyLook(look)) delete states[look];
+    // A look is never an empty object: the format wants something in it, and an author's own look stays until they delete it.
+    else states[look] = Object.keys(next).length === 0 ? { style: {} } : next;
+    obj.states = states;
+  }
+
+  /** Give the object a look of its own. It starts the same as normal, for the author to change. */
+  addLook(objectId: string, name: string): { ok: boolean; message: string } {
+    const obj = this.find(objectId);
+    if (!obj) return { ok: false, message: "" };
+    if (!canHaveLooks(obj.type)) return { ok: false, message: `A ${obj.type} object cannot have looks.` };
+    const clean = name.trim();
+    const problem = lookNameProblem(clean, Object.keys(obj.states));
+    if (problem) return { ok: false, message: problem };
+    this.record("");
+    obj.states = { ...obj.states, [clean]: { style: {} } };
+    this.lookEdit = { objectId, look: clean };
+    this.emit({ kind: "structure", objectId });
+    return { ok: true, message: `Added the look ${clean}. It starts the same as normal: choose what is different below.` };
+  }
+
+  /** Rename one of the object's own looks. Rules that apply it follow the new name. */
+  renameLook(objectId: string, from: string, to: string): { ok: boolean; message: string } {
+    const obj = this.find(objectId);
+    if (!obj || !(from in obj.states)) return { ok: false, message: "" };
+    if (isReadyLook(from)) return { ok: false, message: `${lookLabel(from)} is a ready-made look, so its name stays.` };
+    const clean = to.trim();
+    if (clean === from) return { ok: true, message: "" };
+    const problem = lookNameProblem(clean, Object.keys(obj.states).filter((n) => n !== from));
+    if (problem) return { ok: false, message: problem };
+    const moved = this.lookUses(objectId, from);
+    this.record("");
+    // Keep the looks in the order they were made.
+    obj.states = Object.fromEntries(Object.entries(obj.states).map(([name, state]) => [name === from ? clean : name, state]));
+    for (const layer of this.layers) {
+      for (const o of layer.objects) {
+        for (const t of o.triggers) if (t.action === "changeState" && t.target === objectId && String(t.value ?? "normal") === from) t.value = clean;
+      }
+    }
+    if (this.lookEdit?.objectId === objectId && this.lookEdit.look === from) this.lookEdit = { objectId, look: clean };
+    this.emit({ kind: "structure", objectId });
+    return { ok: true, message: `Renamed the look to ${clean}.${moved > 0 ? ` ${moved} rule${moved === 1 ? " now applies" : "s now apply"} the new name.` : ""}` };
+  }
+
+  /** Delete one of the object's own looks, or clear a ready-made one back to "not set". Rules that apply it are left, for the Problems list to name. */
+  removeLook(objectId: string, name: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || !(name in obj.states)) return null;
+    const uses = this.lookUses(objectId, name);
+    this.record("");
+    const states = { ...obj.states };
+    delete states[name];
+    obj.states = states;
+    if (this.lookEdit?.objectId === objectId && this.lookEdit.look === name && !isReadyLook(name)) this.lookEdit = null;
+    this.emit({ kind: "structure", objectId });
+    const what = isReadyLook(name) ? `Cleared the ${lookLabel(name)} look` : `Deleted the look ${name}`;
+    return uses > 0 ? `${what}. ${uses} rule${uses === 1 ? " still applies" : "s still apply"} it, and the Problems list names ${uses === 1 ? "it" : "them"}.` : `${what}.`;
+  }
+
+  /** What a screen reader says when a rule applies this look. Blank removes it. */
+  setLookAnnounce(objectId: string, look: string, text: string): { ok: boolean; message: string } {
+    const obj = this.find(objectId);
+    if (!obj || look === "normal" || !editableLook(obj, look)) return { ok: false, message: "" };
+    const clean = text.replace(/\s+/g, " ").trim();
+    if (clean.length > ANNOUNCE_MAX) return { ok: false, message: `A spoken message can be up to ${ANNOUNCE_MAX} characters. Keep it short.` };
+    if ((obj.states[look]?.announce ?? "") === clean) return { ok: true, message: "" };
+    this.record(`announce:${objectId}:${look}`);
+    this.writeLook(obj, look, { announce: clean });
+    this.emit({ kind: "content", objectId });
+    return { ok: true, message: clean === "" ? "Spoken message removed" : "Spoken message updated" };
+  }
+
+  /** An object anywhere on the slide being edited, whichever layer it is on. */
+  private slideObject(objectId: string): OSObject | undefined {
+    return this.layers.flatMap((l) => l.objects).find((o) => o.id === objectId);
+  }
+
+  /** How many rules on this slide apply this look to this object. */
+  lookUses(objectId: string, look: string): number {
+    let n = 0;
+    for (const layer of this.layers) {
+      for (const o of layer.objects) {
+        for (const item of readRules(o.triggers)) {
+          const t = item.kind === "rule" ? { action: item.rule.action as string, target: item.rule.target, value: item.rule.value } : item.triggers[0]!;
+          if (t.action === "changeState" && t.target === objectId && String(t.value ?? "normal") === look) n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  /** The looks a rule can switch an object of this slide to: its own appearance, then each look it has. */
+  lookChoices(targetId: string): { value: string; label: string }[] {
+    const obj = this.slideObject(targetId);
+    if (!obj) return [];
+    return [{ value: "normal", label: "Normal (its own appearance)" }, ...Object.keys(obj.states).map((n) => ({ value: n, label: lookLabel(n) }))];
+  }
+
+  /** The words a screen reader will say when a rule applies this look, or null if it will say nothing. */
+  lookMessage(targetId: string, look: string): string | null {
+    const said = this.slideObject(targetId)?.states[look]?.announce;
+    return said ? said : null;
+  }
+
+  /** Whether a screen reader user would miss a rule's change: the look has no message, it is not "normal" or "disabled" (which say so already), and the object is not decorative. */
+  lookIsSilent(targetId: string, look: string): boolean {
+    const obj = this.slideObject(targetId);
+    return !!obj && look !== "normal" && look !== "disabled" && look in obj.states && !obj.states[look]!.announce && !obj.accessibility.decorative;
   }
 
   activationOf(obj: OSObject): Activation {
@@ -612,15 +993,46 @@ export class Model {
    * Add a question to the layer being edited: its prompt, its answers, and two feedback layers
    * on the slide, all wired together. Selects the question.
    */
-  addQuiz(type: QuizType): OSObject | null {
+  /**
+   * Add a slide from a ready-made lesson slide: its text, and the parts that are not text (buttons already wired, a question with its
+   * feedback, a scenario). It is added after the slide the author is on, as one undo step, and is an ordinary slide afterwards.
+   */
+  addTemplateSlide(templateId: string): Slide | null {
+    const template = templateById(templateId);
+    if (!template) return null;
+    const ids = [...this.docs.map((d) => d.id), ...this.project.scenes.flatMap((s) => s.slides)];
+    const id = `slide-${String(nextNumber(ids, "slide-")).padStart(3, "0")}`;
+    this.record("");
+    const alloc = this.allocator(emptySlide(id, ""));
+    const built = template.build(alloc);
+    const slide: Slide = {
+      ...emptySlide(id, template.name),
+      background: template.layout.background ?? null,
+      baseLayer: { id: "layer-base", name: "Base", objects: built.objects },
+      layers: built.layers,
+    };
+    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
+    const at = scene.slides.indexOf(this.sel.slideId);
+    scene.slides.splice(at === -1 ? scene.slides.length : at + 1, 0, id);
+    this.docs.push({ id, slide, originalText: "", savedCompact: "" });
+    this.syncDocOrder();
+    this.sel = { slideId: id, layerId: slide.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    return slide;
+  }
+
+  addQuiz(type: QuizType, opts: { imageSrc?: string } = {}): OSObject | null {
     const layer = this.layer;
     const slide = this.slide;
-    if (!layer || !slide) return null;
+    const kind = quizKind(type);
+    if (!layer || !slide || !kind) return null;
     const alloc = this.allocator();
     const where = this.placement("");
-    // Below what is already on the layer, as far as the slide has room. A question needs about 370 of the 720 height.
+    // Below what is already on the layer, as far as the slide has room: the heading, a gap, and the question.
     const bottom = layer.objects.reduce((m, o) => Math.max(m, o.geometry.y + o.geometry.height), 0);
-    const built = buildQuiz(type, alloc, { tone: this.tone(), y: layer.objects.length === 0 ? 60 : Math.min(bottom + 24, this.project.stage.height - 370), z: where.z, tab: where.tabOrder });
+    const room = this.project.stage.height - 110 - kind.size.h;
+    const built = buildQuiz(type, alloc, { tone: this.tone(), y: layer.objects.length === 0 ? Math.min(60, Math.max(20, room)) : Math.max(20, Math.min(bottom + 24, room)), z: where.z, tab: where.tabOrder, ...(opts.imageSrc ? { imageSrc: opts.imageSrc } : {}) });
     this.record("");
     layer.objects.push(...built.objects);
     slide.layers.push(...built.layers);
@@ -628,6 +1040,92 @@ export class Model {
     this.sel = { ...this.sel, objectId: quiz.id };
     this.emit({ kind: "structure", objectId: quiz.id });
     return quiz;
+  }
+
+  // ---- PowerPoint decks
+
+  /** The decks slides were imported from. */
+  get deckSources(): DeckSource[] {
+    return this.project.sources ?? [];
+  }
+
+  private slideIdMaker(): () => string {
+    const used = new Set([...this.docs.map((d) => d.id), ...this.project.scenes.flatMap((s) => s.slides)]);
+    return () => {
+      const id = `slide-${String(nextNumber([...used], "slide-")).padStart(3, "0")}`;
+      used.add(id);
+      return id;
+    };
+  }
+
+  /** Everything needed to bring slides in from a deck, worked out without changing the project. The picture files have to be saved before `commitDeckImport`. */
+  prepareDeckImport(deck: Deck, pkg: Pkg, fileName: string, chosen: number[], now: string = new Date().toISOString(), tones?: Tones): PreparedImport {
+    const alloc = this.allocator();
+    return prepareImport({
+      deck, pkg, fileName, importedAt: now, chosen, stage: this.project.stage, existingDeckIds: this.deckSources.map((d) => d.id), ...(tones ? { tones } : {}),
+      newSlideId: this.slideIdMaker(), newObjectId: () => alloc.object(),
+    });
+  }
+
+  /** Put the prepared slides into the course, after the slide being edited, as one undo step. */
+  commitDeckImport(prepared: PreparedImport): string {
+    this.record("");
+    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
+    const here = scene.slides.indexOf(this.sel.slideId);
+    let at = here === -1 ? scene.slides.length : here + 1;
+    for (const slide of prepared.slides) {
+      scene.slides.splice(at++, 0, slide.id);
+      this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    }
+    this.syncDocOrder();
+    this.project.sources = [...this.deckSources, prepared.source];
+    const first = prepared.slides[0];
+    if (first) this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    return `Brought in ${prepared.slides.length} ${prepared.slides.length === 1 ? "slide" : "slides"} from ${prepared.source.name}. Press Control Z to undo.`;
+  }
+
+  /** What a deck would change in the course, worked out without changing anything. Null if the deck is not one the project lists. */
+  prepareDeckResync(sourceId: string, deck: Deck, pkg: Pkg, tones?: Tones): ResyncPlan | null {
+    const source = this.deckSources.find((d) => d.id === sourceId);
+    return source ? planResync({ source, slides: this.slides, deck, pkg, ...(tones ? { tones } : {}) }) : null;
+  }
+
+  /** Bring in the ticked changes, as one undo step. The picture files they need have to be saved first (see `assetsFor`). */
+  commitDeckResync(plan: ResyncPlan, accepted: ReadonlySet<string>, deck: Deck, pkg: Pkg, now: string = new Date().toISOString(), tones?: Tones): string {
+    const source = this.deckSources.find((d) => d.id === plan.deckId);
+    if (!source) return "That deck is not in this project.";
+    this.record("");
+    const alloc = this.allocator();
+    const result = applyPlan(plan, accepted, { slides: this.slides, source, importedAt: now, pkg, deck, ...(tones ? { tones } : {}), newSlideId: this.slideIdMaker(), newObjectId: () => alloc.object() });
+    const scene = (id: string) => this.project.scenes.find((s) => s.slides.includes(id));
+    for (const { slide, after, before } of result.insert) {
+      const home = (after && scene(after)) || (before && scene(before)) || this.project.scenes[0]!;
+      const anchor = after ?? before;
+      const at = anchor ? home.slides.indexOf(anchor) : -1;
+      home.slides.splice(at === -1 ? home.slides.length : after ? at + 1 : at, 0, slide.id);
+      this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    }
+    for (const id of result.remove) {
+      if (this.docs.length <= 1) break;
+      for (const sc of this.project.scenes) sc.slides = sc.slides.filter((s) => s !== id);
+      this.docs = this.docs.filter((d) => d.id !== id);
+    }
+    this.project.sources = this.deckSources.map((d) => (d.id === plan.deckId ? { ...d, syncedAt: now, seen: plan.seen } : d));
+    this.syncDocOrder();
+    if (!this.docs.some((d) => d.id === this.sel.slideId)) {
+      const next = this.docs[0]!.slide;
+      this.sel = { slideId: next.id, layerId: next.baseLayer.id, objectId: null };
+    } else if (this.sel.objectId && !this.object) this.sel = { ...this.sel, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    const c = result.counts;
+    const parts = [
+      c.shapesChanged ? `${c.shapesChanged} ${c.shapesChanged === 1 ? "object" : "objects"} updated` : "", c.shapesAdded ? `${c.shapesAdded} added` : "", c.shapesRemoved ? `${c.shapesRemoved} removed` : "",
+      c.slidesAdded ? `${c.slidesAdded} ${c.slidesAdded === 1 ? "slide" : "slides"} added` : "", c.slidesRemoved ? `${c.slidesRemoved} ${c.slidesRemoved === 1 ? "slide" : "slides"} deleted` : "", c.fields ? `${c.fields} slide ${c.fields === 1 ? "setting" : "settings"} changed` : "",
+    ].filter(Boolean);
+    return parts.length ? `Brought up to date: ${parts.join(", ")}. Press Control Z to undo.` : "Nothing was changed.";
   }
 
   // ---- the course's own settings
@@ -856,22 +1354,28 @@ export class Model {
   // A narration is named by its key: an object's id, or "<object id>/<item id>" for an item. The same key is used by the
   // speech tool and by the published course, so the audio made for a key is the audio played for it.
 
-  private narrationOwner(key: string): { obj: OSObject; item: InteractionItem | null; name: string } | null {
-    const [objectId = "", itemId, ...rest] = key.split("/");
+  private narrationOwner(key: string): { obj: OSObject; item: InteractionItem | null; cue: DescriptionCue | null; line: ScenarioLine | null; name: string } | null {
+    const [objectId = "", partId, ...rest] = key.split("/");
     if (rest.length > 0) return null;
     const obj = this.find(objectId);
     if (!obj) return null;
-    if (itemId === undefined) return { obj, item: null, name: obj.name };
-    const item = obj.type === "interaction" ? (obj.content as unknown as InteractionContent).items.find((i) => i.id === itemId) : undefined;
-    return item ? { obj, item, name: `${obj.name}, ${item.title}` } : null;
+    if (partId === undefined) return { obj, item: null, cue: null, line: null, name: obj.name };
+    const item = obj.type === "interaction" ? (obj.content as unknown as InteractionContent).items.find((i) => i.id === partId) : undefined;
+    if (item) return { obj, item, cue: null, line: null, name: `${obj.name}, ${item.title}` };
+    const line = obj.type === "scenario" ? S.lineOf(obj.content as unknown as ScenarioContent, partId) : undefined;
+    if (line) return { obj, item: null, cue: null, line: line.line, name: `${obj.name}, ${S.describeLine(line)}` };
+    const cue = this.cuesOf(obj).find((c) => c.id === partId);
+    return cue ? { obj, item: null, cue, line: null, name: `${obj.name}, audio description at ${clockText(cue.time)}` } : null;
   }
 
-  private narrationAt(owner: { obj: OSObject; item: InteractionItem | null }): Narration | null {
-    return ((owner.item ? owner.item.narration : owner.obj.narration) as Narration | null) ?? null;
+  private narrationAt(owner: { obj: OSObject; item: InteractionItem | null; cue: DescriptionCue | null; line: ScenarioLine | null }): Narration | null {
+    return ((owner.item ? owner.item.narration : owner.cue ? owner.cue.narration : owner.line ? owner.line.narration : owner.obj.narration) as Narration | null) ?? null;
   }
 
-  private writeNarration(owner: { obj: OSObject; item: InteractionItem | null }, n: Narration | null): void {
+  private writeNarration(owner: { obj: OSObject; item: InteractionItem | null; cue: DescriptionCue | null; line: ScenarioLine | null }, n: Narration | null): void {
     if (owner.item) owner.item.narration = n;
+    else if (owner.cue) owner.cue.narration = n;
+    else if (owner.line) owner.line.narration = n;
     else owner.obj.narration = n;
   }
 
@@ -886,11 +1390,23 @@ export class Model {
         const where = { slideId: slide.id, slideName: slide.name, layerId: layer.id, layerName: layer.name };
         for (const object of readingOrder(layer.objects)) {
           const own = (object.narration as Narration | null) ?? null;
-          if (own) out.push({ ...where, object, key: object.id, item: null, narration: own });
+          if (own) out.push({ ...where, object, key: object.id, item: null, cue: null, line: null, narration: own });
+          if (object.type === "video") {
+            for (const cue of this.cuesOf(object)) {
+              const said = (cue.narration as Narration | null) ?? null;
+              if (said) out.push({ ...where, object, key: `${object.id}/${cue.id}`, item: null, cue, line: null, narration: said });
+            }
+          }
+          if (object.type === "scenario") {
+            for (const { line } of S.allLines(object.content as unknown as ScenarioContent)) {
+              const said = (line.narration as Narration | null) ?? null;
+              if (said) out.push({ ...where, object, key: `${object.id}/${line.id}`, item: null, cue: null, line, narration: said });
+            }
+          }
           if (object.type !== "interaction") continue;
           for (const item of (object.content as unknown as InteractionContent).items) {
             const said = (item.narration as Narration | null) ?? null;
-            if (said) out.push({ ...where, object, key: `${object.id}/${item.id}`, item, narration: said });
+            if (said) out.push({ ...where, object, key: `${object.id}/${item.id}`, item, cue: null, line: null, narration: said });
           }
         }
       }
@@ -916,7 +1432,8 @@ export class Model {
     }
     if (current?.script === script) return null;
     this.record(`narration:${key}`);
-    this.writeNarration(owner, current ? { ...current, script } : newNarration(script, this.narratedObjects().at(-1)?.narration));
+    const last = this.narratedObjects().at(-1)?.narration;
+    this.writeNarration(owner, current ? { ...current, script } : owner.line ? S.spokenLine(script, owner.line.speaker, this.characters, last) : newNarration(script, last));
     this.emit({ kind: "content", objectId: owner.obj.id });
     return current ? "Narration updated" : `Added narration to ${owner.name}`;
   }
@@ -952,6 +1469,328 @@ export class Model {
       added: todo.length,
       message: `Added narration to ${todo.length} ${todo.length === 1 ? "item" : "items"}, read from ${todo.length === 1 ? "its" : "their"} text.${kept > 0 ? ` ${kept} that already had narration ${kept === 1 ? "was" : "were"} left alone.` : ""} Make the audio from the Narration button.`,
     };
+  }
+
+  // ---- icons, and buttons that go somewhere
+
+  /** Put an icon on the layer. It has no alt text yet: the author writes it, or marks the icon decorative. */
+  addIcon(icon: IconContent): OSObject | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const obj = newIcon(this.placement(this.allocator().object()), icon);
+    this.record("");
+    layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /** Swap the picture of an icon for another, keeping its size, colour and alt text. */
+  changeIcon(objectId: string, icon: IconContent): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "icon") return null;
+    const before = obj.content as unknown as IconContent;
+    if (before.name === icon.name && JSON.stringify(before.shapes) === JSON.stringify(icon.shapes)) return null;
+    this.record("");
+    // A name that was just the old icon's name, made by the editor, follows the new icon. A name the author changed is theirs.
+    if (obj.name === `Icon: ${before.name.replace(/-/g, " ")}`) obj.name = `Icon: ${icon.name.replace(/-/g, " ")}`;
+    obj.content = { ...icon, shapes: icon.shapes.map((s) => ({ ...s })) } as unknown as Record<string, unknown>;
+    this.emit({ kind: "content", objectId });
+    return `Now the ${icon.name.replace(/-/g, " ")} icon. Its alt text is unchanged, so check that it still says what the icon shows.`;
+  }
+
+  /** Add one of the ready-made buttons that move around the course. The rule is already written, for the mouse and the keyboard. */
+  addNavigationButton(kind: string): OSObject | null {
+    const layer = this.layer;
+    const choice = navigationButtonById(kind);
+    if (!layer || !choice) return null;
+    const obj = newNavigationButton(choice, this.placement(this.allocator().object()));
+    this.record("");
+    layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  private buttonOf(objectId: string): OSObject | null {
+    const obj = this.find(objectId);
+    return obj && obj.type === "button" ? obj : null;
+  }
+
+  /** The look a button has: one of the ready-made ones, or "custom". */
+  buttonLook(objectId: string): string {
+    const obj = this.buttonOf(objectId);
+    return obj ? lookOf(obj.style) : CUSTOM_LOOK;
+  }
+
+  /** Put a ready-made look on a button: its colours, outline and roundness. Its words, font, size and rules are left alone. */
+  setButtonLook(objectId: string, look: string): string | null {
+    const obj = this.buttonOf(objectId);
+    const style = obj ? withLook(obj.style, look) : null;
+    if (!obj || !style || JSON.stringify(style) === JSON.stringify(obj.style)) return null;
+    this.record("");
+    obj.style = style;
+    this.emit({ kind: "content", objectId });
+    return "Button look changed.";
+  }
+
+  /** Show an icon beside a button's words, or take it away. The words are still the button's name. */
+  setButtonIcon(objectId: string, icon: IconContent | null): string | null {
+    const obj = this.buttonOf(objectId);
+    if (!obj) return null;
+    const content = { ...obj.content } as Record<string, unknown>;
+    if (icon === null) {
+      if (!("icon" in content)) return null;
+      delete content["icon"];
+      delete content["iconPlacement"];
+    } else {
+      const before = content["icon"] as IconContent | undefined;
+      if (before && before.name === icon.name) return null;
+      content["icon"] = { ...icon, shapes: icon.shapes.map((s) => ({ ...s })) };
+    }
+    this.record("");
+    obj.content = content;
+    this.emit({ kind: "structure", objectId });
+    return icon === null ? "Took the icon off the button." : `The button now shows the ${icon.name.replace(/-/g, " ")} icon. Its words are still its name for a screen reader.`;
+  }
+
+  setButtonIconPlacement(objectId: string, placement: "before" | "after"): string | null {
+    const obj = this.buttonOf(objectId);
+    if (!obj || !obj.content["icon"]) return null;
+    const now = obj.content["iconPlacement"] === "after" ? "after" : "before";
+    if (now === placement) return null;
+    this.record("");
+    const content = { ...obj.content } as Record<string, unknown>;
+    if (placement === "after") content["iconPlacement"] = "after"; else delete content["iconPlacement"];
+    obj.content = content;
+    this.emit({ kind: "content", objectId });
+    return `The icon is now ${placement} the words.`;
+  }
+
+  // ---- the cast: the people a course can show and give a voice to
+
+  get characters(): Character[] {
+    return this.project.characters ?? [];
+  }
+
+  /**
+   * Replace the cast with the one the author made in the dialog, as one undo step. A person who is still used cannot be taken out;
+   * a person whose voice changed has the lines they speak changed to it, so they stay in one voice.
+   */
+  setCharacters(draft: Character[]): string | null {
+    const before = this.characters;
+    const problems = castProblems(draft, before, castUse(this.slides));
+    if (problems.length > 0) return problems[0]!;
+    const next = cloneCast(draft).map((p) => ({ ...p, name: p.name.trim(), role: p.role.trim() }));
+    if (JSON.stringify(next) === JSON.stringify(before)) return null;
+    this.record("");
+    if (next.length === 0) delete this.project.characters;
+    else this.project.characters = next;
+    // A person's lines are read in their voice. Change the voice of every spoken line of someone whose voice changed.
+    const changed = voiceChanges(before, next);
+    let lines = 0;
+    if (changed.size > 0) {
+      for (const slide of this.slides) {
+        for (const layer of [slide.baseLayer, ...slide.layers]) {
+          for (const obj of layer.objects) {
+            if (obj.type !== "scenario") continue;
+            for (const { line } of S.allLines(obj.content as unknown as ScenarioContent)) {
+              const voice = line.speaker ? changed.get(line.speaker) : undefined;
+              const n = line.narration as Narration | null;
+              if (voice && n && n.voice !== voice) {
+                line.narration = { ...n, voice, lang: langForVoice(voice) };
+                lines++;
+              }
+            }
+          }
+        }
+      }
+    }
+    this.emit({ kind: "content" });
+    const moved = lines > 0 ? ` ${lines} spoken ${lines === 1 ? "line was" : "lines were"} changed to the new voice, so make the audio again.` : "";
+    return `The cast has ${next.length} ${next.length === 1 ? "person" : "people"}.${moved}`;
+  }
+
+  // ---- scenarios
+
+  private scenarioOf(objectId: string): { obj: OSObject; c: ScenarioContent } | null {
+    const obj = this.find(objectId);
+    return obj && obj.type === "scenario" ? { obj, c: obj.content as unknown as ScenarioContent } : null;
+  }
+
+  /** Add a scenario to the layer, with a small story to write over. */
+  addScenario(): OSObject | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const obj = newScenario(this.placement(this.allocator().object()), S.newScenarioContent());
+    this.record("");
+    layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /**
+   * Do one edit to a scenario (see scenarioedit.ts) on a copy, and keep it as one undo step if it changed something. The message is
+   * what to tell the author, which is also given when the edit is refused. Null when there is nothing to say.
+   */
+  private editScenario(objectId: string, edit: (c: ScenarioContent) => S.Edit, structural = false): string | null {
+    const hit = this.scenarioOf(objectId);
+    if (!hit) return null;
+    const next = structuredClone(hit.c);
+    const result = edit(next);
+    if (result.changed) {
+      this.record("");
+      hit.obj.content = next as unknown as Record<string, unknown>;
+      this.emit({ kind: structural ? "structure" : "content", objectId });
+    }
+    return result.message === "" ? null : result.message;
+  }
+
+  /** Like editScenario, for an edit that makes something and says its id. */
+  private makeInScenario(objectId: string, edit: (c: ScenarioContent) => S.Edit & { id?: string }): { message: string | null; id: string | null } {
+    let id: string | null = null;
+    const message = this.editScenario(objectId, (c) => { const e = edit(c); id = e.changed ? e.id ?? null : null; return e; }, true);
+    return { message, id };
+  }
+
+  addSituation(objectId: string): { message: string | null; id: string | null } { return this.makeInScenario(objectId, (c) => S.addSituation(c)); }
+  deleteSituation(objectId: string, nodeId: string): string | null { return this.editScenario(objectId, (c) => S.deleteSituation(c, nodeId), true); }
+  moveSituation(objectId: string, nodeId: string, delta: -1 | 1): string | null { return this.editScenario(objectId, (c) => S.moveSituation(c, nodeId, delta), true); }
+  setScenarioStart(objectId: string, nodeId: string): string | null { return this.editScenario(objectId, (c) => S.setStart(c, nodeId), true); }
+  setSituationTitle(objectId: string, nodeId: string, title: string): string | null { return this.editScenario(objectId, (c) => S.setTitle(c, nodeId, title)); }
+  setSituationPrompt(objectId: string, nodeId: string, prompt: string): string | null { return this.editScenario(objectId, (c) => S.setPrompt(c, nodeId, prompt)); }
+
+  addScenarioLine(objectId: string, where: { nodeId: string } | { choiceId: string }): { message: string | null; id: string | null } { return this.makeInScenario(objectId, (c) => S.addLine(c, where)); }
+  deleteScenarioLine(objectId: string, lineId: string): string | null { return this.editScenario(objectId, (c) => S.deleteLine(c, lineId), true); }
+  moveScenarioLine(objectId: string, lineId: string, delta: -1 | 1): string | null { return this.editScenario(objectId, (c) => S.moveLine(c, lineId, delta), true); }
+  setScenarioLineText(objectId: string, lineId: string, text: string): string | null { return this.editScenario(objectId, (c) => S.setLineText(c, lineId, text)); }
+  setScenarioLineSpeaker(objectId: string, lineId: string, speaker: string | null): string | null { return this.editScenario(objectId, (c) => S.setLineSpeaker(c, lineId, speaker, this.characters), true); }
+  setScenarioLineSpoken(objectId: string, lineId: string, on: boolean): string | null {
+    const like = this.narratedObjects().at(-1)?.narration;
+    return this.editScenario(objectId, (c) => S.setLineSpoken(c, lineId, on, this.characters, like), true);
+  }
+
+  addScenarioChoice(objectId: string, nodeId: string): { message: string | null; id: string | null } { return this.makeInScenario(objectId, (c) => S.addChoice(c, nodeId)); }
+  deleteScenarioChoice(objectId: string, choiceId: string): string | null { return this.editScenario(objectId, (c) => S.deleteChoice(c, choiceId), true); }
+  moveScenarioChoice(objectId: string, choiceId: string, delta: -1 | 1): string | null { return this.editScenario(objectId, (c) => S.moveChoice(c, choiceId, delta), true); }
+  setScenarioChoiceLabel(objectId: string, choiceId: string, label: string): string | null { return this.editScenario(objectId, (c) => S.setChoiceLabel(c, choiceId, label)); }
+  setScenarioChoiceNext(objectId: string, choiceId: string, nodeId: string): string | null { return this.editScenario(objectId, (c) => S.setChoiceNext(c, choiceId, nodeId), true); }
+
+  addScenarioEffect(objectId: string, choiceId: string, variable: string): string | null { return this.editScenario(objectId, (c) => S.addEffect(c, choiceId, variable), true); }
+  setScenarioEffect(objectId: string, choiceId: string, index: number, patch: { variable?: string; add?: number }): string | null { return this.editScenario(objectId, (c) => S.setEffect(c, choiceId, index, patch), patch.variable !== undefined); }
+  deleteScenarioEffect(objectId: string, choiceId: string, index: number): string | null { return this.editScenario(objectId, (c) => S.deleteEffect(c, choiceId, index), true); }
+
+  /** Add a meter showing the first number variable, or a new one if the project has none, as one undo step. */
+  addScenarioMeter(objectId: string): string | null {
+    const hit = this.scenarioOf(objectId);
+    if (!hit) return null;
+    if (hit.c.meters.length >= S.LIMITS.meters) return `A scenario can have at most ${S.LIMITS.meters} meters.`;
+    this.record("");
+    const variable = this.project.variables.find((v) => v.type === "number")?.id ?? this.makeVariable("number", "score");
+    const next = structuredClone(hit.c);
+    const e = S.addMeter(next, variable, this.variableName(variable));
+    hit.obj.content = next as unknown as Record<string, unknown>;
+    this.emit({ kind: "structure", objectId });
+    return e.message;
+  }
+  setScenarioMeter(objectId: string, meterId: string, patch: { label?: string; variable?: string; min?: number; max?: number }): string | null { return this.editScenario(objectId, (c) => S.setMeter(c, meterId, patch), patch.variable !== undefined); }
+  deleteScenarioMeter(objectId: string, meterId: string): string | null { return this.editScenario(objectId, (c) => S.deleteMeter(c, meterId), true); }
+
+  setScenarioRetry(objectId: string, on: boolean): string | null { return this.editScenario(objectId, (c) => S.setRetry(c, on), true); }
+  setScenarioYou(objectId: string, variable: string | null): string | null { return this.editScenario(objectId, (c) => S.setYou(c, variable), true); }
+  setScenarioFinished(objectId: string, variable: string | null): string | null { return this.editScenario(objectId, (c) => S.setFinished(c, variable), true); }
+  setScenarioReflection(objectId: string, text: string): string | null { return this.editScenario(objectId, (c) => S.setReflection(c, text)); }
+
+  // ---- audio description: what a video's picture shows, at the times it matters, written and spoken
+
+  /** The audio descriptions on a video, in the order they happen. */
+  private cuesOf(obj: OSObject): DescriptionCue[] {
+    return obj.type === "video" ? ((obj.content as { description?: { cues?: DescriptionCue[] } }).description?.cues ?? []) : [];
+  }
+
+  descriptionOf(objectId: string): DescriptionCue[] {
+    const obj = this.find(objectId);
+    return obj ? [...this.cuesOf(obj)].sort((a, b) => a.time - b.time) : [];
+  }
+
+  private writeCues(obj: OSObject, cues: DescriptionCue[]): void {
+    const { description: _gone, ...rest } = obj.content as { description?: unknown } & Record<string, unknown>;
+    void _gone;
+    // A video with no descriptions has no description at all: the format does not allow an empty list.
+    obj.content = cues.length === 0 ? rest : { ...rest, description: { cues: [...cues].sort((a, b) => a.time - b.time) } };
+  }
+
+  /** Add a description to a video, five seconds after the last one, with no words yet: the author writes them. */
+  addDescription(objectId: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "video") return null;
+    const cues = this.cuesOf(obj);
+    if (cues.length >= DESCRIPTION_LIMIT) return `A video can have up to ${DESCRIPTION_LIMIT} descriptions.`;
+    const id = `ad-${nextNumber(cues.map((c) => c.id), "ad-")}`;
+    const time = cues.length === 0 ? 0 : Math.min(Math.max(...cues.map((c) => c.time)) + 5000, 86_400_000);
+    this.record("");
+    this.writeCues(obj, [...cues, { id, time, text: "", pause: true, narration: null }]);
+    this.emit({ kind: "structure", objectId });
+    return `Added a description at ${clockText(time)}. Write what the picture shows at that moment.`;
+  }
+
+  /** Change when a description happens, what it says, or whether it holds the video. */
+  updateDescription(objectId: string, cueId: string, patch: { time?: number; text?: string; pause?: boolean }): { ok: boolean; message: string } {
+    const obj = this.find(objectId);
+    const cues = obj ? this.cuesOf(obj) : [];
+    const cue = cues.find((c) => c.id === cueId);
+    if (!obj || !cue) return { ok: false, message: "" };
+    const next = { ...cue };
+    if (patch.time !== undefined) {
+      if (!Number.isInteger(patch.time) || patch.time < 0 || patch.time > 86_400_000) return { ok: false, message: "A description's time must be from 0 to 24 hours into the video." };
+      next.time = patch.time;
+    }
+    if (patch.text !== undefined) {
+      if (patch.text.length > 2000) return { ok: false, message: "A description can be up to 2000 letters. Split a long one in two." };
+      next.text = patch.text;
+    }
+    if (patch.pause !== undefined) next.pause = patch.pause;
+    if (JSON.stringify(next) === JSON.stringify(cue)) return { ok: true, message: "" };
+    this.record(`desc:${objectId}:${cueId}:${Object.keys(patch).join(",")}`);
+    this.writeCues(obj, cues.map((c) => (c.id === cueId ? next : c)));
+    this.emit({ kind: patch.time !== undefined ? "structure" : "content", objectId });
+    return { ok: true, message: patch.pause !== undefined ? (next.pause ? "The video will wait while this is spoken" : "The video will keep playing while this is spoken") : `Description at ${clockText(next.time)} updated` };
+  }
+
+  deleteDescription(objectId: string, cueId: string): string | null {
+    const obj = this.find(objectId);
+    const cues = obj ? this.cuesOf(obj) : [];
+    const cue = cues.find((c) => c.id === cueId);
+    if (!obj || !cue) return null;
+    this.record("");
+    this.writeCues(obj, cues.filter((c) => c.id !== cueId));
+    this.emit({ kind: "structure", objectId });
+    return `Deleted the description at ${clockText(cue.time)}`;
+  }
+
+  /** Make a description spoken as it is written. The words are then the voice's own, so a later change to the description does not change them. */
+  narrateDescriptionFromText(objectId: string, cueId: string): string | null {
+    const cue = this.descriptionOf(objectId).find((c) => c.id === cueId);
+    if (!cue) return null;
+    if (cue.text.trim() === "") return "Write the description first, then it can be spoken.";
+    return this.setNarrationScript(`${objectId}/${cueId}`, cue.text.trim());
+  }
+
+  /** Give every description that has no voice a voice that says its words. Ones that already have one are left alone. One undo puts it all back. */
+  narrateDescriptionsFromText(objectId: string): { added: number; message: string } {
+    const obj = this.find(objectId);
+    const cues = obj ? this.cuesOf(obj) : [];
+    const todo = cues.filter((c) => !c.narration && c.text.trim() !== "");
+    if (!obj || todo.length === 0) return { added: 0, message: cues.length === 0 ? "" : "Every description with words already has a voice." };
+    this.record("");
+    let like = this.narratedObjects().at(-1)?.narration;
+    for (const cue of todo) {
+      like = newNarration(cue.text.trim(), like);
+      cue.narration = like;
+    }
+    this.emit({ kind: "content", objectId });
+    return { added: todo.length, message: `Gave ${todo.length} ${todo.length === 1 ? "description" : "descriptions"} a voice that says ${todo.length === 1 ? "its" : "their"} words. Make the audio from the Narration button.` };
   }
 
   /** Change the voice. The language stored beside it follows the voice. */
@@ -1042,17 +1881,45 @@ export class Model {
     return this.layers.flatMap((layer) => readingOrder(layer.objects).map((object) => ({ object, layerId: layer.id, layerName: layer.name, onBase: layer === slide.baseLayer })));
   }
 
+  /** The videos and audio clips on the slide being edited, which an object can follow, in reading order. */
+  mediaSources(): { id: string; name: string; type: "video" | "audio" }[] {
+    return this.timingRows()
+      .filter((r) => r.object.type === "video" || r.object.type === "audio")
+      .map((r) => ({ id: r.object.id, name: r.object.name, type: r.object.type as "video" | "audio" }));
+  }
+
+  /** The name of a video or audio clip on the slide, for saying what an object follows. */
+  mediaNameOf(id: string | undefined): string | undefined {
+    return id === undefined ? undefined : this.timingRows().find((r) => r.object.id === id)?.object.name;
+  }
+
+  /** The objects on the slide that follow this video or audio clip. */
+  followersOf(mediaId: string): OSObject[] {
+    return this.timingRows().map((r) => r.object).filter((o) => o.timing.appear === "media" && o.timing.media === mediaId);
+  }
+
   /**
-   * Change when an object appears (a number of milliseconds after the slide opens, or after its own narration starts) and
-   * how long it stays. Times are whole milliseconds from 0 to an hour. An object can only follow its narration if it has some.
+   * Change when an object appears (a number of milliseconds after the slide opens, after its own narration starts, or into a video or
+   * audio clip on the slide) and how long it stays. Times are whole milliseconds from 0 to an hour. An object can only follow its
+   * narration if it has some. To follow a clip it needs one on the slide; asking for that without naming one chooses the first.
    */
   setTiming(objectId: string, patch: Partial<Timing>): { ok: boolean; message: string } {
     const row = this.timingRows().find((r) => r.object.id === objectId);
     if (!row) return { ok: false, message: "" };
     const obj = row.object;
-    const next: Timing = { ...obj.timing, ...patch };
+    let next: Timing = { ...obj.timing, ...patch };
     const whole = (n: number, min: number) => Number.isInteger(n) && n >= min && n <= MAX_MS;
-    if (next.appear !== "time" && next.appear !== "narration") return { ok: false, message: "An object appears after the slide opens or after its narration starts." };
+    if (next.appear !== "time" && next.appear !== "narration" && next.appear !== "media") return { ok: false, message: "An object appears after the slide opens, after its narration starts, or at a moment in a video or audio clip." };
+    if (next.appear === "media") {
+      const clips = this.mediaSources().filter((c) => c.id !== objectId);
+      if (patch.media !== undefined && !clips.some((c) => c.id === patch.media)) return { ok: false, message: "That is not a video or audio clip on this slide." };
+      const chosen = patch.media ?? (obj.timing.appear === "media" ? obj.timing.media : undefined);
+      const media = chosen !== undefined && clips.some((c) => c.id === chosen) ? chosen : clips[0]?.id;
+      if (media === undefined) return { ok: false, message: "Add a video or audio file to this slide first, so there is something for it to follow." };
+      next = { appear: "media", media, start: next.start, visibleFor: next.visibleFor };
+    } else {
+      next = { appear: next.appear, start: next.start, visibleFor: next.visibleFor };
+    }
     if (!whole(next.start, 0)) return { ok: false, message: "The time must be from 0 to 3600 seconds." };
     if (next.visibleFor !== null && !whole(next.visibleFor, 1)) return { ok: false, message: "How long it stays must be from a thousandth of a second to 3600 seconds, or blank to stay." };
     if (next.appear === "narration" && !obj.narration) return { ok: false, message: "Write this object's narration first, so there is something for it to follow." };
@@ -1060,7 +1927,7 @@ export class Model {
     this.record(`timing:${objectId}:${Object.keys(patch).join(",")}`);
     obj.timing = next;
     this.emit({ kind: "content", objectId });
-    return { ok: true, message: `${obj.name}: ${describeTiming(next, !row.onBase)}` };
+    return { ok: true, message: `${obj.name}: ${describeTiming(next, !row.onBase, this.mediaNameOf(next.media))}` };
   }
 
   /**
@@ -1079,6 +1946,40 @@ export class Model {
     obj.animation = { ...obj.animation, [phase]: next };
     this.emit({ kind: "content", objectId });
     return { ok: true, message: `${obj.name}: ${describeAnimation(obj.animation)}` };
+  }
+
+  /**
+   * Set the same timing on every selected object, as one undo step: the way to time a whole group once. An object that cannot take it (one
+   * with no narration to follow) is left as it was, and the message says so.
+   */
+  setTimingForSelected(patch: Partial<Timing>): { ok: boolean; message: string } {
+    const sel = this.selected;
+    if (sel.length === 0) return { ok: false, message: "" };
+    this.beginGesture();
+    const results = sel.map((o) => ({ o, r: this.setTiming(o.id, patch) }));
+    this.endGesture();
+    return this.settled(results, "Timing");
+  }
+
+  /** Set the same arrival or exit effect on every selected object, as one undo step. */
+  setAnimationForSelected(phase: Phase, patch: Partial<Effect>): { ok: boolean; message: string } {
+    const sel = this.selected;
+    if (sel.length === 0) return { ok: false, message: "" };
+    this.beginGesture();
+    const results = sel.map((o) => ({ o, r: this.setAnimation(o.id, phase, patch) }));
+    this.endGesture();
+    return this.settled(results, "Animation");
+  }
+
+  /** Say what happened when one change was tried on several objects: how many took it, and why any did not. */
+  private settled(results: { o: OSObject; r: { ok: boolean; message: string } }[], what: string): { ok: boolean; message: string } {
+    const refused = results.filter(({ r }) => !r.ok);
+    const changed = results.filter(({ r }) => r.ok && r.message !== "");
+    if (refused.length === results.length) return { ok: false, message: refused[0]!.r.message };
+    const detail = changed.length > 0 && changed[0]!.r.message.startsWith(`${changed[0]!.o.name}: `) ? changed[0]!.r.message.slice(changed[0]!.o.name.length + 2) : "";
+    const lead = changed.length === 0 ? "" : `${what} set on ${changed.length === 1 ? changed[0]!.o.name : `${changed.length} objects`}${detail ? `: ${detail}` : ""}.`;
+    if (refused.length === 0) return { ok: true, message: lead };
+    return { ok: true, message: `${lead} ${refused.length} ${refused.length === 1 ? "object was" : "objects were"} left as ${refused.length === 1 ? "it was" : "they were"}: ${refused[0]!.r.message}`.trim() };
   }
 
   /** Make the slide being edited move on by itself after this many milliseconds, or wait for the learner (null). */
@@ -1114,11 +2015,15 @@ export class Model {
 
   /** What a rule on this object may point at for an action: slides, layers of its slide, variables, or media on its slide. */
   targetsFor(objectId: string, action: RuleAction): { value: string; label: string }[] {
+    if (isCourseAction(action)) return [];
     if (action === "jumpToSlide") return this.slides.map((s, i) => ({ value: s.id, label: `${i + 1}. ${s.name}` }));
     if (action === "setVariable") return this.project.variables.map((v) => ({ value: v.id, label: v.name }));
+    if (action === "addToVariable") return this.project.variables.filter((v) => v.type === "number").map((v) => ({ value: v.id, label: v.name }));
     const slide = this.docs.find((d) => [d.slide.baseLayer, ...d.slide.layers].some((l) => l.objects.some((o) => o.id === objectId)))?.slide;
     if (!slide) return [];
     if (action === "showLayer" || action === "hideLayer") return slide.layers.map((l) => ({ value: l.id, label: l.name }));
+    // Only an object that has a look can be changed to one.
+    if (action === "changeState") return [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).filter((o) => Object.keys(o.states).length > 0).map((o) => ({ value: o.id, label: o.name }));
     return [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).filter((o) => o.type === "video" || o.type === "audio").map((o) => ({ value: o.id, label: o.name }));
   }
 
@@ -1180,6 +2085,13 @@ export class Model {
 
   /** The value a variable starts a rule with, or none for a rule that does not set one. */
   private fixValue(rule: Rule): void {
+    if (rule.action === "addToVariable") { if (typeof rule.value !== "number") rule.value = 1; return; }
+    if (rule.action === "changeState") {
+      // A look the author named is what a rule is most likely after; hover, visited and disabled are applied by the course on its own.
+      const names = Object.keys(this.slideObject(rule.target)?.states ?? {});
+      rule.value = names.find((n) => !isReadyLook(n)) ?? names[0] ?? "normal";
+      return;
+    }
     if (rule.action !== "setVariable") { delete rule.value; return; }
     const type = this.variableType(rule.target);
     if (type) rule.value = defaultValueFor(type);
@@ -1196,19 +2108,35 @@ export class Model {
       next.event = patch.event;
     }
     if (patch.action !== undefined && patch.action !== rule.action) {
-      const targets = this.targetsFor(objectId, patch.action);
-      if (targets.length === 0) {
-        return { jumpToSlide: "There is no slide to go to.", showLayer: "This slide has no layers. Add a layer first.", hideLayer: "This slide has no layers. Add a layer first.",
-          setVariable: "There are no variables yet. Add one first.", playMedia: "This slide has no video or audio to play.", pauseMedia: "This slide has no video or audio to pause." }[patch.action];
+      if (isCourseAction(patch.action)) {
+        // Next, previous and replay act on the course itself: no slide, layer or variable to point at.
+        next.action = patch.action;
+        next.target = "";
+        delete next.value;
+      } else {
+        const targets = this.targetsFor(objectId, patch.action);
+        if (targets.length === 0) {
+          return ({ jumpToSlide: "There is no slide to go to.", showLayer: "This slide has no layers. Add a layer first.", hideLayer: "This slide has no layers. Add a layer first.",
+            setVariable: "There are no variables yet. Add one first.", addToVariable: "There are no number variables yet. Add a number variable first.", playMedia: "This slide has no video or audio to play.", pauseMedia: "This slide has no video or audio to pause.",
+            changeState: "No object on this slide has a look yet. Select an object, and under Looks in its Properties choose Add a look." } as Record<string, string>)[patch.action] ?? null;
+        }
+        next.action = patch.action;
+        next.target = targets[0]!.value;
+        this.fixValue(next);
       }
-      next.action = patch.action;
-      next.target = targets[0]!.value;
-      this.fixValue(next);
     }
     if (patch.target !== undefined && patch.target !== next.target) {
       if (!this.targetsFor(objectId, next.action).some((t) => t.value === patch.target)) return null;
       next.target = patch.target;
-      if (next.action === "setVariable") this.fixValue(next);
+      if (next.action === "setVariable" || next.action === "changeState") this.fixValue(next);
+    }
+    if (patch.value !== undefined && next.action === "addToVariable") {
+      if (typeof patch.value !== "number" || !Number.isFinite(patch.value)) return "That needs a number.";
+      next.value = patch.value;
+    }
+    if (patch.value !== undefined && next.action === "changeState") {
+      if (typeof patch.value !== "string" || !this.lookChoices(next.target).some((c) => c.value === patch.value)) return null;
+      next.value = patch.value;
     }
     if (patch.value !== undefined && next.action === "setVariable") {
       const type = this.variableType(next.target);
@@ -1389,8 +2317,10 @@ export class Model {
     const layer = this.layer;
     const choice = inputById(kind);
     if (!layer || !choice) return null;
+    // A choice of character needs people to choose between.
+    if (choice.id === "character" && this.characters.length < 2) return null;
     this.record("");
-    const obj = newInput(choice, this.placement(this.allocator().object()), (type, base) => this.makeVariable(type, base));
+    const obj = newInput(choice, this.placement(this.allocator().object()), (type, base) => this.makeVariable(type, base), this.characters);
     layer.objects.push(obj);
     this.sel = { ...this.sel, objectId: obj.id };
     this.emit({ kind: "structure", objectId: obj.id });
@@ -1416,6 +2346,20 @@ export class Model {
     hit.c.prompt = prompt;
     this.emit({ kind: "content", objectId });
     return "Prompt updated";
+  }
+
+  /** Which people from the cast a choice of character offers, in the order of the cast. */
+  setInputCharacters(objectId: string, ids: string[]): string | null {
+    const hit = this.inputOf(objectId);
+    if (!hit || hit.c.kind !== "character") return null;
+    const known = this.characters.map((p) => p.id).filter((id) => ids.includes(id));
+    if (known.length < 2) return "A choice of character needs at least two people to choose between.";
+    if (known.length > 8) return "A choice of character can show at most eight people.";
+    if (JSON.stringify(known) === JSON.stringify(hit.c.characters)) return null;
+    this.record("");
+    hit.c.characters = known;
+    this.emit({ kind: "content", objectId });
+    return `${known.length} people to choose between`;
   }
 
   setInputReport(objectId: string, report: boolean): string | null {
@@ -1844,8 +2788,39 @@ export class Model {
     return obj && obj.type === "quizQuestion" ? { obj, q: obj.content as unknown as QuizContent } : null;
   }
 
-  setChoiceLabel(objectId: string, choiceId: string, label: string): string | null {
+  /** A question made of choices (multiple choice or multiple response), or null for any other. */
+  private choiceQuizOf(objectId: string): { obj: OSObject; q: ChoiceQuiz } | null {
     const hit = this.quizOf(objectId);
+    return hit && (hit.q.questionType === "multipleChoice" || hit.q.questionType === "multipleResponse") ? { obj: hit.obj, q: hit.q } : null;
+  }
+
+  /**
+   * Change a question in one of the ways questionedit.ts knows. It is done to a copy, so a refused change leaves the question
+   * alone, and a real one is a single step for Undo. Returns what to tell the author, the reason for a refusal, or null if
+   * nothing changed. `key` lets quick edits to one box count as one step.
+   */
+  editQuestion(objectId: string, edit: QuestionEdit, key = ""): string | null {
+    const hit = this.quizOf(objectId);
+    if (!hit) return null;
+    const copy = JSON.parse(JSON.stringify(hit.obj.content)) as QuizContent;
+    const result = applyEdit(copy, edit);
+    if (typeof result !== "string") return result.refuse;
+    if (JSON.stringify(copy) === JSON.stringify(hit.obj.content)) return null;
+    this.record(key);
+    hit.obj.content = copy as unknown as Record<string, unknown>;
+    this.emit({ kind: "content", objectId });
+    return result;
+  }
+
+  /** Give the question narration that says it as written: what to do, then what there is to choose from. Replaces any narration it had. */
+  narrateQuestionFromText(objectId: string): string | null {
+    const hit = this.quizOf(objectId);
+    if (!hit) return null;
+    return this.setNarrationScript(objectId, questionScript(hit.q, objectId)) ?? "The narration already says what the question shows.";
+  }
+
+  setChoiceLabel(objectId: string, choiceId: string, label: string): string | null {
+    const hit = this.choiceQuizOf(objectId);
     const choice = hit?.q.choices.find((c) => c.id === choiceId);
     if (!hit || !choice || label.trim() === "" || label === choice.label) return null;
     this.record(`choice:${objectId}:${choiceId}`);
@@ -1856,8 +2831,8 @@ export class Model {
 
   /** Exactly one answer is correct, so choosing one clears the others. */
   setCorrectChoice(objectId: string, choiceId: string): string | null {
-    const hit = this.quizOf(objectId);
-    if (!hit || !hit.q.choices.some((c) => c.id === choiceId)) return null;
+    const hit = this.choiceQuizOf(objectId);
+    if (!hit || hit.q.questionType !== "multipleChoice" || !hit.q.choices.some((c) => c.id === choiceId)) return null;
     if (hit.q.choices.every((c) => c.correct === (c.id === choiceId))) return null;
     this.record("");
     hit.q.choices.forEach((c) => (c.correct = c.id === choiceId));
@@ -1866,7 +2841,7 @@ export class Model {
   }
 
   addChoice(objectId: string): string | null {
-    const hit = this.quizOf(objectId);
+    const hit = this.choiceQuizOf(objectId);
     if (!hit) return null;
     if (hit.q.choices.length >= 8) return "A question can have at most 8 answers.";
     const id = `c${nextNumber(hit.q.choices.map((c) => c.id), "c")}`;
@@ -1877,7 +2852,7 @@ export class Model {
   }
 
   deleteChoice(objectId: string, choiceId: string): string | null {
-    const hit = this.quizOf(objectId);
+    const hit = this.choiceQuizOf(objectId);
     const choice = hit?.q.choices.find((c) => c.id === choiceId);
     if (!hit || !choice) return null;
     if (hit.q.choices.length <= 2) return "A question needs at least 2 answers.";
@@ -1920,14 +2895,16 @@ export class Model {
     const obj = layer?.objects.find((o) => o.id === objectId);
     if (!layer || !obj) return null;
     if (obj.locked) return this.lockMessage(objectId);
+    const followers = this.followersOf(objectId).length;
     this.record("");
     layer.objects = layer.objects.filter((o) => o.id !== objectId);
+    this.pruneGroups(layer);
     readingOrder(layer.objects)
       .filter((o) => (o.accessibility.tabOrder ?? 0) >= 1)
       .forEach((o, i) => (o.accessibility = { ...o.accessibility, tabOrder: i + 1 }));
     if (this.sel.objectId === objectId) this.sel = { ...this.sel, objectId: null };
     this.emit({ kind: "structure" });
-    return `Deleted ${obj.name}`;
+    return `Deleted ${obj.name}${followers > 0 ? `. ${followers} ${followers === 1 ? "object followed" : "objects followed"} it and now ${followers === 1 ? "needs" : "need"} another video or audio file, or a time of ${followers === 1 ? "its" : "their"} own. The Problems list names ${followers === 1 ? "it" : "them"}.` : ""}`;
   }
 
   /** Remove every selected object, as one undo step. The tab order of what is left is renumbered so it has no gaps. */
@@ -1943,6 +2920,7 @@ export class Model {
     this.record("");
     const gone = new Set(doomed.map((o) => o.id));
     layer.objects = layer.objects.filter((o) => !gone.has(o.id));
+    this.pruneGroups(layer);
     readingOrder(layer.objects)
       .filter((o) => (o.accessibility.tabOrder ?? 0) >= 1)
       .forEach((o, i) => (o.accessibility = { ...o.accessibility, tabOrder: i + 1 }));
@@ -1988,57 +2966,80 @@ export class Model {
     return this.setLocked(this.selectionLock !== "all");
   }
 
-  private stayedNote(n: number): string {
-    return n > 0 ? ` ${n} locked ${n === 1 ? "object stayed" : "objects stayed"} where ${n === 1 ? "it was" : "they were"}.` : "";
+  private stayedNote(n: number, noun = "object"): string {
+    return n > 0 ? ` ${n} locked ${n === 1 ? `${noun} stayed` : `${noun}s stayed`} where ${n === 1 ? "it was" : "they were"}.` : "";
   }
 
-  private blockedMessage(blocked: number, only: string | null): string {
-    if (only) return `${only} is locked. Unlock it first to move it.`;
-    return `${blocked} locked ${blocked === 1 ? "object" : "objects"} would have had to move, so nothing changed. Unlock ${blocked === 1 ? "it" : "them"} first.`;
+  private blockedMessage(blocked: number, only: OSObject[] | null, noun = "object"): string {
+    if (only) return only.length === 1 ? `${only[0]!.name} is locked. Unlock it first to move it.` : `The group of ${only.length} objects has a locked object in it. Unlock it first to move it.`;
+    return `${blocked} locked ${blocked === 1 ? noun : `${noun}s`} would have had to move, so nothing changed. Unlock ${blocked === 1 ? "it" : "them"} first.`;
   }
 
   // ---- aligning and spacing out
 
+  /** What to call a thing that is lined up or spaced out: an object by its name, a group by how many it holds. */
+  private unitName(unit: OSObject[], atStart = false): string {
+    if (unit.length === 1) return unit[0]!.name;
+    return atStart ? `The group of ${unit.length} objects` : `the group of ${unit.length} objects`;
+  }
+
   /**
-   * Line the selected objects up with each other, or, when only one is selected, with the slide. One undo step. Only where they sit
-   * changes, never their sizes.
+   * Line the selected objects up with each other, or, when only one thing is selected, with the slide. A group that is selected whole lines
+   * up as one object. One undo step. Only where things sit changes, never their sizes.
    */
   align(how: Alignment): { changed: boolean; message: string } | null {
+    const layer = this.layer;
     const sel = this.selected;
-    if (sel.length === 0) return null;
+    if (!layer || sel.length === 0) return null;
+    const units = unitsOf(layer.objects, sel);
+    const grouped = units.some((u) => u.length > 1);
+    const noun = grouped ? "item" : "object";
     const stage = this.project.stage;
-    const within = sel.length === 1 ? { x: 0, y: 0, width: stage.width, height: stage.height } : null;
+    const within = units.length === 1 ? { x: 0, y: 0, width: stage.width, height: stage.height } : null;
     const how_ = ALIGNMENTS.find((a) => a.value === how)!;
-    const next = alignBoxes(sel.map((o) => o.geometry), how, within);
-    const r = this.applyBoxes(sel, next);
+    const boxes = units.map((u) => groupBox(u));
+    const r = this.applyUnits(units, boxes, alignBoxes(boxes, how, within));
     if (r.moved === 0) {
-      if (r.blocked > 0) return { changed: false, message: this.blockedMessage(r.blocked, sel.length === 1 ? sel[0]!.name : null) };
-      return { changed: false, message: sel.length === 1 ? `${sel[0]!.name} is already there.` : "They are already lined up that way." };
+      if (r.blocked > 0) return { changed: false, message: this.blockedMessage(r.blocked, units.length === 1 ? units[0]! : null, noun) };
+      return { changed: false, message: units.length === 1 ? `${this.unitName(units[0]!, true)} is already there.` : "They are already lined up that way." };
     }
-    return { changed: true, message: (sel.length === 1 ? `Moved ${sel[0]!.name} ${how_.onSlide}.` : `Lined up ${sel.length} objects by their ${how_.edge}.`) + this.stayedNote(r.blocked) };
+    const done = units.length === 1 ? `Moved ${this.unitName(units[0]!)} ${how_.onSlide}.` : `Lined up ${units.length} ${noun}s by their ${how_.edge}.${grouped ? " Each group counts as one." : ""}`;
+    return { changed: true, message: done + this.stayedNote(r.blocked, noun) };
   }
 
-  /** Space three or more selected objects evenly, keeping the outer two where they are. One undo step. */
+  /** Space three or more selected things evenly, keeping the outer two where they are. A group counts as one. One undo step. */
   distribute(axis: "horizontal" | "vertical"): { changed: boolean; message: string } | null {
+    const layer = this.layer;
     const sel = this.selected;
-    if (sel.length === 0) return null;
-    if (sel.length < 3) return { changed: false, message: "Choose three or more objects to space them out evenly." };
-    const next = distributeBoxes(sel.map((o) => o.geometry), axis);
-    const r = this.applyBoxes(sel, next);
-    if (r.moved === 0) return { changed: false, message: r.blocked > 0 ? this.blockedMessage(r.blocked, null) : "They are already spaced evenly." };
-    return { changed: true, message: `Spaced ${sel.length} objects evenly ${axis === "horizontal" ? "across" : "down"} the slide.${this.stayedNote(r.blocked)}` };
+    if (!layer || sel.length === 0) return null;
+    const units = unitsOf(layer.objects, sel);
+    const grouped = units.some((u) => u.length > 1);
+    const noun = grouped ? "item" : "object";
+    if (units.length < 3) return { changed: false, message: grouped ? "Choose three or more objects or groups to space them out evenly. Each group counts as one." : "Choose three or more objects to space them out evenly." };
+    const boxes = units.map((u) => groupBox(u));
+    const r = this.applyUnits(units, boxes, distributeBoxes(boxes, axis));
+    if (r.moved === 0) return { changed: false, message: r.blocked > 0 ? this.blockedMessage(r.blocked, null, noun) : "They are already spaced evenly." };
+    return { changed: true, message: `Spaced ${units.length} ${noun}s evenly ${axis === "horizontal" ? "across" : "down"} the slide.${grouped ? " Each group counts as one." : ""}${this.stayedNote(r.blocked, noun)}` };
   }
 
-  /** Move objects to new boxes as one undo step. A locked object stays where it is. Says how many moved and how many were held back. */
-  private applyBoxes(objects: OSObject[], boxes: { x: number; y: number }[]): { moved: number; blocked: number } {
-    const wanted = objects.map((o, i) => ({ o, x: boxes[i]!.x, y: boxes[i]!.y })).filter(({ o, x, y }) => x !== o.geometry.x || y !== o.geometry.y);
-    const changes = wanted.filter(({ o }) => !o.locked);
+  /**
+   * Move each thing (an object, or the members of a group together) from the box it has to the box it should have, as one undo step. A thing
+   * with a locked object in it stays where it is. Says how many moved and how many were held back.
+   */
+  private applyUnits(units: OSObject[][], from: Box[], to: Box[]): { moved: number; blocked: number } {
+    const round = (n: number): number => Math.round(n * 100) / 100;
+    const wanted = units
+      .map((unit, i) => ({ unit, dx: to[i]!.x - from[i]!.x, dy: to[i]!.y - from[i]!.y }))
+      .filter(({ dx, dy }) => round(dx) !== 0 || round(dy) !== 0);
+    const changes = wanted.filter(({ unit }) => !unit.some((o) => o.locked));
     const blocked = wanted.length - changes.length;
     if (changes.length === 0) return { moved: 0, blocked };
     this.record("");
-    for (const { o, x, y } of changes) {
-      o.geometry = { ...o.geometry, x, y };
-      this.emit({ kind: "geometry", objectId: o.id });
+    for (const { unit, dx, dy } of changes) {
+      for (const o of unit) {
+        o.geometry = { ...o.geometry, x: round(o.geometry.x + dx), y: round(o.geometry.y + dy) };
+        this.emit({ kind: "geometry", objectId: o.id });
+      }
     }
     return { moved: changes.length, blocked };
   }
@@ -2140,6 +3141,7 @@ export class Model {
       newObjectId: alloc.object,
       newLayerId: alloc.layer,
       newTriggerId: this.triggerAllocator(),
+      newGroupId: this.groupAllocator(),
       newVariable: (type, base) => this.makeVariable(type, base),
       variableOf: (id) => this.project.variables.find((v) => v.id === id),
       layerIds: new Set(slide.layers.map((l) => l.id)),
@@ -2189,6 +3191,8 @@ export class Model {
     if (made.newVariables > 0) parts.push(`It saves to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so it does not overwrite the original's answers.`);
     if (made.layers.length > 0) parts.push("It has feedback layers of its own, and it counts toward the score as another question.");
     if (made.droppedRules > 0) parts.push(`${made.droppedRules} ${made.droppedRules === 1 ? "rule was" : "rules were"} not copied, because ${made.droppedRules === 1 ? "it points" : "they point"} at a layer or an object on the slide the original is on.`);
+    if (made.leftGroup > 0) parts.push(`Only part of a group was copied, so ${made.leftGroup === 1 ? "the copy is" : "the copies are"} not grouped.`);
+    if (made.timingsReset > 0) parts.push(`${made.timingsReset} ${made.timingsReset === 1 ? "copy" : "copies"} followed a video or audio clip that did not come too, so ${made.timingsReset === 1 ? "it now appears" : "they now appear"} when the slide opens.`);
     if (made.objects.some((o) => ["image", "video", "audio", "embed", "download"].includes(o.type) && !o.accessibility.decorative && o.accessibility.altText !== "")) {
       parts.push("Its alt text was copied too, so check that it still describes this one.");
     }
@@ -2228,6 +3232,7 @@ export class Model {
     this.record("");
     const result = layOut(layout, this.allocator(slide), slide.baseLayer.objects);
     slide.baseLayer.objects = result.objects;
+    this.pruneGroups(slide.baseLayer);
     slide.layout = layout.id;
     slide.background = layout.background ?? null;
     if (this.sel.layerId === slide.baseLayer.id && this.sel.objectId && !result.objects.some((o) => o.id === this.sel.objectId)) {
@@ -2319,6 +3324,129 @@ export class Model {
     return `Renamed to ${name}`;
   }
 
+  /**
+   * Make a copy of a slide, straight after it in the same scene, and select it. Everything is copied as it is: layers (with the same ids,
+   * because a layer id only has to be unique on its slide), objects (with new ids, because those are unique across the project and name
+   * their narration), locks, timing, animation and groups. Rules between the slide's own objects and layers follow to the copy. An input
+   * saves to variables of its own, so the copy does not overwrite the original's answers, and the rules that use them follow. Rules that
+   * jump to other slides are unchanged, and so are rules on other slides that jump to this one: they still go to the original.
+   */
+  duplicateSlide(slideId = this.sel.slideId): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc) return null;
+    const source = doc.slide;
+    const ids = [...this.docs.map((d) => d.id), ...this.project.scenes.flatMap((s) => s.slides)];
+    const id = `slide-${String(nextNumber(ids, "slide-")).padStart(3, "0")}`;
+    this.record("");
+    const layers = [source.baseLayer, ...source.layers];
+    const flat = layers.flatMap((l) => l.objects);
+    const alloc = this.allocator();
+    const made = cloneObjects(flat, [], {
+      newObjectId: alloc.object,
+      newLayerId: alloc.layer,
+      newTriggerId: this.triggerAllocator(),
+      newGroupId: this.groupAllocator(),
+      newVariable: (type, base) => this.makeVariable(type, base),
+      variableOf: (vid) => this.project.variables.find((v) => v.id === vid),
+      layerIds: new Set(layers.map((l) => l.id)),
+      objectIds: new Set(flat.map((o) => o.id)),
+      keepLocks: true,
+    });
+    const slide = JSON.parse(JSON.stringify(source)) as Slide;
+    slide.id = id;
+    // A copy is the author's own slide now, not the recorded step it came from, so a changed recording will not reach it.
+    delete slide.provenance;
+    slide.name = copyName(source.name, this.docs.map((d) => d.slide.name));
+    let from = 0;
+    for (const layer of [slide.baseLayer, ...slide.layers]) {
+      layer.objects = made.objects.slice(from, from + layer.objects.length);
+      from += layer.objects.length;
+    }
+    const scene = this.project.scenes.find((s) => s.slides.includes(slideId)) ?? this.project.scenes[0]!;
+    const at = scene.slides.indexOf(slideId);
+    scene.slides.splice(at === -1 ? scene.slides.length : at + 1, 0, id);
+    this.docs.push({ id, slide, originalText: "", savedCompact: "" });
+    this.syncDocOrder();
+    this.sel = { slideId: id, layerId: slide.baseLayer.id, objectId: null };
+    this.more = null;
+    this.anchor = null;
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+
+    const parts = [`Duplicated ${source.name}. The copy is ${slide.name}, slide ${this.docs.findIndex((d) => d.id === id) + 1} of ${this.docs.length}.`];
+    if (made.newVariables > 0) parts.push(`Its ${made.newVariables === 1 ? "input saves" : "inputs save"} to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so the copy does not overwrite the original's answers.`);
+    const questions = flat.filter((o) => o.type === "quizQuestion").length;
+    if (questions > 0) parts.push(`${questions === 1 ? "Its question counts" : `Its ${questions} questions count`} toward the score again, because the copy has ${questions === 1 ? "one" : "questions"} of its own.`);
+    parts.push("Rules on other slides that go to this slide still go to the original.");
+    return parts.join(" ");
+  }
+
+  /**
+   * Make a copy of a layer, straight after it, and select it. The objects are copied as they are, with new ids; a rule inside the layer that
+   * points at the layer itself, or at one of its objects, points at the copy. Nothing shows the copy yet: a layer appears only when a rule
+   * shows it, so the author adds that rule. A quiz question on the layer brings feedback layers of its own.
+   */
+  duplicateLayer(layerId = this.sel.layerId): string | null {
+    const slide = this.slide;
+    const source = this.layers.find((l) => l.id === layerId);
+    if (!slide || !source) return null;
+    this.record("");
+    const everyLayer = [slide.baseLayer, ...slide.layers];
+    const alloc = this.allocator();
+    const newId = alloc.layer();
+    const made = cloneObjects(source.objects, this.feedbackLayersOf(source.objects, slide), {
+      newObjectId: alloc.object,
+      newLayerId: alloc.layer,
+      newTriggerId: this.triggerAllocator(),
+      newGroupId: this.groupAllocator(),
+      newVariable: (type, base) => this.makeVariable(type, base),
+      variableOf: (vid) => this.project.variables.find((v) => v.id === vid),
+      layerIds: new Set(everyLayer.map((l) => l.id)),
+      objectIds: new Set(everyLayer.flatMap((l) => l.objects.map((o) => o.id))),
+      keepLocks: true,
+      layerMap: new Map([[source.id, newId]]),
+    });
+    const names = everyLayer.map((l) => l.name);
+    const layer: Layer = { id: newId, name: copyName(source.name, names), objects: made.objects };
+    names.push(layer.name);
+    // A copied question's feedback layers are copies too, and say which layer they belong to.
+    for (const extra of made.layers) {
+      extra.name = copyName(extra.name, names);
+      names.push(extra.name);
+    }
+    const at = slide.layers.findIndex((l) => l.id === source.id);
+    slide.layers.splice(at + 1, 0, layer, ...made.layers);
+    this.sel = { ...this.sel, layerId: layer.id, objectId: null };
+    this.more = null;
+    this.anchor = null;
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+
+    const parts = [`Duplicated ${source.name}. The copy is ${layer.name}, and you are now editing it. No rule shows it yet: add one, as for any layer.`];
+    if (made.newVariables > 0) parts.push(`Its ${made.newVariables === 1 ? "input saves" : "inputs save"} to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so the copy does not overwrite the original's answers.`);
+    if (made.layers.length > 0) parts.push(`It brought ${made.layers.length === 2 ? "two feedback layers" : `${made.layers.length} feedback layers`}, and its ${made.layers.length === 2 ? "question counts" : "questions count"} toward the score again.`);
+    return parts.join(" ");
+  }
+
+  /**
+   * Move a layer earlier (-1) or later (+1) in the slide's layer order. The base layer stays first. A later layer is drawn in front of an
+   * earlier one where they overlap, and is read after it.
+   */
+  moveLayer(layerId: string, delta: -1 | 1): string | null {
+    const slide = this.slide;
+    if (!slide) return null;
+    if (layerId === slide.baseLayer.id) return "The base layer is always first.";
+    const at = slide.layers.findIndex((l) => l.id === layerId);
+    if (at === -1) return null;
+    const layer = slide.layers[at]!;
+    const to = at + delta;
+    if (to < 0 || to >= slide.layers.length) return delta < 0 ? `${layer.name} is already the first layer after the base layer.` : `${layer.name} is already the last layer.`;
+    this.record("");
+    [slide.layers[at], slide.layers[to]] = [slide.layers[to]!, slide.layers[at]!];
+    this.emit({ kind: "structure" });
+    return `${layer.name} is now layer ${to + 2} of ${slide.layers.length + 1}. A later layer is drawn in front of an earlier one, and is read after it.`;
+  }
+
   /** Keep the slide order the same as the order the scenes list them. */
   private syncDocOrder(): void {
     const order = [...new Set(this.project.scenes.flatMap((s) => s.slides))];
@@ -2337,14 +3465,20 @@ export class Model {
     return contrastOf(this.theme.colors.text, hex) >= contrastOf(this.theme.colors.onDark, hex);
   }
 
-  /** Give the project a different theme. Everything that refers to theme colours changes with it. */
-  setTheme(theme: Theme): string | null {
-    if (JSON.stringify(theme) === JSON.stringify(this.theme)) return null;
+  /**
+   * Give the project a different theme. Everything that refers to theme colours changes with it. A logo belongs to the project's
+   * design but not to a colour scheme, so when a built-in theme is chosen (`keepLogo`) the logo the project has is kept with it.
+   */
+  setTheme(theme: Theme, keepLogo = false): string | null {
+    const next = cloneTheme(theme);
+    const kept = keepLogo && !next.logo && this.theme.logo !== undefined;
+    if (kept) next.logo = { ...this.theme.logo! };
+    if (JSON.stringify(next) === JSON.stringify(this.theme)) return null;
     this.record("");
-    this.theme = cloneTheme(theme);
+    this.theme = next;
     this.project.theme = { ref: "theme.json" };
     this.emit({ kind: "structure" });
-    return `Theme changed to ${theme.name}`;
+    return `Theme changed to ${theme.name}${kept ? ". The logo was kept." : ""}`;
   }
 
   /**
@@ -2414,13 +3548,17 @@ export class Model {
   }
 
   private snapshot(): string {
-    return JSON.stringify({ scenes: this.project.scenes, variables: this.project.variables, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
+    return JSON.stringify({ scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
   }
 
   private restore(snapshot: string): void {
-    const state = JSON.parse(snapshot) as { scenes: Project["scenes"]; variables: Project["variables"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
+    const state = JSON.parse(snapshot) as { scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
     this.project.scenes = state.scenes;
     this.project.variables = state.variables;
+    if (state.characters) this.project.characters = state.characters;
+    else delete this.project.characters;
+    if (state.sources) this.project.sources = state.sources;
+    else delete this.project.sources;
     this.project.credits = state.credits;
     if (state.completion) this.project.completion = state.completion;
     else delete (this.project as { completion?: unknown }).completion;

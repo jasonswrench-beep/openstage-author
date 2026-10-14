@@ -30,8 +30,10 @@ export interface Bar {
   hasNarration: boolean;
   /** When its narration plays, counted from when its layer is shown. Null if it has none, or its place cannot be known yet. */
   narration: { start: number; end: number } | null;
-  /** The moment `timing.start` counts from: 0 for an object timed from the layer, or when its narration starts. */
+  /** The moment `timing.start` counts from: 0 for an object timed from the layer, or when its narration starts. For an object that follows a clip, 0 is the start of the clip. */
   origin: number;
+  /** The name of the video or audio clip it follows, if it follows one. */
+  clipName?: string;
   /** An object that follows its narration, whose narration's place is not known (no audio made yet, or an earlier narration has none). */
   approximate: boolean;
   /** When it appears on the axis, and when it goes (null: it stays). */
@@ -45,12 +47,34 @@ export interface Tick {
 }
 
 export interface TimelineView {
-  /** The length of the axis in milliseconds. */
+  /** The length of the axis in milliseconds. It is the slide's clock: objects that follow a clip are not on it. */
   horizon: number;
   ticks: Tick[];
+  /** Every object, in order, including those that follow a clip. */
   bars: Bar[];
   /** When the slide moves on by itself, or null. */
   advanceAt: number | null;
+  /** The objects that follow a clip, a group for each clip, each with an axis of its own: seconds into that clip, not seconds of the slide. */
+  clips: ClipGroup[];
+}
+
+export interface ClipGroup {
+  /** The id of the video or audio object. */
+  mediaId: string;
+  name: string;
+  horizon: number;
+  ticks: Tick[];
+  bars: Bar[];
+}
+
+/** The axis for a length of time: the smallest friendly step that keeps it to twelve ticks, and room beyond the last thing on it. */
+export function axisFor(latest: number): { horizon: number; ticks: Tick[] } {
+  const roomy = latest + Math.max(3000, Math.round(latest * 0.15));
+  const step = tickStep(Math.max(10000, roomy));
+  const horizon = Math.ceil(Math.max(10000, roomy) / step) * step;
+  const ticks: Tick[] = [];
+  for (let ms = 0; ms <= horizon; ms += step) ticks.push({ ms, label: tickLabel(ms) });
+  return { horizon, ticks };
 }
 
 const NICE_STEPS = [1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 1800000];
@@ -75,6 +99,7 @@ export function tickLabel(ms: number): string {
  * narration has no audio, nothing after it can be placed, and those objects are marked approximate.
  */
 export function buildTimeline(rows: TimelineRow[], slideDuration: number | null, narrationMs: (o: OSObject) => number | null): TimelineView {
+  const nameOf = new Map(rows.map((r) => [r.object.id, r.object.name] as const));
   const cursors = new Map<string, number | null>();
   const bars: Bar[] = rows.map((row) => {
     const o = row.object;
@@ -91,22 +116,28 @@ export function buildTimeline(rows: TimelineRow[], slideDuration: number | null,
       }
     }
     const follows = o.timing.appear === "narration";
+    const onClip = o.timing.appear === "media";
     const approximate = follows && narration === null;
     const origin = follows && narration ? narration.start : 0;
     const from = origin + o.timing.start;
     return {
       id: o.id, name: o.name, layerId: row.layerId, layerName: row.layerName, onBase: row.onBase, timing: o.timing, hasNarration,
-      narration, origin, approximate, from, to: o.timing.visibleFor === null ? null : from + o.timing.visibleFor,
+      // An object that follows a clip is drawn on the clip's own axis, where the slide's narration does not belong.
+      narration: onClip ? null : narration, origin, approximate, from, to: o.timing.visibleFor === null ? null : from + o.timing.visibleFor,
+      ...(onClip ? { clipName: nameOf.get(o.timing.media ?? "") ?? "its video or audio" } : {}),
     };
   });
   let latest = slideDuration ?? 0;
-  for (const b of bars) latest = Math.max(latest, b.to ?? b.from, b.narration?.end ?? 0);
-  const roomy = latest + Math.max(3000, Math.round(latest * 0.15));
-  const step = tickStep(Math.max(10000, roomy));
-  const horizon = Math.ceil(Math.max(10000, roomy) / step) * step;
-  const ticks: Tick[] = [];
-  for (let ms = 0; ms <= horizon; ms += step) ticks.push({ ms, label: tickLabel(ms) });
-  return { horizon, ticks, bars, advanceAt: slideDuration };
+  for (const b of bars) if (b.timing.appear !== "media") latest = Math.max(latest, b.to ?? b.from, b.narration?.end ?? 0);
+  const { horizon, ticks } = axisFor(latest);
+
+  const clips: ClipGroup[] = [];
+  for (const id of new Set(bars.filter((b) => b.timing.appear === "media").map((b) => b.timing.media!))) {
+    const group = bars.filter((b) => b.timing.media === id);
+    const end = group.reduce((m, b) => Math.max(m, b.to ?? b.from), 0);
+    clips.push({ mediaId: id, name: nameOf.get(id) ?? "a video or audio clip that is no longer on the slide", bars: group, ...axisFor(end) });
+  }
+  return { horizon, ticks, bars, advanceAt: slideDuration, clips };
 }
 
 /** Round a time to the nearest tenth of a second, never below nothing. */
@@ -146,14 +177,16 @@ export function percentOf(ms: number, horizon: number): number {
 }
 
 /** What a screen reader says for the start grip: the delay and what it counts from. */
-export function startText(timing: Timing, onBase: boolean): string {
+export function startText(timing: Timing, onBase: boolean, clipName?: string): string {
+  if (timing.appear === "media") return `${plainSeconds(timing.start)} into ${clipName ?? "its video or audio"}`;
   const from = timing.appear === "narration" ? "its narration starts" : onBase ? "the slide opens" : "its layer is shown";
   return `${plainSeconds(timing.start)} after ${from}`;
 }
 
 /** What a screen reader says for the end grip. */
 export function endText(timing: Timing): string {
-  return timing.visibleFor === null ? "stays until the slide ends" : `disappears ${plainSeconds(timing.visibleFor)} after it appears`;
+  if (timing.visibleFor === null) return timing.appear === "media" ? "stays until the end of the clip" : "stays until the slide ends";
+  return `disappears ${plainSeconds(timing.visibleFor)} after it appears`;
 }
 
 /**

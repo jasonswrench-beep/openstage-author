@@ -8,7 +8,7 @@
 
 import type { CertificateContent, OSObject, ResultsContent } from "./types.ts";
 
-export type QuestionState = "correct" | "incorrect" | "open" | "unanswered";
+export type QuestionState = "correct" | "partial" | "incorrect" | "open" | "unanswered";
 
 export interface QuestionResult {
   /** The name of the slide the question is on, which is what the learner knows it by. */
@@ -57,7 +57,7 @@ export const roundPercent = (n: number): string => String(Math.round(n * 100) / 
 export function scoreSentence(r: CourseResults): string {
   if (r.questions.length === 0) return "This course has no quiz questions.";
   if (r.finished) return `You scored ${r.earnedPoints} of ${r.totalPoints} points (${roundPercent(r.percent ?? 0)}%).`;
-  const done = r.questions.filter((q) => q.state === "correct" || q.state === "incorrect").length;
+  const done = r.questions.filter((q) => q.state === "correct" || q.state === "partial" || q.state === "incorrect").length;
   return `You have finished ${done} of ${plural(r.questions.length, "question", "questions")} so far.`;
 }
 
@@ -74,6 +74,7 @@ export const passMarkSentence = (r: CourseResults): string => `The pass mark is 
 export function questionLine(q: QuestionResult): string {
   const how = {
     correct: `correct, ${q.earned} of ${plural(q.points, "point", "points")}`,
+    partial: `partly correct, ${q.earned} of ${plural(q.points, "point", "points")}`,
     incorrect: `not correct, 0 of ${plural(q.points, "point", "points")}`,
     open: "answered, but not right yet, and you can still try again",
     unanswered: "not answered yet",

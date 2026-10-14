@@ -6,6 +6,8 @@ export interface TextPrompt {
   heading: string;
   label: string;
   confirm: string;
+  /** What the box starts with, selected so typing replaces it. */
+  initial?: string;
   /** Words under the box that say what is wanted. */
   help?: string;
   /** Returns a message if the text is not acceptable, or null if it is. */
@@ -86,6 +88,8 @@ export function askText(opts: TextPrompt): Promise<string | null> {
     });
 
     dialog.showModal();
+    if (opts.initial) input.value = opts.initial;
     input.focus();
+    if (opts.initial) input.select();
   });
 }

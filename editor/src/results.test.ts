@@ -25,7 +25,7 @@ const certOf = (m: Model, id: string) => m.objects.find((o) => o.id === id)!.con
 
 test("the Add menu has one entry for both, and stays short", () => {
   assert.ok(ADD_MENU.some((e) => e.value === "group:course" && e.label === "Results or certificate..."));
-  assert.ok(ADD_MENU.length <= 8);
+  assert.ok(ADD_MENU.length <= 9);
 });
 
 test("a new results box starts with sensible words and no alt text, so the author must give it a name", () => {

@@ -1,0 +1,367 @@
+{
+  "id": "slide-005",
+  "name": "A conversation",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0028",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 64,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>A conversation</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "A conversation",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0029",
+        "geometry": {
+          "x": 80,
+          "y": 100,
+          "width": 1120,
+          "height": 520,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "scenario",
+        "name": "Feedback conversation",
+        "content": {
+          "start": "situation-1",
+          "you": null,
+          "nodes": [
+            {
+              "id": "situation-1",
+              "title": "Totals that do not match",
+              "prompt": "What do you do?",
+              "lines": [
+                {
+                  "id": "line-1",
+                  "speaker": null,
+                  "text": "Alex has handed in a report. The totals on page two do not match the table beneath them.",
+                  "narration": null
+                },
+                {
+                  "id": "line-4",
+                  "speaker": "maya",
+                  "text": "Alex, can we look at page two together? The totals and the table do not agree.",
+                  "narration": null
+                }
+              ],
+              "choices": [
+                {
+                  "id": "choice-1",
+                  "label": "Describe what you see and ask Alex how it happened",
+                  "next": "situation-2",
+                  "effects": [
+                    {
+                      "variable": "var-1",
+                      "add": 1
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "line-5",
+                      "speaker": "alex",
+                      "text": "I copied the figures from an older file. I should have checked them.",
+                      "narration": null
+                    }
+                  ]
+                },
+                {
+                  "id": "choice-2",
+                  "label": "Say that this kind of mistake is careless",
+                  "next": "situation-3",
+                  "effects": [
+                    {
+                      "variable": "var-1",
+                      "add": -2
+                    }
+                  ],
+                  "response": [
+                    {
+                      "id": "line-6",
+                      "speaker": "alex",
+                      "text": "Right. Sorry.",
+                      "narration": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "situation-2",
+              "title": "A shared fix",
+              "prompt": "",
+              "lines": [
+                {
+                  "id": "line-2",
+                  "speaker": "maya",
+                  "text": "Thank you for saying so. Let us agree how to check figures before they go out.",
+                  "narration": null
+                }
+              ],
+              "choices": []
+            },
+            {
+              "id": "situation-3",
+              "title": "Alex goes quiet",
+              "prompt": "",
+              "lines": [
+                {
+                  "id": "line-3",
+                  "speaker": null,
+                  "text": "Alex fixes the page and says little for the rest of the week. Maya wonders what she could have said differently.",
+                  "narration": null
+                }
+              ],
+              "choices": []
+            }
+          ],
+          "meters": [
+            {
+              "id": "meter-1",
+              "label": "Alex's trust in Maya",
+              "variable": "var-1",
+              "min": -5,
+              "max": 5
+            }
+          ],
+          "allowRetry": true,
+          "finishedVariable": null,
+          "reflection": "Think of the last feedback you were given. Which of these two ways was it nearer to?"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "A conversation in which Maya gives Alex feedback on a report",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0030",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 200
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back",
+        "content": {
+          "label": "Back",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-left",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "m12 19-7-7 7-7"
+              },
+              {
+                "tag": "path",
+                "d": "M19 12H5"
+              }
+            ]
+          },
+          "iconPlacement": "before"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0031",
+        "geometry": {
+          "x": 1040,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 201
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Next",
+        "content": {
+          "label": "Next",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Next",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

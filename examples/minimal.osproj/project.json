@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.25.0",
   "meta": {
     "title": "What Is Organizational Communication?",
     "author": "",
@@ -28,6 +28,18 @@
   "theme": {
     "ref": "theme.json"
   },
+  "sources": [
+    {
+      "id": "deck-7b21",
+      "name": "Introduction to communication.pptx",
+      "importedAt": "2026-10-10T14:22:00Z",
+      "slideWidth": 12192000,
+      "slideHeight": 6858000,
+      "pixelsPerInch": 96,
+      "offsetX": 0,
+      "offsetY": 0
+    }
+  ],
   "credits": true,
   "completion": {
     "slides": "all"

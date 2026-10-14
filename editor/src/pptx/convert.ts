@@ -1,0 +1,425 @@
+// Turns what the deck reader found into OpenStage slides and objects. Nothing here touches the project: it returns objects and the
+// picture files they need, and the model puts them in.
+//
+// Choices made here, because the two programs do not draw the same way:
+//  - A deck's drawing units become stage pixels at one scale for the whole deck (see `placementFor`), so shapes keep their places.
+//  - Text keeps its meaning: a title is a heading, bulleted paragraphs are a list, bold and italic stay. A box that mixes sizes or colours
+//    takes the one that most of its words have, and the report says so.
+//  - Alt text is what PowerPoint had. A shape with none is decorative, as a new shape in this editor is; a picture or table with none is
+//    left for the author, and the Problems list asks. Nothing is made up.
+
+import type { OSObject, Slide } from "../../../player/src/types.ts";
+import { FONT_CHOICES } from "../content.ts";
+import { box } from "../factory.ts";
+import { EMU_PER_INCH, type DeckPara, type DeckRun, type DeckShape, type DeckSlide } from "./deck.ts";
+
+/** How a deck is laid on the stage: how big an inch of the deck is in stage pixels, and how far in from the stage's top left corner the deck starts. */
+export interface Placement {
+  pixelsPerInch: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/** Fit a deck's slide on the stage, as big as it will go without being cut, in the middle. */
+export function placementFor(slideWidth: number, slideHeight: number, stage: { width: number; height: number }): Placement {
+  const inchesWide = slideWidth / EMU_PER_INCH;
+  const inchesHigh = slideHeight / EMU_PER_INCH;
+  const ppi = Math.min(stage.width / inchesWide, stage.height / inchesHigh);
+  const round = (n: number, places: number) => Math.round(n * 10 ** places) / 10 ** places;
+  return { pixelsPerInch: round(ppi, 3), offsetX: round((stage.width - inchesWide * ppi) / 2, 1), offsetY: round((stage.height - inchesHigh * ppi) / 2, 1) };
+}
+
+/** What importing left out or changed, counted, for the report. */
+export interface ConvertNotes {
+  fontsReplaced: Record<string, number>;
+  mixedColour: number;
+  mixedSize: number;
+  formsRedrawn: Record<string, number>;
+  croppedPictures: number;
+  diagonalLines: number;
+  tableMerged: number;
+  fills: Record<string, number>;
+}
+
+export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {} });
+
+const bump = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
+
+/** An object as the import makes it, before it has an id, a place in the stacking order or a tab number. */
+export interface Draft {
+  type: "text" | "shape" | "image" | "table";
+  name: string;
+  geometry: { x: number; y: number; width: number; height: number; rotation: number };
+  content: Record<string, unknown>;
+  style: Record<string, string | number>;
+  altText: string;
+  decorative: boolean;
+  role: string;
+  /** A picture file the object needs, read from the deck, to be saved in the project at `path`. */
+  asset?: { path: string; bytes: Uint8Array };
+}
+
+/** The part of an object the import decides: the object as it was imported, kept so a changed deck can be compared with what the author did since. */
+export interface Base {
+  type: string;
+  name: string;
+  geometry: { x: number; y: number; width: number; height: number; rotation: number };
+  content: Record<string, unknown>;
+  style: Record<string, string | number>;
+  altText: string;
+  decorative: boolean;
+}
+
+export function snapshotOf(o: Pick<Draft, "type" | "name" | "geometry" | "content" | "style" | "altText" | "decorative"> | OSObject): Base {
+  const isObject = "accessibility" in o;
+  const g = o.geometry;
+  return structuredClone({
+    type: o.type,
+    name: o.name,
+    geometry: { x: g.x, y: g.y, width: g.width, height: g.height, rotation: g.rotation },
+    content: o.content,
+    style: o.style as Record<string, string | number>,
+    altText: isObject ? (o as OSObject).accessibility.altText : (o as Draft).altText,
+    decorative: isObject ? (o as OSObject).accessibility.decorative : (o as Draft).decorative,
+  });
+}
+
+/**
+ * The colour to give a slide whose background is a picture. The validator judges text against a slide's background colour and cannot see a
+ * picture, so the slide is given the picture's average colour, which is the best guess available. The key is the picture's fingerprint.
+ */
+export type Tones = ReadonlyMap<string, string>;
+
+/** The slide's background colour as the import sets it: the deck's own colour, or else the average colour of its background picture. */
+export function backgroundOf(ds: DeckSlide, tones: Tones | undefined): string | null {
+  if (ds.background) return ds.background;
+  return (ds.backgroundPicture && tones?.get(ds.backgroundPicture.mediaHash)) || null;
+}
+
+export interface ConvertContext {
+  placement: Placement;
+  notes: ConvertNotes;
+  /** Average colours of background pictures, if they could be worked out. */
+  tones?: Tones;
+  /** The file name inside the project for a picture from the deck, from its fingerprint and extension. */
+  mediaPath(hash: string, ext: string): string;
+  bytesOf(part: string): Uint8Array | undefined;
+}
+
+// ---- text
+
+const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escapeAttr = (s: string) => escape(s).replace(/"/g, "&quot;");
+const SAFE_HREF = /^(https?:|mailto:)/i;
+
+function runHtml(r: DeckRun, allBold: boolean): string {
+  if (r.br) return "<br>";
+  let t = escape(r.text);
+  if (r.sup) t = `<sup>${t}</sup>`;
+  if (r.sub) t = `<sub>${t}</sub>`;
+  if (r.underline && !r.href) t = `<u>${t}</u>`;
+  if (r.italic) t = `<em>${t}</em>`;
+  if (r.bold && !allBold) t = `<strong>${t}</strong>`;
+  if (r.href && SAFE_HREF.test(r.href)) t = `<a href="${escapeAttr(r.href)}">${t}</a>`;
+  return t;
+}
+
+/** Paragraphs as HTML: a heading for a title, paragraphs, and lists (nested for deeper levels) for bulleted paragraphs. */
+export function parasToHtml(paras: DeckPara[], title: boolean, allBold: boolean): string {
+  const inner = (p: DeckPara) => p.runs.map((r) => runHtml(r, allBold)).join("");
+  if (title) return `<h1>${paras.map(inner).join("<br>")}</h1>`;
+  let out = "";
+  const open: { tag: "ul" | "ol"; li: boolean }[] = [];
+  const closeTo = (depth: number) => {
+    while (open.length > depth) {
+      const top = open.pop()!;
+      out += `${top.li ? "</li>" : ""}</${top.tag}>`;
+    }
+  };
+  for (const p of paras) {
+    if (p.bullet === "none") {
+      closeTo(0);
+      out += `<p>${inner(p)}</p>`;
+      continue;
+    }
+    const tag = p.bullet === "number" ? "ol" : "ul";
+    const depth = Math.min(p.level, 3) + 1;
+    closeTo(depth);
+    if (open.length === depth && open[depth - 1]!.tag !== tag) closeTo(depth - 1);
+    if (open.length === depth) {
+      const top = open[depth - 1]!;
+      if (top.li) out += "</li>";
+      out += `<li>${inner(p)}`;
+      top.li = true;
+      continue;
+    }
+    while (open.length < depth) {
+      const last = open.length === depth - 1;
+      out += `<${tag}>`;
+      open.push({ tag, li: false });
+      if (last) { out += `<li>${inner(p)}`; open[open.length - 1]!.li = true; }
+      else { out += "<li>"; open[open.length - 1]!.li = true; }
+    }
+  }
+  closeTo(0);
+  return out;
+}
+
+const plain = (paras: DeckPara[]) => paras.map((p) => p.runs.map((r) => (r.br ? " " : r.text)).join("")).join(" ").replace(/\s+/g, " ").trim();
+
+/** The value most of a box's words have for something, or undefined if none has it. */
+function dominant<T extends string | number>(runs: DeckRun[], pick: (r: DeckRun) => T | undefined): { value: T | undefined; mixed: boolean } {
+  const weight = new Map<T, number>();
+  for (const r of runs) {
+    const v = pick(r);
+    if (v !== undefined) weight.set(v, (weight.get(v) ?? 0) + r.text.length);
+  }
+  if (weight.size === 0) return { value: undefined, mixed: false };
+  let best: T | undefined;
+  let most = -1;
+  for (const [v, w] of weight) if (w > most) { best = v; most = w; }
+  const noValue = runs.some((r) => !r.br && r.text.trim() !== "" && pick(r) === undefined);
+  return { value: best, mixed: weight.size > 1 || noValue };
+}
+
+const firstFamily = (stack: string) => (stack.split(",")[0] ?? "").replace(/['"]/g, "").trim().toLowerCase();
+
+function fontStack(deckFont: string | undefined, notes: ConvertNotes): string | undefined {
+  if (!deckFont) return undefined;
+  const hit = FONT_CHOICES.find((f) => firstFamily(f.value) === deckFont.toLowerCase());
+  if (hit) return hit.value;
+  bump(notes.fontsReplaced, deckFont);
+  return undefined;
+}
+
+const SHAPE_FOR: Record<string, string> = {
+  rect: "rectangle", roundRect: "rounded", round1Rect: "rounded", round2SameRect: "rounded", ellipse: "ellipse", triangle: "triangle", rtTriangle: "triangle",
+  diamond: "diamond", rightArrow: "arrow",
+};
+
+const px = (emu: number, p: Placement) => (emu / EMU_PER_INCH) * p.pixelsPerInch;
+const rectOf = (s: DeckShape, p: Placement) => ({
+  x: Math.round(p.offsetX + px(s.box.x, p)),
+  y: Math.round(p.offsetY + px(s.box.y, p)),
+  width: Math.max(1, Math.round(px(s.box.cx, p))),
+  height: Math.max(1, Math.round(px(s.box.cy, p))),
+  rotation: Math.round(s.rot),
+});
+
+function strokeStyle(line: { color: string; width: number } | null, p: Placement): Record<string, string | number> {
+  if (!line) return {};
+  return { stroke: line.color, strokeWidth: Math.max(1, Math.round(((line.width / 12700) * p.pixelsPerInch) / 72)) };
+}
+
+/** Turn one shape of the deck into the object it becomes, or null if it becomes nothing. */
+export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | null {
+  const { placement: p, notes } = ctx;
+  const geometry = rectOf(shape, p);
+  switch (shape.kind) {
+    case "text": {
+      const runs = shape.paras.flatMap((r) => r.runs).filter((r) => !r.br && r.text.trim() !== "");
+      const title = shape.placeholder === "title" || shape.placeholder === "ctrTitle";
+      const allBold = runs.length > 0 && runs.every((r) => r.bold);
+      const size = dominant(runs, (r) => r.size);
+      const colour = dominant(runs, (r) => r.color);
+      const font = dominant(runs, (r) => r.font);
+      if (size.mixed) notes.mixedSize += 1;
+      if (colour.mixed) notes.mixedColour += 1;
+      const style: Record<string, string | number> = {};
+      const stack = fontStack(font.value, notes);
+      style["fontFamily"] = stack ?? (title ? "theme:font.heading" : "theme:font.body");
+      if (size.value !== undefined) style["fontSize"] = Math.max(6, Math.round((size.value * p.pixelsPerInch) / 72));
+      if (colour.value) style["color"] = colour.value;
+      if (allBold && !title) style["fontWeight"] = "bold";
+      if (title && runs.length > 0 && !runs.some((r) => r.bold)) style["fontWeight"] = "normal";
+      const align = shape.paras[0]?.align;
+      if (align) style["textAlign"] = align === "ctr" ? "center" : align === "r" ? "right" : align === "j" ? "justify" : "left";
+      if (shape.fill) { style["fill"] = shape.fill; }
+      Object.assign(style, strokeStyle(shape.line, p));
+      if (shape.fill || shape.line) {
+        if (shape.geom === "ellipse") style["radius"] = 9999;
+        else if (shape.geom === "roundRect" || shape.geom === "round1Rect" || shape.geom === "round2SameRect") style["radius"] = 12;
+        else if (shape.geom !== "rect" && shape.geom !== "custom") bump(notes.formsRedrawn, shape.geom);
+      }
+      if (shape.note) bump(notes.fills, shape.note);
+      const text = plain(shape.paras);
+      return {
+        type: "text", name: shape.name, geometry, content: { html: parasToHtml(shape.paras, title, allBold) }, style,
+        altText: shape.alt !== "" ? shape.alt : text, decorative: false, role: title ? "heading" : shape.paras.some((q) => q.bullet !== "none") ? "list" : "paragraph",
+      };
+    }
+    case "shape": {
+      const kind = SHAPE_FOR[shape.geom];
+      if (!kind) bump(notes.formsRedrawn, shape.geom);
+      const style: Record<string, string | number> = {};
+      if (shape.fill) style["fill"] = shape.fill;
+      Object.assign(style, strokeStyle(shape.line, p));
+      if (shape.note) bump(notes.fills, shape.note);
+      const meaningful = shape.alt !== "" && !shape.decorative;
+      return {
+        type: "shape", name: shape.name, geometry, content: { shape: kind ?? "rectangle" }, style,
+        altText: meaningful ? shape.alt : "", decorative: !meaningful, role: meaningful ? "img" : "presentation",
+      };
+    }
+    case "line": {
+      const thick = Math.max(2, Math.round(((shape.width / 12700) * p.pixelsPerInch) / 72));
+      const horizontal = geometry.height <= thick + 1;
+      const vertical = geometry.width <= thick + 1;
+      if (!horizontal && !vertical) { notes.diagonalLines += 1; return null; }
+      const g = horizontal
+        ? { ...geometry, y: Math.round(geometry.y + geometry.height / 2 - thick / 2), height: thick }
+        : { ...geometry, x: Math.round(geometry.x + geometry.width / 2 - thick / 2), width: thick };
+      const meaningful = shape.alt !== "" && !shape.decorative;
+      return {
+        type: "shape", name: shape.name, geometry: g, content: { shape: "rectangle" }, style: { fill: shape.color },
+        altText: meaningful ? shape.alt : "", decorative: !meaningful, role: meaningful ? "img" : "presentation",
+      };
+    }
+    case "picture": {
+      if (!shape.media) return null;
+      const bytes = ctx.bytesOf(shape.media);
+      if (!bytes) return null;
+      if (shape.cropped) notes.croppedPictures += 1;
+      const path = ctx.mediaPath(shape.mediaHash, shape.ext);
+      return {
+        type: "image", name: shape.name, geometry, content: { src: path }, style: {},
+        altText: shape.decorative ? "" : shape.alt, decorative: shape.decorative, role: "img", asset: { path, bytes },
+      };
+    }
+    case "table": {
+      if (shape.merged) notes.tableMerged += 1;
+      return {
+        type: "table", name: shape.name, geometry,
+        content: { caption: "", headerRow: shape.headerRow, headerColumn: shape.headerColumn, rows: shape.rows.map((r) => [...r]) },
+        style: { fontFamily: "theme:font.body", fontSize: 18 },
+        altText: shape.decorative ? "" : shape.alt, decorative: shape.decorative, role: "table",
+      };
+    }
+    default: return null;
+  }
+}
+
+// ---- a slide
+
+export interface SlideProvenance {
+  sourceDeck: string;
+  slideId: string;
+  slideIndex: number;
+  importedAt: string;
+  sourceHash: string;
+  base: { name: string; background: string | null; /** The shapes of the slide the import brought in, so a shape the author deleted is not brought back. */ shapes: string[] };
+}
+
+export interface ConvertedSlide {
+  deck: DeckSlide;
+  name: string;
+  background: string | null;
+  objects: OSObject[];
+  assets: { path: string; bytes: Uint8Array }[];
+  provenance: SlideProvenance;
+}
+
+export interface SlideContext extends ConvertContext {
+  deckId: string;
+  importedAt: string;
+  newId(): string;
+  slideWidth: number;
+  slideHeight: number;
+}
+
+/** The provenance an object made from a shape carries. */
+export function provenanceFor(deckId: string, slide: DeckSlide, shapeId: string, sourceHash: string, base: Base, importedAt: string): NonNullable<OSObject["provenance"]> {
+  return { sourceDeck: deckId, slideIndex: slide.index, shapeId: `${slide.slideId}/${shapeId}`, importedAt, slideId: slide.slideId, sourceHash, base } as unknown as NonNullable<OSObject["provenance"]>;
+}
+
+/** Make an object from a draft, with the parts every object has. */
+export function objectFrom(draft: Draft, id: string, z: number, tabOrder: number, provenance: OSObject["provenance"]): OSObject {
+  const g = draft.geometry;
+  return {
+    ...box(id, g.x, g.y, g.width, g.height, z),
+    type: draft.type,
+    name: draft.name,
+    geometry: { x: g.x, y: g.y, width: g.width, height: g.height, rotation: g.rotation, z },
+    content: draft.content,
+    style: draft.style,
+    accessibility: { altText: draft.altText, role: draft.role, tabOrder: draft.decorative ? 0 : tabOrder, decorative: draft.decorative },
+    provenance,
+  } as OSObject;
+}
+
+/** What a slide of the deck becomes before ids exist: each shape's number in the slide, its fingerprint, and the object it makes, in reading order. */
+export interface SlideDraft {
+  key: string;
+  hash: string;
+  draft: Draft;
+}
+
+export interface SlideGeometry {
+  slideWidth: number;
+  slideHeight: number;
+}
+
+export function draftsForSlide(ds: DeckSlide, ctx: ConvertContext & SlideGeometry): SlideDraft[] {
+  const out: SlideDraft[] = [];
+  // A picture that fills the background goes behind everything, and is decoration.
+  if (ds.backgroundPicture) {
+    const bytes = ctx.bytesOf(ds.backgroundPicture.media);
+    if (bytes) {
+      const path = ctx.mediaPath(ds.backgroundPicture.mediaHash, ds.backgroundPicture.ext);
+      const p = ctx.placement;
+      out.push({
+        key: "background", hash: ds.backgroundPicture.mediaHash,
+        draft: {
+          type: "image", name: "Background picture",
+          geometry: { x: Math.round(p.offsetX), y: Math.round(p.offsetY), width: Math.round(px(ctx.slideWidth, p)), height: Math.round(px(ctx.slideHeight, p)), rotation: 0 },
+          content: { src: path }, style: {}, altText: "", decorative: true, role: "presentation", asset: { path, bytes },
+        },
+      });
+    }
+  }
+  for (const shape of ds.shapes) {
+    const draft = convertShape(shape, ctx);
+    if (draft) out.push({ key: shape.id, hash: shape.hash, draft });
+  }
+  return out;
+}
+
+/** Every object of a slide of the deck, in reading order, with what they need. */
+export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
+  const objects: OSObject[] = [];
+  const assets: ConvertedSlide["assets"] = [];
+  let z = 0;
+  let tab = 0;
+  for (const { key, hash, draft } of draftsForSlide(ds, ctx)) {
+    z += 10;
+    if (!draft.decorative) tab += 1;
+    if (draft.asset && !assets.some((a) => a.path === draft.asset!.path)) assets.push(draft.asset);
+    objects.push(objectFrom(draft, ctx.newId(), z, tab, provenanceFor(ctx.deckId, ds, key, hash, snapshotOf(draft), ctx.importedAt)));
+  }
+  const background = backgroundOf(ds, ctx.tones);
+  return {
+    deck: ds,
+    name: ds.name,
+    background,
+    objects,
+    assets,
+    provenance: {
+      sourceDeck: ctx.deckId, slideId: ds.slideId, slideIndex: ds.index, importedAt: ctx.importedAt, sourceHash: ds.hash,
+      base: { name: ds.name, background, shapes: objects.map((o) => (o.provenance as unknown as { shapeId: string }).shapeId.slice(ds.slideId.length + 1)) },
+    },
+  };
+}
+
+/** The slide as the import makes it. The caller gives it its id. */
+export function slideFrom(converted: ConvertedSlide, id: string): Slide {
+  return {
+    id,
+    name: converted.name,
+    duration: null,
+    layout: null,
+    background: converted.background,
+    provenance: converted.provenance,
+    baseLayer: { id: "layer-base", name: "Base", objects: converted.objects },
+    layers: [],
+  } as unknown as Slide;
+}

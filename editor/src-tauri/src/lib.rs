@@ -10,8 +10,15 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
+
+mod stream;
+
+/// Tests that use the one job slot, or the recorder slot, take turns, because both are shared by the whole program.
+#[cfg(test)]
+pub(crate) static JOB_TESTS: Mutex<()> = Mutex::new(());
 
 #[derive(Serialize)]
 struct SlideText {
@@ -206,6 +213,89 @@ fn import_asset_at(dir: &Path, source: &Path, kind: &str) -> Result<String, Stri
 
 fn import_image_at(dir: &Path, source: &Path) -> Result<String, String> {
     import_asset_at(dir, source, "image")
+}
+
+/// The most a picture the editor drew itself may weigh. A drawn person is a few kilobytes.
+const GENERATED_SVG_MAX: usize = 200 * 1024;
+
+/// The biggest picture taken out of a PowerPoint deck that is saved.
+const DECK_PICTURE_MAX: usize = 50 * 1024 * 1024;
+
+/// Whether the bytes begin the way a file of this kind does, so a name that says "png" cannot hold something else.
+fn picture_matches(ext: &str, bytes: &[u8]) -> bool {
+    match ext {
+        "png" => bytes.starts_with(&[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        "jpg" => bytes.starts_with(&[0xff, 0xd8, 0xff]),
+        "gif" => bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"),
+        "webp" => bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
+        "bmp" => bytes.starts_with(b"BM"),
+        _ => false,
+    }
+}
+
+/// Save a picture that came out of a PowerPoint deck in the project's images. The name is made from what is in the picture
+/// (`pptx-` and 14 letters and numbers), so the same picture is the same file however often it is brought in: a name that is
+/// already there is left as it is. Anything else is refused, and the bytes have to be what the name says they are.
+fn save_deck_picture_at(dir: &Path, name: &str, bytes: &[u8]) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let (stem, ext) = name.rsplit_once('.').ok_or("That is not a name for a picture from a deck.")?;
+    let hash = stem.strip_prefix("pptx-").unwrap_or("");
+    if hash.len() != 14 || !hash.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c)) {
+        return Err("That is not a name for a picture from a deck.".into());
+    }
+    if bytes.len() > DECK_PICTURE_MAX {
+        return Err("That picture is bigger than it should be.".into());
+    }
+    if !picture_matches(ext, bytes) {
+        return Err("That is not a picture of the kind its name says.".into());
+    }
+    let folder = dir.join("assets").join("images");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let target = folder.join(name);
+    if !target.exists() {
+        fs::write(&target, bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
+    }
+    Ok(format!("assets/images/{name}"))
+}
+
+/// Save a picture the editor drew itself (a person made in the avatar maker) as an SVG in the project's images, and return its
+/// project-relative path. Only a plain drawing is accepted: nothing that can run, load another page or file, or reach out. The name is
+/// made safe, and an existing file is never overwritten.
+fn save_generated_svg_at(dir: &Path, name_hint: &str, svg: &str) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if svg.len() > GENERATED_SVG_MAX {
+        return Err("That picture is larger than it should be.".into());
+    }
+    let lower = svg.to_ascii_lowercase();
+    if !lower.trim_start().starts_with("<svg") {
+        return Err("That is not a picture the editor drew.".into());
+    }
+    for bad in ["<script", "javascript:", "<foreignobject", "<iframe", "<image", "<use", "<style", "<!entity", "<!doctype", "href=", "xlink:", "@import", "url("] {
+        if lower.contains(bad) {
+            return Err(format!("A drawn picture cannot contain {bad}."));
+        }
+    }
+    // Any attribute that starts with "on" is an event handler.
+    for (at, _) in lower.match_indices("on") {
+        let before = lower[..at].chars().next_back();
+        if !matches!(before, Some(c) if c.is_whitespace() || c == '"' || c == '\'') {
+            continue;
+        }
+        let word: String = lower[at..].chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+        if lower[at + word.len()..].trim_start().starts_with('=') {
+            return Err("A drawn picture cannot contain an event handler.".into());
+        }
+    }
+    let stem = safe_stem(name_hint, "picture");
+    let folder = dir.join("assets").join("images");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let name = unique_name(&folder, &stem, "svg");
+    fs::write(folder.join(&name), svg).map_err(|e| format!("Could not save the picture: {e}"))?;
+    Ok(format!("assets/images/{name}"))
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -554,6 +644,10 @@ struct JobSlot;
 
 impl JobSlot {
     fn take() -> Result<JobSlot, String> {
+        // A recording has the computer's attention. Heavy work waits until it is paused or stopped.
+        if stream::blocks_jobs() {
+            return Err(stream::BUSY_MESSAGE.into());
+        }
         if JOB_BUSY.swap(true, Ordering::SeqCst) {
             return Err("A preview or publish is already running. Wait for it to finish, or cancel it.".into());
         }
@@ -974,6 +1068,19 @@ fn save_files(dir: String, files: Vec<FileText>, remove: Vec<String>) -> Result<
 }
 
 #[tauri::command]
+fn save_generated_image(dir: String, name: String, svg: String) -> Result<String, String> {
+    save_generated_svg_at(Path::new(&dir), &name, &svg)
+}
+
+/// A picture from a PowerPoint deck. It arrives as base64 text, because raw bytes do not travel well through the page.
+#[tauri::command]
+fn save_deck_picture(dir: String, name: String, data: String) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| "That picture could not be read.".to_string())?;
+    save_deck_picture_at(Path::new(&dir), &name, &bytes)
+}
+
+#[tauri::command]
 fn import_image(dir: String, source: String) -> Result<String, String> {
     import_image_at(Path::new(&dir), Path::new(&source))
 }
@@ -1115,11 +1222,214 @@ fn read_asset(dir: String, path: String) -> Result<tauri::ipc::Response, String>
     read_asset_at(Path::new(&dir), &path).map(tauri::ipc::Response::new)
 }
 
+// ---- keys that work while another program has the focus
+//
+// Recording means working in some other program, so starting, pausing and stopping have to work from there. The page names the
+// combinations; this registers them with the system and tells the page when one is pressed (a `hotkey` event carrying the id).
+
+#[derive(Deserialize)]
+struct HotkeyBinding {
+    id: String,
+    keys: String,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+struct HotkeyResult {
+    id: String,
+    ok: bool,
+    message: String,
+}
+
+/// Ids are short plain words, so the page can tell them apart and nothing odd travels in an event.
+fn hotkey_id_ok(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 32 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// A combination such as Ctrl+Shift+F9, or the reason it cannot be used.
+fn parse_hotkey(keys: &str) -> Result<Shortcut, String> {
+    let keys = keys.trim();
+    if keys.is_empty() || keys.len() > 64 {
+        return Err("Choose a key combination.".into());
+    }
+    // Something that is not a key combination at all is said so first.
+    let shortcut = keys.parse::<Shortcut>().map_err(|_| "That is not a key combination the system understands. Write it like Ctrl+Shift+F9.".to_string())?;
+    // A combination with only a plain letter or number would be pressed all the time while typing anywhere.
+    let parts: Vec<&str> = keys.split('+').map(str::trim).collect();
+    let modifiers = ["ctrl", "control", "commandorcontrol", "cmdorctrl", "alt", "option", "shift", "super", "meta", "cmd", "command", "win", "windows"];
+    let has_modifier = parts[..parts.len() - 1].iter().any(|p| modifiers.contains(&p.to_ascii_lowercase().as_str()));
+    let last = parts[parts.len() - 1].to_ascii_lowercase();
+    let is_function_key = last.len() >= 2 && last.starts_with('f') && last[1..].parse::<u8>().map(|n| (1..=24).contains(&n)).unwrap_or(false);
+    if !has_modifier && !is_function_key {
+        return Err("Use Ctrl, Alt or Shift with the key, or a function key on its own, so it is not pressed by accident while typing.".into());
+    }
+    Ok(shortcut)
+}
+
+/// Replace every registered key with these. Each binding comes back with whether it worked and, if not, why (another program may already
+/// use the combination). Nothing stays registered from before, and a failure of one does not stop the rest.
+#[tauri::command]
+fn hotkeys_set(app: tauri::AppHandle, bindings: Vec<HotkeyBinding>) -> Result<Vec<HotkeyResult>, String> {
+    let keys = app.global_shortcut();
+    keys.unregister_all().map_err(|e| e.to_string())?;
+    let mut taken: Vec<Shortcut> = Vec::new();
+    let mut out = Vec::new();
+    for b in bindings.into_iter().take(16) {
+        let result = (|| -> Result<(), String> {
+            if !hotkey_id_ok(&b.id) {
+                return Err("That key has no usable name.".into());
+            }
+            let shortcut = parse_hotkey(&b.keys)?;
+            if taken.contains(&shortcut) {
+                return Err("Two of these use the same keys. Give each its own.".into());
+            }
+            let id = b.id.clone();
+            keys.on_shortcut(shortcut, move |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    let _ = app.emit("hotkey", id.clone());
+                }
+            })
+            .map_err(|_| "Another program already uses those keys. Choose different ones.".to_string())?;
+            taken.push(shortcut);
+            Ok(())
+        })();
+        out.push(match result {
+            Ok(()) => HotkeyResult { id: b.id, ok: true, message: String::new() },
+            Err(message) => HotkeyResult { id: b.id, ok: false, message },
+        });
+    }
+    Ok(out)
+}
+
+/// Let go of every key, for example when recording is not in use.
+#[tauri::command]
+fn hotkeys_clear(app: tauri::AppHandle) -> Result<(), String> {
+    app.global_shortcut().unregister_all().map_err(|e| e.to_string())
+}
+
+// ---- playing a large video from the project
+
+/// Let the page play files from this project's assets folder directly from disk, with seeking, instead of reading them into memory.
+/// The folder must be a project (it has project.json), and only its assets folder is opened up. The page builds the address with
+/// `convertFileSrc`. Opening a project adds its folder for the rest of the session; nothing outside a project folder is ever added.
+#[tauri::command]
+fn allow_project_media(app: tauri::AppHandle, dir: String) -> Result<(), String> {
+    let dir = Path::new(&dir);
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let assets = dir.join("assets");
+    if !assets.is_dir() {
+        return Ok(()); // nothing to play yet
+    }
+    let assets = plain_path(assets.canonicalize().map_err(|e| e.to_string())?);
+    app.asset_protocol_scope().allow_directory(&assets, true).map_err(|e| e.to_string())
+}
+
+// ---- the Capture recorder
+//
+// OpenStage Capture is a separate program that the editor starts and talks to (see stream.rs). Nothing here records anything.
+
+const NO_CAPTURE: &str = "The recorder is not installed on this computer. OpenStage Capture is a separate program: put openstage-capture.exe in the same folder as the editor, or set OPENSTAGE_CAPTURE to its full path, then open OpenStage Author again.";
+
+/// Where the recorder is: OPENSTAGE_CAPTURE if it is set, otherwise beside the editor or in the repository's usual build folders, found the
+/// way the other helpers are. The Err is a message for the author.
+fn capture_program_in(setting: Option<&str>, starts: &[PathBuf]) -> Result<PathBuf, String> {
+    if let Some(p) = setting.map(str::trim).filter(|p| !p.is_empty()) {
+        let path = PathBuf::from(p);
+        return if path.is_file() {
+            Ok(path)
+        } else {
+            Err(format!("OPENSTAGE_CAPTURE is set to {}, but there is no program there. Set it to the full path of openstage-capture.exe, or remove it so the editor looks beside itself.", path.display()))
+        };
+    }
+    let name = if cfg!(windows) { "openstage-capture.exe" } else { "openstage-capture" };
+    for rel in [name.to_string(), format!("capture/target/release/{name}"), format!("target/release/{name}")] {
+        if let Some(found) = find_in(starts, &rel) {
+            return Ok(plain_path(found));
+        }
+    }
+    Err(NO_CAPTURE.into())
+}
+
+fn capture_program() -> Result<PathBuf, String> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(repo) = std::env::var("OPENSTAGE_REPO") {
+        starts.push(PathBuf::from(repo));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        starts.push(exe);
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        starts.push(cwd);
+    }
+    capture_program_in(std::env::var("OPENSTAGE_CAPTURE").ok().as_deref(), &starts)
+}
+
+/// Whether the recorder can be found: its path if so, or a message that says what to do.
+#[tauri::command]
+fn capture_check() -> Result<String, String> {
+    capture_program().map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Start the recorder. Each line it prints reaches the page as a `stream-line` event, and its end as a `stream-exit` event.
+#[tauri::command]
+fn stream_start(app: tauri::AppHandle, args: Vec<String>) -> Result<(), String> {
+    if args.len() > 32 || args.iter().any(|a| a.len() > 2000 || a.contains('\0')) {
+        return Err("Those are not options the recorder can be started with.".into());
+    }
+    let program = capture_program()?;
+    let for_lines = app.clone();
+    stream::start(
+        &program,
+        &args,
+        move |line| {
+            let _ = for_lines.emit("stream-line", line);
+        },
+        move |exit| {
+            let _ = app.emit("stream-exit", exit);
+        },
+    )
+}
+
+/// Send the recorder one command: one short line of JSON.
+#[tauri::command]
+fn stream_send(line: String) -> Result<(), String> {
+    stream::send(&line)
+}
+
+/// The page says the recorder paused or resumed, so a publish or preview knows whether it may run.
+#[tauri::command]
+fn stream_set_paused(paused: bool) {
+    stream::set_paused(paused)
+}
+
+#[tauri::command]
+fn stream_state() -> stream::State {
+    stream::state()
+}
+
+/// Stop the recorder: ask it to finish and print its result, give it ten seconds, and only then end it. Returns whether a recording was running.
+#[tauri::command]
+async fn stream_stop(stop_line: Option<String>) -> Result<bool, String> {
+    let line = stop_line.unwrap_or_else(|| stream::DEFAULT_STOP_LINE.to_string());
+    tauri::async_runtime::spawn_blocking(move || stream::stop(&line, stream::STOP_GRACE))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, make_narration, read_asset, read_asset_url])
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, make_narration, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
+        .on_window_event(|window, event| {
+            // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
+            if let tauri::WindowEvent::Destroyed = event {
+                let _ = window.app_handle().global_shortcut().unregister_all();
+                stream::shutdown();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running the OpenStage Author editor");
 }
@@ -1314,6 +1624,78 @@ mod tests {
     }
 
     #[test]
+    fn a_picture_from_a_deck_is_saved_under_its_own_name_once_and_only_if_it_is_what_it_says() {
+        let dir = temp_project("deck-picture");
+        let png = [0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+        let name = "pptx-0123456789abcd.png";
+        assert_eq!(save_deck_picture_at(&dir, name, &png).unwrap(), "assets/images/pptx-0123456789abcd.png");
+        assert_eq!(fs::read(dir.join("assets/images").join(name)).unwrap(), png);
+        // The same picture again is the same file, left as it is.
+        fs::write(dir.join("assets/images").join(name), b"kept").unwrap();
+        save_deck_picture_at(&dir, name, &png).unwrap();
+        assert_eq!(fs::read(dir.join("assets/images").join(name)).unwrap(), b"kept");
+        for bad in ["../pptx-0123456789abcd.png", "pptx-0123456789abcd.svg", "pptx-0123456789abcd.exe", "pptx-0123456789abc.png", "pptx-0123456789ABCD.png", "x.png", "pptx-0123456789abcd", "pptx-0123456789abcd.png/x"] {
+            assert!(save_deck_picture_at(&dir, bad, &png).is_err(), "{bad}");
+        }
+        assert!(save_deck_picture_at(&dir, "pptx-0123456789abce.png", b"<svg onload=alert(1)>").is_err(), "not a png inside");
+        assert!(save_deck_picture_at(&dir, "pptx-0123456789abce.jpg", &png).is_err(), "a png is not a jpg");
+        assert!(save_deck_picture_at(&dir, "pptx-0123456789abcf.jpg", &[0xff, 0xd8, 0xff, 0xe0]).is_ok());
+        assert!(save_deck_picture_at(&dir, "pptx-0123456789abc0.gif", b"GIF89a....").is_ok());
+        assert!(save_deck_picture_at(&dir, "pptx-0123456789abc1.webp", b"RIFF\0\0\0\0WEBPVP8 ").is_ok());
+        let elsewhere = std::env::temp_dir().join("openstage-not-a-project-deck");
+        let _ = fs::create_dir_all(&elsewhere);
+        assert!(save_deck_picture_at(&elsewhere, name, &png).is_err(), "not a project");
+        let _ = fs::remove_dir_all(elsewhere);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_picture_the_editor_drew_is_saved_in_the_images_and_never_overwrites() {
+        let dir = temp_project("generated-svg");
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#cfe8d6"/><circle cx="100" cy="88" r="40" fill="#d9a273"/></svg>"##;
+        let first = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
+        assert_eq!(first, "assets/images/Maya-Reyes.svg");
+        let second = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
+        assert_eq!(second, "assets/images/Maya-Reyes-2.svg");
+        assert_eq!(fs::read_to_string(dir.join(&first)).unwrap(), svg);
+        assert_eq!(save_generated_svg_at(&dir, "../../evil", svg).unwrap(), "assets/images/evil.svg", "the name cannot climb out of the folder");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_drawn_picture_that_could_run_or_reach_out_is_refused() {
+        let dir = temp_project("generated-svg-bad");
+        let bad = [
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect onclick = "x"/></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com"><rect/></a></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><image href="x.png"/></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div/></foreignObject></svg>"##,
+            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:url(http://x)"/></svg>"##,
+            r##"<html><body>not a picture</body></html>"##,
+        ];
+        for svg in bad {
+            assert!(save_generated_svg_at(&dir, "x", svg).is_err(), "{svg}");
+        }
+        assert!(save_generated_svg_at(&dir, "x", &format!("<svg>{}</svg>", "a".repeat(GENERATED_SVG_MAX))).is_err(), "too big");
+        assert!(!dir.join("assets/images").exists() || fs::read_dir(dir.join("assets/images")).unwrap().count() == 0, "nothing was written");
+        let elsewhere = std::env::temp_dir().join(format!("openstage-test-notproj3-{}", std::process::id()));
+        fs::create_dir_all(&elsewhere).unwrap();
+        assert!(save_generated_svg_at(&elsewhere, "x", "<svg></svg>").is_err(), "not a project");
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(elsewhere);
+    }
+
+    #[test]
+    fn an_attribute_that_only_contains_on_is_not_an_event_handler() {
+        let dir = temp_project("generated-svg-on");
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 200 200"><path stroke-linejoin="round" d="M0 0"/></svg>"##;
+        assert!(save_generated_svg_at(&dir, "ok", svg).is_ok());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn an_asset_comes_back_as_a_data_url_with_the_right_type() {
         let dir = temp_project("dataurl");
         fs::create_dir_all(dir.join("assets/images")).unwrap();
@@ -1368,9 +1750,9 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.15.0");
+        assert_eq!(report["to"], "0.25.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.15.0\""));
+        assert!(opened.project.contains("\"0.25.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.
@@ -1424,14 +1806,14 @@ mod tests {
     fn a_file_to_download_is_a_document_kind_and_a_program_is_refused() {
         let dir = temp_project("documents");
         for good in ["guide.pdf", "Handbook.DOCX", "old.doc", "data.csv", "slides.pptx", "bundle.zip"] {
-            let src = std::env::temp_dir().join(format!("{}-{good}", std::process::id()));
+            let src = std::env::temp_dir().join(format!("{}-doc-{good}", std::process::id()));
             fs::write(&src, [1u8, 2]).unwrap();
             let got = import_asset_at(&dir, &src, "document").unwrap();
             assert!(got.starts_with("assets/documents/"), "{got}");
             let _ = fs::remove_file(&src);
         }
         for bad in ["setup.exe", "run.bat", "script.js", "page.html", "tool.ps1", "noextension", "picture.png", "clip.mp4"] {
-            let src = std::env::temp_dir().join(format!("{}-{bad}", std::process::id()));
+            let src = std::env::temp_dir().join(format!("{}-doc-{bad}", std::process::id()));
             fs::write(&src, [1u8, 2]).unwrap();
             let err = import_asset_at(&dir, &src, "document").unwrap_err();
             assert!(err.starts_with("Files to download must be one of:"), "{bad}: {err}");
@@ -1752,9 +2134,6 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// Tests that use the one job slot take turns, because the slot is shared by the whole program.
-    static JOB_TESTS: Mutex<()> = Mutex::new(());
-
     #[test]
     fn a_running_job_can_be_cancelled_and_only_one_runs_at_a_time() {
         let _turn = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
@@ -1800,6 +2179,62 @@ mod tests {
         assert!(result.unwrap_err().contains("need Node.js"));
         assert!(count() <= before, "the temporary folder it made is gone again");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_recorder_is_found_by_the_setting_then_beside_the_editor_and_a_missing_one_says_what_to_do() {
+        let dir = std::env::temp_dir().join(format!("openstage-test-capture-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("bin")).unwrap();
+        let name = if cfg!(windows) { "openstage-capture.exe" } else { "openstage-capture" };
+        // nothing anywhere: the message tells the author what to do
+        let none = capture_program_in(None, &[dir.join("bin").join("editor.exe")]);
+        assert_eq!(none, Err(NO_CAPTURE.to_string()));
+        assert!(NO_CAPTURE.contains("OPENSTAGE_CAPTURE"));
+        // beside the editor
+        fs::write(dir.join("bin").join(name), b"x").unwrap();
+        assert_eq!(capture_program_in(None, &[dir.join("bin").join("editor.exe")]), Ok(dir.join("bin").join(name)));
+        // an empty setting is the same as none
+        assert_eq!(capture_program_in(Some("  "), &[dir.join("bin").join("editor.exe")]), Ok(dir.join("bin").join(name)));
+        // the setting wins, wherever it points
+        fs::write(dir.join("elsewhere.exe"), b"x").unwrap();
+        assert_eq!(capture_program_in(Some(dir.join("elsewhere.exe").to_str().unwrap()), &[dir.join("bin").join("editor.exe")]), Ok(dir.join("elsewhere.exe")));
+        // a setting that points at nothing is an error that names the setting and the place, and does not quietly fall back
+        let bad = capture_program_in(Some(dir.join("nope.exe").to_str().unwrap()), &[dir.join("bin").join("editor.exe")]);
+        let message = bad.unwrap_err();
+        assert!(message.starts_with("OPENSTAGE_CAPTURE is set to"), "{message}");
+        assert!(message.contains("nope.exe"));
+        // the repository's usual build folder
+        let repo = dir.join("repo");
+        fs::create_dir_all(repo.join("capture/target/release")).unwrap();
+        fs::write(repo.join("capture/target/release").join(name), b"x").unwrap();
+        assert_eq!(capture_program_in(None, &[repo.join("editor/src-tauri/target/debug/x.exe")]), Ok(repo.join("capture/target/release").join(name)));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn key_combinations_are_checked_before_they_are_registered() {
+        for good in ["Ctrl+Shift+F9", "CommandOrControl+Shift+F10", "Alt+F11", "F12", "ctrl+alt+r"] {
+            assert!(parse_hotkey(good).is_ok(), "{good} should be accepted");
+        }
+        let plain = parse_hotkey("R").unwrap_err();
+        assert!(plain.contains("not pressed by accident"), "{plain}");
+        assert!(parse_hotkey("Shift").is_err());
+        assert!(parse_hotkey("").is_err());
+        assert!(parse_hotkey("   ").is_err());
+        assert!(parse_hotkey("Ctrl+Banana").unwrap_err().contains("not a key combination"));
+        assert!(parse_hotkey(&format!("Ctrl+{}", "A".repeat(80))).is_err());
+        assert_eq!(parse_hotkey("Ctrl+Shift+F9").unwrap(), parse_hotkey("control + shift + f9").unwrap(), "case and spaces do not matter");
+    }
+
+    #[test]
+    fn a_key_id_is_a_short_plain_word() {
+        for good in ["start", "pause", "stop", "start-again", "f9"] {
+            assert!(hotkey_id_ok(good), "{good}");
+        }
+        for bad in ["", "Start", "has space", "x\"y", "a".repeat(33).as_str(), "../x"] {
+            assert!(!hotkey_id_ok(bad), "{bad:?}");
+        }
     }
 
     #[test]

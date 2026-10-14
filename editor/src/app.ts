@@ -10,24 +10,31 @@
 //  - Changes are announced in a polite live region.
 //  - Alt text and the other accessibility fields are never filled in on the author's behalf.
 
-import type { CertificateContent, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable } from "../../player/src/types.ts";
+import type { CertificateContent, ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, SequencingQuiz, ShortAnswerQuiz, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable, ScenarioContent, ScenarioLine, IconContent } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
 import { Canvas } from "./canvas.ts";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
 import { backgroundColors, isThemeRef, resolveValue } from "../../player/src/theme.ts";
 import { COLOR_ROLES, colorRef } from "./colors.ts";
-import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
+import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, isCourseAction, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
 import { fileDetails } from "../../player/src/downloads.ts";
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
 import { askText } from "./textprompt.ts";
+import { openPowerPoint } from "./pptxdialog.ts";
+import { rovingStop } from "./roving.ts";
+import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
+import type { Style } from "../../player/src/types.ts";
 import { askChoice, interactionPreview, shapePreview } from "./choicepicker.ts";
-import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
+import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
+import { TEMPLATE_PREFIX } from "./templates.ts";
+import { groupBox } from "./group.ts";
 import { ALIGNMENTS } from "./align.ts";
-import { FORMAT_VERSION, Model, type Change } from "./model.ts";
+import { extraWordsOf, LIMITS, QUIZ_KINDS, quizKind, type QuestionEdit } from "./questionedit.ts";
+import { clockText, FORMAT_VERSION, Model, type Change } from "./model.ts";
 import { askNewProject } from "./newproject.ts";
 import { openNarration } from "./narrationdialog.ts";
 import { openTiming } from "./timingdialog.ts";
@@ -39,6 +46,16 @@ import { openPublish } from "./publishdialog.ts";
 import { failureText, narrationLine } from "./publishing.ts";
 import { newProjectFiles } from "./template.ts";
 import { askTheme } from "./themepicker.ts";
+import { editTheme as editThemeDialog } from "./themeeditor.ts";
+import { editCast } from "./castdialog.ts";
+import { makeAvatar } from "./avatardialog.ts";
+import { pickIcon } from "./icondialog.ts";
+import { chooseMoments } from "./momentdialog.ts";
+import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
+import { BUTTON_LOOKS, CUSTOM_LOOK } from "./buttonlooks.ts";
+import { castUse, YOU } from "./characters.ts";
+import * as S from "./scenarioedit.ts";
+import { logoFromImage } from "./themeedit.ts";
 import { BUILT_IN_THEMES, COLOR_ROLE_NAMES } from "./themes.ts";
 
 type Attrs = Record<string, string | boolean | number>;
@@ -63,7 +80,7 @@ const BLOCK_LABELS: Record<TextBlock, string> = { p: "Paragraph", h1: "Heading 1
 function inputShape(o: OSObject, m: Model): string {
   const c = o.content as unknown as InputContent;
   const parts = c.kind === "checkbox" ? c.items : c.kind === "likert" || c.kind === "semantic" ? c.rows : c.options;
-  return `${c.kind}|${(parts ?? []).map((p) => `${p.id}:${(p as { variable?: string }).variable ?? ""}`).join(",")}|${c.variable ?? ""}|${m.variables.map((v) => `${v.id}${v.name}`).join(",")}`;
+  return `${c.kind}|${(parts ?? []).map((p) => `${p.id}:${(p as { variable?: string }).variable ?? ""}`).join(",")}|${c.variable ?? ""}|${m.variables.map((v) => `${v.id}${v.name}`).join(",")}|${(c.characters ?? []).join(",")}|${m.characters.map((p) => `${p.id}${p.name}${p.role}`).join(",")}`;
 }
 
 /** What decides whether a table's panel has to be rebuilt: its size and its header options. */
@@ -84,6 +101,37 @@ function describeColor(m: Model, v: string): string {
   return isThemeRef(v) && hx ? themeColorLabel(v, hx, COLOR_ROLE_NAMES) : colorName(v);
 }
 
+/** A situation in a list: its place, its title, and whether it is the start or an ending. */
+function situationLabel(c: ScenarioContent, node: ScenarioContent["nodes"][number], index: number): string {
+  return `${index + 1}. ${node.title}${node.id === c.start ? " (start)" : ""}${node.choices.length === 0 ? " (ending)" : ""}`;
+}
+
+/** One line about when a look is used, and, for a look that is not set, that choosing anything below makes it. */
+function lookUseText(look: string, set: boolean): string {
+  return `${lookUse(look)}${set ? "" : " This look is not set yet: choosing anything below makes it."}`;
+}
+
+/** What to tell the author about the words a screen reader says when a rule applies this look. */
+function announceNoteText(look: string, said: string, uses: number): string {
+  const used = uses > 0 ? ` ${uses === 1 ? "1 rule on this slide applies" : `${uses} rules on this slide apply`} this look.` : "";
+  if (look === "disabled") return `A disabled control already tells a screen reader it is unavailable, so this message is optional.${used}`;
+  const ownAlone = look === "hover" || look === "visited" ? " The course applying the look on its own never says it." : "";
+  if (said !== "") return `A screen reader says this when a rule applies the look.${ownAlone}${used}`;
+  if (uses > 0) return `A screen reader user is not told when a rule applies this look. Write what it should say, such as "Marked as done". The Problems list keeps warning until you do.${used}`;
+  return `What a screen reader says when a rule applies this look, such as "Marked as done". Leave it blank only if the change means nothing without seeing it.${ownAlone}`;
+}
+
+/**
+ * What decides whether a scenario's panel has to be rebuilt: the shape of the story and the situation being edited. The words in it
+ * are left out, so typing in a box never rebuilds the panel under the author; those are put back in place instead.
+ */
+function scenarioShape(o: OSObject, m: Model, selected: string): string {
+  const c = o.content as unknown as ScenarioContent;
+  const lines = (list: ScenarioLine[]) => list.map((l) => `${l.id}:${l.speaker ?? "-"}:${l.narration ? `s${((l.narration as Narration).pronunciations ?? []).length}` : "n"}`).join(",");
+  const nodes = c.nodes.map((n) => `${n.id}[${lines(n.lines)}|${n.choices.map((ch) => `${ch.id}>${ch.next}(${ch.effects.map((e) => e.variable).join("+")})<${lines(ch.response)}>`).join(";")}]`).join(" ");
+  return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}`).join(",")}`;
+}
+
 export class App {
   private model: Model | null = null;
   private readonly root: HTMLElement;
@@ -93,7 +141,13 @@ export class App {
   private readonly newBtn: HTMLButtonElement;
   private readonly openBtn: HTMLButtonElement;
   private readonly themeBtn: HTMLButtonElement;
+  private readonly castBtn: HTMLButtonElement;
+  /** The situation being edited in each scenario's panel, by object id. */
+  private readonly scenarioSelect = new Map<string, string>();
+  /** The lines whose voice settings are open in the panel. */
+  private readonly scenarioOpen = new Set<string>();
   private readonly assetsBtn: HTMLButtonElement;
+  private readonly pptxBtn: HTMLButtonElement;
   private readonly variablesBtn: HTMLButtonElement;
   private readonly narrationBtn: HTMLButtonElement;
   private readonly timingBtn: HTMLButtonElement;
@@ -109,11 +163,15 @@ export class App {
   private readonly addSlideBtn: HTMLButtonElement;
   private readonly changeLayoutBtn: HTMLButtonElement;
   private readonly deleteSlideBtn: HTMLButtonElement;
+  private readonly duplicateSlideBtn: HTMLButtonElement;
   private readonly slideUpBtn: HTMLButtonElement;
   private readonly slideDownBtn: HTMLButtonElement;
   private readonly layerSelect: HTMLSelectElement;
   private readonly addLayerBtn: HTMLButtonElement;
   private readonly deleteLayerBtn: HTMLButtonElement;
+  private readonly duplicateLayerBtn: HTMLButtonElement;
+  private readonly layerEarlierBtn: HTMLButtonElement;
+  private readonly layerLaterBtn: HTMLButtonElement;
   private readonly objectList: HTMLElement;
   private readonly addKind: HTMLSelectElement;
   private readonly addObjectBtn: HTMLButtonElement;
@@ -124,6 +182,9 @@ export class App {
   private readonly pasteBtn: HTMLButtonElement;
   private readonly selectAllBtn: HTMLButtonElement;
   private readonly lockBtn: HTMLButtonElement;
+  private readonly groupBtn: HTMLButtonElement;
+  private readonly ungroupBtn: HTMLButtonElement;
+  private readonly selectGroupBtn: HTMLButtonElement;
   private readonly moveEarlier: HTMLButtonElement;
   private readonly moveLater: HTMLButtonElement;
   private readonly problemList: HTMLElement;
@@ -149,7 +210,9 @@ export class App {
     this.newBtn = this.tool("New project", "Make a new project (Ctrl+N)", () => void this.newProject());
     this.openBtn = this.tool("Open project", "Open a project folder (Ctrl+O)", () => void this.open());
     this.themeBtn = this.tool("Themes", "Choose a theme: the colours, fonts and backgrounds of the whole project", () => void this.chooseTheme());
+    this.castBtn = this.tool("Characters", "The cast: the people a scenario can show and a learner can choose to be, with their pictures and voices", () => void this.openCast());
     this.assetsBtn = this.tool("Assets", "The project's images, video and audio, and stock images to add to it", () => void this.openAssetsDialog());
+    this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
@@ -167,7 +230,7 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
-    const toolbar = h("div", { class: "toolbar", role: "toolbar", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.assetsBtn, this.variablesBtn, this.narrationBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -175,11 +238,12 @@ export class App {
     this.addSlideBtn = this.small("Add slide", "Add a slide after this one, choosing its layout", () => void this.addSlide());
     this.changeLayoutBtn = this.small("Change layout", "Choose a different layout for this slide", () => void this.changeLayout());
     this.deleteSlideBtn = this.small("Delete slide", "Delete this slide (Delete key in the list)", () => this.deleteSlide());
+    this.duplicateSlideBtn = this.small("Duplicate slide", "Make a copy of this slide straight after it (Ctrl+D in the list)", () => this.duplicateSlide());
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("h2", { id: "slides-h", text: "Slides" }),
-      h("div", { class: "btn-row" }, this.addSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
+      h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
       this.slideList);
 
     // Canvas and layers
@@ -187,7 +251,10 @@ export class App {
     this.layerSelect.addEventListener("change", () => this.model?.selectLayer(this.layerSelect.value));
     this.addLayerBtn = this.small("Add layer", "Add a layer to this slide", () => this.addLayer());
     this.deleteLayerBtn = this.small("Delete layer", "Delete this layer and what is on it", () => this.deleteLayer());
-    const layerBar = h("div", { class: "layer-bar" }, h("label", { for: "layer-select", text: "Layer being edited" }), this.layerSelect, this.addLayerBtn, this.deleteLayerBtn);
+    this.duplicateLayerBtn = this.small("Duplicate layer", "Make a copy of this layer and what is on it, straight after it. Nothing shows the copy until you add a rule that does", () => this.duplicateLayer());
+    this.layerEarlierBtn = this.small("Earlier", "Move this layer earlier: it is drawn behind, and read before, the layers after it", () => this.moveLayer(-1), "Move layer earlier");
+    this.layerLaterBtn = this.small("Later", "Move this layer later: it is drawn in front of, and read after, the layers before it", () => this.moveLayer(1), "Move layer later");
+    const layerBar = h("div", { class: "layer-bar" }, h("label", { for: "layer-select", text: "Layer being edited" }), this.layerSelect, this.addLayerBtn, this.duplicateLayerBtn, this.layerEarlierBtn, this.layerLaterBtn, this.deleteLayerBtn);
     const main = h("main", { class: "center", "aria-label": "Canvas" }, layerBar, this.canvas.element);
 
     // Properties
@@ -207,11 +274,15 @@ export class App {
     this.pasteBtn = this.small("Paste", "Paste the copied objects on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
     this.selectAllBtn = this.small("Select all", "Select every object on this layer (Ctrl+A)", () => this.selectAllObjects());
     this.lockBtn = this.small("Lock", "Lock the selected objects so they cannot be moved, resized, rotated or deleted by accident (Ctrl+L)", () => this.toggleLockObjects());
+    this.groupBtn = this.small("Group", "Tie the selected objects together, so they are chosen, moved, resized, copied and deleted as one (Ctrl+G)", () => this.groupObjects());
+    this.ungroupBtn = this.small("Ungroup", "Break the selected objects' groups apart (Ctrl+Shift+G)", () => this.ungroupObjects());
+    this.selectGroupBtn = this.small("Select group", "Select everything that is in the same group as the selected objects", () => this.selectGroupObjects());
     const objects = h("section", { class: "panel objects", "aria-labelledby": "objects-h" },
       h("h2", { id: "objects-h", text: "Objects" }),
       h("div", { class: "btn-row" }, h("label", { for: "add-kind", text: "Add" }), this.addKind, this.addObjectBtn),
       h("div", { class: "btn-row" }, this.deleteObjectBtn, this.moveEarlier, this.moveLater),
       h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn, this.selectAllBtn, this.lockBtn),
+      h("div", { class: "btn-row" }, this.groupBtn, this.ungroupBtn, this.selectGroupBtn),
       h("p", { class: "note", text: "In reading order, which is also the tab order." }),
       this.objectList);
 
@@ -223,8 +294,8 @@ export class App {
       this.problemList);
 
     this.workspace = h("div", { class: "workspace" }, slidesNav, main, this.timelinePanel.element, props, h("div", { class: "bottom" }, objects, problems));
-    this.welcome = h("div", { class: "welcome" },
-      h("h2", { text: "Open a project to begin" }),
+    this.welcome = h("main", { class: "welcome", "aria-labelledby": "welcome-h" },
+      h("h2", { id: "welcome-h", text: "Open a project to begin" }),
       h("p", { text: "A project is a folder containing project.json. The examples folder in the OpenStage repository has two to try." }));
     const newWelcome = h("button", { type: "button", text: "New project" });
     newWelcome.addEventListener("click", () => void this.newProject());
@@ -340,9 +411,51 @@ export class App {
     const m = this.model;
     if (!m) return;
     const theme = await askTheme({ current: m.theme.id });
-    if (!theme) return;
-    const msg = m.setTheme(theme);
-    this.announce(msg ? `${msg}. Press Control Z to undo.` : `${theme.name} is already the theme.`);
+    if (!theme) {
+      this.themeBtn.focus();
+      return;
+    }
+    if (theme === "edit") return this.editTheme();
+    // A built-in theme brings its own colours and fonts, and the project's logo stays.
+    const msg = m.setTheme(theme, true);
+    this.announce(msg ? `${msg}${msg.endsWith(".") ? "" : "."} Press Control Z to undo.` : `${theme.name} is already the theme.`);
+    this.themeBtn.focus();
+  }
+
+  /** Change the project's own theme: its colours, its fonts and a logo. */
+  private async editTheme(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const edited = await editThemeDialog({
+      current: m.theme,
+      stage: m.project.stage,
+      chooseLogo: () => this.chooseLogo(),
+      imageUrl: (src) => backend.assetUrl(m.dir, src),
+      announce: (msg) => this.announce(msg),
+    });
+    if (edited) {
+      const msg = m.setTheme(edited, false);
+      this.announce(msg ? `${msg}. Press Control Z to undo.` : "The theme was not changed.");
+    }
+    this.themeBtn.focus();
+  }
+
+  /** Choose a picture for the logo, copy it into the project, and find out how big it is. */
+  private async chooseLogo(): Promise<{ src: string; width: number; height: number } | null> {
+    const m = this.model;
+    if (!m) return null;
+    const picked = await backend.pickImage();
+    if (!picked) return null;
+    const src = await backend.importImage(m.dir, picked);
+    const url = await backend.assetUrl(m.dir, src);
+    const natural = await new Promise<{ width: number; height: number }>((ok) => {
+      const img = new Image();
+      img.onload = () => ok({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => ok({ width: 0, height: 0 });
+      img.src = url;
+    });
+    const logo = logoFromImage(src, natural);
+    return { src, width: logo.width, height: logo.height };
   }
 
   async save(): Promise<void> {
@@ -478,12 +591,45 @@ export class App {
       this.working = false;
       this.updateChrome();
     }
+    // A line of a scenario is in one situation; show that one, with the line's voice settings open.
+    const home = goTo?.line ? S.lineOf(goTo.object.content as unknown as ScenarioContent, goTo.line.id) : undefined;
+    if (goTo?.line && home) {
+      this.scenarioSelect.set(goTo.object.id, home.node.id);
+      this.scenarioOpen.add(goTo.line.id);
+    }
     if (goTo && m.reveal(goTo.slideId, goTo.object.id)) {
-      this.announce(`Selected ${goTo.object.name}${goTo.item ? `, item ${goTo.item.title}` : ""}. Its narration is in the Properties panel.`);
-      document.getElementById(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : "p-narration-script")?.focus();
+      if (home) this.renderProps();
+      this.announce(`Selected ${goTo.object.name}${goTo.item ? `, item ${goTo.item.title}` : goTo.cue ? `, audio description at ${clockText(goTo.cue.time)}` : goTo.line && home ? `, ${S.describeLine(home)}` : ""}. Its narration is in the Properties panel.`);
+      document.getElementById(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : goTo.cue ? `p-desc-${goTo.cue.id}-narration-script` : goTo.line ? `p-sc-line-${goTo.line.id}-narration-script` : "p-narration-script")?.focus();
     } else {
       this.narrationBtn.focus();
     }
+  }
+
+  /** The cast: the people a scenario can show and a learner can choose to be. */
+  private async openCast(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const next = await editCast({
+      current: m.characters,
+      uses: castUse(m.slides),
+      choosePicture: async () => {
+        const picked = await backend.pickImage();
+        return picked ? backend.importImage(m.dir, picked) : null;
+      },
+      makePicture: async (name) => {
+        const made = await makeAvatar({ name, announce: (msg) => this.announce(msg) });
+        if (!made) return null;
+        const src = await backend.saveGeneratedImage(m.dir, name || "person", made.svg);
+        return { src, description: made.description };
+      },
+      imageUrl: (src) => backend.assetUrl(m.dir, src),
+      announce: (msg) => this.announce(msg),
+    });
+    this.castBtn.focus();
+    if (!next) return;
+    const msg = m.setCharacters(next);
+    this.announce(msg ? `${msg} Press Control Z to undo.` : "The cast is as it was.");
   }
 
   /** The Timing list: when everything on this slide appears and disappears. */
@@ -500,24 +646,37 @@ export class App {
     const onBase = m.layer?.id === m.slide?.baseLayer.id;
     const t = o.timing;
     const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.fillValues(o); };
+    const clips = m.mediaSources().filter((c) => c.id !== o.id);
     const afterWhat = t.appear === "narration" ? "its narration starts" : onBase ? "the slide opens" : "its layer is shown";
+    const onClip = t.appear === "media";
+    const clipFields: HTMLElement[] = onClip ? [
+      this.selectField("timing-media", "Follows", [
+        ...(clips.some((c) => c.id === t.media) ? [] : [{ value: t.media ?? "", label: `${t.media ?? "?"} (not on this slide)`, disabled: true }]),
+        ...clips.map((c) => ({ value: c.id, label: `${c.name} (${c.type})` })),
+      ], t.media ?? "", (v) => done(m.setTiming(o.id, { media: v }))),
+      h("div", { class: "btn-row" }, this.small("Choose by playing...", "Play the clip and press a button at the moment you want", () => void this.chooseMoment(m, o))),
+      h("p", { class: "note", text: "What shows depends only on where the clip is. If the learner skips ahead or goes back, what belongs to that moment is there, and the rest is not. If the clip cannot play, everything that follows it shows. Pause timing pauses the clip too." }),
+    ] : [];
     return [h("fieldset", {}, h("legend", { text: "Timing" }),
       h("p", { class: "note", text: "Leave this as it is for something that is there all the time. A learner can pause the timing and can show everything at once." }),
       this.selectField("timing-appear", "Appears", [
         { value: "time", label: onBase ? "After the slide opens" : "After its layer is shown" },
         { value: "narration", label: "After its narration starts", disabled: !o.narration },
+        { value: "media", label: "When a video or audio clip reaches a time", disabled: clips.length === 0 && !onClip },
       ], t.appear, (v) => done(m.setTiming(o.id, { appear: v as typeof t.appear }))),
-      this.field("timing-start", `Seconds after ${afterWhat}`, secondsText(t.start), (v) => {
+      ...(clips.length === 0 && !onClip ? [h("p", { class: "note", text: "To make something appear at a moment in a video or audio clip, add a video or audio file to this slide first." })] : []),
+      ...clipFields,
+      this.field("timing-start", onClip ? "Seconds into the clip" : `Seconds after ${afterWhat}`, secondsText(t.start), (v) => {
         const ms = parseSeconds(v);
         if (ms === undefined) { this.announce("Write the time in seconds, for example 2 or 0.5, up to 3600."); this.fillValues(o); return; }
         done(m.setTiming(o.id, { start: ms ?? 0 }));
       }, { number: true }),
-      this.field("timing-leave", "Stays for, in seconds (blank: until the slide ends)", t.visibleFor === null ? "" : secondsText(t.visibleFor), (v) => {
+      this.field("timing-leave", onClip ? "Stays for, in seconds of the clip (blank: until the clip ends)" : "Stays for, in seconds (blank: until the slide ends)", t.visibleFor === null ? "" : secondsText(t.visibleFor), (v) => {
         const ms = parseSeconds(v);
-        if (ms === undefined || ms === 0) { this.announce("Write how long it stays in seconds, for example 6, or leave it blank to stay until the slide ends."); this.fillValues(o); return; }
+        if (ms === undefined || ms === 0) { this.announce(`Write how long it stays in seconds, for example 6, or leave it blank to stay until the ${onClip ? "clip" : "slide"} ends.`); this.fillValues(o); return; }
         done(m.setTiming(o.id, { visibleFor: ms }));
       }, { number: true }),
-      h("p", { id: "timing-summary", class: "note", text: describeTiming(t, !onBase) }),
+      h("p", { id: "timing-summary", class: "note", text: describeTiming(t, !onBase, m.mediaNameOf(t.media)) }),
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())))];
   }
 
@@ -581,6 +740,10 @@ export class App {
         rows: 8,
         ...(o.type === "download" ? { extra: [this.small("Use the description as narration", "Write the narration from this file's name, description and how to download it", () => {
           const msg = m.narrateDownloadFromText(o.id);
+          if (msg) this.announce(msg);
+        })] } : {}),
+        ...(o.type === "quizQuestion" ? { extra: [this.small("Write the narration from the question", "Write the narration from what this question shows: what to do, and what there is to choose from", () => {
+          const msg = m.narrateQuestionFromText(o.id);
           if (msg) this.announce(msg);
         })] } : {}),
       }),
@@ -695,11 +858,15 @@ export class App {
   private async addSlide(): Promise<void> {
     const m = this.model;
     if (!m) return;
-    const layout = await askLayout({ heading: "Add a slide", confirm: "Add slide", initial: this.lastLayout, theme: m.theme });
+    const layout = await askLayout({
+      heading: "Add a slide", confirm: "Add slide", initial: this.lastLayout, theme: m.theme, templates: true,
+      note: "A layout places text. A ready-made lesson slide also brings the parts a lesson needs, such as Next and Back buttons that are already wired, a question with its feedback, or a story to write.",
+    });
     if (!layout) return;
     this.lastLayout = layout;
-    const s = m.addSlide(layout);
-    this.announce(`Added ${s.name}. It is slide ${m.slides.findIndex((x) => x.id === s.id) + 1} of ${m.slides.length}.`);
+    const template = layout.startsWith(TEMPLATE_PREFIX) ? m.addTemplateSlide(layout.slice(TEMPLATE_PREFIX.length)) : null;
+    const s = template ?? m.addSlide(layout.startsWith(TEMPLATE_PREFIX) ? "blank" : layout);
+    this.announce(`Added ${s.name}. It is slide ${m.slides.findIndex((x) => x.id === s.id) + 1} of ${m.slides.length}.${template ? " Its buttons are already wired. Replace the placeholder words with your own." : ""}`);
     this.refocus(`slide:${s.id}`);
   }
 
@@ -728,6 +895,14 @@ export class App {
     this.focusSlideList();
   }
 
+  private duplicateSlide(): void {
+    const m = this.model;
+    if (!m) return;
+    const msg = m.duplicateSlide();
+    if (msg) this.announce(`${msg} Press Control Z to undo.`);
+    this.refocus(`slide:${m.sel.slideId}`);
+  }
+
   private moveSlide(dir: -1 | 1): void {
     const m = this.model;
     if (!m) return;
@@ -739,6 +914,18 @@ export class App {
   private addLayer(): void {
     const l = this.model?.addLayer();
     if (l) this.announce(`Added ${l.name}. You are now editing it. It starts empty.`);
+  }
+
+  private duplicateLayer(): void {
+    const msg = this.model?.duplicateLayer();
+    if (msg) this.announce(`${msg} Press Control Z to undo.`);
+  }
+
+  private moveLayer(dir: -1 | 1): void {
+    const m = this.model;
+    if (!m) return;
+    const msg = m.moveLayer(m.sel.layerId, dir);
+    if (msg) this.announce(msg);
   }
 
   private deleteLayer(): void {
@@ -756,6 +943,25 @@ export class App {
     if (choice === "image") return this.addImage();
     if (choice.startsWith("group:")) {
       const group = choice.slice(6);
+      if (group === "button") {
+        const kind = await askChoice({
+          heading: "Add a button", legend: "Kind of button", confirm: "Add button",
+          choices: [
+            { value: "plain", label: "Button", description: "A button with words you write. Say what it does in the Rules box.", group: "Your own" },
+            ...NAVIGATION_BUTTONS.map((b) => ({ value: b.id, label: b.label, description: b.description, group: "Ready-made, already wired" })),
+          ],
+        });
+        this.addKind.focus();
+        if (!kind) return;
+        if (kind === "plain") {
+          const o = m.addObject("button");
+          if (o) this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Write its words in the Properties panel, and say what it does in the Rules box.`);
+        } else {
+          const o = m.addNavigationButton(kind);
+          if (o) this.announce(`Added the ${o.name} button, number ${o.accessibility.tabOrder ?? 0} in reading order. Its rule is already written, and it works from the keyboard. Move it where you want it; you can change its words, look and icon in the Properties panel.`);
+        }
+        return;
+      }
       if (group === "media") {
         const pick = await askChoice({
           heading: "Add an image, video, audio or file", legend: "Kind", confirm: "Add",
@@ -766,6 +972,7 @@ export class App {
             { value: "download", label: "File to download", description: "A PDF, Word document or other file learners can save to their own device. You describe what it is, and confirm it is accessible.", group: "From your computer" },
             { value: "youtube", label: "YouTube video", description: "Plays from YouTube. You confirm the captions and add a transcript.", group: "From the web" },
             { value: "vimeo", label: "Vimeo video", description: "Plays from Vimeo. You confirm the captions and add a transcript.", group: "From the web" },
+            { value: "icon", label: "Icon", description: "A simple line picture from the Lucide set, drawn in a colour you choose. Search by what it means.", group: "Assets" },
             { value: "library", label: "Browse the assets", description: "The project's own files, and stock images to add to it.", group: "Assets" },
           ],
         });
@@ -775,24 +982,33 @@ export class App {
         if (pick === "video" || pick === "audio") return this.addMediaFile(pick);
         if (pick === "download") return this.addDownloadFile();
         if (pick === "library") return this.openAssetsDialog();
+        if (pick === "icon") return this.addIcon();
         return this.addEmbedVideo(pick as "youtube" | "vimeo");
       }
       if (group === "question") {
         const picked = await askChoice({
           heading: "Add a question, input or survey", legend: "Kind", confirm: "Add",
           choices: [
-            ...groupOptions("quiz").map((c) => ({ ...c, group: "Quiz questions", description: c.value === "quiz:tf" ? "A statement the learner marks true or false. Scored." : "One correct answer among several choices. Scored." })),
+            ...QUIZ_KINDS.map((k) => ({ value: `quiz:${k.id}`, label: k.label, description: k.description, group: `Quiz questions: ${k.group.toLowerCase()}` })),
             ...INPUTS.map((i) => ({ value: `input:${i.id}`, label: i.label, description: i.description, group: i.group === "Inputs" ? "Inputs that save a choice" : "Surveys" })),
           ],
         });
         this.addKind.focus();
         if (!picked) return;
+        if (picked === "input:character" && m.characters.length < 2) {
+          this.announce("A choice of character needs at least two people in the cast. Open Characters in the toolbar to add them, then add this again.");
+          this.castBtn.focus();
+          return;
+        }
         if (picked.startsWith("input:")) {
           const made = m.addInput(picked.slice(6));
           if (made) this.announce(`Added ${made.name} with its own variables. Write the prompt and the options in the Properties panel.`);
+        } else if (picked === "quiz:hotspot") {
+          await this.addHotspotQuestion();
         } else {
           const quiz = m.addQuiz(picked.slice(5) as QuizType);
-          if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
+          const kind = quizKind(picked.slice(5));
+          if (quiz && kind) this.announce(`Added a ${kind.label.toLowerCase()} question with two feedback layers. Write the question in the heading above it, set its answers in the Properties panel, and write the feedback. One question per slide works best.`);
         }
         return;
       }
@@ -826,11 +1042,19 @@ export class App {
       }
       if (group === "interaction") {
         const pickedInteraction = await askChoice({
-          heading: "Add an interaction", legend: "Interaction", confirm: "Add interaction",
-          choices: INTERACTIONS.map((i) => ({ value: i.id, label: i.label, description: i.description, group: i.group, preview: interactionPreview(i.kind, i.orientation) })),
+          heading: "Add an interaction or scenario", legend: "Interaction", confirm: "Add",
+          choices: [
+            ...INTERACTIONS.map((i) => ({ value: i.id, label: i.label, description: i.description, group: i.group, preview: interactionPreview(i.kind, i.orientation) })),
+            { value: "scenario", label: "Branching scenario", description: "A story the learner steps through by choosing what to do. Each choice leads to another situation, until an ending. Choices can add to a number, and people from the cast can speak.", group: "Stories" },
+          ],
         });
         this.addKind.focus();
         if (!pickedInteraction) return;
+        if (pickedInteraction === "scenario") {
+          const made = m.addScenario();
+          if (made) this.announce(`Added a scenario with a small story to write over: one situation with two choices, each leading to its own ending. Give the scenario a name in the Alt text field, which a screen reader reads, then write the story in the Properties panel.`);
+          return;
+        }
         const made = m.addInteraction(pickedInteraction);
         if (made) this.announce(`Added ${made.name} with three items. Write each item's title and text in the Properties panel, and give the group a name that says what it is about.`);
         return;
@@ -847,10 +1071,31 @@ export class App {
       if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
       return;
     }
-    const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "button");
-    if (o) {
+    const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "button" | "hotspot");
+    if (o && o.type === "hotspot") {
+      this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
+    } else if (o) {
       const n = o.accessibility.tabOrder ?? 0;
       this.announce(`Added ${o.name}${n >= 1 ? `, number ${n} in reading order` : ", decorative"}. Its properties are in the Properties panel.`);
+    }
+  }
+
+  /** A hotspot question is about a picture, so the author chooses it first. */
+  private async addHotspotQuestion(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    try {
+      const picked = await backend.pickImage();
+      if (!picked) return;
+      const src = await backend.importImage(m.dir, picked);
+      const quiz = m.addQuiz("hotspot", { imageSrc: src });
+      if (quiz) {
+        this.announce("Added a hotspot question with two areas and two feedback layers. It needs a description of the picture, which a screen reader reads, and the areas need their places and labels. Write them in the Properties panel.");
+        document.getElementById("p-hotspot-alt")?.focus();
+      }
+    } catch (err) {
+      this.announce(`Could not add the hotspot question. ${errorText(err)}`);
+      window.alert(`Could not add the hotspot question.\n\n${errorText(err)}`);
     }
   }
 
@@ -941,6 +1186,14 @@ export class App {
   }
 
   /** Open the Assets dialog: the project's files, stock search, and the keys for it. */
+  /** Bring slides in from a PowerPoint presentation, or bring slides brought in earlier up to date. */
+  private async openPowerPointDialog(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    await openPowerPoint({ model: m, savePicture: (name, bytes) => backend.saveDeckPicture(m.dir, name, bytes), announce: (msg) => this.announce(msg) });
+    this.pptxBtn.focus();
+  }
+
   private async openAssetsDialog(tab?: "project" | "stock" | "settings"): Promise<void> {
     const m = this.model;
     if (!m) return;
@@ -977,6 +1230,54 @@ export class App {
       h("p", { class: "note", text: o.type === "video"
         ? "A video needs a captions file (.vtt). A transcript is a good addition, but does not replace captions."
         : "An audio clip needs a captions file or a transcript, so someone who cannot hear it can read it." }))];
+  }
+
+  /** The audio description of a video: what the picture shows, when, written for reading and spoken for hearing. */
+  private descriptionFields(m: Model, o: OSObject): HTMLElement[] {
+    const cues = m.descriptionOf(o.id);
+    const cards = cues.map((cue, i) => {
+      const prefix = `desc-${cue.id}`;
+      const pause = h("input", { id: `p-${prefix}-pause`, type: "checkbox", ...(cue.pause ? { checked: true } : {}) });
+      pause.dataset["key"] = `prop:${prefix}-pause`;
+      pause.addEventListener("change", () => { const r = m.updateDescription(o.id, cue.id, { pause: pause.checked }); if (r.message) this.announce(r.message); });
+      const spoken = h("fieldset", {}, h("legend", { text: `Voice for description ${i + 1}` }),
+        ...this.narrationControls(m, `${o.id}/${cue.id}`, (cue.narration as Narration | null) ?? null, {
+          prefix: `${prefix}-narration`,
+          note: "What the learner hears at that moment. A description that is only written can be read but not heard, and audio description is something a learner hears with the video (WCAG 2.2, 1.2.5). The words are yours to change, and they do not follow the description if you change that later.",
+          audioLabel: `Audio for description ${i + 1}`,
+          rows: 3,
+          extra: [this.small("Use the description as the voice", "Write the voice's words from this description", () => {
+            const msg = m.narrateDescriptionFromText(o.id, cue.id);
+            this.announce(msg ?? "The voice already says what the description says.");
+          }, `Use description ${i + 1} as its voice`)],
+        }));
+      return h("fieldset", {}, h("legend", { text: `Description ${i + 1} of ${cues.length}, at ${clockText(cue.time)}` }),
+        this.field(`${prefix}-time`, "Seconds into the video", secondsText(cue.time), (v) => {
+          const ms = parseSeconds(v);
+          if (ms === undefined || ms === null) { this.announce("Write the time in seconds from the start of the video, for example 12 or 12.5."); this.renderProps(); return; }
+          const r = m.updateDescription(o.id, cue.id, { time: ms });
+          if (r.message) this.announce(r.message);
+          if (!r.ok) this.renderProps();
+        }, { number: true }),
+        this.stacked(this.field(`${prefix}-text`, "What the picture shows", cue.text, (v) => {
+          const r = m.updateDescription(o.id, cue.id, { text: v });
+          if (r.message) this.announce(r.message);
+          if (!r.ok) this.renderProps();
+        }, { area: true, rows: 3 })),
+        h("div", { class: "field check" }, pause, h("label", { for: `p-${prefix}-pause`, text: "Pause the video while this is spoken" })),
+        spoken,
+        h("div", { class: "btn-row" }, this.small("Delete description", "Delete this description", () => { const msg = m.deleteDescription(o.id, cue.id); if (msg) this.announce(`${msg}. Press Control Z to undo.`); }, `Delete description ${i + 1}`)));
+    });
+    const add = this.small("Add description", "Add a description at a time in the video", () => { const msg = m.addDescription(o.id); if (msg) this.announce(msg); });
+    const voiceAll = this.small("Give every description a voice", "Give each description that has words and no voice a voice that says its words", () => {
+      const r = m.narrateDescriptionsFromText(o.id);
+      if (r.message) this.announce(r.message);
+    });
+    this.setEnabled(voiceAll, cues.some((c) => !c.narration && c.text.trim() !== ""));
+    return [h("fieldset", {}, h("legend", { text: "Audio description" }),
+      h("p", { class: "note", text: "For a learner who cannot see the video. Write what the picture shows that the sound does not say, at the time it matters, and give it a voice. The course then offers an Audio description button beside the video, where a learner can read the descriptions, listen to them, or play the video with each one spoken at its time. Without any description, there is no button. If everything important on screen is already said in the narration, no description is needed." }),
+      h("div", { class: "btn-row" }, add, voiceAll),
+      ...(cards.length ? cards : [h("p", { class: "note", text: "No descriptions yet." })]))];
   }
 
   private async chooseCaptions(objectId: string): Promise<void> {
@@ -1152,7 +1453,11 @@ export class App {
     let msg: string | null = null;
     if (e.shiftKey) msg = m.selectRange(id);
     else if (e.ctrlKey || e.metaKey) msg = m.toggleSelected(id);
-    else m.selectObject(id);
+    else {
+      m.selectObject(id);
+      const picked = m.object;
+      if (picked) msg = `Selected ${picked.name}, ${picked.type}.`;
+    }
     if (msg) this.announce(msg);
   }
 
@@ -1164,6 +1469,36 @@ export class App {
     }
     const msg = m.toggleLock();
     if (msg) this.announce(`${msg} Press Control Z to undo.`);
+  }
+
+  private groupObjects(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose two or more objects first. Shift and click adds an object to the selection.");
+      return;
+    }
+    const msg = m.group();
+    if (msg) this.announce(msg.startsWith("Grouped") ? `${msg} Press Control Z to undo.` : msg);
+  }
+
+  private ungroupObjects(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose a grouped object first.");
+      return;
+    }
+    const msg = m.ungroup();
+    if (msg) this.announce(msg.startsWith("Ungrouped") ? `${msg} Press Control Z to undo.` : msg);
+  }
+
+  private selectGroupObjects(): void {
+    const m = this.model;
+    if (!m?.object) {
+      this.announce("Choose a grouped object first.");
+      return;
+    }
+    const msg = m.selectGroup();
+    if (msg) this.announce(msg);
   }
 
   private selectAllObjects(): void {
@@ -1246,6 +1581,9 @@ export class App {
     this.setEnabled(this.selectAllBtn, (m?.objects.length ?? 0) > 0);
     this.lockBtn.textContent = m?.selectionLock === "all" ? "Unlock" : "Lock";
     this.setEnabled(this.lockBtn, hasObject);
+    this.setEnabled(this.groupBtn, !!m?.canGroup);
+    this.setEnabled(this.ungroupBtn, !!m?.canUngroup);
+    this.setEnabled(this.selectGroupBtn, !!m?.canSelectGroup);
     this.setEnabled(this.deleteObjectBtn, hasObject);
     this.setEnabled(this.duplicateBtn, hasObject);
     this.setEnabled(this.copyBtn, hasObject);
@@ -1254,7 +1592,9 @@ export class App {
     this.setEnabled(this.deleteSlideBtn, !!m && m.slides.length > 1);
     this.setEnabled(this.changeLayoutBtn, !!m);
     this.setEnabled(this.themeBtn, !!m);
+    this.setEnabled(this.castBtn, !!m);
     this.setEnabled(this.assetsBtn, !!m);
+    this.setEnabled(this.pptxBtn, !!m);
     this.setEnabled(this.variablesBtn, !!m);
     this.setEnabled(this.narrationBtn, !!m && !this.working);
     this.setEnabled(this.timingBtn, !!m && !this.working);
@@ -1262,6 +1602,11 @@ export class App {
     this.setEnabled(this.slideUpBtn, !!m && idx > 0);
     this.setEnabled(this.slideDownBtn, !!m && idx >= 0 && idx < m.slides.length - 1);
     this.setEnabled(this.deleteLayerBtn, !!m && m.sel.layerId !== m.slide?.baseLayer.id);
+    this.setEnabled(this.duplicateSlideBtn, !!m);
+    this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
+    const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
+    this.setEnabled(this.layerEarlierBtn, layerAt > 0);
+    this.setEnabled(this.layerLaterBtn, !!m?.slide && layerAt !== -1 && layerAt < m.slide.layers.length - 1);
   }
 
   private summaryText(errors: number, warnings: number): string {
@@ -1289,6 +1634,16 @@ export class App {
     if (extra) b.title = extra;
     b.addEventListener("click", onPick);
     return h("li", {}, b);
+  }
+
+  /**
+   * A list is one tab stop, so a keyboard user does not have to press Tab past every slide or object: the item that was last focused, or else
+   * the current one, or else the first. The arrow keys move between the items.
+   */
+  private rove(list: HTMLElement, focused: Element | null = null): void {
+    const items = Array.from(list.querySelectorAll<HTMLElement>("button.item"));
+    const stop = rovingStop(items.map((i) => ({ focused: i === focused, current: i.getAttribute("aria-current") === "true", pressed: i.getAttribute("aria-pressed") === "true" })));
+    items.forEach((i, at) => (i.tabIndex = at === stop ? 0 : -1));
   }
 
   /** Up and Down, Home and End move between the items of a list. */
@@ -1320,8 +1675,12 @@ export class App {
     if (!m) return;
     this.keepFocus(() => {
       this.slideList.replaceChildren(
-        ...m.slides.map((s, i) => this.item(`slide:${s.id}`, `${i + 1}. ${s.name}`, s.id === m.sel.slideId, () => m.selectSlide(s.id))),
+        ...m.slides.map((s, i) => this.item(`slide:${s.id}`, `${i + 1}. ${s.name}`, s.id === m.sel.slideId, () => {
+          m.selectSlide(s.id);
+          this.announce(`Slide ${i + 1} of ${m.slides.length}: ${s.name}.`);
+        })),
       );
+      this.rove(this.slideList);
     });
   }
 
@@ -1342,13 +1701,14 @@ export class App {
       this.objectList.replaceChildren(
         ...m.objects.map((o) => {
           const t = o.accessibility.tabOrder ?? 0;
-          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""})`;
+          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${o.type === "video" && m.descriptionOf(o.id).length > 0 ? ", described" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""}${o.group ? `, in a group of ${m.groupSize(o.id)}` : ""})`;
           const li = this.item(`object:${o.id}`, label, o.id === m.sel.objectId, (e) => this.pickObject(o.id, e));
           if (several) li.querySelector("button")!.setAttribute("aria-pressed", String(picked.has(o.id)));
           return li;
         }),
       );
       if (m.objects.length === 0) this.objectList.append(h("li", { class: "note", text: "No objects on this layer. Use Add to put one here." }));
+      this.rove(this.objectList);
     });
   }
 
@@ -1454,8 +1814,12 @@ export class App {
     if (!m) return;
     // Several objects selected: the panel is about lining them up, because their own settings differ.
     if (m.selected.length > 1) {
-      const marker = `multi:${m.selected.map((x) => x.id).join(",")}`;
-      if (valuesOnly && this.propsBody.dataset["for"] === marker) return;
+      const group = m.selectedGroup;
+      const marker = `multi:${m.selected.map((x) => x.id).join(",")}|${group ? "group" : ""}|${m.canGroup}${m.canUngroup}${m.canSelectGroup}|${m.selectionLock}`;
+      if (valuesOnly && this.propsBody.dataset["for"] === marker) {
+        if (group) this.fillGroupValues(group);
+        return;
+      }
       this.keepFocus(() => this.buildMultiProps(m));
       this.propsBody.dataset["for"] = marker;
       return;
@@ -1463,23 +1827,28 @@ export class App {
     const o = m.object;
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
-    const shape = !o ? "" : o.type === "button" ? m.activationOf(o).kind
+    const shape = !o ? "" : o.type === "button" ? `${m.activationOf(o).kind}|${o.content["icon"] ? "icon" : ""}`
       : o.type === "text" ? (parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw")
       : o.type === "interaction" ? interactionShape(o)
       : o.type === "video" || o.type === "audio" ? `${String(o.content["captions"] ?? "")}|${parseBody(String(o.content["transcript"] ?? "")) === null}`
       : o.type === "embed" ? `${(o.content as unknown as EmbedContent).provider}|${parseBody((o.content as unknown as EmbedContent).transcript) === null}`
       : o.type === "table" ? tableShape(o)
       : o.type === "input" ? inputShape(o, m)
+      : o.type === "scenario" ? scenarioShape(o, m, this.scenarioSelected(o.id, o.content as unknown as ScenarioContent))
       : o.type === "scrollingText" ? (parseBody(String(o.content["html"] ?? "")) === null ? "raw" : "simple")
-      : o.type === "quizQuestion" ? (o.content["choices"] as { id: string }[]).map((c) => c.id).join(",") + `|${m.slide?.layers.map((l) => l.id).join(",")}`
+      : o.type === "quizQuestion" ? `${JSON.stringify(o.content)}|${m.slide?.layers.map((l) => l.id).join(",")}`
       : "";
     // Rules can change which controls the panel needs, and the variables and layers they can point at come from the project.
     const rules = o ? `|${JSON.stringify(o.triggers)}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.slide?.layers.map((l) => l.id).join(",")}` : "";
     // Narration changes which controls the panel needs (pronunciations, the Listen button), and whether its audio exists.
     const narrationSign = (n: unknown): string => (n ? `${keyOf(n as Narration)}:${(n as Narration).pronunciations.length}` : "none");
-    const itemNarration = o?.type === "interaction" ? (o.content as unknown as InteractionContent).items.map((i) => narrationSign(i.narration)).join(",") : "";
+    const itemNarration = o?.type === "interaction" ? (o.content as unknown as InteractionContent).items.map((i) => narrationSign(i.narration)).join(",")
+      : o?.type === "video" ? m.descriptionOf(o.id).map((c) => `${c.id}:${narrationSign(c.narration)}`).join(",") : "";
     const narrated = o ? `|${narrationSign(o.narration)}:${this.narrationEpoch}|${itemNarration}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
+    // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
+    // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
+    const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -1487,6 +1856,8 @@ export class App {
     // Keep focus where it is when the panel is redrawn.
     this.keepFocus(() => (o ? this.buildProps(m, o) : this.buildSlideProps(m)));
     this.propsBody.dataset["for"] = marker;
+    // The sentences about readability are filled in as values change; a panel that was just built has them empty until then.
+    if (o) this.updateContrast(o);
   }
 
   /** The buttons that line up what is selected: with each other when there are several, with the slide when there is one. */
@@ -1496,23 +1867,166 @@ export class App {
       this.small(a.label, `Line up the ${a.edge}`, () => say(m.align(a.value)), `Align ${a.label.toLowerCase()}`)));
   }
 
+  /** Group, Ungroup and Select group, for the Properties panel while several are selected. */
+  private groupButtons(m: Model): HTMLElement {
+    const group = this.small("Group", "Tie the selected objects together (Ctrl+G)", () => this.groupObjects());
+    const ungroup = this.small("Ungroup", "Break the selected objects' groups apart (Ctrl+Shift+G)", () => this.ungroupObjects());
+    const all = this.small("Select group", "Select everything in the same group as the selected objects", () => this.selectGroupObjects());
+    this.setEnabled(group, m.canGroup);
+    this.setEnabled(ungroup, m.canUngroup);
+    this.setEnabled(all, m.canSelectGroup);
+    return h("div", { class: "btn-row" }, group, ungroup, all);
+  }
+
+  /** Set the four numbers of a group's box from where its objects are now, except one the author is in. */
+  private fillGroupValues(group: OSObject[]): void {
+    const box = groupBox(group);
+    for (const [id, v] of [["group-x", box.x], ["group-y", box.y], ["group-width", box.width], ["group-height", box.height]] as const) {
+      const input = this.propsBody.querySelector<HTMLInputElement>(`#p-${id}`);
+      if (input && document.activeElement !== input) input.value = String(v);
+    }
+  }
+
+  /** Where a whole group is, and how big. Typing a size scales every object in it together. */
+  private groupPlaceFields(m: Model, group: OSObject[]): HTMLElement {
+    const box = groupBox(group);
+    const tag = group[0]!.group;
+    const set = (axis: "x" | "y" | "width" | "height") => (v: string) => {
+      const n = Number(v);
+      if (v.trim() === "" || !Number.isFinite(n)) {
+        this.announce("Write a number.");
+        this.fillGroupValues(m.selectedGroup ?? group);
+        return;
+      }
+      const patch = axis === "x" ? { x: n } : axis === "y" ? { y: n } : axis === "width" ? { width: n } : { height: n };
+      const msg = m.setGroupBox(patch, `groupbox:${tag}:${axis}`);
+      if (msg) this.announce(msg);
+      this.fillGroupValues(m.selectedGroup ?? group);
+    };
+    return h("fieldset", {}, h("legend", { text: "Position and size of the group" }),
+      this.field("group-x", "Left edge (X)", box.x, set("x"), { number: true }),
+      this.field("group-y", "Top edge (Y)", box.y, set("y"), { number: true }),
+      this.field("group-width", "Width", box.width, set("width"), { number: true }),
+      this.field("group-height", "Height", box.height, set("height"), { number: true }),
+      h("p", { class: "note", text: "A new size scales every object in the group together, so each keeps its place and size relative to the rest. Text is not made bigger or smaller, only the boxes." }));
+  }
+
+  /** The value every selected object has for something, or undefined if they differ. */
+  private shared<T>(sel: OSObject[], pick: (o: OSObject) => T): T | undefined {
+    const first = JSON.stringify(pick(sel[0]!));
+    return sel.every((o) => JSON.stringify(pick(o)) === first) ? pick(sel[0]!) : undefined;
+  }
+
+  /** Timing for everything selected at once, so a group is timed once. A field is blank when the objects differ. */
+  /** Play the clip an object follows and take the times from it. */
+  private async chooseMoment(m: Model, o: OSObject): Promise<void> {
+    const clip = m.timingRows().map((r) => r.object).find((x) => x.id === o.timing.media);
+    const src = clip ? String(clip.content["src"] ?? "") : "";
+    if (!clip || src === "") {
+      this.announce("The clip this follows has no file yet. Add one to the video or audio object first.");
+      return;
+    }
+    try {
+      const url = await backend.mediaUrl(m.dir, src).catch(() => backend.assetUrl(m.dir, src));
+      const t = o.timing;
+      const picked = await chooseMoments({
+        name: clip.name, kind: clip.type as "video" | "audio", url,
+        start: t.start, end: t.visibleFor === null ? null : t.start + t.visibleFor,
+        announce: (msg) => this.announce(msg),
+      });
+      if (picked) {
+        const r = m.setTiming(o.id, { start: picked.start, visibleFor: picked.end === null ? null : picked.end - picked.start });
+        if (r.message) this.announce(r.message);
+      }
+      // After the change, because a box the author is in is never overwritten while they are in it.
+      document.getElementById("p-timing-start")?.focus();
+    } catch (err) {
+      this.announce(`Could not play the clip. ${errorText(err)}`);
+    }
+  }
+
+  private multiTimingFields(m: Model, sel: OSObject[]): HTMLElement {
+    const onBase = m.layer?.id === m.slide?.baseLayer.id;
+    const appear = this.shared(sel, (o) => o.timing.appear);
+    const start = this.shared(sel, (o) => o.timing.start);
+    const leave = this.shared(sel, (o) => o.timing.visibleFor);
+    const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.renderProps(); };
+    const differ = (el: HTMLElement) => { el.querySelector("input")!.placeholder = "they differ"; return el; };
+    const startField = this.field("multi-timing-start", `Seconds after ${onBase ? "the slide opens" : "its layer is shown"}, or after the narration starts`, start === undefined ? "" : secondsText(start), (v) => {
+      const ms = parseSeconds(v);
+      if (ms === undefined) { this.announce("Write the time in seconds, for example 2 or 0.5, up to 3600."); this.renderProps(); return; }
+      done(m.setTimingForSelected({ start: ms ?? 0 }));
+    }, { number: true });
+    const leaveField = this.field("multi-timing-leave", "Stays for, in seconds (blank: until the slide ends)", leave === undefined || leave === null ? "" : secondsText(leave), (v) => {
+      const ms = parseSeconds(v);
+      if (ms === undefined || ms === 0) { this.announce("Write how long it stays in seconds, for example 6, or leave it blank to stay until the slide ends."); this.renderProps(); return; }
+      done(m.setTimingForSelected({ visibleFor: ms }));
+    }, { number: true });
+    return h("fieldset", {}, h("legend", { text: `Timing, for all ${sel.length}` }),
+      h("p", { class: "note", text: "A value set here is set on every selected object, as one undo step, so a group is timed once. A field is blank when the objects differ." }),
+      this.selectField("multi-timing-appear", "Appears", [
+        ...(appear === undefined ? [{ value: "", label: "They differ: leave each as it is" }] : []),
+        { value: "time", label: onBase ? "After the slide opens" : "After its layer is shown" },
+        { value: "narration", label: "After its narration starts", disabled: !sel.some((o) => o.narration) },
+        { value: "media", label: "When a video or audio clip reaches a time", disabled: m.mediaSources().length === 0 && appear !== "media" },
+      ], appear ?? "", (v) => { if (v !== "") done(m.setTimingForSelected({ appear: v as "time" | "narration" | "media" })); }),
+      start === undefined ? differ(startField) : startField,
+      leave === undefined ? differ(leaveField) : leaveField,
+      h("p", { class: "note", text: appear !== undefined && start !== undefined && leave !== undefined ? describeTiming(sel[0]!.timing, !onBase) : "These objects have different timing. Setting a value here makes it the same on all of them." }));
+  }
+
+  /** How everything selected arrives and leaves, set once. */
+  private multiAnimationFields(m: Model, sel: OSObject[]): HTMLElement {
+    const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.renderProps(); };
+    const part = (phase: Phase, label: string, secondsLabel: string): HTMLElement[] => {
+      const effect = this.shared(sel, (o) => o.animation[phase].effect);
+      const duration = this.shared(sel, (o) => o.animation[phase].duration);
+      const time = this.field(`multi-anim-${phase}-time`, secondsLabel, duration === undefined ? "" : secondsText(duration), (v) => {
+        const ms = parseSeconds(v);
+        if (ms === undefined || ms === null) { this.announce(`Write how long it lasts in seconds, from ${MIN_DURATION / 1000} to ${MAX_DURATION / 1000}, for example 0.5.`); this.renderProps(); return; }
+        done(m.setAnimationForSelected(phase, { duration: ms }));
+      }, { number: true });
+      if (duration === undefined) time.querySelector("input")!.placeholder = "they differ";
+      return [
+        this.selectField(`multi-anim-${phase}`, label, [...(effect === undefined ? [{ value: "", label: "They differ: leave each as it is" }] : []), ...effectChoices(phase)], effect ?? "", (v) => {
+          if (v !== "") done(m.setAnimationForSelected(phase, { effect: v as typeof sel[0]["animation"]["enter"]["effect"] }));
+        }),
+        time,
+      ];
+    };
+    return h("fieldset", {}, h("legend", { text: `Animation, for all ${sel.length}` }),
+      h("p", { class: "note", text: "Motion is a barrier for some learners, so effects are short, never repeat and never flash. A value set here is set on every selected object, as one undo step." }),
+      ...part("enter", "Arrives", "Seconds to arrive"),
+      ...part("exit", "Leaves", "Seconds to leave"));
+  }
+
   /** The Properties panel while several objects are selected. */
   private buildMultiProps(m: Model): void {
     const sel = m.selected;
+    const group = m.selectedGroup;
     const say = (r: { changed: boolean; message: string } | null) => { if (r) this.announce(r.changed ? `${r.message} Press Control Z to undo.` : r.message); };
     const across = this.small("Across", "Space the selected objects evenly from left to right", () => say(m.distribute("horizontal")), "Space out across");
     const down = this.small("Down", "Space the selected objects evenly from top to bottom", () => say(m.distribute("vertical")), "Space out down");
-    this.setEnabled(across, sel.length >= 3);
-    this.setEnabled(down, sel.length >= 3);
+    this.setEnabled(across, m.selectedUnits >= 3);
+    this.setEnabled(down, m.selectedUnits >= 3);
+    const names = sel.map((o) => o.name).join(", ");
     this.propsBody.replaceChildren(
-      h("p", { class: "note", text: `${sel.length} objects selected: ${sel.map((o) => o.name).join(", ")}.` }),
+      h("p", { class: "note", text: group ? `Group of ${sel.length} objects: ${names}.` : `${sel.length} objects selected: ${names}.` }),
+      h("fieldset", {}, h("legend", { text: "Group" }),
+        this.groupButtons(m),
+        h("p", { class: "note", text: group
+          ? "These objects are one group. Clicking one on the slide chooses them all, and they move, resize, copy and delete together. Hold Alt and click to choose just one, or choose it from the Objects list. A group is for editing only: the course looks the same."
+          : "Group ties the selected objects together so they are chosen, moved, resized, copied and deleted as one. It is for editing only: the course looks the same." })),
+      ...(group ? [this.groupPlaceFields(m, group)] : []),
       h("fieldset", {}, h("legend", { text: "Line up" }),
         this.alignButtons(m),
-        h("p", { class: "note", text: "Lines the objects up with each other. Only where they sit changes, never their sizes." })),
+        h("p", { class: "note", text: "Lines the objects up with each other. A whole group counts as one object. Only where things sit changes, never their sizes." })),
       h("fieldset", {}, h("legend", { text: "Space out evenly" }),
         h("div", { class: "btn-row" }, across, down),
-        h("p", { class: "note", text: "Needs three or more objects. The outermost two stay where they are." })),
-      h("p", { class: "note", text: "The arrow keys, Delete, Duplicate, Copy, Cut and Paste work on all of them. To change one object's text, colours, alt text, rules, timing or narration, choose that object on its own." }));
+        h("p", { class: "note", text: "Needs three or more objects, counting a whole group as one. The outermost two stay where they are." })),
+      this.multiTimingFields(m, sel),
+      this.multiAnimationFields(m, sel),
+      h("p", { class: "note", text: "The arrow keys, Delete, Duplicate, Copy, Cut and Paste work on all of them. To change one object's text, colours, alt text, rules or narration, choose that object on its own." }));
   }
 
   /** When nothing is selected, the Properties panel is about the slide and layer. */
@@ -1615,12 +2129,15 @@ export class App {
     set("timing-start", secondsText(o.timing.start));
     set("timing-leave", o.timing.visibleFor === null ? "" : secondsText(o.timing.visibleFor));
     const timingNote = this.propsBody.querySelector<HTMLElement>("#timing-summary");
-    if (timingNote) timingNote.textContent = describeTiming(o.timing, !!this.model && this.model.layer?.id !== this.model.slide?.baseLayer.id);
+    if (timingNote) timingNote.textContent = describeTiming(o.timing, !!this.model && this.model.layer?.id !== this.model.slide?.baseLayer.id, this.model?.mediaNameOf(o.timing.media));
+    set("timing-media", o.timing.media ?? "");
     if (spoken) { set("narration-voice", spoken.voice); set("narration-speed", spoken.speed); }
     set("font", String(o.style["fontFamily"] ?? "system-ui"));
     set("size", o.style["fontSize"] ?? "");
     for (const key of ["color", "fill", "stroke"] as const) this.colorUpdaters.get(key)?.(String(o.style[key] ?? ""));
     set("stroke-width", o.style["strokeWidth"] ?? "");
+    set("opacity", typeof o.style["opacity"] === "number" ? percentOf(o.style["opacity"]) : "");
+    this.fillLooks(o);
     set("shape", String(o.content["shape"] ?? "rectangle"));
     this.updateContrast(o);
     if (o.type === "quizQuestion") this.fillQuiz(o);
@@ -1642,6 +2159,12 @@ export class App {
       if (t !== null) set("transcript", t);
     }
     if (o.type === "input") this.fillInput(o);
+    if (o.type === "scenario") this.fillScenario(o);
+    if (o.type === "button") {
+      const lookBox = this.propsBody.querySelector<HTMLSelectElement>("#p-button-look");
+      if (lookBox && this.model) lookBox.value = this.model.buttonLook(o.id);
+    }
+    if (o.type === "icon") set("icon-stroke", o.style["strokeWidth"] ?? 2);
     if (o.type === "scrollingText") { const body = parseBody(String(o.content["html"] ?? "")); if (body !== null) set("scroll-text", body); }
     const simple = typeof o.content["html"] === "string" ? parseSimpleText(o.content["html"]) : null;
     if (simple) { set("text", simple.text); set("block", simple.block); } else set("html", String(o.content["html"] ?? ""));
@@ -1696,7 +2219,17 @@ export class App {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true), this.colorField(m, o, "color", "Text colour", "Default"),
         h("p", { id: "contrast-note", class: "note" }));
     }
+    if (o.type === "button") looks.unshift(...this.buttonLookFields(m, o));
     if (o.type === "button") looks.push(this.colorField(m, o, "fill", "Button colour", "Default"));
+    if (o.type === "icon") {
+      looks.push(
+        this.colorField(m, o, "color", "Icon colour", "Default"),
+        this.field("icon-stroke", "Line width (0.5 to 4; 2 is normal)", o.style["strokeWidth"] ?? 2, (v) => {
+          const r = m.setStyle(o.id, "strokeWidth", v);
+          if (!r.ok) { this.announce(r.message); this.fillValues(o); } else if (r.message) this.announce(r.message);
+        }, { number: true }),
+      );
+    }
     if (o.type === "table" || o.type === "scrollingText" || o.type === "input" || o.type === "results" || o.type === "certificate" || o.type === "download") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true),
         h("p", { class: "note", text: "A table, a scrolling text box, an input, a results box, a certificate and a file to download use the theme's colours, so they stay readable when you change the theme." }));
@@ -1704,6 +2237,10 @@ export class App {
     if (o.type === "interaction") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true),
         h("p", { class: "note", text: "An interaction uses the theme's colours, so it stays readable when you change the theme." }));
+    }
+    if (o.type === "scenario") {
+      looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true),
+        h("p", { class: "note", text: "A scenario uses the theme's colours, so it stays readable when you change the theme. Make it large enough for its longest situation: if the text does not fit, the learner can scroll it." }));
     }
     if (o.type === "shape") {
       looks.push(
@@ -1720,18 +2257,25 @@ export class App {
       );
     }
 
+    if (canHaveLooks(o.type)) looks.push(this.solidField(m, o));
+
     this.propsBody.replaceChildren(
       h("p", { class: "identity", text: `${o.type}, id ${o.id}` }),
+      ...(o.group ? [h("p", { class: "note", text: `In a group of ${m.groupSize(o.id)}. Select group chooses all of them, and Ungroup breaks the group apart.` })] : []),
       this.field("name", "Name", o.name, (v) => { const msg = m.setName(o.id, v); if (msg) this.announce(msg); else this.fillValues(o); }),
       ...(content.length ? [h("fieldset", {}, h("legend", { text: "Content" }), ...content)] : []),
       ...(looks.length ? [h("fieldset", {}, h("legend", { text: "Appearance" }), ...looks)] : []),
+      ...this.lookFields(m, o),
       ...this.narrationFields(m, o),
       ...this.timingFields(m, o),
       ...this.animationFields(m, o),
       ...this.ruleFields(m, o),
       ...(o.type === "quizQuestion" ? this.quizFields(m, o) : []),
       ...(o.type === "interaction" ? this.interactionFields(m, o) : []),
+      ...(o.type === "scenario" ? this.scenarioFields(m, o) : []),
+      ...(o.type === "icon" ? this.iconFields(m, o) : []),
       ...(o.type === "video" || o.type === "audio" ? this.mediaFields(m, o) : []),
+      ...(o.type === "video" ? this.descriptionFields(m, o) : []),
       ...(o.type === "embed" ? this.embedFields(m, o) : []),
       ...(o.type === "table" ? this.tableFields(m, o) : []),
       ...(o.type === "input" ? this.inputFields(m, o) : []),
@@ -1740,8 +2284,8 @@ export class App {
       ...(o.type === "certificate" ? this.certificateFields(m, o) : []),
       ...(o.type === "download" ? this.downloadFields(m, o) : []),
       h("fieldset", {}, h("legend", { text: "Position and size" }),
-        this.field("x", "X", o.geometry.x, num("x"), { number: true }),
-        this.field("y", "Y", o.geometry.y, num("y"), { number: true }),
+        this.field("x", "Left edge (X)", o.geometry.x, num("x"), { number: true }),
+        this.field("y", "Top edge (Y)", o.geometry.y, num("y"), { number: true }),
         this.field("width", "Width", o.geometry.width, num("width"), { number: true }),
         this.field("height", "Height", o.geometry.height, num("height"), { number: true }),
         this.field("rotation", "Rotation, degrees", o.geometry.rotation, num("rotation"), { number: true }),
@@ -1751,7 +2295,9 @@ export class App {
       h("fieldset", {}, h("legend", { text: "Accessibility" }),
         h("div", { class: "field check" }, decorative, h("label", { for: "p-decorative", text: "Decorative (no meaning, hidden from screen readers)" })),
         this.field("alt", "Alt text", a.altText, (v) => { m.setAccessibility(o.id, { altText: v }); }, { area: true, describedBy: "alt-note" }),
-        h("p", { id: "alt-note", class: "note", text: o.type === "video" || o.type === "audio" || o.type === "embed"
+        h("p", { id: "alt-note", class: "note", text: o.type === "hotspot"
+          ? "This is the name a screen reader gives the hotspot, for example \"The Save button\". Say what it is or what pressing it does. The picture it sits over needs alt text of its own."
+          : o.type === "video" || o.type === "audio" || o.type === "embed"
           ? `This is the name a screen reader gives the player, for example "Welcome from the instructor". Say what the ${o.type === "audio" ? "clip" : "video"} is.`
           : o.type === "input"
           ? "The prompt is the name a screen reader gives this input. Alt text starts as the same words; add to it only to give extra instructions."
@@ -1765,6 +2311,10 @@ export class App {
           ? `This is the name a screen reader gives the ${o.type === "table" ? "table" : "box"}, for example "Quarterly results". Say what it shows.`
           : o.type === "interaction"
           ? "This is the name a screen reader gives the whole group, for example \"Causes of burnout\". Say what the items are about."
+          : o.type === "icon"
+          ? "This is what a screen reader says for the icon. Say what it means to the learner, for example \"Next\" or \"Warning\", not what it looks like. If it only decorates something that already has a name, mark it decorative instead."
+          : o.type === "scenario"
+          ? "This is the name a screen reader gives the scenario, for example \"Telling your team lead that a report is late\". Say what the story is about."
           : o.type === "quizQuestion"
           ? "This is the name a screen reader gives the group of answers. The question itself is the heading before it, so keep that clear."
           : "Required unless the object is decorative. Decorative objects must have no alt text. A screen reader reads a text object's own words, so for text this is kept for tools and checks." }),
@@ -1776,6 +2326,152 @@ export class App {
     );
   }
 
+  /** How solid the object, or one of its looks, is painted: 100 is fully solid, less lets what is behind show through. */
+  private solidField(m: Model, o: OSObject, look = "normal"): HTMLElement {
+    const style = look === "normal" ? o.style : o.states[look]?.style ?? {};
+    const v = style["opacity"];
+    const label = look === "normal" ? "How solid (10 to 100; blank is fully solid)" : `How solid (${lookLabel(look)}; 10 to 100, blank is the same as normal)`;
+    return this.field(look === "normal" ? "opacity" : "look-opacity", label, typeof v === "number" ? percentOf(v) : "", (text) => {
+      const r = m.setStyle(o.id, "opacity", text, look);
+      if (!r.ok) { this.announce(r.message); this.fillValues(o); } else if (r.message) this.announce(r.message);
+    }, { number: true });
+  }
+
+  /** The Looks box: the other ways this object can appear, and the one being worked on. */
+  private lookFields(m: Model, o: OSObject): HTMLElement[] {
+    if (!canHaveLooks(o.type)) return [];
+    const looks = m.looksOf(o.id);
+    const look = m.editingLookOf(o.id);
+    const parts: HTMLElement[] = [
+      h("p", { class: "note", text: "A look is another way this object can appear. Hover or focus, Visited and Disabled are used by the course on their own. A look you name yourself is used when a rule says so (under Rules, choose Change an object's look). Choose a look to edit it, and the canvas shows it." }),
+      this.selectField("look", "Look to edit", [
+        { value: "normal", label: "Normal (the Appearance box above)" },
+        ...looks.map((l) => ({ value: l.name, label: l.set ? l.label : `${l.label} (not set)` })),
+      ], look, (v) => {
+        m.setEditingLook(o.id, v);
+        this.announce(v === "normal" ? "Editing the object's own appearance." : `Editing the look ${lookLabel(v)}. The canvas shows it.`);
+      }),
+    ];
+    if (look !== "normal") parts.push(...this.lookEditor(m, o, look));
+    const add = this.small("Add a look...", "Give this object a look of its own, such as Correct or Selected", () => void this.addLookDialog(m, o));
+    add.dataset["key"] = "prop:look-add";
+    parts.push(h("div", { class: "btn-row" }, add));
+    return [h("fieldset", { class: "looks" }, h("legend", { text: "Looks" }), ...parts)];
+  }
+
+  /** The fields of one look: what is different from normal, the words a screen reader says, and renaming and removing it. */
+  private lookEditor(m: Model, o: OSObject, look: string): HTMLElement[] {
+    const info = m.looksOf(o.id).find((l) => l.name === look);
+    const own = o.states[look]?.style ?? {};
+    const name = lookLabel(look);
+    const refresh = (r: { ok: boolean; message: string }) => { if (!r.ok) { this.announce(r.message); this.fillValues(o); } else if (r.message) this.announce(r.message); };
+    const field = (k: LookField): HTMLElement => {
+      switch (k) {
+        case "fontFamily": return this.fontField(m, o, look);
+        case "fontSize": return this.field("look-size", `Font size (${name}; blank is the same as normal)`, own["fontSize"] ?? "", (v) => refresh(m.setStyle(o.id, "fontSize", v, look)), { number: true });
+        case "color": return this.colorField(m, o, "color", `${o.type === "icon" ? "Icon colour" : "Text colour"} (${name})`, "Same as normal", look);
+        case "fill": return this.colorField(m, o, "fill", `${o.type === "shape" ? "Fill colour" : "Button colour"} (${name})`, "Same as normal", look);
+        case "stroke": return this.colorField(m, o, "stroke", `Outline colour (${name})`, "Same as normal", look);
+        case "strokeWidth": return this.field("look-stroke-width", `Outline width (${name}; blank is the same as normal)`, own["strokeWidth"] ?? "", (v) => refresh(m.setStyle(o.id, "strokeWidth", v, look)), { number: true });
+        case "opacity": return this.solidField(m, o, look);
+      }
+    };
+    const said = o.states[look]?.announce ?? "";
+    const uses = m.lookUses(o.id, look);
+    const parts: HTMLElement[] = [
+      h("p", { class: "note", id: "look-use", text: lookUseText(look, info?.set ?? false) }),
+      ...lookFieldsFor(o.type).map(field),
+      ...(o.type === "text" || o.type === "button" ? [h("p", { id: "look-contrast-note", class: "note" })] : []),
+      this.field("look-announce", `Spoken message (${name})`, said, (v) => {
+        const r = m.setLookAnnounce(o.id, look, v);
+        if (r.message) this.announce(r.message);
+        if (!r.ok) this.fillValues(o);
+      }, { describedBy: "look-announce-note" }),
+      h("p", { id: "look-announce-note", class: "note", text: announceNoteText(look, said, uses) }),
+    ];
+    const buttons: HTMLElement[] = [];
+    if (info && !info.ready) {
+      const rename = this.small("Rename...", "Give this look another name", () => void this.renameLookDialog(m, o, look), `Rename: the look ${name}`);
+      rename.dataset["key"] = "prop:look-rename";
+      buttons.push(rename);
+    }
+    const remove = this.small(info?.ready ? "Clear this look" : "Delete this look", info?.ready ? "Put this look back to not set" : "Delete this look", () => {
+      const msg = m.removeLook(o.id, look);
+      if (msg) this.announce(msg);
+      this.refocus("prop:look");
+    }, `${info?.ready ? "Clear this look" : "Delete this look"}: ${name}`);
+    remove.id = "look-remove";
+    remove.dataset["key"] = "prop:look-remove";
+    this.setEnabled(remove, info?.set ?? false);
+    buttons.push(remove);
+    parts.push(h("div", { class: "btn-row" }, ...buttons));
+    return parts;
+  }
+
+  private async addLookDialog(m: Model, o: OSObject): Promise<void> {
+    const name = await askText({
+      heading: "Add a look",
+      label: "Name of the look",
+      confirm: "Add look",
+      help: "A few words, such as Correct, Selected or Done. A rule uses the name to apply the look. It starts the same as normal; you choose what is different.",
+      check: (t) => lookNameProblem(t, Object.keys(m.object?.states ?? o.states)),
+    });
+    if (name === null) { this.refocus("prop:look-add"); return; }
+    const r = m.addLook(o.id, name);
+    if (r.message) this.announce(r.message);
+    this.refocus("prop:look");
+  }
+
+  private async renameLookDialog(m: Model, o: OSObject, look: string): Promise<void> {
+    const name = await askText({
+      heading: `Rename the look ${look}`,
+      label: "New name",
+      confirm: "Rename",
+      initial: look,
+      help: "Rules that apply this look follow the new name.",
+      check: (t) => (t.trim() === look ? null : lookNameProblem(t, Object.keys(m.object?.states ?? o.states).filter((n) => n !== look))),
+    });
+    if (name === null) { this.refocus("prop:look-rename"); return; }
+    const r = m.renameLook(o.id, look, name);
+    if (r.message) this.announce(r.message);
+    this.refocus("prop:look");
+  }
+
+  /** Put the open look's values, and the words around them, back in place without redrawing the panel. */
+  private fillLooks(o: OSObject): void {
+    const m = this.model;
+    if (!m || !canHaveLooks(o.type)) return;
+    const put = (id: string, v: string | number | null) => {
+      const input = this.propsBody.querySelector<HTMLInputElement | HTMLSelectElement>(`#p-${id}`);
+      if (input && document.activeElement !== input) input.value = v === null ? "" : String(v);
+    };
+    const infos = m.looksOf(o.id);
+    const lookBox = this.propsBody.querySelector<HTMLSelectElement>("#p-look");
+    if (lookBox) {
+      for (const opt of Array.from(lookBox.options)) {
+        const info = infos.find((l) => l.name === opt.value);
+        if (info) opt.textContent = info.set ? info.label : `${info.label} (not set)`;
+      }
+    }
+    const look = m.editingLookOf(o.id);
+    if (look === "normal") return;
+    const info = infos.find((l) => l.name === look);
+    const own = o.states[look]?.style ?? {};
+    const said = o.states[look]?.announce ?? "";
+    put("look-font", String(own["fontFamily"] ?? ""));
+    put("look-size", own["fontSize"] ?? "");
+    put("look-stroke-width", own["strokeWidth"] ?? "");
+    put("look-opacity", typeof own["opacity"] === "number" ? percentOf(own["opacity"]) : "");
+    put("look-announce", said);
+    for (const key of ["color", "fill", "stroke"] as const) this.colorUpdaters.get(`look-${key}`)?.(String(own[key] ?? ""));
+    const use = this.propsBody.querySelector<HTMLElement>("#look-use");
+    if (use) use.textContent = lookUseText(look, info?.set ?? false);
+    const note = this.propsBody.querySelector<HTMLElement>("#look-announce-note");
+    if (note) note.textContent = announceNoteText(look, said, m.lookUses(o.id, look));
+    const remove = this.propsBody.querySelector<HTMLElement>("#look-remove");
+    if (remove) this.setEnabled(remove, info?.set ?? false);
+  }
+
   private colorUpdaters = new Map<string, (v: string) => void>();
 
   /**
@@ -1784,7 +2480,12 @@ export class App {
    * colours, the system colour picker for anything else, a hex box for someone who has a code, and
    * a button for "none". Each group of swatches is one tab stop; the arrow keys move within it.
    */
-  private colorField(m: Model, o: OSObject, key: "color" | "fill" | "stroke", label: string, noneLabel: string): HTMLElement {
+  private colorField(m: Model, o: OSObject, key: "color" | "fill" | "stroke", label: string, noneLabel: string, look = "normal"): HTMLElement {
+    // On a look the boxes have ids of their own, so the object's own colour and the look's can be on the panel together.
+    const idKey = look === "normal" ? key : `look-${key}`;
+    const styleNow = (): Style => (look === "normal" ? m.object?.style : m.object?.states[look]?.style) ?? {};
+    // "None" is a real choice for an outline on the object itself. On a look, clearing means the same as normal.
+    const cleared = look === "normal" && key === "stroke" ? "none" : "";
     const swatch = h("span", { class: "swatch", "aria-hidden": "true" });
     const nameEl = h("span", { class: "color-name" });
 
@@ -1792,7 +2493,7 @@ export class App {
       const el = h("div", { class: "palette", role: "group", "aria-label": name });
       const btns = items.map((c) => {
         const b = h("button", { type: "button", class: "swatch-btn", "aria-label": c.name, title: `${c.name} ${c.hex}`, "aria-pressed": "false" });
-        b.dataset["key"] = `prop:${key}-${c.id}`;
+        b.dataset["key"] = `prop:${idKey}-${c.id}`;
         b.dataset["value"] = c.value;
         b.style.backgroundColor = c.hex;
         b.addEventListener("click", () => apply(c.value));
@@ -1813,21 +2514,21 @@ export class App {
     const themed = group(`${label}: theme colours`, COLOR_ROLES.map((r) => ({ name: `Theme colour: ${COLOR_ROLE_NAMES[r] ?? r}`, hex: m.theme.colors[r], value: colorRef(r), id: `theme-${r}` })));
     const fixed = group(`${label}: other colours`, PALETTE.map((c) => ({ name: c.name, hex: c.hex, value: c.hex, id: c.hex })));
 
-    const picker = h("input", { id: `p-${key}-picker`, type: "color" });
-    picker.dataset["key"] = `prop:${key}-picker`;
+    const picker = h("input", { id: `p-${idKey}-picker`, type: "color" });
+    picker.dataset["key"] = `prop:${idKey}-picker`;
     picker.addEventListener("change", () => apply(picker.value));
-    const hex = h("input", { id: `p-${key}`, type: "text", size: 9 });
-    hex.dataset["key"] = `prop:${key}`;
+    const hex = h("input", { id: `p-${idKey}`, type: "text", size: 9 });
+    hex.dataset["key"] = `prop:${idKey}`;
     hex.addEventListener("change", () => {
       const raw = hex.value.trim();
       const n = normalizeHex(raw);
-      if (raw === "") apply(key === "stroke" ? "none" : "");
+      if (raw === "") apply(cleared);
       else if (n) apply(n);
-      else { this.announce("A colour must be a hex code such as #1a1a1a. You can also pick one from the palettes."); update(String(m.object?.style[key] ?? "")); }
+      else { this.announce("A colour must be a hex code such as #1a1a1a. You can also pick one from the palettes."); update(String(styleNow()[key] ?? "")); }
     });
     const none = h("button", { type: "button", class: "small", text: noneLabel });
-    none.dataset["key"] = `prop:${key}-none`;
-    none.addEventListener("click", () => apply(key === "stroke" ? "none" : ""));
+    none.dataset["key"] = `prop:${idKey}-none`;
+    none.addEventListener("click", () => apply(cleared));
 
     const describe = (v: string): string => {
       if (v === "" || v === "none") return noneLabel;
@@ -1853,12 +2554,12 @@ export class App {
       if (document.activeElement !== hex) hex.value = v === "none" ? "" : hx ?? v;
     };
     const apply = (v: string) => {
-      const r = m.setStyle(o.id, key, v);
-      if (!r.ok) { this.announce(r.message); update(String(m.object?.style[key] ?? "")); return; }
+      const r = m.setStyle(o.id, key, v, look);
+      if (!r.ok) { this.announce(r.message); update(String(styleNow()[key] ?? "")); return; }
       this.announce(`${label}: ${describe(v)}`);
     };
-    this.colorUpdaters.set(key, update);
-    update(String(o.style[key] ?? ""));
+    this.colorUpdaters.set(idKey, update);
+    update(String((look === "normal" ? o.style : o.states[look]?.style ?? {})[key] ?? ""));
 
     return h("fieldset", { class: "colorfield" }, h("legend", { text: label }),
       h("div", { class: "color-current" }, swatch, nameEl),
@@ -1866,81 +2567,285 @@ export class App {
       h("p", { class: "note", text: "Theme colours change when you change the theme. The other colours stay as they are." }),
       fixed.el,
       h("div", { class: "color-row" },
-        h("label", { for: `p-${key}-picker`, text: "Custom" }), picker,
-        h("label", { for: `p-${key}`, text: "Hex code" }), hex, none));
+        h("label", { for: `p-${idKey}-picker`, text: "Custom" }), picker,
+        h("label", { for: `p-${idKey}`, text: "Hex code" }), hex, none));
   }
 
-  /** A sentence about how readable the text colour is on what is behind it, using the theme's real colours. */
+  /** A sentence about how readable the text colour is on what is behind it, using the theme's real colours: for the object, and for the look being edited. */
   private updateContrast(o: OSObject): void {
-    const note = this.propsBody.querySelector<HTMLElement>("#contrast-note");
+    const m = this.model;
+    if (!m) return;
+    this.contrastNoteFor(o, "normal", this.propsBody.querySelector<HTMLElement>("#contrast-note"));
+    const look = m.editingLookOf(o.id);
+    if (look !== "normal") this.contrastNoteFor(o, look, this.propsBody.querySelector<HTMLElement>("#look-contrast-note"));
+  }
+
+  private contrastNoteFor(o: OSObject, look: string, note: HTMLElement | null): void {
     const m = this.model;
     if (!note || !m) return;
     const theme = m.theme;
-    const own = o.style["color"];
+    // A look is judged on its own over the object's style, and a look that makes the object see-through fades the text and what is behind it together.
+    const style: Style = look === "normal" ? o.style : { ...o.style, ...(o.states[look]?.style ?? {}) };
+    const own = style["color"];
     const text = own === undefined ? (o.type === "button" ? theme.colors.onAccentStrong : theme.colors.text) : normalizeHex(String(resolveValue(theme, String(own))));
     if (!text) { note.textContent = ""; return; }
-    const fillValue = o.style["fill"];
-    let behind: string[];
+    const fillValue = style["fill"];
+    let fill: string | null = null;
     let name: string;
     if (fillValue !== undefined) {
-      const hx = normalizeHex(String(resolveValue(theme, String(fillValue))));
-      behind = hx ? [hx] : [];
+      fill = normalizeHex(String(resolveValue(theme, String(fillValue))));
+      if (!fill) { note.textContent = ""; return; }
       name = `the ${describeColor(m, String(fillValue))} fill`;
     } else if (o.type === "button") {
-      behind = [theme.colors.accentStrong];
+      fill = theme.colors.accentStrong;
       name = "the theme's button colour";
     } else {
-      behind = backgroundColors(theme, m.slide?.background ?? null);
       name = m.slide?.background ? "this slide's background" : "the theme's background";
     }
-    if (behind.length === 0) { note.textContent = ""; return; }
+    const behind = backgroundColors(theme, m.slide?.background ?? null);
+    const solid = solidnessOf(style, look);
+    const pairs: [string, string][] = solid < 1
+      ? behind.map((back): [string, string] => [mixHex(text, back, solid), fill ? mixHex(fill, back, solid) : back])
+      : fill ? [[text, fill]] : behind.map((back): [string, string] => [text, back]);
+    if (pairs.length === 0) { note.textContent = ""; return; }
     // For a gradient, judge against the colour that is hardest to read on.
-    const worst = behind.reduce((a, b) => (contrastRatio(text, b) < contrastRatio(text, a) ? b : a));
-    const size = typeof o.style["fontSize"] === "number" ? o.style["fontSize"] : 22;
-    note.textContent = contrastNote(text, worst, name, size);
+    const worst = pairs.reduce((a, b) => (contrastRatio(b[0], b[1]) < contrastRatio(a[0], a[1]) ? b : a));
+    const size = typeof style["fontSize"] === "number" ? style["fontSize"] : 22;
+    note.textContent = contrastNote(worst[0], worst[1], solid < 1 ? `${name}, at ${percentOf(solid)}% solid` : name, size);
   }
 
   /** The answers, scoring and feedback of a quiz question. */
+  /** A change to a question. If it was refused, or changed nothing, the boxes are put back as they were. */
+  private questionEdit(m: Model, o: OSObject, edit: QuestionEdit, key = ""): void {
+    const before = JSON.stringify(o.content);
+    const msg = m.editQuestion(o.id, edit, key);
+    if (msg) this.announce(msg);
+    if (JSON.stringify(o.content) === before) {
+      this.propsBody.dataset["for"] = "";
+      this.renderProps();
+    }
+  }
+
+  /** The Properties of a question: what belongs to its kind, then the scoring and feedback every kind has. */
   private quizFields(m: Model, o: OSObject): HTMLElement[] {
     const q = o.content as unknown as QuizContent;
     const slide = m.slide!;
-    const rows = q.choices.map((c, i) => {
-      const radio = h("input", { type: "radio", name: `correct-${o.id}`, id: `p-correct-${c.id}`, "aria-label": `Answer ${i + 1} is the correct answer`, ...(c.correct ? { checked: true } : {}) });
-      radio.dataset["key"] = `prop:correct-${c.id}`;
-      radio.addEventListener("change", () => { const msg = m.setCorrectChoice(o.id, c.id); if (msg) this.announce(msg); });
-      const input = h("input", { type: "text", id: `p-choice-${c.id}`, "aria-label": `Answer ${i + 1}`, value: c.label });
-      input.dataset["key"] = `prop:choice-${c.id}`;
-      input.addEventListener("change", () => { const msg = m.setChoiceLabel(o.id, c.id, input.value); if (msg) this.announce(msg); else input.value = c.label; });
-      const del = this.small("Delete", "Delete this answer", () => {
-        const msg = m.deleteChoice(o.id, c.id);
-        if (msg) this.announce(msg);
-      }, `Delete answer ${i + 1}`);
-      this.setEnabled(del, q.choices.length > 2);
-      return h("div", { class: "choice-row" }, radio, input, del);
-    });
-    const add = this.small("Add answer", "Add another answer", () => {
-      const msg = m.addChoice(o.id);
-      if (msg) this.announce(msg);
-    });
-    this.setEnabled(add, q.choices.length < 8);
+    const edit = (e: QuestionEdit, key = "") => this.questionEdit(m, o, e, key);
+    const kindFields = ((): HTMLElement[] => {
+      switch (q.questionType) {
+        case "multipleChoice":
+        case "multipleResponse": return this.choiceFields(m, o, q, edit);
+        case "shortAnswer": return this.shortFields(q, edit);
+        case "numeric": return this.numericFields(q, edit);
+        case "fillBlanks": return this.blanksFields(q, edit);
+        case "matching": return this.matchingFields(q, edit);
+        case "sequencing": return this.sequenceFields(q, edit);
+        case "hotspot": return this.hotspotFields(m, o, q, edit);
+      }
+    })();
 
+    const partial = q.questionType === "multipleResponse" || q.questionType === "fillBlanks" || q.questionType === "matching" || q.questionType === "sequencing";
     const layers = slide.layers.map((l) => ({ value: l.id, label: l.name }));
     const feedback = layers.length === 0
       ? [h("p", { class: "note", text: "This slide has no layers. Add layers for the feedback, then choose them here." })]
       : [
           this.selectField("fb-correct", "After a right answer", layers, q.feedback.correct, (v) => { const msg = m.setFeedbackLayer(o.id, "correct", v); if (msg) this.announce(msg); }),
-          this.selectField("fb-incorrect", "After a wrong answer", layers, q.feedback.incorrect, (v) => { const msg = m.setFeedbackLayer(o.id, "incorrect", v); if (msg) this.announce(msg); }),
+          this.selectField("fb-incorrect", partial ? "After a wrong or partly right answer" : "After a wrong answer", layers, q.feedback.incorrect, (v) => { const msg = m.setFeedbackLayer(o.id, "incorrect", v); if (msg) this.announce(msg); }),
         ];
 
     return [
-      h("fieldset", {}, h("legend", { text: "Answers" }),
-        h("p", { class: "note", text: "Select the radio button beside the correct answer. Exactly one answer is correct." }),
-        ...rows, add),
+      ...kindFields,
       h("fieldset", {}, h("legend", { text: "Scoring" }),
         this.field("points", "Points", q.scoring.points, (v) => { const msg = m.setScoring(o.id, { points: Number(v) }); if (msg) this.announce(msg); else this.fillQuiz(o); }, { number: true }),
-        this.field("attempts", "Attempts allowed", q.scoring.attemptsAllowed, (v) => { const msg = m.setScoring(o.id, { attemptsAllowed: Number(v) }); if (msg) this.announce(msg); else { this.announce("Attempts must be a whole number from 1 to 10."); this.fillQuiz(o); } }, { number: true })),
+        this.field("attempts", "Attempts allowed", q.scoring.attemptsAllowed, (v) => { const msg = m.setScoring(o.id, { attemptsAllowed: Number(v) }); if (msg) this.announce(msg); else { this.announce("Attempts must be a whole number from 1 to 10."); this.fillQuiz(o); } }, { number: true }),
+        h("p", { class: "note", text: partial
+          ? "A learner earns a share of the points for the parts that are right. The best of the attempts counts, so trying again never takes marks away. The question is finished when every part is right or the attempts are used up."
+          : "A right answer earns all the points and a wrong one none. The question is finished when it is right or the attempts are used up." })),
       h("fieldset", {}, h("legend", { text: "Feedback layers" }), ...feedback),
     ];
+  }
+
+  /** A check box or a radio button with a name that says what it means. */
+  private tick(kind: "checkbox" | "radio", id: string, label: string, checked: boolean, onChange: (on: boolean) => void, name?: string): HTMLInputElement {
+    const box = h("input", { type: kind, id: `p-${id}`, "aria-label": label, ...(name ? { name } : {}), ...(checked ? { checked: true } : {}) });
+    box.dataset["key"] = `prop:${id}`;
+    box.addEventListener("change", () => onChange(box.checked));
+    return box;
+  }
+
+  /** A line of text with a name for a screen reader, which tells the question when it is changed. */
+  private line(id: string, label: string, value: string, onChange: (v: string) => void): HTMLInputElement {
+    const box = h("input", { type: "text", id: `p-${id}`, "aria-label": label, value });
+    box.dataset["key"] = `prop:${id}`;
+    box.addEventListener("change", () => onChange(box.value));
+    return box;
+  }
+
+  private choiceFields(m: Model, o: OSObject, q: ChoiceQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const multi = q.questionType === "multipleResponse";
+    const rows = q.choices.map((c, i) => {
+      const mark = this.tick(multi ? "checkbox" : "radio", `correct-${c.id}`, multi ? `Answer ${i + 1} is a right answer` : `Answer ${i + 1} is the correct answer`, c.correct,
+        (on) => edit({ op: "choiceCorrect", id: c.id, correct: on }), multi ? undefined : `correct-${o.id}`);
+      const text = h("input", { type: "text", id: `p-choice-${c.id}`, "aria-label": `Answer ${i + 1}`, value: c.label });
+      text.dataset["key"] = `prop:choice-${c.id}`;
+      text.addEventListener("change", () => { const msg = m.setChoiceLabel(o.id, c.id, text.value); if (msg) this.announce(msg); else text.value = c.label; });
+      const del = this.small("Delete", "Delete this answer", () => {
+        const msg = m.deleteChoice(o.id, c.id);
+        if (msg) this.announce(msg);
+      }, `Delete answer ${i + 1}`);
+      this.setEnabled(del, q.choices.length > 2);
+      return h("div", { class: "choice-row" }, mark, text, del);
+    });
+    const add = this.small("Add answer", "Add another answer", () => {
+      const msg = m.addChoice(o.id);
+      if (msg) this.announce(msg);
+    });
+    this.setEnabled(add, q.choices.length < LIMITS.choices);
+    const several = this.tick("checkbox", "choice-multiple", "Several answers can be right", multi, (on) => edit({ op: "choiceMode", multiple: on }));
+    return [
+      h("fieldset", {}, h("legend", { text: "Answers" }),
+        h("p", { class: "note", text: multi
+          ? "Tick every answer that is right. A learner earns part of the points for each right answer ticked, less a share for each wrong one."
+          : "Select the radio button beside the correct answer. Exactly one answer is correct." }),
+        ...rows, add,
+        h("div", { class: "field check" }, several, h("label", { for: "p-choice-multiple", text: "Several answers can be right (multiple response)" }))),
+    ];
+  }
+
+  private shortFields(q: ShortAnswerQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    return [
+      h("fieldset", {}, h("legend", { text: "Accepted answers" }),
+        this.field("short-answers", "Answers that are right, one on each line", q.answers.join("\n"), (v) => edit({ op: "shortAnswers", text: v }), { area: true, rows: 4, describedBy: "short-note" }),
+        h("div", { class: "field check" }, this.tick("checkbox", "case", "Capital letters must match", q.caseSensitive, (on) => edit({ op: "caseSensitive", on })), h("label", { for: "p-case", text: "Capital letters must match" })),
+        h("p", { id: "short-note", class: "note", text: "A learner's answer is right if it matches any line. Extra spaces never matter. Add every spelling you will accept." })),
+    ];
+  }
+
+  private numericFields(q: NumericQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const answer = Math.round(((q.min + q.max) / 2) * 1e10) / 1e10;
+    const tolerance = Math.round(((q.max - q.min) / 2) * 1e10) / 1e10;
+    const apply = () => edit({ op: "numeric", answer: Number((document.getElementById("p-num-answer") as HTMLInputElement).value), tolerance: Number((document.getElementById("p-num-tolerance") as HTMLInputElement).value || "0") });
+    return [
+      h("fieldset", {}, h("legend", { text: "Correct number" }),
+        this.field("num-answer", "The correct number", answer, apply, { number: true }),
+        this.field("num-tolerance", "How far off a learner may be, plus or minus", tolerance, apply, { number: true, describedBy: "num-note" }),
+        h("p", { id: "num-note", class: "note", text: q.min === q.max ? `Only ${q.min} is right.` : `Any number from ${q.min} to ${q.max} is right. A learner may type 1,234 or 1234, and 1,5 for 1.5.` })),
+    ];
+  }
+
+  private blanksFields(q: FillBlanksQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const typed = q.mode === "typed";
+    const modes = [{ value: "typed", label: "Typed into the blanks" }, { value: "dropdown", label: "Chosen from a drop-down in each blank" }, { value: "drag", label: "Dragged from a word bank, or chosen from the drop-down" }];
+    const sentence = this.field("blanks-text", "Sentence, with {1}, {2} and so on where a word is missing", q.text, (v) => edit({ op: "blanksText", text: v }), { area: true, rows: 4, describedBy: "blanks-note" });
+    const insert = this.small("Insert a blank", "Put the next blank into the sentence where the cursor was", () => {
+      const box = document.getElementById("p-blanks-text") as HTMLTextAreaElement | null;
+      edit({ op: "insertBlank", at: box?.selectionStart ?? q.text.length });
+    });
+    const answers = q.blanks.map((b) => typed
+      ? this.field(`blank-${b.id}`, `Blank ${b.id}: answers that are right, one on each line`, b.answers.join("\n"), (v) => edit({ op: "blankAnswers", id: b.id, text: v }), { area: true, rows: 2 })
+      : this.field(`blank-${b.id}`, `Blank ${b.id}: the right word`, b.answers[0] ?? "", (v) => edit({ op: "blankAnswers", id: b.id, text: v })));
+    const parts: HTMLElement[] = [
+      h("fieldset", {}, h("legend", { text: "Sentence" }),
+        this.selectField("blanks-mode", "How learners fill the blanks", modes, q.mode, (v) => edit({ op: "blanksMode", mode: v as FillBlanksQuiz["mode"] })),
+        sentence, h("div", { class: "btn-row" }, insert),
+        h("p", { id: "blanks-note", class: "note", text: "A learner earns a share of the points for each blank that is right. The sentence is read to a screen reader with each blank named, for example Blank 1 of 2." })),
+      h("fieldset", {}, h("legend", { text: "Answers" }), ...answers),
+    ];
+    if (typed) {
+      parts.push(h("fieldset", {}, h("legend", { text: "Typed answers" }),
+        h("div", { class: "field check" }, this.tick("checkbox", "case", "Capital letters must match", q.caseSensitive, (on) => edit({ op: "caseSensitive", on })), h("label", { for: "p-case", text: "Capital letters must match" })),
+        h("p", { class: "note", text: "Extra spaces never matter." })));
+    } else {
+      parts.push(h("fieldset", {}, h("legend", { text: "Word bank" }),
+        this.field("extra-words", "Extra words that are right nowhere, one on each line", extraWordsOf(q).join("\n"), (v) => edit({ op: "extraWords", text: v }), { area: true, rows: 3, describedBy: "bank-note" }),
+        h("p", { id: "bank-note", class: "note", text: `Words offered: ${q.wordBank.join(", ")}. The right words are always in the bank. Learners always have a drop-down in each blank, which is how a keyboard answers.` })));
+    }
+    return parts;
+  }
+
+  private matchingFields(q: MatchingQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const rows = q.pairs.map((p, i) => {
+      const premise = this.line(`pair-${p.id}-premise`, `Item ${i + 1}`, p.premise, (v) => edit({ op: "pairText", id: p.id, field: "premise", text: v }));
+      const match = this.line(`pair-${p.id}-match`, `Match for item ${i + 1}`, p.match, (v) => edit({ op: "pairText", id: p.id, field: "match", text: v }));
+      const earlier = this.small("Move earlier", "Move this pair earlier", () => edit({ op: "movePair", id: p.id, delta: -1 }), `Move earlier: pair ${i + 1}`);
+      const later = this.small("Move later", "Move this pair later", () => edit({ op: "movePair", id: p.id, delta: 1 }), `Move later: pair ${i + 1}`);
+      const del = this.small("Delete", "Delete this pair", () => edit({ op: "deletePair", id: p.id }), `Delete pair ${i + 1}`);
+      this.setEnabled(earlier, i > 0);
+      this.setEnabled(later, i < q.pairs.length - 1);
+      this.setEnabled(del, q.pairs.length > 2);
+      return h("div", { class: "pair-row", role: "group", "aria-label": `Pair ${i + 1}` }, premise, match, h("div", { class: "btn-row" }, earlier, later, del));
+    });
+    const add = this.small("Add pair", "Add another item and its match", () => edit({ op: "addPair" }));
+    this.setEnabled(add, q.pairs.length < LIMITS.pairs);
+    return [
+      h("fieldset", {}, h("legend", { text: "Items and their matches" }),
+        h("p", { class: "note", text: "Each row is an item and the match that is right for it. Learners see the matches mixed up, in a list for each item. A learner earns a share of the points for each item matched rightly." }),
+        ...rows, add),
+      h("fieldset", {}, h("legend", { text: "Extras" }),
+        this.field("extras", "Extra matches that fit nothing, one on each line", q.extras.join("\n"), (v) => edit({ op: "extras", text: v }), { area: true, rows: 3 }),
+        h("div", { class: "field check" }, this.tick("checkbox", "drag", "Learners can also drag the matches onto the items", q.drag, (on) => edit({ op: "drag", on })), h("label", { for: "p-drag", text: "Learners can also drag the matches onto the items" })),
+        h("p", { class: "note", text: "Dragging is an extra. The drop-down for each item is always there, which is how a keyboard and a screen reader answer." })),
+    ];
+  }
+
+  private sequenceFields(q: SequencingQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const rows = q.items.map((item, i) => {
+      const text = this.line(`item-${item.id}`, `Item ${i + 1} in the right order`, item.text, (v) => edit({ op: "itemText", id: item.id, text: v }));
+      const earlier = this.small("Move earlier", "Move this item earlier", () => edit({ op: "moveItem", id: item.id, delta: -1 }), `Move earlier: item ${i + 1}`);
+      const later = this.small("Move later", "Move this item later", () => edit({ op: "moveItem", id: item.id, delta: 1 }), `Move later: item ${i + 1}`);
+      const del = this.small("Delete", "Delete this item", () => edit({ op: "deleteItem", id: item.id }), `Delete item ${i + 1}`);
+      this.setEnabled(earlier, i > 0);
+      this.setEnabled(later, i < q.items.length - 1);
+      this.setEnabled(del, q.items.length > 2);
+      return h("div", { class: "pair-row", role: "group", "aria-label": `Item ${i + 1}` }, text, h("div", { class: "btn-row" }, earlier, later, del));
+    });
+    const add = this.small("Add item", "Add another item", () => edit({ op: "addItem" }));
+    this.setEnabled(add, q.items.length < LIMITS.items);
+    return [
+      h("fieldset", {}, h("legend", { text: "Items, in the right order" }),
+        h("p", { class: "note", text: "List the items in the order that is right. Learners see them mixed up and put them in order with Move up and Move down. A learner earns a share of the points for each item in its right place." }),
+        ...rows, add,
+        h("div", { class: "field check" }, this.tick("checkbox", "drag", "Learners can also drag the items into order", q.drag, (on) => edit({ op: "drag", on })), h("label", { for: "p-drag", text: "Learners can also drag the items into order" })),
+        h("p", { class: "note", text: "Dragging is an extra. The buttons are always there, which is how a keyboard and a screen reader answer." })),
+    ];
+  }
+
+  private hotspotFields(m: Model, o: OSObject, q: HotspotQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const regions = q.regions.map((r, i) => {
+      const num = (key: "x" | "y" | "width" | "height", label: string) => this.field(`region-${r.id}-${key}`, `${label}, percent`, r[key], (v) => edit({ op: "regionRect", id: r.id, patch: { [key]: Number(v) } }), { number: true });
+      const del = this.small("Delete", "Delete this area", () => edit({ op: "deleteRegion", id: r.id }), `Delete area ${i + 1}`);
+      this.setEnabled(del, q.regions.length > 2);
+      return h("fieldset", { class: "region" }, h("legend", { text: `Area ${i + 1}` }),
+        this.field(`region-${r.id}-label`, "Label, which a screen reader reads in the list", r.label, (v) => edit({ op: "regionLabel", id: r.id, label: v })),
+        h("div", { class: "field check" }, this.tick("checkbox", `region-${r.id}-correct`, `${r.label} is a right area`, r.correct, (on) => edit({ op: "regionCorrect", id: r.id, correct: on })), h("label", { for: `p-region-${r.id}-correct`, text: "This is a right area" })),
+        num("x", "Left edge"), num("y", "Top edge"), num("width", "Width"), num("height", "Height"), h("div", { class: "btn-row" }, del));
+    });
+    const add = this.small("Add area", "Add another area to the picture", () => edit({ op: "addRegion" }));
+    this.setEnabled(add, q.regions.length < LIMITS.regions);
+    return [
+      h("fieldset", {}, h("legend", { text: "Picture" }),
+        h("p", { class: "note", text: `The picture is ${q.image.src === "" ? "not chosen yet" : q.image.src.split("/").pop()}.` }),
+        this.field("hotspot-alt", "What the picture shows (required)", q.image.alt, (v) => edit({ op: "hotspotAlt", alt: v }), { area: true, rows: 3, describedBy: "hotspot-note" }),
+        h("div", { class: "btn-row" }, this.small("Choose another picture...", "Pick a picture from your computer to use instead", () => void this.changeHotspotPicture(o, edit))),
+        h("p", { id: "hotspot-note", class: "note", text: "This is read to a screen reader, which cannot see the picture. Describe it well enough to choose between the areas." })),
+      h("fieldset", {}, h("legend", { text: "Areas" }),
+        h("p", { class: "note", text: "Each area is a box on the picture. Places and sizes are percentages of the picture: left and top edges, then width and height. Every area is also listed under the picture by its label, so a keyboard and a screen reader can choose it. The canvas shows the areas as dashed boxes, solid for a right one." }),
+        ...regions, add),
+    ];
+  }
+
+  /** Pick a picture from the computer and use it for a hotspot question. */
+  private async changeHotspotPicture(o: OSObject, edit: (e: QuestionEdit, key?: string) => void): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    try {
+      const picked = await backend.pickImage();
+      if (!picked) return;
+      edit({ op: "hotspotImage", src: await backend.importImage(m.dir, picked) });
+    } catch (err) {
+      this.announce(`Could not use that picture. ${errorText(err)}`);
+    }
+    void o;
   }
 
   /** How an interaction behaves, and its items. */
@@ -1987,7 +2892,7 @@ export class App {
           this.small("Remove picture", "Remove this item's picture", () => { const msg = m.setItemImage(o.id, item.id, null); if (msg) this.announce(msg); }, `Remove picture from item ${i + 1}`),
         );
       } else {
-        parts.push(this.small("Add picture...", "Add a picture to this item", () => void this.addItemImage(o.id, item.id), `Add a picture to item ${i + 1}`));
+        parts.push(this.small("Add picture...", "Add a picture to this item", () => void this.addItemImage(o.id, item.id), `Add picture: item ${i + 1}`));
       }
       parts.push(h("fieldset", {}, h("legend", { text: `Narration for item ${i + 1}` }),
         ...this.narrationControls(m, `${o.id}/${item.id}`, (item.narration as Narration | null) ?? null, {
@@ -1998,10 +2903,10 @@ export class App {
           extra: [this.small("Use the item's text", "Write the narration from this item's title and text", () => {
             const msg = m.narrateItemFromText(o.id, item.id);
             this.announce(msg ?? "The narration already says what the item shows.");
-          }, `Use the text of item ${i + 1} as its narration`)],
+          }, `Use the item's text as narration: item ${i + 1}`)],
         })));
-      const earlier = this.small("Move earlier", "Move this item earlier", () => { const msg = m.moveItem(o.id, item.id, -1); if (msg) this.announce(msg); }, `Move item ${i + 1} earlier`);
-      const later = this.small("Move later", "Move this item later", () => { const msg = m.moveItem(o.id, item.id, 1); if (msg) this.announce(msg); }, `Move item ${i + 1} later`);
+      const earlier = this.small("Move earlier", "Move this item earlier", () => { const msg = m.moveItem(o.id, item.id, -1); if (msg) this.announce(msg); }, `Move earlier: item ${i + 1}`);
+      const later = this.small("Move later", "Move this item later", () => { const msg = m.moveItem(o.id, item.id, 1); if (msg) this.announce(msg); }, `Move later: item ${i + 1}`);
       const del = this.small("Delete item", "Delete this item", () => { const msg = m.deleteItem(o.id, item.id); if (msg) this.announce(msg); }, `Delete item ${i + 1}`);
       this.setEnabled(earlier, i > 0);
       this.setEnabled(later, i < c.items.length - 1);
@@ -2023,6 +2928,331 @@ export class App {
         h("div", { class: "btn-row" }, add, narrateAll),
         ...items.map((x) => x)),
     ];
+  }
+
+  // ---- icons, and buttons that go somewhere
+
+  /** Ask for an icon from the list. Null if the author cancelled. */
+  private async chooseIcon(heading: string): Promise<IconContent | null> {
+    const entry = await pickIcon({
+      heading,
+      load: () => loadIcons(async () => {
+        const r = await fetch("icons/lucide.json");
+        if (!r.ok) throw new Error(`The icon list is missing (${r.status}).`);
+        return r.json();
+      }),
+      announce: (msg) => this.announce(msg),
+    });
+    return entry ? iconContent(entry) : null;
+  }
+
+  private async addIcon(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const icon = await this.chooseIcon("Add an icon");
+    this.addKind.focus();
+    if (!icon) return;
+    const o = m.addIcon(icon);
+    if (o) {
+      this.announce(`Added the ${iconWords(icon.name)} icon. It needs alt text: say what it means, for example "Next", in the Alt text field, or mark it decorative. The icon set calls it "${iconWords(icon.name)}", which you can use as a start.`);
+      document.getElementById("p-alt")?.focus();
+    }
+  }
+
+  /** What an icon object has in the Properties panel: which icon, how it is drawn, and a way to swap it. */
+  private iconFields(m: Model, o: OSObject): HTMLElement[] {
+    const icon = o.content as unknown as IconContent;
+    return [h("fieldset", {}, h("legend", { text: "Icon" }),
+      h("p", { class: "note", text: `The ${iconWords(icon.name)} icon, from Lucide. A course that uses an icon names Lucide on its credits page. The icon is drawn in the colour below and takes the theme's colours; make it 24 pixels or more each way so it can be seen.` }),
+      h("div", { class: "btn-row" }, this.small("Change icon...", "Choose a different icon", () => void (async () => {
+        const next = await this.chooseIcon("Choose a different icon");
+        document.getElementById("p-icon-change")?.focus();
+        if (!next) return;
+        const msg = m.changeIcon(o.id, next);
+        if (msg) this.announce(msg);
+      })())),
+    )];
+  }
+
+  /** A button's look, and the icon beside its words. */
+  private buttonLookFields(m: Model, o: OSObject): HTMLElement[] {
+    const look = m.buttonLook(o.id);
+    const icon = o.content["icon"] as IconContent | undefined;
+    const say = (msg: string | null) => { if (msg) this.announce(msg); };
+    const out: HTMLElement[] = [
+      this.selectField("button-look", "Look", [
+        ...BUTTON_LOOKS.map((l) => ({ value: l.id, label: l.label })),
+        { value: CUSTOM_LOOK, label: "Your own colours", disabled: true },
+      ], look, (v) => say(m.setButtonLook(o.id, v))),
+      h("p", { class: "note", text: "A look sets the button's colours, outline and roundness from the theme, so it follows the theme and stays readable. Its words, font and size, and what it does, are not changed. Change the colours below for a look of your own." }),
+    ];
+    if (!icon) {
+      out.push(this.small("Add an icon...", "Show a small picture before or after the button's words", () => void (async () => {
+        const chosen = await this.chooseIcon("Choose an icon for the button");
+        document.getElementById("p-button-look")?.focus();
+        if (chosen) say(m.setButtonIcon(o.id, chosen));
+      })()));
+    } else {
+      out.push(
+        h("p", { class: "note", text: `Icon: ${iconWords(icon.name)}. It is decoration: the button's words are its name, so a screen reader never says the icon.` }),
+        this.selectField("button-icon-side", "Icon is", [{ value: "before", label: "Before the words" }, { value: "after", label: "After the words" }], o.content["iconPlacement"] === "after" ? "after" : "before", (v) => say(m.setButtonIconPlacement(o.id, v as "before" | "after"))),
+        h("div", { class: "btn-row" },
+          this.small("Change icon...", "Choose a different icon for this button", () => void (async () => {
+            const chosen = await this.chooseIcon("Choose an icon for the button");
+            document.getElementById("p-button-look")?.focus();
+            if (chosen) say(m.setButtonIcon(o.id, chosen));
+          })()),
+          this.small("Remove icon", "Take the icon off this button", () => say(m.setButtonIcon(o.id, null)))),
+      );
+    }
+    return out;
+  }
+
+  // ---- scenarios
+
+  /** The situation being edited in the panel: the one the author chose, or the start. */
+  private scenarioSelected(objectId: string, c: ScenarioContent): string {
+    const id = this.scenarioSelect.get(objectId);
+    return id && c.nodes.some((n) => n.id === id) ? id : c.start;
+  }
+
+  /**
+   * A choice of variable of one type, for a scenario: the ones the project has, "A new variable" which is made on the spot, and
+   * (where it makes sense) a way to choose none.
+   */
+  private scenarioVariable(m: Model, id: string, label: string, type: Variable["type"], base: string, current: string | null, none: string | null, onPick: (variable: string | null) => void): HTMLElement {
+    const NEW = "__new";
+    const usable = m.variables.filter((v) => v.type === type);
+    return this.selectField(id, label, [
+      ...(none === null ? [] : [{ value: "", label: none }]),
+      ...(current && !usable.some((v) => v.id === current) ? [{ value: current, label: `${current} (not defined)`, disabled: true }] : []),
+      ...usable.map((v) => ({ value: v.id, label: v.name })),
+      { value: NEW, label: "A new variable" },
+    ], current ?? "", (v) => {
+      if (v === NEW) {
+        const made = m.addVariable(type, base);
+        this.announce(`Made the variable ${made.name}.`);
+        onPick(made.id);
+      } else onPick(v === "" ? null : v);
+    });
+  }
+
+  private scenarioFields(m: Model, o: OSObject): HTMLElement[] {
+    const c = o.content as unknown as ScenarioContent;
+    const cast = m.characters;
+    const say = (msg: string | null) => {
+      if (msg) this.announce(msg);
+      // A refused change leaves the model as it was, so put the box back to what the model says.
+      this.fillScenario(o, true);
+    };
+    const check = (id: string, label: string, on: boolean, change: (on: boolean) => void): HTMLElement => {
+      const box = h("input", { id: `p-${id}`, type: "checkbox", ...(on ? { checked: true } : {}) });
+      box.dataset["key"] = `prop:${id}`;
+      box.addEventListener("change", () => change(box.checked));
+      return h("div", { class: "field check" }, box, h("label", { for: `p-${id}`, text: label }));
+    };
+    const where = (list: HTMLElement[], empty: string): HTMLElement[] => (list.length > 0 ? list : [h("p", { class: "note", text: empty })]);
+
+    // ---- the whole scenario
+    const settings = h("fieldset", {}, h("legend", { text: "Scenario" }),
+      h("p", { class: "note", text: "A branching story. The learner reads a situation, chooses what to do, sees what happens, and the story goes on in another situation until an ending (a situation with no choices). It is made of real headings, lists and buttons, so a keyboard and a screen reader work in it." }),
+      this.selectField("sc-start", "Starts at", c.nodes.map((n, i) => ({ value: n.id, label: situationLabel(c, n, i) })), c.start, (v) => say(m.setScenarioStart(o.id, v))),
+      check("sc-retry", "The learner can take back their last choice", c.allowRetry, (on) => say(m.setScenarioRetry(o.id, on))),
+      this.scenarioVariable(m, "sc-you", "Who the learner is", "string", "character", c.you, "Just \"you\"", (v) => say(m.setScenarioYou(o.id, v))),
+      h("p", { class: "note", text: "Lines said by \"you\" show the person the learner chose with a Choose a character input (it saves their id in a text variable; pick that variable here). Before a choice is made, or if you pick none, they show just \"You\"." }),
+      this.scenarioVariable(m, "sc-finished", "At an ending, set (true or false)", "boolean", "finished", c.finishedVariable, "Nothing", (v) => say(m.setScenarioFinished(o.id, v))),
+      h("p", { class: "note", text: "A rule can then carry on from there, for example show a layer or a button when the variable becomes true. It is set the first time the learner reaches an ending." }),
+      this.stacked(this.field("sc-reflection", "Something to think about at an ending (optional)", c.reflection, (v) => say(m.setScenarioReflection(o.id, v)), { area: true, rows: 3 })),
+    );
+
+    // ---- meters
+    const meterRows = c.meters.map((meter, i) => h("fieldset", {}, h("legend", { text: `Meter ${i + 1} of ${c.meters.length}` }),
+      this.field(`sc-meter-${meter.id}-label`, "Name", meter.label, (v) => say(m.setScenarioMeter(o.id, meter.id, { label: v }))),
+      this.scenarioVariable(m, `sc-meter-${meter.id}-var`, "Shows", "number", "score", meter.variable, null, (v) => { if (v) say(m.setScenarioMeter(o.id, meter.id, { variable: v })); }),
+      this.field(`sc-meter-${meter.id}-min`, "Smallest value", meter.min, (v) => say(m.setScenarioMeter(o.id, meter.id, { min: Number(v) })), { number: true }),
+      this.field(`sc-meter-${meter.id}-max`, "Largest value", meter.max, (v) => say(m.setScenarioMeter(o.id, meter.id, { max: Number(v) })), { number: true }),
+      h("div", { class: "btn-row" }, this.small("Delete meter", "Delete this meter", () => say(m.deleteScenarioMeter(o.id, meter.id)), `Delete meter ${i + 1}, ${meter.label}`))));
+    const addMeter = this.small("Add a meter", "Add a bar that shows a number changing", () => { say(m.addScenarioMeter(o.id)); });
+    this.setEnabled(addMeter, c.meters.length < S.LIMITS.meters);
+    const meters = h("fieldset", {}, h("legend", { text: "Meters" }),
+      h("p", { class: "note", text: "A meter shows the learner a number that their choices change, such as trust. Its value is read out when it changes. You do not have to use any: in real life nobody shows you a number, and a story with no meters leaves the learner to judge for themselves." }),
+      addMeter, ...meterRows);
+
+    // ---- situations
+    const selected = this.scenarioSelected(o.id, c);
+    const at = c.nodes.findIndex((n) => n.id === selected);
+    const node = c.nodes[at]!;
+    const picker = this.selectField("sc-pick", "Edit situation", c.nodes.map((n, i) => ({ value: n.id, label: situationLabel(c, n, i) })), selected, (v) => {
+      this.scenarioSelect.set(o.id, v);
+      this.renderProps();
+      this.announce(`Editing situation ${c.nodes.findIndex((n) => n.id === v) + 1} of ${c.nodes.length}.`);
+    });
+    const addSituation = this.small("Add situation", "Add another situation", () => {
+      const r = m.addSituation(o.id);
+      if (r.id) {
+        this.scenarioSelect.set(o.id, r.id);
+        this.renderProps();
+        document.getElementById("p-sc-title")?.focus();
+      }
+      if (r.message) this.announce(r.message);
+    });
+    const earlier = this.small("Move earlier", "Move this situation earlier in the list", () => say(m.moveSituation(o.id, node.id, -1)), `Move earlier: situation ${at + 1}`);
+    const later = this.small("Move later", "Move this situation later in the list", () => say(m.moveSituation(o.id, node.id, 1)), `Move later: situation ${at + 1}`);
+    const remove = this.small("Delete situation", "Delete this situation", () => say(m.deleteSituation(o.id, node.id)), `Delete situation ${at + 1}, ${node.title}`);
+    this.setEnabled(addSituation, c.nodes.length < S.LIMITS.nodes);
+    this.setEnabled(earlier, at > 0);
+    this.setEnabled(later, at < c.nodes.length - 1);
+    this.setEnabled(remove, c.nodes.length > 1);
+
+    const lineEditor = (line: ScenarioLine, list: ScenarioLine[], index: number, noun: string, last: boolean): HTMLElement => {
+      const k = `sc-line-${line.id}`;
+      const said = (line.narration as Narration | null) ?? null;
+      const speakers = [
+        { value: "", label: "Narrator (no name shown)" },
+        { value: YOU, label: "You, the learner's character" },
+        ...cast.map((p) => ({ value: p.id, label: p.name })),
+        ...(line.speaker && line.speaker !== YOU && !cast.some((p) => p.id === line.speaker) ? [{ value: line.speaker, label: `${line.speaker} (not in the cast)`, disabled: true }] : []),
+      ];
+      const up = this.small("Move earlier", `Move this ${noun} earlier`, () => say(m.moveScenarioLine(o.id, line.id, -1)), `Move earlier: ${noun} ${index + 1}`);
+      const down = this.small("Move later", `Move this ${noun} later`, () => say(m.moveScenarioLine(o.id, line.id, 1)), `Move later: ${noun} ${index + 1}`);
+      const del = this.small("Delete", `Delete this ${noun}`, () => say(m.deleteScenarioLine(o.id, line.id)), `Delete ${noun} ${index + 1}`);
+      this.setEnabled(up, index > 0);
+      this.setEnabled(down, index < list.length - 1);
+      this.setEnabled(del, last ? true : list.length > 1);
+      const voiceBox = said
+        ? (() => {
+          const d = h("details", { class: "sc-voice", ...(this.scenarioOpen.has(line.id) ? { open: true } : {}) }, h("summary", { text: "Spoken words, voice and pronunciation" }),
+            ...this.narrationControls(m, `${o.id}/${line.id}`, said, {
+              prefix: `${k}-narration`,
+              note: "What the learner hears with this line. It starts as the line's words and follows them while they are the same. A person's lines are read in their own voice (set in Characters).",
+              audioLabel: `Narration audio for ${noun} ${index + 1}`,
+              rows: 3,
+            }));
+          d.addEventListener("toggle", () => { if (d.open) this.scenarioOpen.add(line.id); else this.scenarioOpen.delete(line.id); });
+          return d;
+        })()
+        : h("p", { class: "note", text: "Not spoken: this line can only be read. A learner who cannot read the screen will not hear it. Tick Spoken aloud to give it a voice." });
+      return h("fieldset", {}, h("legend", { text: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${index + 1} of ${list.length}` }),
+        this.selectField(`${k}-speaker`, "Said by", speakers, line.speaker ?? "", (v) => say(m.setScenarioLineSpeaker(o.id, line.id, v === "" ? null : v))),
+        this.stacked(this.field(`${k}-text`, "Words", line.text, (v) => say(m.setScenarioLineText(o.id, line.id, v)), { area: true, rows: 3 })),
+        check(`${k}-spoken`, "Spoken aloud", said !== null, (on) => say(m.setScenarioLineSpoken(o.id, line.id, on))),
+        voiceBox,
+        h("div", { class: "btn-row" }, up, down, del));
+    };
+    const addLineButton = (label: string, title: string, target: { nodeId: string } | { choiceId: string }, count: number, limit: number): HTMLElement => {
+      const b = this.small(label, title, () => {
+        const r = m.addScenarioLine(o.id, target);
+        if (r.message) this.announce(r.message);
+        if (r.id) document.getElementById(`p-sc-line-${r.id}-text`)?.focus();
+      });
+      this.setEnabled(b, count < limit);
+      return b;
+    };
+
+    const choices = node.choices.map((choice, i) => {
+      const k = `sc-choice-${choice.id}`;
+      const effects = choice.effects.map((effect, j) => h("div", { class: "sc-effect" },
+        this.scenarioVariable(m, `${k}-e${j}-var`, "Changes", "number", "score", effect.variable, null, (v) => { if (v) say(m.setScenarioEffect(o.id, choice.id, j, { variable: v })); }),
+        this.field(`${k}-e${j}-add`, "Adds (a minus takes away)", effect.add, (v) => say(m.setScenarioEffect(o.id, choice.id, j, { add: Number(v) })), { number: true }),
+        h("div", { class: "btn-row" }, this.small("Delete change", "Delete this change", () => say(m.deleteScenarioEffect(o.id, choice.id, j)), `Delete change ${j + 1} of choice ${i + 1}`))));
+      const addEffect = this.small("Add a change to a number", "Make this choice add to (or take away from) a number variable", () => {
+        const free = m.variables.find((v) => v.type === "number") ?? m.addVariable("number", "score");
+        say(m.addScenarioEffect(o.id, choice.id, free.id));
+      });
+      this.setEnabled(addEffect, choice.effects.length < S.LIMITS.effects);
+      const up = this.small("Move earlier", "Move this choice earlier", () => say(m.moveScenarioChoice(o.id, choice.id, -1)), `Move earlier: choice ${i + 1}`);
+      const down = this.small("Move later", "Move this choice later", () => say(m.moveScenarioChoice(o.id, choice.id, 1)), `Move later: choice ${i + 1}`);
+      const del = this.small("Delete choice", "Delete this choice", () => say(m.deleteScenarioChoice(o.id, choice.id)), `Delete choice ${i + 1}`);
+      this.setEnabled(up, i > 0);
+      this.setEnabled(down, i < node.choices.length - 1);
+      return h("fieldset", { class: "sc-choice" }, h("legend", { text: `Choice ${i + 1} of ${node.choices.length}` }),
+        this.stacked(this.field(`${k}-label`, "What the learner does", choice.label, (v) => say(m.setScenarioChoiceLabel(o.id, choice.id, v)), { area: true, rows: 2 })),
+        this.selectField(`${k}-next`, "Leads to", c.nodes.map((n, j) => ({ value: n.id, label: situationLabel(c, n, j) })), choice.next, (v) => say(m.setScenarioChoiceNext(o.id, choice.id, v))),
+        h("fieldset", {}, h("legend", { text: "Changes to numbers" }),
+          h("p", { class: "note", text: "Choosing this can add to a number variable (or take away, with a minus sign). A rule or a meter can read it. It does not change any quiz score." }),
+          ...effects, addEffect),
+        h("fieldset", {}, h("legend", { text: "What happens straight after (optional)" }),
+          h("p", { class: "note", text: "Lines shown right after the choice, before the next situation: a person's reaction, or what it led to. This is where the learner finds out why their choice mattered." }),
+          ...choice.response.map((line, j) => lineEditor(line, choice.response, j, "response line", true)),
+          addLineButton("Add a response line", "Add a line that is shown straight after this choice", { choiceId: choice.id }, choice.response.length, S.LIMITS.responses)),
+        h("div", { class: "btn-row" }, up, down, del));
+    });
+    const addChoice = this.small("Add a choice", "Add a choice the learner can make here", () => {
+      const r = m.addScenarioChoice(o.id, node.id);
+      if (r.message) this.announce(r.message);
+      if (r.id) document.getElementById(`p-sc-choice-${r.id}-label`)?.focus();
+    });
+    this.setEnabled(addChoice, node.choices.length < S.LIMITS.choices);
+
+    const situation = h("fieldset", {}, h("legend", { id: "sc-situation-legend", text: `Situation ${at + 1} of ${c.nodes.length}: ${node.title}` }),
+      this.field("sc-title", "Title (the heading)", node.title, (v) => say(m.setSituationTitle(o.id, node.id, v))),
+      this.stacked(this.field("sc-prompt", "Question above the choices", node.prompt, (v) => say(m.setSituationPrompt(o.id, node.id, v)), { area: true, rows: 2 })),
+      h("p", { class: "note", text: "For example \"What do you do?\". Leave it empty and the title names the choices." }),
+      h("fieldset", {}, h("legend", { text: "What is happening" }),
+        h("p", { class: "note", text: "Lines told by the narrator or said by a person. Each can be spoken aloud. A situation needs at least one." }),
+        ...node.lines.map((line, j) => lineEditor(line, node.lines, j, "line", false)),
+        addLineButton("Add a line", "Add a line to this situation", { nodeId: node.id }, node.lines.length, S.LIMITS.lines)),
+      h("fieldset", {}, h("legend", { text: "Choices" }),
+        ...where(choices, "This situation has no choices, so it is an ending: the learner stays here and sees their path. Add a choice to make the story go on from here."),
+        addChoice));
+
+    return [
+      settings,
+      meters,
+      h("fieldset", {}, h("legend", { text: "Situations" }),
+        h("p", { class: "note", text: `This scenario has ${c.nodes.length} ${c.nodes.length === 1 ? "situation" : "situations"}. Choose one to edit it. The order in the list is only for finding them: the learner follows the choices.` }),
+        picker, h("div", { class: "btn-row" }, addSituation, earlier, later, remove)),
+      situation,
+    ];
+  }
+
+  /** Put every box of the scenario panel back to what the model holds, except the one the author is in (unless `force`). */
+  private fillScenario(o: OSObject, force = false): void {
+    const c = o.content as unknown as ScenarioContent;
+    const set = (id: string, v: string | number) => {
+      const el = this.propsBody.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#p-${id}`);
+      if (el && (force || document.activeElement !== el)) el.value = String(v);
+    };
+    const tick = (id: string, on: boolean) => {
+      const el = this.propsBody.querySelector<HTMLInputElement>(`#p-${id}`);
+      if (el) el.checked = on;
+    };
+    set("sc-reflection", c.reflection);
+    tick("sc-retry", c.allowRetry);
+    set("sc-start", c.start);
+    for (const meter of c.meters) {
+      set(`sc-meter-${meter.id}-label`, meter.label);
+      set(`sc-meter-${meter.id}-min`, meter.min);
+      set(`sc-meter-${meter.id}-max`, meter.max);
+    }
+    // The situations are named in several lists, and the name is in the title: keep them all in step.
+    c.nodes.forEach((n, i) => {
+      for (const opt of Array.from(this.propsBody.querySelectorAll<HTMLOptionElement>(`select option[value="${n.id}"]`))) {
+        if (opt.closest("select")?.id !== "p-sc-you") opt.textContent = situationLabel(c, n, i);
+      }
+    });
+    const node = c.nodes.find((n) => n.id === this.scenarioSelected(o.id, c));
+    if (!node) return;
+    const legend = this.propsBody.querySelector<HTMLElement>("#sc-situation-legend");
+    if (legend) legend.textContent = `Situation ${c.nodes.indexOf(node) + 1} of ${c.nodes.length}: ${node.title}`;
+    set("sc-pick", node.id);
+    set("sc-title", node.title);
+    set("sc-prompt", node.prompt);
+    const lines = [...node.lines, ...node.choices.flatMap((ch) => ch.response)];
+    for (const line of lines) {
+      const k = `sc-line-${line.id}`;
+      const said = (line.narration as Narration | null) ?? null;
+      set(`${k}-text`, line.text);
+      set(`${k}-speaker`, line.speaker ?? "");
+      tick(`${k}-spoken`, said !== null);
+      if (said) { set(`${k}-narration-script`, said.script); set(`${k}-narration-voice`, said.voice); set(`${k}-narration-speed`, said.speed); }
+    }
+    for (const choice of node.choices) {
+      const k = `sc-choice-${choice.id}`;
+      set(`${k}-label`, choice.label);
+      set(`${k}-next`, choice.next);
+      choice.effects.forEach((e, j) => { set(`${k}-e${j}-var`, e.variable); set(`${k}-e${j}-add`, e.add); });
+    }
   }
 
   /** A choice of variable of the right type, with the chosen one's name to edit and a way to make a new one. */
@@ -2061,6 +3291,31 @@ export class App {
       h("p", { class: "note", text: "When this is on, each answer is recorded in the LMS as a survey or choice response, so you can read it in the LMS's reports." }));
 
     const out: HTMLElement[] = [top];
+    if (c.kind === "character") {
+      const cast = m.characters;
+      const chosen = new Set(c.characters ?? []);
+      const boxes = cast.map((p) => {
+        const id = `in-char-${p.id}`;
+        const box = h("input", { id: `p-${id}`, type: "checkbox", ...(chosen.has(p.id) ? { checked: true } : {}) });
+        box.dataset["key"] = `prop:${id}`;
+        box.addEventListener("change", () => {
+          const next = cast.filter((q) => (q.id === p.id ? box.checked : chosen.has(q.id))).map((q) => q.id);
+          const msg = m.setInputCharacters(o.id, next);
+          if (msg) this.announce(msg);
+          // A refused change leaves the model as it was, so the box goes back to what the model says.
+          box.checked = ((o.content as unknown as InputContent).characters ?? []).includes(p.id);
+        });
+        return h("div", { class: "field check" }, box, h("label", { for: `p-${id}`, text: p.role.trim() ? `${p.name}, ${p.role.trim()}` : p.name }));
+      });
+      out.push(
+        h("fieldset", {}, h("legend", { text: "Saved answer" }), ...this.variableField(m, o, "in-main", "Choice", null, c.variable),
+          h("p", { class: "note", text: "The variable holds the id of the person the learner chose, and is empty until they choose. A scenario can show that person as \"you\", and a rule can branch on it." })),
+        h("fieldset", {}, h("legend", { text: "People to choose between" }),
+          h("p", { class: "note", text: "Two to eight people from the cast, shown as picture cards in the order of the cast. The picture's alt text is read once, so a learner who cannot see it still knows who they are choosing." }),
+          ...(cast.length > 0 ? boxes : [h("p", { class: "note", text: "The cast is empty." })]),
+          this.small("Characters...", "Open the cast: add people, pictures and voices", () => void this.openCast())));
+      return out;
+    }
     const parts = c.kind === "checkbox" ? c.items! : c.kind === "likert" || c.kind === "semantic" ? c.rows! : c.options!;
     const noun = c.kind === "checkbox" ? "Checkbox" : c.kind === "likert" ? "Statement" : c.kind === "semantic" ? "Pair of words" : "Option";
     const min = c.kind === "checkbox" || c.kind === "likert" || c.kind === "semantic" ? 1 : 2;
@@ -2087,8 +3342,8 @@ export class App {
       if (c.kind === "semantic") fields.push(this.field(`in-${p.id}-right`, "Right word", (p as { right?: string }).right ?? "", (v) => { const msg = m.setInputPartText(o.id, p.id, "right", v); if (msg) this.announce(msg); this.fillInput(o); }));
       if (c.kind === "radio" || c.kind === "dropdown" || c.kind === "list") fields.push(this.field(`in-${p.id}-value`, "Value saved when chosen", (p as { value?: string }).value ?? "", (v) => { const msg = m.setInputPartText(o.id, p.id, "value", v); if (msg) this.announce(msg); this.fillInput(o); }));
       if (c.kind === "checkbox" || c.kind === "likert" || c.kind === "semantic") fields.push(...this.variableField(m, o, `in-${p.id}`, noun, p.id, (p as { variable?: string }).variable));
-      const earlier = this.small("Move earlier", `Move this ${noun.toLowerCase()} earlier`, () => { const msg = m.moveInputPart(o.id, p.id, -1); if (msg) this.announce(msg); }, `Move ${noun.toLowerCase()} ${i + 1} earlier`);
-      const later = this.small("Move later", `Move this ${noun.toLowerCase()} later`, () => { const msg = m.moveInputPart(o.id, p.id, 1); if (msg) this.announce(msg); }, `Move ${noun.toLowerCase()} ${i + 1} later`);
+      const earlier = this.small("Move earlier", `Move this ${noun.toLowerCase()} earlier`, () => { const msg = m.moveInputPart(o.id, p.id, -1); if (msg) this.announce(msg); }, `Move earlier: ${noun.toLowerCase()} ${i + 1}`);
+      const later = this.small("Move later", `Move this ${noun.toLowerCase()} later`, () => { const msg = m.moveInputPart(o.id, p.id, 1); if (msg) this.announce(msg); }, `Move later: ${noun.toLowerCase()} ${i + 1}`);
       const del = this.small("Delete", `Delete this ${noun.toLowerCase()}`, () => { const msg = m.deleteInputPart(o.id, p.id); if (msg) this.announce(msg); }, `Delete ${noun.toLowerCase()} ${i + 1}`);
       this.setEnabled(earlier, i > 0);
       this.setEnabled(later, i < parts.length - 1);
@@ -2112,7 +3367,7 @@ export class App {
     set("in-scale", (c.scale ?? []).join("\n"));
     set("in-points", String(c.points ?? 7));
     if (c.variable) { set("in-main-var", c.variable); set("in-main-varname", varName(c.variable)); }
-    const parts = c.kind === "checkbox" ? c.items! : c.kind === "likert" || c.kind === "semantic" ? c.rows! : c.options!;
+    const parts = (c.kind === "checkbox" ? c.items : c.kind === "likert" || c.kind === "semantic" ? c.rows : c.options) ?? [];
     for (const p of parts) {
       set(`in-${p.id}-label`, p.label);
       set(`in-${p.id}-right`, (p as { right?: string }).right ?? "");
@@ -2142,14 +3397,14 @@ export class App {
         input.addEventListener("change", () => { const msg = m.setTableCell(o.id, r, c, input.value); if (!msg) input.value = text; });
         return input;
       });
-      const add = this.small("Insert row below", "Insert a row below this one", () => { const msg = m.addTableRow(o.id, r); if (msg) this.announce(msg); }, `Insert a row below row ${r + 1}`);
+      const add = this.small("Insert row below", "Insert a row below this one", () => { const msg = m.addTableRow(o.id, r); if (msg) this.announce(msg); }, `Insert row below: row ${r + 1}`);
       const del = this.small("Delete row", "Delete this row", () => { const msg = m.deleteTableRow(o.id, r); if (msg) this.announce(msg); }, `Delete row ${r + 1}`);
       this.setEnabled(add, t.rows.length < 30);
       this.setEnabled(del, t.rows.length > 1);
       return h("div", { class: "table-row", role: "group", "aria-label": `Row ${r + 1}` }, ...cells, add, del);
     });
     const colButtons = Array.from({ length: cols }, (_, c) => {
-      const add = this.small(`Insert column after ${c + 1}`, "Insert a column after this one", () => { const msg = m.addTableColumn(o.id, c); if (msg) this.announce(msg); }, `Insert a column after column ${c + 1}`);
+      const add = this.small(`Insert column after ${c + 1}`, "Insert a column after this one", () => { const msg = m.addTableColumn(o.id, c); if (msg) this.announce(msg); });
       const del = this.small(`Delete column ${c + 1}`, "Delete this column", () => { const msg = m.deleteTableColumn(o.id, c); if (msg) this.announce(msg); });
       this.setEnabled(add, cols < 12);
       this.setEnabled(del, cols > 1);
@@ -2291,11 +3546,6 @@ export class App {
       const el = this.propsBody.querySelector<HTMLInputElement | HTMLSelectElement>(`#p-${id}`);
       if (el && document.activeElement !== el) el.value = String(v);
     };
-    for (const c of q.choices) {
-      set(`choice-${c.id}`, c.label);
-      const radio = this.propsBody.querySelector<HTMLInputElement>(`#p-correct-${c.id}`);
-      if (radio) radio.checked = c.correct;
-    }
     set("points", q.scoring.points);
     set("attempts", q.scoring.attemptsAllowed);
     set("fb-correct", q.feedback.correct);
@@ -2303,16 +3553,19 @@ export class App {
   }
 
   /** A font choice. A font the editor does not list (from an older file) is kept and shown as it is. */
-  private fontField(m: Model, o: OSObject): HTMLElement {
-    const current = String(o.style["fontFamily"] ?? "system-ui");
-    const known = FONT_CHOICES.some((f) => f.value === current);
+  private fontField(m: Model, o: OSObject, look = "normal"): HTMLElement {
+    const own = look === "normal" ? o.style : o.states[look]?.style ?? {};
+    // A look with no font of its own uses the object's.
+    const current = look === "normal" ? String(own["fontFamily"] ?? "system-ui") : String(own["fontFamily"] ?? "");
+    const known = current === "" || FONT_CHOICES.some((f) => f.value === current);
     const options = [
+      ...(look === "normal" ? [] : [{ value: "", label: "Same as normal" }]),
       ...(known ? [] : [{ value: current, label: `Current: ${current}` }]),
       ...FONT_CHOICES.map((f) => ({ value: f.value, label: f.label })),
     ];
-    return this.selectField("font", "Font", options, current, (v) => {
-      const r = m.setStyle(o.id, "fontFamily", v);
-      this.announce(r.ok ? `Font changed to ${FONT_CHOICES.find((f) => f.value === v)?.label ?? v}` : r.message);
+    return this.selectField(look === "normal" ? "font" : "look-font", look === "normal" ? "Font" : `Font (${lookLabel(look)})`, options, current, (v) => {
+      const r = m.setStyle(o.id, "fontFamily", v, look);
+      this.announce(r.ok ? (v === "" ? "Font is the same as normal" : `Font changed to ${FONT_CHOICES.find((f) => f.value === v)?.label ?? v}`) : r.message);
     });
   }
 
@@ -2352,8 +3605,11 @@ export class App {
       return { slideStart: "the slide opens", slideEnd: "the slide closes", variableChange: "any variable changes" }[e];
     };
     const ACTIONS: { value: RuleAction; label: string }[] = [
-      { value: "jumpToSlide", label: "Go to a slide" }, { value: "showLayer", label: "Show a layer" }, { value: "hideLayer", label: "Hide a layer" },
-      { value: "setVariable", label: "Set a variable" }, { value: "playMedia", label: "Play a video or audio" }, { value: "pauseMedia", label: "Pause a video or audio" },
+      { value: "jumpToSlide", label: "Go to a slide" }, { value: "nextSlide", label: "Go to the next slide" }, { value: "previousSlide", label: "Go to the previous slide" }, { value: "replaySlide", label: "Replay this slide" },
+      { value: "showLayer", label: "Show a layer" }, { value: "hideLayer", label: "Hide a layer" },
+      { value: "setVariable", label: "Set a variable" }, { value: "addToVariable", label: "Add to a number variable" },
+      { value: "playMedia", label: "Play a video or audio" }, { value: "pauseMedia", label: "Pause a video or audio" },
+      { value: "changeState", label: "Change an object's look" },
     ];
     const NEW = "__new";
     const say = (msg: string | null) => { if (msg) this.announce(msg); };
@@ -2387,16 +3643,33 @@ export class App {
         this.selectField(`rule-${i}-event`, "When", eventsFor(o.type).map((e) => ({ value: e, label: eventLabel(e) })), r.event, (v) => say(m.updateRule(o.id, i, { event: v as RuleEvent }))),
         this.selectField(`rule-${i}-action`, "Do", ACTIONS, r.action, (v) => say(m.updateRule(o.id, i, { action: v as RuleAction }))),
       ];
-      const targetLabel = { jumpToSlide: "Slide", showLayer: "Layer", hideLayer: "Layer", setVariable: "Variable", playMedia: "Which one", pauseMedia: "Which one" }[r.action];
-      parts.push(this.selectField(`rule-${i}-target`, targetLabel, [
+      const targetLabel = ({ jumpToSlide: "Slide", showLayer: "Layer", hideLayer: "Layer", setVariable: "Variable", addToVariable: "Number variable", playMedia: "Which one", pauseMedia: "Which one", changeState: "Which object" } as Record<string, string>)[r.action] ?? "Target";
+      if (isCourseAction(r.action)) {
+        parts.push(h("p", { class: "note", text: r.action === "nextSlide" ? "Goes to whichever slide comes next in the course, even if the slides are moved about." : r.action === "previousSlide" ? "Goes to whichever slide comes before this one." : "Shows this slide again from the start: its timing, narration and layers." }));
+      } else parts.push(this.selectField(`rule-${i}-target`, targetLabel, [
         ...(targets.some((t) => t.value === r.target) ? [] : [{ value: r.target, label: `${r.target} (missing)`, disabled: true }]),
         ...targets,
         ...(r.action === "setVariable" ? [{ value: NEW, label: "A new variable" }] : []),
+        ...(r.action === "addToVariable" ? [{ value: NEW, label: "A new number variable" }] : []),
       ], r.target, (v) => {
-        if (v === NEW) { const nv = m.addVariable("boolean", "flag"); say(m.updateRule(o.id, i, { target: nv.id })); return; }
+        if (v === NEW) { const nv = r.action === "addToVariable" ? m.addVariable("number", "count") : m.addVariable("boolean", "flag"); say(m.updateRule(o.id, i, { target: nv.id })); return; }
         say(m.updateRule(o.id, i, { target: v }));
       }));
       if (r.action === "setVariable") parts.push(valueBox(`rule-${i}-value`, "To", type, r.value, (v) => { say(m.updateRule(o.id, i, { value: v })); this.renderProps(); }, r.target));
+      if (r.action === "addToVariable") parts.push(valueBox(`rule-${i}-value`, "Add this much (a negative number takes away)", "number", r.value ?? 1, (v) => { say(m.updateRule(o.id, i, { value: v })); this.renderProps(); }));
+      if (r.action === "changeState") {
+        const choices = m.lookChoices(r.target);
+        const look = String(r.value ?? "normal");
+        parts.push(this.selectField(`rule-${i}-value`, "Change it to", [
+          ...(choices.some((c) => c.value === look) ? [] : [{ value: look, label: `${look} (missing)`, disabled: true }]),
+          ...choices,
+        ], look, (v) => say(m.updateRule(o.id, i, { value: v }))));
+        const spoken = m.lookMessage(r.target, look);
+        parts.push(h("p", { class: "note", text: look === "normal" ? "Goes back to the object's own appearance. A screen reader says nothing."
+          : spoken ? `A screen reader says: ${spoken}`
+          : m.lookIsSilent(r.target, look) ? "A screen reader user is not told about this change. On that object, under Looks, write a spoken message for this look. The Problems list warns until you do."
+          : "" }));
+      }
 
       const conds = r.conditions.map((c, k) => {
         const vtype = m.variables.find((v) => v.id === c.variable)?.type;
@@ -2406,9 +3679,9 @@ export class App {
           valueBox(`rule-${i}-c${k}-value`, "this value", vtype, c.value, (v) => { say(m.updateCondition(o.id, i, k, { value: v })); }, c.variable),
           this.small("Delete condition", "Delete this condition", () => say(m.deleteCondition(o.id, i, k)), `Delete condition ${k + 1} of rule ${i + 1}`));
       });
-      const addCond = this.small("Add condition", "Only do this if a variable has a certain value", () => say(m.addCondition(o.id, i)), `Add a condition to rule ${i + 1}`);
-      const earlier = this.small("Move earlier", "Run this rule earlier", () => say(m.moveRule(o.id, i, -1)), `Move rule ${i + 1} earlier`);
-      const later = this.small("Move later", "Run this rule later", () => say(m.moveRule(o.id, i, 1)), `Move rule ${i + 1} later`);
+      const addCond = this.small("Add condition", "Only do this if a variable has a certain value", () => say(m.addCondition(o.id, i)), `Add condition: rule ${i + 1}`);
+      const earlier = this.small("Move earlier", "Run this rule earlier", () => say(m.moveRule(o.id, i, -1)), `Move earlier: rule ${i + 1}`);
+      const later = this.small("Move later", "Run this rule later", () => say(m.moveRule(o.id, i, 1)), `Move later: rule ${i + 1}`);
       const del = this.small("Delete rule", "Delete this rule", () => say(m.deleteRule(o.id, i)), `Delete rule ${i + 1}`);
       this.setEnabled(earlier, i > 0);
       this.setEnabled(later, i < items.length - 1);
@@ -2450,6 +3723,10 @@ export class App {
     else if (mod && e.key.toLowerCase() === "p") { e.preventDefault(); if (e.shiftKey) void this.publish(); else void this.preview(); }
     else if (mod && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); }
     else if (mod && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); this.redo(); }
+    else if (mod && !typing && !e.altKey && e.key.toLowerCase() === "g" && this.model && !document.querySelector("dialog[open]")) {
+      e.preventDefault();
+      if (e.shiftKey) this.ungroupObjects(); else this.groupObjects();
+    }
     else if (e.key === "F6") { e.preventDefault(); this.cycleRegion(e.shiftKey ? -1 : 1); }
     else if (mod && !typing && !e.shiftKey && !e.altKey && this.model && !document.querySelector("dialog[open]")) {
       // Duplicate, copy, cut and paste work on the selected object. When words are selected on the page, Copy is theirs, not ours.
@@ -2457,7 +3734,7 @@ export class App {
       const wordsSelected = (window.getSelection()?.toString() ?? "") !== "";
       if (key === "l") { e.preventDefault(); this.toggleLockObjects(); }
       else if (key === "a" && !wordsSelected) { e.preventDefault(); this.selectAllObjects(); }
-      else if (key === "d") { e.preventDefault(); this.duplicateObject(); }
+      else if (key === "d") { e.preventDefault(); if (this.slideList.contains(document.activeElement)) this.duplicateSlide(); else this.duplicateObject(); }
       else if (key === "c" && !wordsSelected) { e.preventDefault(); this.copyObject(); }
       else if (key === "x" && !wordsSelected) { e.preventDefault(); this.cutObject(); }
       else if (key === "v") { e.preventDefault(); this.pasteObject(); }
@@ -2522,5 +3799,8 @@ export class App {
       if (msg) this.announce(msg);
     });
     this.wireArrows(this.problemList);
+    for (const list of [this.slideList, this.objectList, this.problemList]) {
+      list.addEventListener("focusin", (e) => { if ((e.target as HTMLElement).matches?.("button.item")) this.rove(list, e.target as Element); });
+    }
   }
 }

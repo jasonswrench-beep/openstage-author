@@ -1,0 +1,115 @@
+{
+  "cases": [
+    {
+      "patterns": [
+        "capture"
+      ],
+      "path": "capture",
+      "excluded": true,
+      "note": "a name with no slash matches a folder"
+    },
+    {
+      "patterns": [
+        "capture"
+      ],
+      "path": "capture/events.jsonl",
+      "excluded": true,
+      "note": "and everything inside it"
+    },
+    {
+      "patterns": [
+        "capture"
+      ],
+      "path": "assets/capture/clip.mp4",
+      "excluded": true,
+      "note": "at any depth"
+    },
+    {
+      "patterns": [
+        "capture"
+      ],
+      "path": "captured/notes.txt",
+      "excluded": false,
+      "note": "a whole name, not part of one"
+    },
+    {
+      "patterns": [
+        "events.jsonl"
+      ],
+      "path": "a/b/events.jsonl",
+      "excluded": true,
+      "note": "a file name at any depth"
+    },
+    {
+      "patterns": [
+        "events.jsonl"
+      ],
+      "path": "a/b/events.json",
+      "excluded": false,
+      "note": ""
+    },
+    {
+      "patterns": [
+        "raw/footage"
+      ],
+      "path": "raw/footage/take1.mp4",
+      "excluded": true,
+      "note": "a path with a slash is from the project folder"
+    },
+    {
+      "patterns": [
+        "raw/footage"
+      ],
+      "path": "raw/footage",
+      "excluded": true,
+      "note": "including the folder itself"
+    },
+    {
+      "patterns": [
+        "raw/footage"
+      ],
+      "path": "other/raw/footage/take1.mp4",
+      "excluded": false,
+      "note": "and not at any depth"
+    },
+    {
+      "patterns": [
+        "raw/footage"
+      ],
+      "path": "raw/footage2/take1.mp4",
+      "excluded": false,
+      "note": "a whole folder name"
+    },
+    {
+      "patterns": [
+        "raw/footage/"
+      ],
+      "path": "raw/footage/take1.mp4",
+      "excluded": true,
+      "note": "a trailing slash is allowed"
+    },
+    {
+      "patterns": [
+        "notes.txt",
+        "capture"
+      ],
+      "path": "slides/slide-001.json",
+      "excluded": false,
+      "note": "other files are kept"
+    },
+    {
+      "patterns": [],
+      "path": "capture/events.jsonl",
+      "excluded": false,
+      "note": "no patterns, nothing excluded"
+    },
+    {
+      "patterns": [
+        "Capture"
+      ],
+      "path": "capture/events.jsonl",
+      "excluded": false,
+      "note": "names are matched exactly"
+    }
+  ]
+}

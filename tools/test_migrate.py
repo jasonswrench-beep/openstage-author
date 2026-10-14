@@ -31,9 +31,9 @@ class Migration(unittest.TestCase):
 
     def test_the_update_gives_the_project_a_theme_and_slides_a_layout_and_background(self):
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.25.0"))
         project = self.load("project.json")
-        self.assertEqual(project["schemaVersion"], "0.15.0")
+        self.assertEqual(project["schemaVersion"], "0.25.0")
         self.assertEqual(project["theme"], {"ref": "theme.json"})
         self.assertEqual(self.load("theme.json")["id"], "classic")
         for name in ("slide-001", "slide-002"):
@@ -128,9 +128,9 @@ class CompletionSetting(unittest.TestCase):
     def test_a_0_8_0_course_keeps_counting_every_slide(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.25.0"))
         project = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.15.0")
+        self.assertEqual(project["schemaVersion"], "0.25.0")
         self.assertEqual(project["completion"], {"slides": "all"})
         keys = list(project)
         self.assertEqual(keys[keys.index("credits") + 1], "completion", "the new setting sits beside the credits switch")
@@ -168,9 +168,9 @@ class ResultsAndCertificates(unittest.TestCase):
         slide_before = (self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.25.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         self.assertEqual(json.loads((self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")),
@@ -212,7 +212,7 @@ class ItemNarration(unittest.TestCase):
     def test_a_0_10_0_course_is_refused_until_updated_then_every_item_has_a_null_narration(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.25.0"))
         count = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -254,9 +254,9 @@ class FilesToDownload(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.25.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -292,7 +292,7 @@ class ObjectTiming(unittest.TestCase):
     def test_every_object_gets_the_starting_timing_after_its_triggers_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.25.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -351,7 +351,7 @@ class ObjectAnimation(unittest.TestCase):
     def test_every_object_gets_no_effect_after_its_timing_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.25.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -383,8 +383,130 @@ class ObjectAnimation(unittest.TestCase):
             self.assertEqual((self.dir / report["backup"] / "slides" / name).read_bytes(), data)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=1)
+class Scenarios(unittest.TestCase):
+    """0.20.0 to 0.21.0: scenarios, a cast of characters, and a choice of character. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.20.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_20_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.20.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        self.assertNotIn("characters", after, "no cast is invented")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("scenario" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class IconsAndNavigation(unittest.TestCase):
+    """0.21.0 to 0.22.0: an icon object, an icon on a button, and the actions next slide, previous slide and replay. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.21.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_21_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.21.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("icon" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class MediaTiming(unittest.TestCase):
+    """0.22.0 to 0.23.0: an object can appear and go at moments in a video or audio clip. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.22.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_22_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.22.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("video" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class Looks(unittest.TestCase):
+    """0.23.0 to 0.24.0: a look can carry a spoken message. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.23.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_23_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.23.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("look" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
 
 
 class ObjectLocking(unittest.TestCase):
@@ -407,9 +529,9 @@ class ObjectLocking(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.14.0", "0.15.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.14.0", "0.25.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.15.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -427,3 +549,220 @@ class ObjectLocking(unittest.TestCase):
         slide["baseLayer"]["objects"][0]["locked"] = "yes"
         path.write_text(json.dumps(slide, indent=2), encoding="utf-8")
         self.assertTrue([f for f in validate.validate_project(self.dir) if f.severity == "error"], "a flag that is not true or false is reported")
+
+
+class QuestionTypes(unittest.TestCase):
+    """0.15.0 to 0.16.0: more kinds of quiz question. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.15.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_15_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.15.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("question" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class ObjectGroups(unittest.TestCase):
+    """0.16.0 to 0.17.0: objects can be grouped in the editor. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.16.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_16_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.16.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("grouped" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class CaptureGroundwork(unittest.TestCase):
+    """0.17.0 to 0.18.0: a rule can add, a hotspot is defined, provenance can name a capture step, a project can list what to leave out of source/."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.17.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _add_hotspot(self, content):
+        path = self.dir / "slides" / "slide-001.json"
+        slide = json.loads(path.read_text(encoding="utf-8"))
+        base = next(o for o in slide["baseLayer"]["objects"])
+        hotspot = json.loads(json.dumps(base))
+        hotspot.update({"id": "obj-9001", "name": "Old hotspot", "type": "hotspot", "content": content,
+                        "accessibility": {"altText": "Old hotspot", "role": "button", "tabOrder": 99, "decorative": False}, "triggers": []})
+        slide["baseLayer"]["objects"].append(hotspot)
+        path.write_text(json.dumps(slide, indent=2), encoding="utf-8")
+
+    def test_a_0_17_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.17.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("add to a number variable" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+    def test_a_hotspot_with_content_that_was_never_used_is_emptied(self):
+        self._add_hotspot({"shape": "rectangle", "anything": 1})
+        report = migrate.migrate(self.dir)
+        slide = json.loads((self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8"))
+        spot = next(o for o in slide["baseLayer"]["objects"] if o["id"] == "obj-9001")
+        self.assertEqual(spot["content"], {})
+        self.assertTrue(any("1 hotspot had content that was never used" in n for n in report["notes"]))
+        self.assertFalse([f for f in validate.validate_project(self.dir) if f.rule.startswith("schema") and f.severity == "error"])
+
+    def test_a_hotspot_with_no_content_is_left_alone_and_says_nothing(self):
+        self._add_hotspot({})
+        report = migrate.migrate(self.dir)
+        self.assertFalse(any("hotspot" in n for n in report["notes"]))
+
+
+class AudioDescription(unittest.TestCase):
+    """0.18.0 to 0.19.0: a video can have an audio description. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.18.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_18_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.18.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("audio description" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class ThemeLogo(unittest.TestCase):
+    """0.19.0 to 0.20.0: a theme can carry a logo. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.19.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_19_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        theme_before = (self.dir / "theme.json").read_bytes() if (self.dir / "theme.json").exists() else None
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.19.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        if theme_before is not None:
+            self.assertEqual((self.dir / "theme.json").read_bytes(), theme_before, "the theme file is untouched")
+        self.assertTrue(any("logo" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class DeckProvenance(unittest.TestCase):
+    """0.24.0 to 0.25.0: slides and shapes imported from a PowerPoint deck can say where they came from. Nothing in an existing project changes."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "lms-test-lesson.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.24.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_24_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.24.0", "0.25.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.25.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertTrue(any("PowerPoint" in n for n in report["notes"]))
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

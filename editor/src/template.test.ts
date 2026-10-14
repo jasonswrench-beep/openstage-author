@@ -14,7 +14,7 @@ test("a new project has a project file, a theme and one slide", () => {
   const files = newProjectFiles(input);
   assert.deepEqual(files.map((f) => f.path), ["project.json", "theme.json", "slides/slide-001.json"]);
   const m = open(files);
-  assert.equal(m.project.schemaVersion, "0.15.0");
+  assert.equal(m.project.schemaVersion, "0.25.0");
   assert.deepEqual(m.project.completion, { slides: "all" });
   assert.deepEqual(m.project.theme, { ref: "theme.json" });
   assert.equal(m.theme.id, "classic");

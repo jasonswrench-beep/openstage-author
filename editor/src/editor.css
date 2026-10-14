@@ -9,9 +9,9 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-.topbar { display: flex; align-items: center; gap: 20px; padding: 6px 12px; background: #1d2530; color: #fff; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding: 6px 12px; background: #1d2530; color: #fff; }
 .topbar h1 { font-size: 16px; margin: 0; }
-.toolbar { display: flex; gap: 6px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
 .toolbar button { font: inherit; padding: 5px 12px; border: 1px solid #fff; background: transparent; color: #fff; border-radius: 4px; cursor: pointer; }
 .toolbar button:hover { background: #33404f; }
 [aria-disabled="true"] { opacity: .6; cursor: default; }
@@ -49,6 +49,11 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .canvas-area { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .canvas-viewport { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .canvas-wrap { position: relative; flex: none; background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
+.canvas-tools { display: flex; align-items: center; gap: 8px; padding: 4px 12px 0; }
+.canvas-tools button[aria-pressed="true"] { background: #d6e3ff; border-color: #0b3fb3; }
+.edit-guide { position: absolute; pointer-events: none; box-sizing: border-box; border: 0 dashed #d4006a; box-shadow: 0 0 0 var(--line, 1px) rgba(255, 255, 255, .7); }
+.edit-guide.vertical { width: 0; border-left-width: var(--line, 1px); }
+.edit-guide.horizontal { height: 0; border-top-width: var(--line, 1px); }
 .canvas-hint { margin: 0; padding: 6px 12px; color: #e8eaee; font-size: 12px; }
 .os-stage.os-editing { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .os-editing .os-layer, .os-editing .os-layer > * { pointer-events: none; }
@@ -57,6 +62,7 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .edit-box { position: absolute; box-sizing: border-box; border: var(--line, 2px) solid #0b5fff; outline: var(--line, 2px) solid #fff; pointer-events: none; }
 .edit-box-multi { border-style: dashed; }
 .edit-box-locked { border-style: dotted; }
+.edit-box-group { border-style: solid; border-color: #0a6b3f; }
 .edit-box-locked .edit-handle { display: none; }
 .edit-marquee { position: absolute; box-sizing: border-box; border: var(--line, 2px) dashed #0b5fff; background: rgba(11, 95, 255, .12); pointer-events: none; }
 .edit-marquee[hidden] { display: none; }
@@ -117,6 +123,47 @@ button.small:hover { background: #e3e6eb; }
 .palette, .swatch-btn { min-width: 0; }
 .props { overflow-x: hidden; }
 
+/* Theme editor */
+.dialog.theme-editor { max-height: 92vh; overflow: auto; }
+.theme-editor fieldset { margin: 10px 0; border: 1px solid #c9ced6; border-radius: 6px; padding: 8px 12px; min-width: 0; }
+.theme-editor legend { font-weight: 600; padding: 0 4px; }
+.te-preview svg { width: 100%; max-height: 150px; }
+.te-colours { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 18px; }
+.te-colour { display: grid; grid-template-columns: 10em 7em 3em; align-items: center; gap: 6px; }
+.te-colour input[type="text"] { font: inherit; font-family: ui-monospace, Consolas, monospace; padding: 3px 5px; min-width: 0; }
+.te-colour input[type="text"][aria-invalid="true"] { border: 2px solid #a4262c; }
+.te-colour input[type="color"] { width: 3em; height: 2em; padding: 0; }
+.te-msg { grid-column: 1 / -1; margin: 0; color: #a4262c; }
+.te-msg:empty { display: none; }
+.te-pairs { margin: 4px 0; padding-left: 20px; }
+.te-status { margin: 6px 0 0; font-weight: 600; }
+.te-logo { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+.te-logo-preview { max-width: 160px; max-height: 80px; background: repeating-conic-gradient(#e6e8ec 0% 25%, #fff 0% 50%) 0 / 16px 16px; border: 1px solid #c9ced6; }
+.te-problems:empty { display: none; }
+.te-problems { border: 2px solid #a4262c; border-radius: 6px; padding: 6px 12px; margin: 10px 0; color: #7a1a1f; }
+
+/* Cast dialog, and the scenario panel */
+.dialog.cast-dialog { max-height: 92vh; overflow: auto; }
+.cast-dialog fieldset { margin: 10px 0; border: 1px solid #c9ced6; border-radius: 6px; padding: 8px 12px; min-width: 0; }
+.cast-dialog legend { font-weight: 600; padding: 0 4px; }
+.cd-pic-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+.cd-pic { flex: none; width: 72px; height: 72px; object-fit: cover; border-radius: 50%; border: 1px solid #c9ced6; background: #fff; }
+.cd-notes:empty { display: none; }
+.avatar-dialog { max-height: 92vh; overflow: auto; }
+.av-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; align-items: start; }
+.av-preview svg { width: 200px; height: 200px; border-radius: 50%; border: 1px solid #c9ced6; display: block; }
+.av-words { margin: 8px 0 0; font-weight: 600; max-width: 220px; }
+.ic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin: 8px 0; }
+.ic-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border: 1px solid #c9ced6; border-radius: 6px; background: #fff; color: #1a1a1a; font-size: 12px; cursor: pointer; }
+.ic-cell svg { width: 30px; height: 30px; }
+.ic-cell .ic-name { text-align: center; overflow-wrap: anywhere; }
+.ic-cell:hover { border-color: #1d3f8f; background: #f1f4fb; }
+.icon-dialog { max-height: 92vh; overflow: auto; }
+.sc-voice { margin: 6px 0; }
+.sc-voice summary { cursor: pointer; font-weight: 600; }
+.sc-effect { border-top: 1px solid #c9ced6; margin-top: 6px; padding-top: 4px; }
+.props-body fieldset.sc-choice { border-width: 2px; }
+
 /* Layout picker */
 .dialog.wide { width: min(880px, 94vw); }
 .layout-set { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -133,7 +180,7 @@ button.small:hover { background: #e3e6eb; }
 .layout-card input:focus-visible + .card-body { outline: 3px solid #0b3fb3; outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
 .layout-card input:checked + .card-body .card-title::before { content: "\2713  "; color: #0b3fb3; }
 
-.dialog.wide { max-height: 92vh; overflow: auto; }
+.dialog.wide { max-height: 92vh; overflow: auto; scroll-padding-bottom: 80px; }
 .layout-group { font-size: 14px; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #8c929b; }
 .layout-set > .layout-group:first-of-type { margin-top: 4px; }
 .dialog.wide form { display: flex; flex-direction: column; }
@@ -232,3 +279,69 @@ button.small:hover { background: #e3e6eb; }
 .tl-grip:focus-visible { outline: 3px solid #0b3fb3; outline-offset: 2px; }
 .tl-grip:hover { background: #000; }
 @media (forced-colors: active) { .tl-bar { background: Highlight; } .tl-grip { background: ButtonText; border-color: Canvas; } }
+
+/* ---- Target sizes (WCAG 2.2, 2.5.8): every box, tick box and button a pointer can use is at least 24 by 24 pixels. :where keeps these easy to override. */
+:where(input[type="text"], input[type="number"], input[type="search"], input[type="file"], select, textarea) { min-height: 24px; box-sizing: border-box; }
+:where(input[type="checkbox"], input[type="radio"]) { width: 24px; height: 24px; margin: 2px 6px 2px 0; }
+.tl-name { min-height: 24px; }
+.item { min-height: 28px; }
+
+/* ---- Reflow (WCAG 2.2, 1.4.10). In a narrow window, or with the page zoomed in, the panels stack in one column and the page scrolls down, never sideways.
+   The slide itself is the one thing that needs two dimensions: it is drawn smaller to fit, and every setting on it is also a box in Properties. */
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  #app { height: auto; min-height: 100vh; display: flex; flex-direction: column; }
+  #app > .workspace, #app > .welcome { flex: 1 0 auto; }
+  .welcome { padding: 24px 16px; }
+  .workspace { display: flex; flex-direction: column; }
+  .panel { overflow: visible; border-right: 0; border-left: 0; border-bottom: 1px solid #8c929b; }
+  .props { overflow-x: visible; }
+  .slides .item-list, .objects .item-list, .problems .item-list { max-height: 14em; overflow: auto; }
+  .center { flex: none; }
+  .canvas-viewport { flex: none; aspect-ratio: 16 / 9; min-height: 200px; }
+  .timeline { max-height: 40vh; overflow: auto; }
+  .bottom { display: block; border-top: 0; }
+  .layer-bar { flex-wrap: wrap; }
+  .canvas-tools, .canvas-hint { padding-left: 12px; padding-right: 12px; }
+  .statusbar { flex-wrap: wrap; gap: 4px 24px; }
+}
+
+.tm-scroll { overflow-x: auto; max-width: 100%; }
+
+/* The PowerPoint dialog */
+.pptx-dialog fieldset { border: 1px solid #8c929b; border-radius: 6px; margin: 10px 0; padding: 6px 10px; min-width: 0; }
+.pptx-dialog legend { font-weight: 600; padding: 0 4px; }
+.pp-check { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; cursor: pointer; }
+.pp-check input { flex: none; margin-top: 0; }
+.pp-detail { margin: 0 0 6px 32px; padding-left: 18px; }
+.pp-detail li { margin: 1px 0; }
+.pp-report { margin: 4px 0 0; padding-left: 22px; }
+.pp-report li { margin: 4px 0; }
+.pptx-dialog h3 { margin: 14px 0 4px; font-size: 14px; }
+.pptx-dialog button.primary { font-weight: 600; }
+
+/* In Windows high contrast the system replaces these colours, so a chosen item is marked with system colours of its own. */
+@media (forced-colors: active) {
+  .item[aria-current="true"], .item[aria-pressed="true"], .tl-row[aria-current="true"] { border-left-color: Highlight; outline: 2px solid Highlight; outline-offset: -2px; }
+  .swatch-btn[aria-pressed="true"], .canvas-tools button[aria-pressed="true"], .toolbar button[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 1px; }
+  .as-tabs button[aria-selected="true"] { outline: 3px solid Highlight; outline-offset: -3px; }
+  .edit-box, .edit-marquee { border-color: Highlight; }
+  .edit-handle { background: Canvas; border-color: CanvasText; }
+  .problems .error .item, .problems .warning .item { border-left-color: CanvasText; }
+}
+
+/* In a very narrow window the dialogs stack their columns too. */
+@media (max-width: 640px) {
+  .dialog { padding: 14px 14px; }
+  .dialog .field, .field { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .field.check { grid-template-columns: auto minmax(0, 1fr); }
+  .layout-grid, .choice-grid, .theme-grid { grid-template-columns: minmax(0, 1fr); }
+  .as-split, .av-layout { grid-template-columns: minmax(0, 1fr); }
+  .as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .as-toolbar input[type="search"] { min-width: 0; width: 100%; }
+  .vr-row, .nr-row, .te-colour { grid-template-columns: minmax(0, 1fr); }
+  .te-colours { grid-template-columns: minmax(0, 1fr); }
+  .pron-row { grid-template-columns: minmax(0, 1fr); }
+  .tl-row { grid-template-columns: 7em minmax(0, 1fr); }
+  .av-preview svg { width: 160px; height: 160px; }
+}

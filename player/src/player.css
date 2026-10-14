@@ -24,7 +24,7 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-layer[hidden] { display: none; }
 .os-slide:focus { outline: none; }
 
-.os-text, .os-shape, .os-image, .os-button, .os-hotspot, .os-quiz, .os-media, .os-interaction, .os-table, .os-scrolltext, .os-input, .os-results, .os-certificate-box, .os-download { position: absolute; box-sizing: border-box; }
+.os-text, .os-shape, .os-image, .os-icon, .os-button, .os-hotspot, .os-quiz, .os-media, .os-interaction, .os-table, .os-scrolltext, .os-input, .os-results, .os-certificate-box, .os-download { position: absolute; box-sizing: border-box; }
 .os-timed-out { display: none !important; }
 /* The object's own font size is the size the author chose. Without this, a browser makes an
    h1 twice that size and the text runs into whatever sits below it. */
@@ -43,7 +43,35 @@ html, body { margin: 0; background: #f3f3f3; }
   background: var(--os-accent-strong, #1d3f8f);
   color: var(--os-on-accent-strong, #fff);
 }
+/* An icon on its own, and one inside a button before its words. It takes the colour of the text around it. */
+.os-icon { display: block; overflow: visible; }
+.os-button-has-icon { display: inline-flex; align-items: center; justify-content: center; gap: .5em; }
+.os-button-icon { flex: none; width: 1.25em; height: 1.25em; }
+/* A theme's logo: one picture in a corner of every slide, behind the objects. Where the page reflows it is part of the flow. */
+.os-logo { position: absolute; display: block; pointer-events: none; z-index: 0; object-fit: contain; }
+.os-logo-top-left { top: 24px; left: 24px; }
+.os-logo-top-right { top: 24px; right: 24px; }
+.os-logo-bottom-left { bottom: 24px; left: 24px; }
+.os-logo-bottom-right { bottom: 24px; right: 24px; }
+.os-stage.os-reflow .os-logo { position: static; width: auto !important; height: auto !important; max-width: min(var(--logo-w), 45%); aspect-ratio: var(--logo-ar); margin: 16px 16px 0; }
+.os-stage.os-reflow .os-logo-bottom-left, .os-stage.os-reflow .os-logo-bottom-right { margin: 0 16px 16px; }
+.os-stage.os-reflow .os-logo-top-right, .os-stage.os-reflow .os-logo-bottom-right { margin-left: auto; }
+
+/* Audio description: the button beside a video, and the dialog it opens. */
+.os-ad { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.os-ad-open { min-height: 44px; }
+.os-ad-state { font-weight: 600; }
+.os-ad-dialog { max-width: min(560px, 92vw); border: 2px solid var(--os-text, #1a1a1a); border-radius: 8px; padding: 16px 20px; background: var(--os-bg, #fff); color: var(--os-text, #1a1a1a); }
+.os-ad-dialog::backdrop { background: rgba(0, 0, 0, .5); }
+.os-ad-dialog h2 { margin: 0 0 8px; font-size: 22px; }
+.os-ad-list { margin: 8px 0; padding-left: 24px; max-height: 40vh; overflow: auto; }
+.os-ad-list li { margin-bottom: 6px; }
+.os-ad-time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.os-ad-note, .os-ad-progress { margin: 8px 0; }
+.os-ad-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .os-hotspot { background: transparent; border: 2px dashed transparent; cursor: pointer; padding: 0; }
+/* An author needs to see where a hotspot is. A learner does not: it lies over a picture that shows what to press. */
+.os-stage.os-editing .os-hotspot { border-color: #0b5fff; background: rgba(11, 95, 255, 0.14); }
 .os-quiz { overflow: auto; }
 .os-quiz-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .os-choice { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -219,6 +247,42 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-semantic-left { text-align: right; }
 @media (forced-colors: active) { .os-input-select { border-color: ButtonText; } }
 
+/* ---- a choice of character: picture cards, each one radio button */
+.os-cards { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 6px; }
+.os-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; box-sizing: border-box; width: 150px; padding: 12px 10px 10px; text-align: center; border: 2px solid var(--os-muted, #4a4f57); border-radius: 10px; background: var(--os-surface, #f4f5f7); cursor: pointer; }
+.os-card input[type="radio"] { position: absolute; top: 8px; left: 8px; }
+.os-card:has(input:checked) { border-color: var(--os-accent-strong, #0b3fb3); box-shadow: 0 0 0 2px var(--os-accent-strong, #0b3fb3); }
+.os-card:has(input:focus-visible) { outline: 3px solid var(--os-accent-strong, #0b3fb3); outline-offset: 3px; }
+.os-card-pic { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; }
+.os-card-name { font-weight: 700; overflow-wrap: anywhere; }
+.os-card-role { font-size: .85em; color: var(--os-muted, #4a4f57); }
+@media (forced-colors: active) { .os-card { border-color: ButtonText; } .os-card:has(input:checked) { border-color: Highlight; box-shadow: none; outline: 2px solid Highlight; } }
+
+/* ---- scenarios: a branching story, told in lines, with choices that lead on */
+.os-scenario { position: absolute; box-sizing: border-box; overflow: auto; padding: 14px 18px; font-size: 18px; line-height: 1.45; color: var(--os-text, #1a1a1a); background: var(--os-bg, #fff); border-radius: 10px; }
+.os-scenario-meters { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--os-muted, #4a4f57); }
+.os-scenario-meter { display: flex; flex-direction: column; gap: 2px; min-width: 150px; }
+.os-scenario-meter-text { font-weight: 600; }
+.os-scenario-meter-bar { width: 100%; height: 14px; accent-color: var(--os-accent-strong, #0b3fb3); }
+.os-scenario-heading { margin: 0 0 6px; font-size: 1.2em; }
+h3.os-scenario-heading { font-size: 1.05em; }
+.os-scenario-lines { list-style: none; margin: 0 0 10px; padding: 0; }
+.os-scenario-line { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0; }
+.os-scenario-story { padding-left: 10px; border-left: 4px solid var(--os-muted, #4a4f57); }
+.os-scenario-pic { flex: none; width: 48px; height: 48px; object-fit: cover; border-radius: 50%; }
+.os-scenario-body { min-width: 0; overflow-wrap: anywhere; }
+.os-scenario-result { margin: 0 0 14px; padding: 8px 12px; border-left: 4px solid var(--os-accent-strong, #0b3fb3); border-radius: 6px; background: var(--os-surface, #f4f5f7); }
+.os-scenario-chosen { margin: 0 0 6px; font-weight: 600; }
+.os-scenario-choices { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px; }
+.os-scenario-prompt { margin: 0; font-weight: 700; }
+.os-scenario-choice { text-align: left; line-height: 1.3; }
+.os-scenario-listen { margin: 0 0 6px; }
+.os-scenario-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.os-scenario-review { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--os-muted, #4a4f57); }
+.os-scenario-path { margin: 0 0 10px; padding-left: 1.6em; }
+.os-scenario-path li { margin: 3px 0; }
+.os-scenario-reflection { margin: 8px 0 0; }
+
 /* ---- media with a transcript, embedded video, credits */
 .os-mediabox { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
 .os-media-inner { flex: 1 1 auto; min-height: 0; width: 100%; background: #000; }
@@ -297,6 +361,7 @@ a.os-download-link:hover { text-decoration: underline; }
 /* Pictures, shapes and video keep their shape but fill the width, no wider than the author drew them. */
 .os-stage.os-reflow .os-layer > img.os-image,
 .os-stage.os-reflow .os-layer > .os-shape,
+.os-stage.os-reflow .os-layer > svg.os-icon,
 .os-stage.os-reflow .os-layer > video.os-media { width: 100% !important; max-width: var(--os-w) !important; aspect-ratio: var(--os-ar); }
 .os-stage.os-reflow .os-layer > audio.os-media { width: 100% !important; }
 .os-stage.os-reflow .os-shape svg { height: 100%; }
@@ -337,3 +402,46 @@ a.os-download-link:hover { text-decoration: underline; }
 .os-stage.os-reflow .os-semantic-left { text-align: left; order: 1; }
 .os-stage.os-reflow .os-semantic-right { text-align: right; order: 2; }
 .os-stage.os-reflow .os-semantic-row .os-scale-points { order: 3; flex: 1 1 100%; flex-wrap: nowrap; }
+
+/* ---- the kinds of question besides multiple choice (questions.ts). The controls carry their own colours, a pair the theme guarantees, so they
+   read on any slide; the words around them take the question's own colour. */
+.os-q-hint { margin: 0 0 8px; font-size: .9em; }
+.os-q-label { display: block; margin: 0 0 6px; font-weight: 600; }
+.os-q-input, .os-q-blank, .os-q-match, .os-q-areas input[type="text"] { font: inherit; padding: 6px 10px; min-height: 40px; box-sizing: border-box; border-radius: 6px; border: 2px solid var(--os-accent-strong, #0b3fb3); background: var(--os-surface, #f4f5f7); color: var(--os-text, #1a1a1a); }
+.os-q-input { width: min(100%, 28em); }
+.os-q-blank { margin: 0 4px; max-width: 100%; }
+.os-q-sentence { margin: 0 0 12px; line-height: 2.6; }
+.os-q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 10px; }
+.os-q-premise { flex: 1 1 12em; min-width: 0; font-weight: 600; }
+.os-q-match { flex: 1 1 14em; max-width: 100%; }
+
+/* Words and matches that can be dragged. They only repeat what the lists offer, so the lists are always the way in for a keyboard. */
+.os-q-bank { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.os-q-bank-label { font-weight: 600; }
+.os-chip { display: inline-block; padding: 6px 14px; border-radius: 999px; border: 2px solid var(--os-accent-strong, #0b3fb3); background: var(--os-accent-strong, #0b3fb3); color: var(--os-on-accent-strong, #fff); cursor: grab; user-select: none; touch-action: none; }
+.os-chip.is-used { opacity: .45; }
+.os-chip.is-dragging { position: fixed; z-index: 100000; pointer-events: none; cursor: grabbing; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+.os-q-blank.is-target, .os-q-match.is-target { outline: 3px dashed var(--os-accent-strong, #0b3fb3); outline-offset: 2px; }
+
+/* Items to put in order. */
+.os-q-sequence { list-style: none; margin: 0; padding: 0; }
+.os-q-seq-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px 12px; border-radius: 8px; border: 2px solid var(--os-accent-strong, #0b3fb3); background: var(--os-surface, #f4f5f7); color: var(--os-text, #1a1a1a); }
+.os-q-seq-item.is-dragging { opacity: .5; }
+.os-q-seq-item.is-over { outline: 3px dashed var(--os-accent-strong, #0b3fb3); outline-offset: 2px; }
+.os-q-seq-text { flex: 1 1 10em; min-width: 0; }
+.os-q-grip { cursor: grab; touch-action: none; user-select: none; padding: 4px 6px; font-weight: 700; letter-spacing: -3px; line-height: 1; }
+.os-q-move { font: inherit; padding: 6px 14px; min-height: 36px; border-radius: 6px; border: 2px solid var(--os-accent-strong, #0b3fb3); background: var(--os-accent-strong, #0b3fb3); color: var(--os-on-accent-strong, #fff); cursor: pointer; }
+
+/* A picture with areas to choose. The areas are for a mouse or a finger; the list under the picture is for everyone else. */
+.os-q-picture { position: relative; display: inline-block; max-width: 100%; line-height: 0; margin: 0 0 10px; }
+.os-q-image { display: block; max-width: 100%; max-height: 320px; height: auto; width: auto; }
+.os-q-area { position: absolute; box-sizing: border-box; padding: 0; margin: 0; background: transparent; border: 2px dashed transparent; cursor: pointer; }
+.os-q-area:hover { border-color: var(--os-accent-strong, #0b3fb3); background: rgba(255, 255, 255, .25); }
+.os-q-area.is-chosen { border: 3px solid var(--os-accent-strong, #0b3fb3); background: rgba(11, 63, 179, .22); }
+.os-q-area.is-shown { border: 2px dashed #0b3fb3; background: rgba(11, 63, 179, .12); color: #0b2a6f; font-size: 13px; line-height: 1.2; text-align: left; vertical-align: top; overflow: hidden; cursor: default; }
+.os-q-area.is-shown[data-correct="true"] { border-style: solid; border-color: #0f5132; background: rgba(15, 81, 50, .2); color: #0f5132; }
+.os-q-areas { margin: 0 0 12px; padding: 0; border: 0; min-width: 0; }
+.os-q-areas legend { padding: 0; margin: 0 0 6px; font-weight: 600; }
+.os-q-area-list { display: flex; flex-wrap: wrap; gap: 4px 28px; }
+@media (forced-colors: active) { .os-q-input, .os-q-blank, .os-q-match, .os-chip, .os-q-seq-item, .os-q-move { border-color: ButtonText; } .os-q-area.is-chosen { border-color: Highlight; } }
+.os-results-partial { font-weight: 600; }

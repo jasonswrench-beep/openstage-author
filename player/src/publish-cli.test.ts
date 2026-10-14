@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { unzipSync } from "fflate";
 import { itemNarrationKey } from "./narration.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -143,6 +144,47 @@ test("it will not empty the project folder, a folder that holds it, or one insid
     }
     assert.ok(existsSync(path.join(project, "project.json")), "the project is untouched");
     assert.ok(existsSync(path.join(project, "assets")), "the project's assets are untouched");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("what the project lists in sourceExclude stays out of the package's source copy, and the cache always does", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    mkdirSync(path.join(project, "recording"), { recursive: true });
+    writeFileSync(path.join(project, "recording", "events.jsonl"), "{}");
+    writeFileSync(path.join(project, "notes.txt"), "Keep me.");
+    const pj = JSON.parse(readFileSync(path.join(project, "project.json"), "utf-8")) as Record<string, unknown>;
+    pj["sourceExclude"] = ["recording"];
+    writeFileSync(path.join(project, "project.json"), JSON.stringify(pj, null, 2));
+
+    const { result, status } = run(project, path.join(dir, "course"));
+    assert.equal(status, 0, JSON.stringify(result));
+    assert.equal(result.ok, true);
+    assert.ok(!result.findings.some((f) => f.rule === "capture-material-in-project"), "listed, so no warning");
+    const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, "course-scorm12.zip")))));
+    const source = entries.filter((e) => e.startsWith("source/project.osproj/"));
+    assert.ok(source.includes("source/project.osproj/project.json") && source.includes("source/project.osproj/notes.txt"), "the project itself travels");
+    assert.ok(!source.some((e) => e.includes("events.jsonl") || e.includes("/recording")), "the listed folder does not");
+    assert.ok(!source.some((e) => e.includes("/.cache/")), "and neither does the cache");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a project with raw recording material that is not listed is warned about but still publishes", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    mkdirSync(path.join(project, "recording"), { recursive: true });
+    writeFileSync(path.join(project, "recording", "events.jsonl"), "{}");
+    const { result, status } = run(project, path.join(dir, "course"));
+    assert.equal(status, 0);
+    assert.ok(result.findings.some((f) => f.rule === "capture-material-in-project" && f.severity === "warning"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

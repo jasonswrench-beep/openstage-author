@@ -147,13 +147,13 @@ test("the arrow keys move all the selected objects, and one undo puts them back"
   });
 });
 
-test("resizing works on one object at a time, and says so", () => {
+test("resizing works on one object, or one whole group, at a time, and says so", () => {
   const m = open();
   const [a, b] = three(m) as [string, string, string];
   m.selectObject(a);
   m.toggleSelected(b);
   const w = m.objects.find((o) => o.id === a)!.geometry.width;
-  assert.match(m.resizeBy(5, 5)!, /one object at a time/);
+  assert.match(m.resizeBy(5, 5)!, /one object, or one whole group, at a time/);
   assert.equal(m.objects.find((o) => o.id === a)!.geometry.width, w);
 });
 

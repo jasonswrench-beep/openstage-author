@@ -1,0 +1,110 @@
+{
+  "id": "slide-013",
+  "name": "Your results",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0049",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 40,
+          "width": 1120,
+          "height": 100,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h2>How you did</h2>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "How you did",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0050",
+        "type": "results",
+        "name": "Results",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1120,
+          "height": 500,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "heading": "Your score",
+          "passMessage": "Well done.",
+          "failMessage": "You can go back and try again.",
+          "review": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "Your quiz results",
+          "role": "region",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}

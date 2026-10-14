@@ -1,0 +1,265 @@
+{
+  "id": "slide-012",
+  "name": "Hotspot",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0048",
+        "type": "text",
+        "name": "Prompt",
+        "geometry": {
+          "x": 80,
+          "y": 40,
+          "width": 1120,
+          "height": 100,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h2>Which building holds the books?</h2>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Which building holds the books?",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0047",
+        "type": "quizQuestion",
+        "name": "Hotspot",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1120,
+          "height": 520,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "questionType": "hotspot",
+          "image": {
+            "src": "assets/images/campus-map.svg",
+            "alt": "A map of four buildings: the library at top left, the cafe at top right, the gym at bottom left and the lab at bottom right, with a road between the top and bottom pairs."
+          },
+          "regions": [
+            {
+              "id": "r1",
+              "label": "Library, top left",
+              "x": 5,
+              "y": 8,
+              "width": 30,
+              "height": 32,
+              "correct": true
+            },
+            {
+              "id": "r2",
+              "label": "Cafe, top right",
+              "x": 65,
+              "y": 8,
+              "width": 30,
+              "height": 32,
+              "correct": false
+            },
+            {
+              "id": "r3",
+              "label": "Gym, bottom left",
+              "x": 5,
+              "y": 60,
+              "width": 30,
+              "height": 32,
+              "correct": false
+            },
+            {
+              "id": "r4",
+              "label": "Lab, bottom right",
+              "x": 65,
+              "y": 60,
+              "width": 30,
+              "height": 32,
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 2
+          },
+          "feedback": {
+            "correct": "layer-correct",
+            "incorrect": "layer-retry"
+          }
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 20,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Choose an area of the map",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-correct",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0045",
+          "type": "text",
+          "name": "Correct feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Right. That is the library.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#0f5132"
+          },
+          "accessibility": {
+            "altText": "Right. That is the library.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    },
+    {
+      "id": "layer-retry",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0046",
+          "type": "text",
+          "name": "Incorrect feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Not quite. Look for the books.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#842029"
+          },
+          "accessibility": {
+            "altText": "Not quite. Look for the books.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}

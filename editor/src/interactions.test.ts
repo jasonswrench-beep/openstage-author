@@ -23,7 +23,7 @@ function fresh(): Model {
 const content = (m: Model) => m.object!.content as unknown as InteractionContent;
 
 test("the Add menu stays short: interactions are one entry that opens a picker", () => {
-  assert.ok(ADD_MENU.length <= 8);
+  assert.ok(ADD_MENU.length <= 9);
   assert.ok(ADD_MENU.some((e) => e.value === "group:interaction"));
   assert.equal(groupOptions("interaction").length, 0, "interactions come from their own catalogue, not the flat list");
 });

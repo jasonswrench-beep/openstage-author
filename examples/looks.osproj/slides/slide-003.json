@@ -1,0 +1,388 @@
+{
+  "id": "slide-003",
+  "name": "A button that is not ready yet",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0011",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0010",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Unlock the Submit button</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Unlock the Submit button",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0012",
+        "geometry": {
+          "x": 80,
+          "y": 190,
+          "width": 220,
+          "height": 56,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          },
+          "Ready": {
+            "style": {
+              "fill": "#0f766e"
+            },
+            "announce": "Submit is ready"
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0005",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0012",
+            "value": "disabled",
+            "conditions": []
+          },
+          {
+            "id": "trg-0006",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0007",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Submit",
+        "content": {
+          "label": "Submit"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Submit your answer",
+          "role": "button",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0013",
+        "geometry": {
+          "x": 80,
+          "y": 290,
+          "width": 220,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {
+          "hover": {
+            "style": {
+              "fill": "#0a4fd1"
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0008",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0012",
+            "value": "Ready",
+            "conditions": []
+          },
+          {
+            "id": "trg-0009",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0012",
+            "value": "Ready",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Unlock",
+        "content": {
+          "label": "Unlock Submit"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Make the Submit button ready",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0014",
+        "geometry": {
+          "x": 80,
+          "y": 400,
+          "width": 760,
+          "height": 120,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Explanation",
+        "content": {
+          "html": "<p>Submit starts disabled: it is dimmed, and a screen reader says it is unavailable. Unlock Submit gives it a look of its own, Ready, and a screen reader says so.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Submit starts disabled: it is dimmed, and a screen reader says it is unavailable. Unlock Submit gives it a look of its own, Ready, and a screen reader says so.",
+          "role": "paragraph",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0015",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "previousSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back",
+        "content": {
+          "label": "Back",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-left",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "m12 19-7-7 7-7"
+              },
+              {
+                "tag": "path",
+                "d": "M19 12H5"
+              }
+            ]
+          },
+          "iconPlacement": "before"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back",
+          "role": "button",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

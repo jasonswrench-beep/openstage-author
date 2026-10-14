@@ -96,8 +96,8 @@ def item_key(obj_id, item_id):
 
 
 def narrated_objects(project_dir):
-    """Yields (slide id, key, narration) for every narration: an object's, then each of an interaction's items.
-    The key is the object's id, or item_key for an item."""
+    """Yields (slide id, key, narration) for every narration: an object's, then each of an interaction's items, and each audio
+    description of a video. The key is the object's id, or item_key for an item or a description."""
     project_dir = pathlib.Path(project_dir)
     project = json.loads((project_dir / "project.json").read_text(encoding="utf-8"))
     seen = set()
@@ -118,6 +118,16 @@ def narrated_objects(project_dir):
                         for item in obj["content"]["items"]:
                             if item.get("narration"):
                                 yield slide_id, item_key(obj["id"], item["id"]), item["narration"]
+                    if obj.get("type") == "scenario":
+                        for node in obj["content"]["nodes"]:
+                            lines = list(node["lines"]) + [line for choice in node["choices"] for line in choice["response"]]
+                            for line in lines:
+                                if line.get("narration"):
+                                    yield slide_id, item_key(obj["id"], line["id"]), line["narration"]
+                    if obj.get("type") == "video":
+                        for cue in ((obj.get("content") or {}).get("description") or {}).get("cues", []):
+                            if cue.get("narration"):
+                                yield slide_id, item_key(obj["id"], cue["id"]), cue["narration"]
 
 
 def cache_paths(project_dir, narration):

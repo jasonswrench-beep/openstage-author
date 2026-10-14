@@ -96,6 +96,20 @@
         }
       }
     },
+    "logo": {
+      "$comment": "Optional. One picture shown in a corner of every slide, such as a school's logo.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src", "alt", "decorative", "corner", "width", "height"],
+      "properties": {
+        "src": { "type": "string", "pattern": "^assets/[^.\\\\/][^\\\\]*$" },
+        "alt": { "type": "string", "maxLength": 200 },
+        "decorative": { "type": "boolean" },
+        "corner": { "enum": ["top-left", "top-right", "bottom-left", "bottom-right"] },
+        "width": { "type": "integer", "minimum": 24, "maximum": 400, "description": "Stage pixels." },
+        "height": { "type": "integer", "minimum": 24, "maximum": 200, "description": "Stage pixels." }
+      }
+    },
     "backgrounds": {
       "type": "object",
       "additionalProperties": false,

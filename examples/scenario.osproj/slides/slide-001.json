@@ -1,0 +1,158 @@
+{
+  "id": "slide-001",
+  "name": "Who will you be?",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>A missed deadline</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 44,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "A missed deadline",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0002",
+        "type": "text",
+        "name": "Introduction",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1000,
+          "height": 120,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "html": "<p>In this scenario you work on a small analysis team. You will have to decide what to say when something goes wrong. First, choose who you will be.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "In this scenario you work on a small analysis team. You will have to decide what to say when something goes wrong. First, choose who you will be.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0003",
+        "type": "input",
+        "name": "Choose your character",
+        "geometry": {
+          "x": 80,
+          "y": 300,
+          "width": 700,
+          "height": 320,
+          "rotation": 0,
+          "z": 30
+        },
+        "content": {
+          "kind": "character",
+          "prompt": "Choose who you will be",
+          "report": false,
+          "variable": "var-who",
+          "characters": [
+            "alex",
+            "jordan"
+          ]
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "Choose who you will be",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}

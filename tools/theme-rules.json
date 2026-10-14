@@ -1,0 +1,27 @@
+{
+  "_comment": "Rules about themes that the validator (tools/validate.py), the player and the editor all use, so they cannot drift apart.",
+  "minimumRatio": 4.5,
+  "pairs": [
+    ["text", "background"],
+    ["muted", "background"],
+    ["text", "surface"],
+    ["onAccentStrong", "accentStrong"],
+    ["onDark", "dark"],
+    ["good", "background"],
+    ["bad", "background"]
+  ],
+  "logo": {
+    "margin": 24,
+    "minSize": 24,
+    "maxWidth": 400,
+    "maxHeight": 200,
+    "corners": ["top-left", "top-right", "bottom-left", "bottom-right"]
+  },
+  "logoCases": [
+    { "stage": [1280, 720], "logo": { "corner": "top-left", "width": 120, "height": 60 }, "box": [24, 24, 120, 60] },
+    { "stage": [1280, 720], "logo": { "corner": "top-right", "width": 120, "height": 60 }, "box": [1136, 24, 120, 60] },
+    { "stage": [1280, 720], "logo": { "corner": "bottom-left", "width": 120, "height": 60 }, "box": [24, 636, 120, 60] },
+    { "stage": [1280, 720], "logo": { "corner": "bottom-right", "width": 200, "height": 100 }, "box": [1056, 596, 200, 100] },
+    { "stage": [1920, 1080], "logo": { "corner": "bottom-right", "width": 50, "height": 50 }, "box": [1846, 1006, 50, 50] }
+  ]
+}

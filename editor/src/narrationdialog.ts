@@ -4,7 +4,7 @@
 // closes it (or, while audio is being made, cancels that) and focus returns to where it came from.
 
 import { errorText, type Backend } from "./backend.ts";
-import type { Model, NarratedObject } from "./model.ts";
+import { clockText, type Model, type NarratedObject } from "./model.ts";
 import { audioStatus, excerpt, formatDuration, totals, totalsLine, type CachedAudio } from "./narration.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -74,7 +74,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
           list.append(group);
         }
         const s = audioStatus(item.narration, opts.cache());
-        const owner = item.item ? `${item.object.name}, item "${item.item.title}"` : item.object.name;
+        const owner = item.item ? `${item.object.name}, item "${item.item.title}"` : item.cue ? `${item.object.name}, audio description at ${clockText(item.cue.time)}` : item.line ? `${item.object.name}, line "${item.line.text.trim().slice(0, 40)}${item.line.text.trim().length > 40 ? "..." : ""}"` : item.object.name;
         const name = item.layerName && item.layerId !== model.slides.find((x) => x.id === item.slideId)?.baseLayer.id ? `${owner} (layer ${item.layerName})` : owner;
         const go = h("button", { type: "button", class: "small", text: "Go to", "aria-label": `Go to ${name}` });
         go.addEventListener("click", () => { chosen = item; finish(); });

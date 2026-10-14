@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "0.25.0",
+  "meta": {
+    "title": "Question types",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-12",
+    "modified": "2026-10-12"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": false,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007",
+        "slide-008",
+        "slide-009",
+        "slide-010",
+        "slide-011",
+        "slide-012",
+        "slide-013"
+      ]
+    }
+  ]
+}

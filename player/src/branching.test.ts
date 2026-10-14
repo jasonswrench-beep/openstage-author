@@ -100,3 +100,62 @@ test("a rule can need several conditions, and a number can be compared", () => {
   rt.fire(button, "click");
   assert.equal(rt.currentSlide?.id, "slide-003", "both conditions hold");
 });
+
+// ---- adding to a number variable
+
+test("a rule can add to a number variable, by an amount or by one", () => {
+  const { pkg, button } = branching([
+    rule("t1", "click", "setVariable", "var-score", [], 2), rule("t2", "click", "setVariable", "var-score"), rule("t3", "click", "setVariable", "var-score", [], -0.5),
+  ]);
+  pkg.slides[0]!.baseLayer.objects.find((o) => o.id === button)!.triggers.forEach((t) => (t.operation = "add"));
+  const { rt } = newRuntime(pkg);
+  rt.goTo("slide-001");
+  rt.fire(button, "click");
+  assert.equal(rt.variables.get("var-score"), 2 + 1 - 0.5, "2, then 1 because there is no amount, then minus a half");
+  rt.fire(button, "click");
+  assert.equal(rt.variables.get("var-score"), 5);
+});
+
+test("adding counts tries, and a condition on the count decides what happens", () => {
+  const tries = [{ variable: "var-score", operator: "greaterThanOrEqual" as const, value: 3 }];
+  const { pkg, button } = branching([
+    rule("t1", "click", "setVariable", "var-score", [], 1),
+    rule("t2", "click", "jumpToSlide", "slide-003", tries),
+  ]);
+  pkg.slides[0]!.baseLayer.objects.find((o) => o.id === button)!.triggers[0]!.operation = "add";
+  const { rt } = newRuntime(pkg);
+  rt.goTo("slide-001");
+  rt.fire(button, "click");
+  rt.fire(button, "click");
+  assert.equal(rt.currentSlide?.id, "slide-001", "two tries: still here");
+  rt.fire(button, "click");
+  assert.equal(rt.currentSlide?.id, "slide-003", "the third try crosses the line");
+});
+
+test("adding 0.1 three times gives 0.3", () => {
+  const { pkg, button } = branching([rule("t1", "click", "setVariable", "var-score", [], 0.1)]);
+  pkg.slides[0]!.baseLayer.objects.find((o) => o.id === button)!.triggers[0]!.operation = "add";
+  const { rt } = newRuntime(pkg);
+  rt.goTo("slide-001");
+  for (let i = 0; i < 3; i++) rt.fire(button, "click");
+  assert.equal(rt.variables.get("var-score"), 0.3);
+});
+
+test("a variable that is not a number is left alone by an add", () => {
+  const { pkg, button } = branching([rule("t1", "click", "setVariable", "var-path", [], 1)]);
+  pkg.slides[0]!.baseLayer.objects.find((o) => o.id === button)!.triggers[0]!.operation = "add";
+  const { rt } = newRuntime(pkg);
+  rt.goTo("slide-001");
+  rt.setVariable("var-path", "a");
+  rt.fire(button, "click");
+  assert.equal(rt.variables.get("var-path"), "a");
+});
+
+test("a rule with no operation still sets the variable, as before", () => {
+  const { pkg, button } = branching([rule("t1", "click", "setVariable", "var-score", [], 7)]);
+  const { rt } = newRuntime(pkg);
+  rt.goTo("slide-001");
+  rt.fire(button, "click");
+  rt.fire(button, "click");
+  assert.equal(rt.variables.get("var-score"), 7);
+});

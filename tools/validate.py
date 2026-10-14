@@ -9,6 +9,7 @@ The same function (validate_project) is meant to power the command line and, lat
 the editor's problem list. Never write a second implementation.
 """
 import json
+import os
 import pathlib
 import re
 import sys
@@ -32,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 15, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 25, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -42,14 +43,19 @@ ITEM_LIMITS = {
 }
 # The type of variable each kind of input writes. Keep in step with INPUT_VARIABLE_TYPE in player/src/inputs.ts.
 INPUT_VARIABLE_TYPE = {"checkbox": "boolean", "radio": "string", "dropdown": "string", "list": "string",
-                       "likert": "number", "semantic": "number"}
-INTERACTIVE = ("button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download")
+                       "likert": "number", "semantic": "number", "character": "string"}
+INTERACTIVE = ("button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download", "scenario")
+# In a scenario, a line spoken by this word is spoken by the learner's own character, not by someone in the cast.
+YOU = "you"
 
 # A gap does not block keyboard access (focus follows the values' order), so it is
 # a warning. Duplicates are errors. See docs/validator-spec.md.
 TAB_GAP_SEVERITY = "warning"
 
 ERROR, WARNING = "error", "warning"
+
+# Actions that act on the course itself, so they have no target.
+COURSE_ACTIONS = ("nextSlide", "previousSlide", "replaySlide")
 
 
 @dataclass
@@ -269,15 +275,62 @@ def background_colors(theme, value):
     return [_color_ref(theme, bg["from"]), _color_ref(theme, bg["to"])]
 
 
+# The rules about themes shared with the player and the editor: tools/theme-rules.json.
+THEME_RULES = json.loads((ROOT / "tools" / "theme-rules.json").read_text(encoding="utf-8"))
+
 # Pairs of theme colours that are used as text on a background. Each must meet WCAG AA.
-THEME_PAIRS = (("text", "background"), ("muted", "background"), ("text", "surface"),
-               ("onAccentStrong", "accentStrong"), ("onDark", "dark"), ("good", "background"), ("bad", "background"))
+THEME_PAIRS = tuple(tuple(p) for p in THEME_RULES["pairs"])
+LOGO_MARGIN = THEME_RULES["logo"]["margin"]
+
+
+def logo_box(stage, logo):
+    """Where a theme's logo sits on the stage, as (x, y, width, height): in its corner, a fixed margin in from the edges."""
+    w, h = logo["width"], logo["height"]
+    x = LOGO_MARGIN if logo["corner"].endswith("left") else stage["width"] - LOGO_MARGIN - w
+    y = LOGO_MARGIN if logo["corner"].startswith("top") else stage["height"] - LOGO_MARGIN - h
+    return (x, y, w, h)
+
+
+def _check_logo(rel, theme, asset_root, add):
+    """A logo is a picture on every slide, so it needs a name for a screen reader (or to be marked decorative) and a file."""
+    logo = theme.get("logo")
+    if not logo:
+        return
+    if logo["decorative"] and logo["alt"].strip():
+        add(ERROR, rel, theme["id"], "theme-logo-decorative-alt", "A decorative logo must not have alt text",
+            "A logo marked decorative is hidden from screen readers, so its alt text would never be read. Clear it, or untick decorative.")
+    elif not logo["decorative"] and not logo["alt"].strip():
+        add(ERROR, rel, theme["id"], "theme-logo-alt", "The logo needs alt text, or must be marked decorative",
+            "A screen reader user hears the logo on every slide. Say what it is, for example \"New Paltz logo\", or mark it decorative.")
+    target = (asset_root / logo["src"]).resolve()
+    if asset_root.resolve() not in target.parents or not target.is_file():
+        add(ERROR, rel, theme["id"], "theme-logo-missing", "The logo file is missing", f"{logo['src']} does not exist in the project.")
+
+
+def _logo_overlap(rel, slide, theme, stage, add):
+    """The logo sits on every slide, in its corner. Anything a learner needs that reaches into that corner is covered or crowded by it."""
+    logo = theme.get("logo")
+    if not logo or not stage:
+        return
+    lx, ly, lw, lh = logo_box(stage, logo)
+    hit = []
+    for _, obj in _objects(slide):
+        if obj["accessibility"]["decorative"]:
+            continue
+        g = obj["geometry"]
+        if g["x"] < lx + lw and g["x"] + g["width"] > lx and g["y"] < ly + lh and g["y"] + g["height"] > ly:
+            hit.append(obj["name"])
+    if hit:
+        shown = ", ".join(f"'{n}'" for n in hit[:3]) + (f" and {len(hit) - 3} more" if len(hit) > 3 else "")
+        add(WARNING, rel, slide["id"], "theme-logo-overlap", "The logo overlaps content on this slide",
+            f"The logo fills the {logo['corner'].replace('-', ' ')} corner, from {lx},{ly} to {lx + lw},{ly + lh}. {shown} reach{'es' if len(hit) == 1 else ''} into it. "
+            "Move the content, or move or shrink the logo.")
 
 
 def _check_theme(rel, theme, add):
     for fg, bg in THEME_PAIRS:
         ratio = contrast_ratio(_hex_rgb(theme["colors"][fg]), _hex_rgb(theme["colors"][bg]))
-        if ratio < 4.5:
+        if ratio < THEME_RULES["minimumRatio"]:
             add(ERROR, rel, theme["id"], "theme-contrast", "Theme colours do not contrast enough",
                 f"In theme '{theme['name']}', {fg} ({theme['colors'][fg]}) on {bg} ({theme['colors'][bg]}) "
                 f"is {ratio:.2f}:1; WCAG 2.2 AA needs 4.5:1.")
@@ -313,6 +366,8 @@ def input_values(slides):
             c = obj["content"]
             if c["kind"] in ("radio", "dropdown", "list"):
                 allowed.setdefault(c["variable"], set()).update([""] + [o["value"] for o in c["options"]])
+            elif c["kind"] == "character":
+                allowed.setdefault(c["variable"], set()).update([""] + list(c["characters"]))
             elif c["kind"] in ("likert", "semantic"):
                 top = len(c["scale"]) if c["kind"] == "likert" else c["points"]
                 for row in c["rows"]:
@@ -320,16 +375,36 @@ def input_values(slides):
     return allowed
 
 
-def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None):
+def _groups(rel, slide, add):
+    """A group is the objects of one layer that share a `group` tag. It needs two or more, and they must all be on the one layer."""
+    members = {}
+    for layer in _layers(slide):
+        for obj in layer["objects"]:
+            tag = obj.get("group")
+            if tag:
+                members.setdefault(tag, []).append((layer["id"], obj["id"]))
+    for tag, found in sorted(members.items()):
+        layers_seen = {layer_id for layer_id, _ in found}
+        if len(layers_seen) > 1:
+            add(ERROR, rel, found[0][1], "group-split", "A group has objects on different layers",
+                f"Group '{tag}' has objects on the layers {', '.join(sorted(layers_seen))}. A group has to be on one layer.")
+        elif len(found) < 2:
+            add(WARNING, rel, found[0][1], "group-single", "A group has only one object",
+                f"Group '{tag}' has one object, so it groups nothing.")
+
+
+def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, stage=None, cast=None, chosen=None, order=None):
     layer_ids = {layer["id"] for layer in _layers(slide)}
-    object_ids = {obj["id"] for _, obj in _objects(slide)}
+    objects_by_id = {obj["id"]: obj for _, obj in _objects(slide)}
 
     for layer in _layers(slide):
         _tab_order(rel, layer, add)
+    _groups(rel, slide, add)
     _theme_tokens(rel, slide, theme, add)
+    _logo_overlap(rel, slide, theme, stage, add)
     slide_bg = background_colors(theme, slide.get("background"))
 
-    imported = [obj for _, obj in _objects(slide) if obj["provenance"]]
+    imported = [obj for _, obj in _objects(slide) if obj["provenance"] and "sourceDeck" in obj["provenance"]]
     new = [obj for _, obj in _objects(slide) if not obj["provenance"]]
     if imported and new:
         add(WARNING, rel, slide["id"], "provenance-mixed",
@@ -337,16 +412,22 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None):
 
     for layer, obj in _objects(slide):
         oid = obj["id"]
+        _hotspot(rel, obj, add)
         _click_needs_key(rel, obj, add)
         _contrast(rel, obj, add, theme, slide_bg)
-        _triggers(rel, obj, variables, slides_by_id, layer_ids, object_ids, add, allowed or {})
+        _states(rel, obj, add)
+        _triggers(rel, obj, variables, slides_by_id, layer_ids, objects_by_id, add, allowed or {})
+        _navigation(rel, slide, obj, order or [], add)
+        _icon(rel, obj, add, theme, slide_bg)
         _feedback_refs(rel, obj, layer_ids, add)
         _quiz(rel, obj, add)
         _interaction(rel, obj, add)
         _table(rel, obj, add)
-        _input(rel, obj, variables, add)
+        _input(rel, obj, variables, add, cast or {})
+        _scenario(rel, obj, variables, cast or {}, chosen or set(), add)
         _embed(rel, obj, add)
         _download(rel, obj, add)
+        _description(rel, obj, add)
         _narration(rel, obj, add)
 
 
@@ -368,13 +449,39 @@ def _tab_order(rel, layer, add):
             f"Values on this layer are {values}; they should run 1 to {len(values)} with none missing.")
 
 
+HOTSPOT_MIN = 24       # WCAG 2.2, 2.5.8 Target Size (Minimum): 24 by 24 CSS pixels
+HOTSPOT_COMFORT = 35   # 24 CSS pixels once the stage is scaled down to 70 percent, the narrowest it is drawn before it reflows
+
+
+def _hotspot(rel, obj, add):
+    """A hotspot is a transparent button over a picture. It is named by its alt text, and it must be big enough to press."""
+    if obj["type"] != "hotspot":
+        return
+    oid = obj["id"]
+    if obj["accessibility"]["decorative"]:
+        add(ERROR, rel, oid, "hotspot-decorative", "A hotspot cannot be decorative",
+            "A hotspot can be pressed, so a screen reader user needs its name. Turn off decorative and write what it does.")
+    if obj["content"]:
+        add(WARNING, rel, oid, "hotspot-content", "A hotspot has no content of its own",
+            "Anything in its content is ignored. The picture it sits over belongs in an image object.")
+    g = obj["geometry"]
+    smallest = min(g["width"], g["height"])
+    if smallest < HOTSPOT_MIN:
+        add(ERROR, rel, oid, "hotspot-too-small", "A hotspot is too small to press",
+            f"It is {g['width']:g} by {g['height']:g}. WCAG 2.2 asks for at least {HOTSPOT_MIN} by {HOTSPOT_MIN} pixels.")
+    elif smallest < HOTSPOT_COMFORT:
+        add(WARNING, rel, oid, "hotspot-small", "A hotspot may be too small to press when the slide is drawn smaller",
+            f"It is {g['width']:g} by {g['height']:g}. The slide is drawn at 70 percent of its size before it switches to one column, "
+            f"so make the hotspot at least {HOTSPOT_COMFORT} pixels each way to stay above {HOTSPOT_MIN}.")
+
+
 def _click_needs_key(rel, obj, add):
     if obj["type"] not in INTERACTIVE:
         return
 
     def sig(t):
         return (t["action"], t["target"], json.dumps(t.get("value"), sort_keys=True),
-                json.dumps(t["conditions"], sort_keys=True))
+                json.dumps(t["conditions"], sort_keys=True), t.get("operation", "set"))
 
     key_sigs = {sig(t) for t in obj["triggers"] if t["event"] == "keyActivate"}
     for t in obj["triggers"]:
@@ -384,18 +491,61 @@ def _click_needs_key(rel, obj, add):
                 f"(same action, target, value and conditions).")
 
 
+READY_LOOKS = ("hover", "visited", "disabled")
+
+
+def _look_stacks(states):
+    """Every way the player can stack an object's looks, as (label, names, overrides). It paints the object's own style, then 'visited'
+    once the object has been used, then the look a rule applied, then 'hover' while the pointer or the keyboard is on it, so
+    a later look wins over an earlier one. `overrides` are the style properties those looks set, ready to lay over the object's own style."""
+    named = [n for n in states if n not in ("hover", "visited")]
+    out, seen = [], set()
+    for visited in ([False, True] if "visited" in states else [False]):
+        for look in [None] + named:
+            for hover in ([False, True] if "hover" in states else [False]):
+                stack = [n for n, on in (("visited", visited), (look, look is not None), ("hover", hover)) if on]
+                if not stack:
+                    continue
+                overrides = {}
+                for n in stack:
+                    overrides.update(states[n].get("style", {}))
+                key = json.dumps(overrides, sort_keys=True)
+                if not overrides or key in seen:  # a look that changes nothing looks like the object itself, which is checked already
+                    continue
+                seen.add(key)
+                quoted = [f"'{n}'" for n in stack]
+                label = f" in state {quoted[0]}" if len(quoted) == 1 else f" in the states {', '.join(quoted[:-1])} and {quoted[-1]} together"
+                out.append((label, stack, overrides))
+    return out
+
+
+def _variants(obj):
+    """The object as it can look: its own style first, then each stack of looks laid over it."""
+    return [("", [], obj["style"])] + [(label, names, {**obj["style"], **over}) for label, names, over in _look_stacks(obj["states"])]
+
+
+def _solidness(style, names):
+    """How solid the object is painted, 0 to 1. A disabled object is left out: WCAG does not ask a control that cannot be used for contrast."""
+    value = style.get("opacity")
+    if "disabled" in names or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 1.0
+    return min(1.0, max(0.0, float(value)))
+
+
+def _mix(top, back, solidness):
+    """A colour painted at this solidness over another colour."""
+    return tuple(t * solidness + b * (1 - solidness) for t, b in zip(top, back))
+
+
 def _contrast(rel, obj, add, theme, slide_bg):
     """Text against what is behind it: the object's own fill if it has one, otherwise the slide
     background. A theme colour counts as the colour it stands for. Text with no colour of its own
-    uses the theme's text colour, and a button with none uses the theme's button colours."""
+    uses the theme's text colour, and a button with none uses the theme's button colours. This is checked for the object's own look
+    and for each look it can take, and a look that makes the object see-through counts: fading text fades what is behind it too."""
     if obj["type"] not in ("text", "button", "quizQuestion"):
         return
     is_button = obj["type"] == "button"
-    variants = [("", obj["style"])]
-    for name, state in obj["states"].items():
-        if "style" in state:
-            variants.append((f" in state '{name}'", {**obj["style"], **state["style"]}))
-    for label, style in variants:
+    for label, names, style in _variants(obj):
         colour = style.get("color")
         own_fill = style.get("fill", style.get("background"))
         fg = resolve_color(theme, colour) if colour is not None else theme["colors"]["onAccentStrong" if is_button else "text"]
@@ -408,10 +558,80 @@ def _contrast(rel, obj, add, theme, slide_bg):
         if fg is None or any(b is None for b in bgs):
             continue  # a colour that is neither hex nor a theme colour; reported as an unknown theme value
         need = 3.0 if _is_large_text(style) else 4.5
-        ratio = min(contrast_ratio(_hex_rgb(fg), _hex_rgb(b)) for b in bgs)
+        solid = _solidness(style, names)
+        if solid < 1.0 and all(_hex_rgb(b) is not None for b in slide_bg):
+            # Painted at this solidness over the slide: both the text and its own fill fade into what is behind.
+            has_fill = own_fill is not None or is_button
+            ratio = min(
+                contrast_ratio(_mix(_hex_rgb(fg), _hex_rgb(back), solid), _mix(_hex_rgb(bgs[0]), _hex_rgb(back), solid) if has_fill else _hex_rgb(back))
+                for back in slide_bg)
+            how = f" at {round(solid * 100)}% solid"
+        else:
+            ratio = min(contrast_ratio(_hex_rgb(fg), _hex_rgb(b)) for b in bgs)
+            how = ""
         if ratio < need:
             add(ERROR, rel, obj["id"], "contrast", "Contrast too low",
-                f"{fg} on {' to '.join(bgs)}{label} is {ratio:.2f}:1; WCAG 2.2 AA needs {need}:1.")
+                f"{fg} on {' to '.join(bgs)}{how}{label} is {ratio:.2f}:1; WCAG 2.2 AA needs {need}:1.")
+
+
+def _states(rel, obj, add):
+    """A look is another way the object can appear. 'normal' is the object's own appearance, so it cannot also be a look."""
+    if "normal" in obj["states"]:
+        add(ERROR, rel, obj["id"], "state-name-normal", "A look cannot be named normal",
+            "Normal is the object's own appearance, which a rule can return to. A look with that name would never be used. Give it another name.")
+
+
+def _navigation(rel, slide, obj, order, add):
+    """A button that goes to the next slide on the last one, or to the previous slide on the first, goes nowhere."""
+    if slide["id"] not in order:
+        return
+    first, last = order[0] == slide["id"], order[-1] == slide["id"]
+    reported = set()
+    for t in obj["triggers"]:
+        key = t["action"]
+        if key in reported:
+            continue
+        if t["action"] == "nextSlide" and last:
+            reported.add(key)
+            add(WARNING, rel, obj["id"], "trigger-next-last", "Next goes nowhere on the last slide",
+                f"Trigger {t['id']} goes to the next slide, but this is the last slide of the course.")
+        elif t["action"] == "previousSlide" and first:
+            reported.add(key)
+            add(WARNING, rel, obj["id"], "trigger-previous-first", "Back goes nowhere on the first slide",
+                f"Trigger {t['id']} goes to the previous slide, but this is the first slide of the course.")
+
+
+def _icon(rel, obj, add, theme, slide_bg):
+    """An icon is a picture: it needs to be seen against what is behind it (WCAG 2.2, 1.4.11, 3 to 1), unless it is only decoration.
+    That holds for each look it can take too, and for a look that makes it see-through."""
+    if obj["type"] != "icon" or obj["accessibility"]["decorative"]:
+        return
+    if any(_hex_rgb(b) is None for b in slide_bg):
+        return
+    for label, names, style in _variants(obj):
+        colour = style.get("color")
+        fg = resolve_color(theme, colour) if colour is not None else theme["colors"]["text"]
+        if fg is None:
+            continue
+        solid = _solidness(style, names)
+        how = f" at {round(solid * 100)}% solid" if solid < 1.0 else ""
+        ratio = min(contrast_ratio(_mix(_hex_rgb(fg), _hex_rgb(b), solid), _hex_rgb(b)) for b in slide_bg)
+        if ratio < 3.0:
+            add(WARNING, rel, obj["id"], "icon-contrast", "An icon is hard to see",
+                f"{fg} on {' to '.join(slide_bg)}{how}{label} is {ratio:.2f}:1; WCAG 2.2 AA (1.4.11) asks for 3:1 for a picture that carries meaning. Choose a stronger colour, or mark the icon decorative.")
+
+
+def _icon_credit(project, slides, add):
+    """The icons come from an open set whose licence asks for its notice to travel with them. The credits page carries it."""
+    if project["credits"]:
+        return
+    for rel, slide in slides.items():
+        for _, obj in _objects(slide):
+            if obj["type"] == "icon" or (obj["type"] == "button" and obj["content"].get("icon")):
+                add(WARNING, rel, obj["id"], "icon-credit-page-off", "This course uses icons, but the credits page is off",
+                    "The icons are from Lucide (ISC licence), which asks for its copyright notice and licence to be kept with them. "
+                    "Switch the credits page on, which carries the notice, or carry it another way.")
+                return
 
 
 def _value_type(v):
@@ -423,7 +643,7 @@ def _value_type(v):
     return "string"
 
 
-def _triggers(rel, obj, variables, slides_by_id, layer_ids, object_ids, add, allowed):
+def _triggers(rel, obj, variables, slides_by_id, layer_ids, objects_by_id, add, allowed):
     # A click and its matching key press are one rule to the author, so a problem with the rule is reported once.
     reported = set()
     raw_add = add
@@ -443,11 +663,15 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, object_ids, add, all
             ok = target in layer_ids
         elif action == "setVariable":
             ok = target in variables
+        elif action in COURSE_ACTIONS:
+            ok = target == ""
         else:  # playMedia, pauseMedia, changeState
-            ok = target in object_ids
+            ok = target in objects_by_id
         if not ok:
             add(ERROR, rel, obj["id"], "trigger-target-missing", "Trigger points at something missing",
                 f"Trigger {t['id']}: action {action} targets '{target}', which does not exist.")
+        elif action == "changeState":
+            _change_state(rel, obj, t, objects_by_id[target], add)
         for c in t["conditions"]:
             if c["variable"] not in variables:
                 add(ERROR, rel, obj["id"], "condition-unknown-variable", "Condition uses an unknown variable",
@@ -463,9 +687,19 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, object_ids, add, all
                 elif want != "number" and c["operator"] not in ("equals", "notEquals"):
                     add(WARNING, rel, obj["id"], "condition-operator", "Condition puts text or true and false in order",
                         f"Trigger {t['id']}: '{c['operator']}' only makes sense for numbers; '{c['variable']}' is a {want}.")
+        if t.get("operation") == "add" and action != "setVariable":
+            add(ERROR, rel, obj["id"], "trigger-operation-action", "Only setting a variable can add",
+                f"Trigger {t['id']}: 'add' is for setVariable, but this rule's action is {action}.")
         if action == "setVariable" and target in variables:
             want = variables[target]
-            if "value" not in t:
+            if t.get("operation") == "add":
+                if want != "number":
+                    add(ERROR, rel, obj["id"], "trigger-operation-type", "Adding needs a number variable",
+                        f"Trigger {t['id']}: '{target}' is a {want}, so a number cannot be added to it.")
+                elif "value" in t and _value_type(t["value"]) != "number":
+                    add(ERROR, rel, obj["id"], "trigger-value-type", "Adding something that is not a number",
+                        f"Trigger {t['id']}: the value {json.dumps(t['value'])} is a {_value_type(t['value'])}, and only a number can be added.")
+            elif "value" not in t:
                 if want != "boolean":
                     add(ERROR, rel, obj["id"], "trigger-value-type", "Setting a variable needs a value",
                         f"Trigger {t['id']}: with no value a variable is set to true, but '{target}' is a {want}.")
@@ -478,18 +712,117 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, object_ids, add, all
                 f"Trigger {t['id']}: a {kind} object cannot cause '{event}'. Move the rule to an object that can, or use a different event.")
 
 
+def _change_state(rel, obj, t, target, add):
+    """A rule that applies a look: the object has to have it, and a screen reader user is told about it, because a change that is only
+    seen is a change they miss. 'normal' is the object's own appearance, and a disabled control already says so to assistive technology."""
+    value = t.get("value", "normal")
+    if not isinstance(value, str):
+        add(ERROR, rel, obj["id"], "trigger-value-type", "A look is named by text",
+            f"Trigger {t['id']}: the value {json.dumps(value)} is a {_value_type(value)}, but the name of a look is text.")
+        return
+    looks = target["states"]
+    if value != "normal" and value not in looks:
+        add(ERROR, rel, obj["id"], "trigger-state-missing", "A rule applies a look the object does not have",
+            f"Trigger {t['id']}: the rule applies the look '{value}' to '{target['id']}', which has no look with that name. "
+            f"Add the look to that object, or choose one it has, or normal.")
+    elif value not in ("normal", "disabled") and not looks[value].get("announce") and not target["accessibility"]["decorative"]:
+        add(WARNING, rel, obj["id"], "state-silent", "A screen reader user is not told about this change",
+            f"Trigger {t['id']}: the look '{value}' of '{target['id']}' has no spoken message, so only a learner who can see it knows it was applied. "
+            f"Write what a screen reader should say in the look's Spoken message box.")
+
+
+BLANK_MARKER = re.compile(r"\{([A-Za-z0-9_-]+)\}")
+
+
+def _tidy(text):
+    return " ".join(text.split())
+
+
 def _quiz(rel, obj, add):
+    """A question of any kind: its parts must make sense, so that it has a right answer a learner can give."""
     if obj["type"] != "quizQuestion":
         return
-    choices = obj["content"]["choices"]
-    ids = [c["id"] for c in choices]
-    for dup in sorted({i for i in ids if ids.count(i) > 1}):
-        add(ERROR, rel, obj["id"], "quiz-duplicate-choice", "Quiz answers must have different ids",
-            f"More than one answer has the id '{dup}'.")
-    correct = sum(1 for c in choices if c["correct"])
-    if correct != 1:
-        add(ERROR, rel, obj["id"], "quiz-correct-answer", "Quiz needs exactly one correct answer",
-            f"This question has {correct} answers marked correct.")
+    c = obj["content"]
+    kind = c["questionType"]
+    oid = obj["id"]
+
+    def duplicates(values):
+        return sorted({v for v in values if values.count(v) > 1})
+
+    if kind in ("multipleChoice", "multipleResponse"):
+        choices = c["choices"]
+        ids = [x["id"] for x in choices]
+        for dup in duplicates(ids):
+            add(ERROR, rel, oid, "quiz-duplicate-choice", "Quiz answers must have different ids",
+                f"More than one answer has the id '{dup}'.")
+        correct = sum(1 for x in choices if x["correct"])
+        if kind == "multipleChoice" and correct != 1:
+            add(ERROR, rel, oid, "quiz-correct-answer", "Quiz needs exactly one correct answer",
+                f"This question has {correct} answers marked correct.")
+        if kind == "multipleResponse":
+            if correct == 0:
+                add(ERROR, rel, oid, "quiz-correct-answer", "Quiz needs at least one correct answer",
+                    "No answer in this question is marked correct.")
+            elif correct == len(choices):
+                add(WARNING, rel, oid, "quiz-all-correct", "Every answer in this question is marked correct",
+                    "A learner could tick everything and be right, so the question tests nothing.")
+    elif kind == "shortAnswer":
+        if any(not a.strip() for a in c["answers"]):
+            add(ERROR, rel, oid, "quiz-empty-answer", "An accepted answer is empty", "Every accepted answer needs some text.")
+    elif kind == "numeric":
+        if c["min"] > c["max"]:
+            add(ERROR, rel, oid, "quiz-numeric-range", "The lowest accepted number is above the highest",
+                f"The accepted range runs from {c['min']} to {c['max']}, which no number is in.")
+    elif kind == "fillBlanks":
+        blank_ids = [b["id"] for b in c["blanks"]]
+        for dup in duplicates(blank_ids):
+            add(ERROR, rel, oid, "quiz-duplicate-blank", "Blanks must have different ids", f"More than one blank has the id '{dup}'.")
+        markers = BLANK_MARKER.findall(c["text"])
+        for m in sorted(set(markers) - set(blank_ids)):
+            add(ERROR, rel, oid, "quiz-blank-missing", "The sentence has a blank with no answer",
+                f"The text has a blank {{{m}}} but no answer is set for it.")
+        for b in sorted(set(blank_ids) - set(markers)):
+            add(ERROR, rel, oid, "quiz-blank-unused", "A blank is not in the sentence",
+                f"Blank '{b}' has answers but {{{b}}} is not in the text.")
+        for b in c["blanks"]:
+            if any(not a.strip() for a in b["answers"]):
+                add(ERROR, rel, oid, "quiz-empty-answer", "An accepted answer is empty", f"Blank '{b['id']}' has an empty answer.")
+        if c["mode"] != "typed":
+            bank = [_tidy(w) for w in c["wordBank"]]
+            lowered = [w.lower() for w in bank]
+            for dup in duplicates(lowered):
+                add(ERROR, rel, oid, "quiz-word-bank-duplicate", "The word bank repeats a word", f"The word '{dup}' is in the word bank more than once.")
+            for b in c["blanks"]:
+                if b["answers"] and _tidy(b["answers"][0]) not in bank:
+                    add(ERROR, rel, oid, "quiz-word-bank", "A right answer is not in the word bank",
+                        f"Blank '{b['id']}' is right with '{b['answers'][0]}', which a learner cannot choose because it is not in the word bank.")
+    elif kind == "matching":
+        for dup in duplicates([p["id"] for p in c["pairs"]]):
+            add(ERROR, rel, oid, "quiz-duplicate-pair", "Pairs must have different ids", f"More than one pair has the id '{dup}'.")
+        options = [_tidy(p["match"]).lower() for p in c["pairs"]] + [_tidy(e).lower() for e in c["extras"]]
+        for dup in duplicates(options):
+            add(ERROR, rel, oid, "quiz-match-duplicate", "Two matches read the same",
+                f"'{dup}' is offered more than once, so a learner could not tell which is meant.")
+    elif kind == "sequencing":
+        for dup in duplicates([i["id"] for i in c["items"]]):
+            add(ERROR, rel, oid, "quiz-duplicate-item", "Items must have different ids", f"More than one item has the id '{dup}'.")
+        for dup in duplicates([_tidy(i["text"]).lower() for i in c["items"]]):
+            add(WARNING, rel, oid, "quiz-item-duplicate", "Two items read the same",
+                f"'{dup}' appears more than once, so a learner cannot tell which place is which.")
+    elif kind == "hotspot":
+        if not c["image"]["alt"].strip():
+            add(ERROR, rel, oid, "quiz-hotspot-alt", "The picture needs alt text", "A learner who cannot see the picture needs to know what it shows.")
+        for dup in duplicates([r["id"] for r in c["regions"]]):
+            add(ERROR, rel, oid, "quiz-duplicate-region", "Areas must have different ids", f"More than one area has the id '{dup}'.")
+        if not any(r["correct"] for r in c["regions"]):
+            add(ERROR, rel, oid, "quiz-correct-answer", "Quiz needs at least one correct area", "No area is marked correct.")
+        for r in c["regions"]:
+            if not r["label"].strip():
+                add(ERROR, rel, oid, "quiz-region-label", "An area needs a label", f"Area '{r['id']}' has no label, so it cannot be chosen from the list.")
+            if r["x"] + r["width"] > 100.0001 or r["y"] + r["height"] > 100.0001:
+                add(ERROR, rel, oid, "quiz-region-bounds", "An area runs off the picture", f"Area '{r['label'] or r['id']}' is not wholly inside the picture.")
+        for dup in duplicates([_tidy(r["label"]).lower() for r in c["regions"]]):
+            add(WARNING, rel, oid, "quiz-region-duplicate", "Two areas have the same label", f"'{dup}' labels more than one area, so the list cannot tell them apart.")
 
 
 def _interaction(rel, obj, add):
@@ -537,18 +870,26 @@ def _table(rel, obj, add):
             "A screen reader has nothing to say for an empty header, so give each header some text.")
 
 
-def _input(rel, obj, variables, add):
+def _input(rel, obj, variables, add, cast=None):
     if obj["type"] != "input":
         return
     c = obj["content"]
     kind = c["kind"]
     oid = obj["id"]
     parts = c.get("items") or c.get("rows") or c.get("options") or []
+    if kind == "character":
+        people = c["characters"]
+        for dup in sorted({i for i in people if people.count(i) > 1}):
+            add(ERROR, rel, oid, "input-duplicate-id", "Input parts must have different ids", f"The person '{dup}' is listed more than once.")
+        for person in dict.fromkeys(people):
+            if person == YOU or person not in (cast or {}):
+                add(ERROR, rel, oid, "input-character-unknown", "A choice of character names someone who is not in the cast",
+                    f"'{person}' is not in the project's cast. Add them in the Characters dialog, or take them out of this input.")
     ids = [p["id"] for p in parts]
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
         add(ERROR, rel, oid, "input-duplicate-id", "Input parts must have different ids", f"More than one part has the id '{dup}'.")
 
-    refs = [c["variable"]] if kind in ("radio", "dropdown", "list") else [p["variable"] for p in parts]
+    refs = [c["variable"]] if kind in ("radio", "dropdown", "list", "character") else [p["variable"] for p in parts]
     want = INPUT_VARIABLE_TYPE[kind]
     for ref in refs:
         if ref not in variables:
@@ -658,14 +999,209 @@ def _feedback_refs(rel, obj, layer_ids, add):
 
 
 def narrations_of(obj):
-    """Every narration an object holds: its own, then one for each item of an interaction that has one.
-    Yields (narration, what it belongs to), where the second part is "" for the object itself."""
+    """Every narration an object holds: its own, then one for each item of an interaction that has one, and one for each audio
+    description of a video that has one. Yields (narration, what it belongs to), where the second part is "" for the object itself."""
     if obj["narration"]:
         yield obj["narration"], ""
     if obj["type"] == "interaction":
         for item in obj["content"]["items"]:
             if item.get("narration"):
                 yield item["narration"], f" (item '{item['title']}')"
+    if obj["type"] == "video":
+        for cue in ((obj["content"].get("description") or {}).get("cues") or []):
+            if cue.get("narration"):
+                yield cue["narration"], f" (audio description at {_clock(cue['time'])})"
+    if obj["type"] == "scenario":
+        for _, line, where in scenario_lines(obj["content"]):
+            if line.get("narration"):
+                yield line["narration"], f" ({where})"
+
+
+def _clock(ms):
+    """A time in a video as people write it: 1:05."""
+    seconds = int(ms // 1000)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def _description(rel, obj, add):
+    """An audio description is a list of cues on a video: at this time, say this. Each should be spoken as well as written."""
+    description = obj["content"].get("description") if isinstance(obj.get("content"), dict) else None
+    oid = obj["id"]
+    if obj["type"] == "audio" and description is not None:
+        add(ERROR, rel, oid, "description-on-audio", "An audio clip cannot have an audio description",
+            "An audio description says what a picture shows, and a sound clip has no picture. Put it on a video.")
+        return
+    if obj["type"] != "video" or description is None:
+        return
+    seen = set()
+    for cue in description["cues"]:
+        at = _clock(cue["time"])
+        if cue["id"] in seen:
+            add(ERROR, rel, oid, "description-duplicate-id", "Two descriptions have the same id",
+                f"The description at {at} shares its id '{cue['id']}' with another on this video.")
+        seen.add(cue["id"])
+        if not cue["text"].strip():
+            add(ERROR, rel, oid, "description-text-missing", "A description has no words",
+                f"The description at {at} needs words that say what the picture shows at that moment.")
+        if not cue["narration"]:
+            add(WARNING, rel, oid, "description-not-voiced", "A description is not spoken",
+                f"The description at {at} can only be read. WCAG 2.2 (1.2.5, level AA) asks for audio description that is heard with the video, "
+                "so use the description as the voice, then make the audio.")
+
+
+def scenario_lines(content):
+    """Every line of a scenario, in the order a learner meets them: for each situation its lines, then the response to each of
+    its choices. Yields (situation, line, where) where `where` says in words which one it is."""
+    for node in content["nodes"]:
+        for line in node["lines"]:
+            yield node, line, f"line '{_brief(line['text'])}' in '{node['title']}'"
+        for choice in node["choices"]:
+            for line in choice["response"]:
+                yield node, line, f"response '{_brief(line['text'])}' to '{choice['label']}' in '{node['title']}'"
+
+
+def _brief(text, limit=30):
+    """The start of some text, to point at it in a message."""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "..."
+
+
+def _scenario(rel, obj, variables, cast, chosen, add):
+    """A scenario is a map of situations. It has to start somewhere that exists, every choice has to lead somewhere that exists,
+    and a learner has to be able to get to an end. Everyone it names (speakers, variables) has to exist."""
+    if obj["type"] != "scenario":
+        return
+    c = obj["content"]
+    oid = obj["id"]
+    nodes = {n["id"]: n for n in c["nodes"]}
+
+    # one set of ids, because the path a learner took is remembered by them and audio is filed under them
+    seen = {}
+    for node in c["nodes"]:
+        seen.setdefault(node["id"], []).append("situation")
+        for line in node["lines"]:
+            seen.setdefault(line["id"], []).append("line")
+        for choice in node["choices"]:
+            seen.setdefault(choice["id"], []).append("choice")
+            for line in choice["response"]:
+                seen.setdefault(line["id"], []).append("line")
+    for meter in c["meters"]:
+        seen.setdefault(meter["id"], []).append("meter")
+    for dup, kinds in sorted(seen.items()):
+        if len(kinds) > 1:
+            add(ERROR, rel, oid, "scenario-duplicate-id", "Two parts of a scenario have the same id",
+                f"'{dup}' is used {len(kinds)} times in this scenario ({', '.join(kinds)}). Every situation, choice, line and meter needs its own.")
+
+    if c["start"] not in nodes:
+        add(ERROR, rel, oid, "scenario-start-missing", "A scenario has to start in a situation that exists",
+            f"The start, '{c['start']}', is not one of this scenario's situations.")
+
+    for node in c["nodes"]:
+        labels = []
+        for choice in node["choices"]:
+            if choice["next"] not in nodes:
+                add(ERROR, rel, oid, "scenario-next-missing", "A choice leads to a situation that does not exist",
+                    f"The choice '{_brief(choice['label'])}' in '{node['title']}' leads to '{choice['next']}'.")
+            if not choice["label"].strip():
+                add(ERROR, rel, oid, "scenario-choice-empty", "A choice has no words",
+                    f"A choice in '{node['title']}' needs words that say what the learner does.")
+            else:
+                labels.append(" ".join(choice["label"].split()).lower())
+            for effect in choice["effects"]:
+                kind = variables.get(effect["variable"])
+                if kind is None:
+                    add(ERROR, rel, oid, "scenario-effect-variable", "A choice changes a variable that does not exist",
+                        f"The choice '{_brief(choice['label'])}' adds to '{effect['variable']}', which is not defined in project.json.")
+                elif kind != "number":
+                    add(ERROR, rel, oid, "scenario-effect-variable", "A choice can only add to a number variable",
+                        f"The choice '{_brief(choice['label'])}' adds to '{effect['variable']}', which is a {kind}.")
+        for dup in sorted({x for x in labels if labels.count(x) > 1}):
+            add(WARNING, rel, oid, "scenario-choice-duplicate", "Two choices say the same thing",
+                f"In '{node['title']}' more than one choice reads \"{dup}\". A learner using a screen reader cannot tell them apart.")
+
+    for node, line, where in scenario_lines(c):
+        if not line["text"].strip():
+            add(ERROR, rel, oid, "scenario-line-empty", "A line has no words", f"The {where} has no text.")
+        speaker = line["speaker"]
+        if speaker is not None and speaker != YOU and speaker not in cast:
+            add(ERROR, rel, oid, "scenario-speaker-unknown", "A line is spoken by someone who is not in the cast",
+                f"The {where} is spoken by '{speaker}', who is not in the project's cast.")
+        voice = (line["narration"] or {}).get("voice")
+        if voice and speaker in cast and cast[speaker]["voice"] != voice:
+            add(WARNING, rel, oid, "scenario-voice-differs", "A line is not read in its speaker's voice",
+                f"The {where} is spoken by {cast[speaker]['name']}, whose voice is {cast[speaker]['voice']}, but it is read in {voice}.")
+
+    # a learner has to be able to finish
+    if c["start"] in nodes:
+        reached, queue = {c["start"]}, [c["start"]]
+        while queue:
+            for choice in nodes[queue.pop()]["choices"]:
+                if choice["next"] in nodes and choice["next"] not in reached:
+                    reached.add(choice["next"])
+                    queue.append(choice["next"])
+        for node in c["nodes"]:
+            if node["id"] not in reached:
+                add(WARNING, rel, oid, "scenario-unreachable", "A situation can never be reached",
+                    f"No choice leads to '{node['title']}', and it is not the start.")
+        if not any(not nodes[n]["choices"] for n in reached):
+            add(WARNING, rel, oid, "scenario-no-ending", "A learner can never finish this scenario",
+                "Every situation that can be reached has choices. Add a situation with no choices, as an ending, and lead to it.")
+
+    for meter in c["meters"]:
+        kind = variables.get(meter["variable"])
+        if kind is None or kind != "number":
+            add(ERROR, rel, oid, "scenario-meter-variable", "A meter shows something that is not a number variable",
+                f"The meter '{meter['label']}' shows '{meter['variable']}', " + ("which is not defined in project.json." if kind is None else f"which is a {kind}."))
+        if meter["min"] >= meter["max"]:
+            add(ERROR, rel, oid, "scenario-meter-range", "A meter's smallest value must be less than its largest",
+                f"The meter '{meter['label']}' goes from {meter['min']} to {meter['max']}.")
+
+    if c["finishedVariable"] is not None and variables.get(c["finishedVariable"]) != "boolean":
+        add(ERROR, rel, oid, "scenario-finished-variable", "The variable set at an ending must be a true or false variable",
+            f"'{c['finishedVariable']}' " + ("is not defined in project.json." if c["finishedVariable"] not in variables else f"is a {variables[c['finishedVariable']]}."))
+
+    you = c["you"]
+    if you is not None:
+        if variables.get(you) != "string":
+            add(ERROR, rel, oid, "scenario-you-variable", "The variable that holds the learner's character must be a text variable",
+                f"'{you}' " + ("is not defined in project.json." if you not in variables else f"is a {variables[you]}."))
+        elif you not in chosen:
+            add(WARNING, rel, oid, "scenario-you-unset", "Nothing lets the learner choose who they are",
+                f"This scenario shows the character saved in '{you}', but no choice of character saves to it, so the learner will always be just \"you\". "
+                "Add a Choose a character input to an earlier slide.")
+
+
+def _characters(project, asset_root, add):
+    """The cast. Each person needs a name, a voice that exists, and a picture that is described (or marked as decoration)."""
+    rel = "project.json"
+    people = project.get("characters") or []
+    ids = [p["id"] for p in people]
+    for dup in sorted({i for i in ids if ids.count(i) > 1}):
+        add(ERROR, rel, dup, "character-duplicate-id", "Two people in the cast have the same id", f"More than one person has the id '{dup}'.")
+    names = [" ".join(p["name"].split()).lower() for p in people]
+    for person in people:
+        pid = person["id"]
+        if pid == YOU:
+            add(ERROR, rel, pid, "character-id-reserved", "A person in the cast cannot have the id 'you'",
+                "'you' means the learner in a scenario. Give this person another id.")
+        if not person["name"].strip():
+            add(ERROR, rel, pid, "character-name-empty", "A person in the cast needs a name", "The name is what the learner reads beside their lines.")
+        elif names.count(" ".join(person["name"].split()).lower()) > 1:
+            add(WARNING, rel, pid, "character-name-duplicate", "Two people in the cast have the same name",
+                f"More than one person is called '{person['name']}'. A learner cannot tell them apart.")
+        if person["voice"] not in _voices():
+            add(ERROR, rel, pid, "voice-unknown", "Unknown voice", f"'{person['voice']}' is not in the available voice set (the voice of {person['name']}).")
+        picture = person["picture"]
+        if picture:
+            if picture["decorative"] and picture["alt"].strip():
+                add(ERROR, rel, pid, "character-picture-alt", "Decorative pictures must have no alt text",
+                    f"The picture of {person['name']} is marked decorative but has alt text.")
+            elif not picture["decorative"] and not picture["alt"].strip():
+                add(ERROR, rel, pid, "character-picture-alt", "A picture of a person needs alt text, or must be marked decorative",
+                    f"The picture of {person['name']} has no alt text. Say what they look like, in a few words.")
+            target = (asset_root / picture["src"]).resolve()
+            if asset_root.resolve() not in target.parents or not target.is_file():
+                add(ERROR, rel, pid, "asset-missing", "Asset missing", f"{picture['src']} does not exist in the project.")
 
 
 def _narration(rel, obj, add):
@@ -684,6 +1220,52 @@ def _narration(rel, obj, add):
 
 
 # ---------------------------------------------------------------- entry point
+
+def source_excluded(rel, patterns):
+    """Whether a path inside the project (forward slashes, relative to the project folder) is left out of a package's source/ copy.
+    A pattern with no slash matches a file or folder of that name at any depth; a pattern with a slash is a path from the project
+    folder, and a folder takes everything inside it. The publisher has the same rule in player/src/exclude.ts, and both are tested
+    against tools/source-exclude-cases.json."""
+    parts = rel.split("/")
+    for pattern in patterns:
+        pattern = pattern.rstrip("/")
+        if not pattern:
+            continue
+        if "/" not in pattern:
+            if pattern in parts:
+                return True
+        elif rel == pattern or rel.startswith(pattern + "/"):
+            return True
+    return False
+
+
+CAPTURE_FILES = ("events.jsonl",)
+CAPTURE_FOLDERS = ("capture", "captures")
+
+
+def _capture_material(project, project_dir, add):
+    """Raw recording material (an interaction log, footage) must not sit in the project: the package carries the whole project folder
+    in source/, and assets/ is published with the course, so every learner could download it."""
+    patterns = project.get("sourceExclude", [])
+    for folder, dirs, files in os.walk(project_dir):
+        rel_folder = pathlib.Path(folder).relative_to(project_dir).as_posix()
+        rel_folder = "" if rel_folder == "." else rel_folder
+        found = [d for d in dirs if d.lower() in CAPTURE_FOLDERS]
+        found_files = [f for f in files if f.lower() in CAPTURE_FILES]
+        dirs[:] = [d for d in dirs if d != ".cache" and d.lower() not in CAPTURE_FOLDERS]
+        for name in found + found_files:
+            rel = f"{rel_folder}/{name}" if rel_folder else name
+            published = rel.split("/")[0] == "assets"
+            if published:
+                add(WARNING, "project.json", rel, "capture-material-in-project", "Raw recording material is in the published assets",
+                    f"'{rel}' looks like raw recording material (an interaction log or footage). Everything under assets/ is published with the course, "
+                    "so every learner could download it. Keep recordings outside the project folder.")
+            elif not source_excluded(rel, patterns):
+                add(WARNING, "project.json", rel, "capture-material-in-project", "Raw recording material is inside the project",
+                    f"'{rel}' looks like raw recording material (an interaction log or footage). Everything in the project folder goes into the "
+                    "source/ folder of a published package, so every learner could download it. Keep it outside the project folder, "
+                    "or list it in sourceExclude in project.json.")
+
 
 def validate_project(project_dir, asset_root=None):
     """asset_root: where assets/ and .cache/ are looked for, if not under project_dir. The
@@ -726,6 +1308,7 @@ def validate_project(project_dir, asset_root=None):
             if not t_hard:
                 theme = theme_data
                 _check_theme(ref, theme, add)
+                _check_logo(ref, theme, asset_root, add)
 
     variables = {v["id"]: v["type"] for v in project["variables"]}
     listed = [s for scene in project["scenes"] for s in scene["slides"]]
@@ -758,13 +1341,20 @@ def validate_project(project_dir, asset_root=None):
     slides_by_id |= set(listed)  # a missing file is reported once above, not again per trigger
 
     # Cross-file rules.
-    seen_ids, seen_prov = {}, {}
+    seen_ids, seen_prov, seen_steps, seen_deck_slides, named_decks = {}, {}, {}, {}, set()
     for rel, slide in slides.items():
+        step = slide.get("provenance")
+        if step and "sourceCapture" in step:
+            seen_steps.setdefault((step["sourceCapture"], step["stepId"]), []).append((rel, slide["id"]))
+        elif step and "sourceDeck" in step:
+            seen_deck_slides.setdefault((step["sourceDeck"], step["slideId"]), []).append((rel, slide["id"]))
+            named_decks.add(step["sourceDeck"])
         for _, obj in _objects(slide):
             seen_ids.setdefault(obj["id"], []).append((rel, obj["name"]))
             prov = obj["provenance"]
-            if prov:
+            if prov and "sourceDeck" in prov:
                 seen_prov.setdefault((prov["sourceDeck"], prov["shapeId"]), []).append((rel, obj["id"]))
+                named_decks.add(prov["sourceDeck"])
     for oid, where in seen_ids.items():
         if len(where) > 1:
             for rel, name in where:
@@ -777,6 +1367,28 @@ def validate_project(project_dir, asset_root=None):
                     "Duplicate provenance, re-sync behaviour undefined",
                     f"Source deck '{deck}' shape {shape} appears {len(where)} times.")
 
+    for (deck, slide_id), where in seen_deck_slides.items():
+        if len(where) > 1:
+            for rel, sid in where:
+                add(WARNING, rel, sid, "provenance-duplicate",
+                    "Duplicate provenance, re-sync behaviour undefined",
+                    f"Source deck '{deck}' slide {slide_id} is the source of {len(where)} slides.")
+    listed_decks = {d["id"] for d in project.get("sources", [])}
+    for deck in sorted(named_decks - listed_decks):
+        add(WARNING, "project.json", "-", "import-source-missing",
+            "Imported slides name a deck that the project does not list",
+            f"Slides or shapes say they came from '{deck}', but the project lists no such deck, so a changed deck cannot be placed the way it was.")
+
+    for (capture, step), where in seen_steps.items():
+        if len(where) > 1:
+            for rel, sid in where:
+                add(WARNING, rel, sid, "provenance-duplicate",
+                    "Duplicate provenance, re-sync behaviour undefined",
+                    f"Capture '{capture}' step {step} is the source of {len(where)} slides.")
+
+    _capture_material(project, project_dir, add)
+    _characters(project, asset_root, add)
+    _icon_credit(project, slides, add)
     _completion(project, slides, listed, add)
     _results(slides, add)
     _timing(slides, add)
@@ -792,8 +1404,11 @@ def validate_project(project_dir, asset_root=None):
 
     # Per-slide rules, and asset / cache checks that need the project folder.
     saved_by_inputs = input_values(list(slides.values()))
+    cast = {p["id"]: p for p in project.get("characters") or []}
+    chosen = {obj["content"]["variable"] for s in slides.values() for _, obj in _objects(s)
+              if obj["type"] == "input" and obj["content"]["kind"] == "character"}
     for rel, slide in slides.items():
-        _check_slide(rel, slide, variables, slides_by_id, add, theme, saved_by_inputs)
+        _check_slide(rel, slide, variables, slides_by_id, add, theme, saved_by_inputs, project["stage"], cast, chosen, list(dict.fromkeys(listed)))
         for _, obj in _objects(slide):
             _assets(asset_root, rel, obj, add)
 
@@ -836,9 +1451,20 @@ def _timing(slides, add):
         if duration is not None and has_question:
             add(WARNING, rel, slide["id"], "slide-advances-with-question", "A slide with a question moves on by itself",
                 "A learner who is still thinking would be moved past the question. Finishing every question is needed to complete the course.")
+        on_slide = {o["id"]: o for _, o in _objects(slide)}
+        follows_media = False
         for layer, obj in _objects(slide):
             t = obj["timing"]
             oid = obj["id"]
+            if t["appear"] == "media":
+                follows_media = True
+                target = on_slide.get(t["media"])
+                if t["media"] == oid:
+                    add(ERROR, rel, oid, "timing-media-self", "An object cannot follow itself",
+                        "Choose a video or audio clip on this slide for it to follow.")
+                elif target is None or target["type"] not in ("video", "audio"):
+                    add(ERROR, rel, oid, "timing-media-missing", "This object follows a video or audio clip that is not on its slide",
+                        f"'{t['media']}' is not a video or audio object on this slide. Choose one, or show the object a set time after the slide opens.")
             if t["appear"] == "narration" and not obj["narration"]:
                 add(ERROR, rel, oid, "timing-narration-missing", "This object is set to appear with its narration, but it has none",
                     "Write the object's narration, or choose to show it a set time after the slide opens.")
@@ -857,6 +1483,9 @@ def _timing(slides, add):
                 if t["visibleFor"] < needed:
                     add(WARNING, rel, oid, "timing-too-brief", "This text may disappear before it can be read",
                         f"It stays for {t['visibleFor'] / 1000:g} seconds. At a comfortable pace {words} words take about {needed / 1000:g}.")
+        if duration is not None and follows_media:
+            add(WARNING, rel, slide["id"], "timing-media-advance", "A slide that moves on by itself holds objects that follow a video or audio clip",
+                "The slide would move on after its own time, whether or not the clip has reached them. Let the learner decide when to go on.")
 
 
 def _results(slides, add):
@@ -881,6 +1510,8 @@ def _assets(project_dir, rel, obj, add):  # project_dir here is the asset root
         refs.append(obj["content"].get("captions"))
     if obj["type"] == "interaction":
         refs += [i["image"]["src"] for i in obj["content"]["items"] if i["image"]]
+    if obj["type"] == "quizQuestion" and obj["content"]["questionType"] == "hotspot":
+        refs.append(obj["content"]["image"]["src"])
     for ref in filter(None, refs):
         target = (project_dir / ref).resolve()
         inside = project_dir.resolve() in target.parents

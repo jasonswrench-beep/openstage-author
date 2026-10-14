@@ -39,8 +39,14 @@ export function plainSeconds(ms: number): string {
  * What a timing says, for the Properties panel, the Timing list and the announcements. `onLayer` is for an object on a layer
  * other than the base layer, whose times count from when that layer is shown, not from when the slide opens.
  */
-export function describeTiming(t: Timing, onLayer = false): string {
+export function describeTiming(t: Timing, onLayer = false, clipName?: string): string {
   if (isStartingTiming(t)) return "Always there";
+  if (t.appear === "media") {
+    // Counted on the clip's own time: playing, pausing, skipping and going back all move it.
+    const clip = clipName ?? "its video or audio";
+    const appears = t.start === 0 ? `Shows from the start of ${clip}` : `Appears ${plainSeconds(t.start)} into ${clip}`;
+    return t.visibleFor === null ? `${appears}, then stays` : `${appears}, then disappears ${plainSeconds(t.visibleFor)} later`;
+  }
   const origin = t.appear === "narration" ? "its narration starts" : onLayer ? "its layer is shown" : "the slide opens";
   const appears = t.appear === "time" && t.start === 0
     ? (onLayer ? "Shows when its layer is shown" : "Shows when the slide opens")

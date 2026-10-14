@@ -5,6 +5,7 @@ import { Runtime, type Host, type Snapshot } from "./runtime.ts";
 import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
+import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
 import { shouldReflow } from "./reflow.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
@@ -22,6 +23,8 @@ export class Player implements Host {
   private readonly announcer: HTMLElement;
   private readonly narration: NarrationBar;
   private readonly timeline: Timeline;
+  /** Watches the video or audio clips that objects on the slide are timed to. */
+  private readonly follower: MediaFollower;
   private readonly timingBar: HTMLElement;
   private readonly pauseBtn: HTMLButtonElement;
   private readonly showAllBtn: HTMLButtonElement;
@@ -75,6 +78,10 @@ export class Player implements Host {
       advance: () => this.step(1),
       changed: () => this.syncTimingBar(),
     });
+    this.follower = new MediaFollower({
+      time: (id, ms) => this.timeline.clipTime(id, ms),
+      failed: (id) => this.timeline.clipFailed(id),
+    });
     this.timingBar = el(doc, "section", "os-timing");
     this.timingBar.setAttribute("aria-label", "Timing");
     this.timingBar.hidden = true;
@@ -90,8 +97,16 @@ export class Player implements Host {
       this.say(this.animationOff ? "Animation turned off." : "Animation turned on.");
     });
     this.pauseBtn.addEventListener("click", () => {
-      if (this.timeline.paused) this.timeline.resume(); else this.timeline.pause();
-      this.say(this.timeline.paused ? "Timing paused." : "Timing resumed.");
+      // Pausing the timing also pauses a clip that is playing, so everything holds still; resuming plays it again.
+      if (this.timeline.paused) {
+        this.timeline.resume();
+        const played = this.follower.release();
+        this.say(played > 0 ? "Timing resumed. The video or audio plays again." : "Timing resumed.");
+      } else {
+        this.timeline.pause();
+        const stopped = this.follower.hold();
+        this.say(stopped > 0 ? "Timing paused. The video or audio is paused too." : "Timing paused.");
+      }
     });
     this.showAllBtn.addEventListener("click", () => {
       this.timeline.showEverything();
@@ -109,11 +124,23 @@ export class Player implements Host {
       course: () => ({ title: pkg.project.meta.title, language: pkg.project.meta.language }),
       fileSize: (path) => pkg.fileSizes?.[path],
       itemAudio: (objectId, itemId) => Boolean(pkg.narration[itemNarrationKey(objectId, itemId)]?.audio),
+      descriptionAudio: (objectId, cueId) => pkg.narration[itemNarrationKey(objectId, cueId)]?.audio ?? null,
       playItem: (objectId, itemId) => {
         const key = itemNarrationKey(objectId, itemId);
         const asset = pkg.narration[key];
         if (asset) this.narration.playNow([{ id: key, asset }]);
       },
+      playItems: (objectId, itemIds) => {
+        const items = itemIds.flatMap((itemId) => {
+          const key = itemNarrationKey(objectId, itemId);
+          const asset = pkg.narration[key];
+          return asset ? [{ id: key, asset }] : [];
+        });
+        this.narration.playNow(items);
+      },
+      characters: () => pkg.project.characters ?? [],
+      scenarioPath: (objectId) => this.runtime.scenarioPath(objectId),
+      onScenarioMove: (obj, move) => this.runtime.scenarioMove(obj.id, move),
       announce: (msg) => {
         this.announcer.textContent = "";
         requestAnimationFrame(() => (this.announcer.textContent = msg));
@@ -121,6 +148,8 @@ export class Player implements Host {
       onMediaEnded: (id) => this.runtime.fire(id, "mediaComplete"),
     };
     this.stage = new StageRenderer(doc, this.stageEl, behavior, pkg.theme);
+    // A variable changed (a rule, a choice in a scenario, a choice of character): a scenario on screen shows it.
+    this.runtime.onEvent((e) => { if (e.type === "state") this.stage.refreshScenarios(); });
 
     // Narration controls come first in the page so the pause control is easy to reach (WCAG 1.4.2).
     this.narration = new NarrationBar(doc, {
@@ -188,6 +217,13 @@ export class Player implements Host {
     // Set up the timing before the narration starts, so the first object's narration is heard by it.
     this.timeline.reset();
     this.animations.clear();
+    // Objects timed to a video or audio clip follow that clip's own time. A clip that is not on the slide counts as one that cannot play.
+    this.follower.detach();
+    const followed = new Set<string>();
+    for (const o of [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects)) {
+      if (o.timing.appear === "media" && o.timing.media) followed.add(o.timing.media);
+    }
+    for (const clipId of followed) this.follower.attach(clipId, this.stage.mediaElement(clipId));
     for (const layer of [slide.baseLayer, ...slide.layers]) {
       if (layer === slide.baseLayer || this.runtime.visibleLayers.has(layer.id)) this.timeLayer(layer);
     }
@@ -276,7 +312,8 @@ export class Player implements Host {
   }
 
   setObjectState(objectId: string, state: string): void {
-    this.stage.setObjectState(objectId, state);
+    const said = this.stage.setObjectState(objectId, state);
+    if (said) this.say(said);
   }
 
   private step(delta: number): void {

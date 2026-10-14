@@ -23,6 +23,16 @@ const ids = () => { let n = 100; return () => `trg-${n++}`; };
 
 // ---- reading and writing
 
+test("changing an object's look is a rule like any other, and keeps its look through reading and writing", () => {
+  const triggers = [trig("a", "slideEnd", "changeState", "obj-0001", { value: "done" }), trig("b", "slideStart", "changeState", "obj-0001")];
+  const items = readRules(triggers);
+  assert.deepEqual(items.map((i) => i.kind), ["rule", "rule"]);
+  assert.equal(items[0]!.kind === "rule" && items[0]!.rule.action, "changeState");
+  assert.equal(items[0]!.kind === "rule" && items[0]!.rule.value, "done");
+  assert.equal(items[1]!.kind === "rule" && "value" in items[1]!.rule, false, "no value stays no value, which means normal");
+  assert.deepEqual(writeRules(items, ids()), triggers);
+});
+
 test("a click with its matching key press is one rule that happens when the learner presses it", () => {
   const triggers = [trig("a", "click", "jumpToSlide", "slide-002"), trig("b", "keyActivate", "jumpToSlide", "slide-002")];
   const items = readRules(triggers);
@@ -42,13 +52,13 @@ test("a lone click, a lone key press and an action the editor cannot edit are ke
   const triggers = [
     trig("a", "click", "jumpToSlide", "slide-002"),
     trig("b", "slideStart", "showLayer", "layer-1"),
-    trig("c", "slideEnd", "changeState", "obj-0001", { value: "hover" }),
+    trig("c", "slideEnd", "explode" as Trigger["action"], "obj-0001", { value: "hover" }),
     trig("d", "keyActivate", "jumpToSlide", "slide-002"),
   ];
   const items = readRules(triggers);
   assert.deepEqual(items.map((i) => i.kind), ["raw", "rule", "raw", "raw"]);
   assert.match((items[0] as { why: string }).why, /no matching keyboard trigger/);
-  assert.match((items[2] as { why: string }).why, /changeState/);
+  assert.match((items[2] as { why: string }).why, /explode/);
   assert.deepEqual(writeRules(items, ids()), triggers);
 });
 
@@ -179,7 +189,7 @@ test("rules the editor cannot show are left alone while the others are edited", 
   const b = m.addObject("button")!;
   m.addRule(b.id);
   const obj = m.objects.find((o) => o.id === b.id)!;
-  const odd = trig("trg-0900", "slideEnd", "changeState", b.id, { value: "hover" });
+  const odd = trig("trg-0900", "click", "jumpToSlide", "slide-001");
   obj.triggers = [odd, ...obj.triggers];
   m.addRule(b.id);
   m.deleteRule(b.id, 1);

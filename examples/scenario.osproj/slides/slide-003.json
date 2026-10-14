@@ -1,0 +1,108 @@
+{
+  "id": "slide-003",
+  "name": "What you took away",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0030",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>What you took away</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 44,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "What you took away",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0031",
+        "type": "text",
+        "name": "Summary",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1000,
+          "height": 160,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "html": "<p>Bad news told early, plainly and with a plan costs less than bad news that is found out. The meters were only a way of seeing that: in real life nobody shows you a number.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Bad news told early, plainly and with a plan costs less than bad news that is found out. The meters were only a way of seeing that: in real life nobody shows you a number.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}

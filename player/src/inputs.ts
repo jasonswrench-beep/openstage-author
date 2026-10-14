@@ -1,11 +1,11 @@
-// Inputs: checkboxes, radio buttons, a drop-down, a list, and the two survey scales (Likert and
-// semantic differential). Each one is built from native form controls, so the keyboard and screen
+// Inputs: checkboxes, radio buttons, a drop-down, a list, the two survey scales (Likert and
+// semantic differential), and a choice of character (picture cards, one of which the learner is). Each one is built from native form controls, so the keyboard and screen
 // reader behaviour is the browser's own, and each writes what the learner chose into a variable
 // that triggers can read. The renderer calls buildInput for an object of type "input".
 
-import type { InputContent, OSObject, Primitive } from "./types.ts";
+import type { Character, InputContent, OSObject, Primitive } from "./types.ts";
 
-export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic"] as const;
+export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character"] as const;
 export type InputKind = (typeof INPUT_KINDS)[number];
 
 /** What an input tells the course when the learner changes it. */
@@ -24,11 +24,13 @@ export interface InputHooks {
   /** The variable's value now, so a learner who comes back sees what they chose. */
   value?(variable: string): Primitive | undefined;
   onChange?(change: InputChange): void;
+  /** The project's cast, for a choice of character. */
+  characters?(): Character[];
 }
 
 /** The variable type each kind of input writes. The validator and the editor use the same table. */
 export const INPUT_VARIABLE_TYPE: Record<InputKind, "boolean" | "string" | "number"> = {
-  checkbox: "boolean", radio: "string", dropdown: "string", list: "string", likert: "number", semantic: "number",
+  checkbox: "boolean", radio: "string", dropdown: "string", list: "string", likert: "number", semantic: "number", character: "string",
 };
 
 const letter = (i: number) => String.fromCharCode(97 + i);
@@ -78,6 +80,48 @@ export function buildInput(doc: Document, obj: OSObject, hooks: InputHooks): HTM
       label.append(radio, doc.createTextNode(` ${opt.label}`));
       root.appendChild(label);
     });
+    return root;
+  }
+
+  if (c.kind === "character") {
+    // Picture cards, one radio button each, so the arrow keys move between them and a screen reader says "1 of 3".
+    // The name is the button's name and the role goes with it as a description, together with what the picture shows (said once, here,
+    // because choosing by how someone looks is the point). The picture itself says nothing.
+    const cast = hooks.characters?.() ?? [];
+    const current = hooks.editing ? undefined : hooks.value?.(c.variable ?? "");
+    const group = make(doc, "div", "os-cards");
+    (c.characters ?? []).forEach((personId, i) => {
+      const person = cast.find((p) => p.id === personId);
+      if (!person) return;
+      const label = make(doc, "label", "os-card");
+      const radio = make(doc, "input", "", { type: "radio", name: obj.id, value: person.id }) as HTMLInputElement;
+      radio.checked = current !== undefined && current !== "" && current === person.id;
+      const nameId = id(`${person.id}-name`);
+      const described = [id(`${person.id}-role`)];
+      radio.setAttribute("aria-labelledby", nameId);
+      radio.addEventListener("change", () => { if (radio.checked) emit({ rowId: obj.id, variable: c.variable!, value: person.id, response: letter(i), type: "choice" }); });
+      inert(radio);
+      label.appendChild(radio);
+      if (person.picture) {
+        const img = make(doc, "img", "os-card-pic", { alt: "" }) as HTMLImageElement;
+        img.src = person.picture.src;
+        label.appendChild(img);
+        if (!person.picture.decorative && person.picture.alt.trim() !== "") {
+          const look = make(doc, "span", "os-sr-only", { id: id(`${person.id}-look`) });
+          look.textContent = person.picture.alt;
+          described.push(look.id);
+          label.appendChild(look);
+        }
+      }
+      const name = make(doc, "span", "os-card-name", { id: nameId });
+      name.textContent = person.name;
+      const role = make(doc, "span", "os-card-role", { id: id(`${person.id}-role`) });
+      role.textContent = person.role;
+      radio.setAttribute("aria-describedby", described.join(" "));
+      label.append(name, role);
+      group.appendChild(label);
+    });
+    root.appendChild(group);
     return root;
   }
 

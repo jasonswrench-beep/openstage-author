@@ -22,6 +22,20 @@ style (paragraph or a heading level), a button's label, font size and colours. I
 into the project's `assets/images` folder when added, and are left with empty alt text, so the
 validator flags them until the author writes it or marks them decorative.
 
+**Duplicating a slide, and duplicating and reordering layers.** **Duplicate slide** (under the Slides list, and Ctrl+D while you are in the
+list) puts a copy straight after the slide, in the same scene, and selects it. The copy is called "name copy", then "name copy 2". Everything is
+copied as it is: the layers, every object in the same place, locks, groups, timing, animation, narration (the copy reuses the audio already made, until you
+change a word) and the slide's layout, background and automatic advance. The layers keep their ids, because a layer id only has to be unique on its
+own slide, and the objects get new ids, because those are unique across the project and name their narration. Rules between the slide's own
+objects and layers work on the copy. An input saves to variables of its own, so the copy does not overwrite the original's answers, and the rules
+on the copy that read those answers read the copy's. Rules that jump to other slides are unchanged, and rules on other slides that jump to this
+one still go to the original. Each question on a copied slide counts toward the score again, and you are told. **Duplicate layer** (on the layer
+bar above the canvas) puts a copy of the layer you are editing and what is on it straight after it, and you are now editing the copy. A rule inside the layer that points at the layer itself, or at one of its objects, points at the copy; a rule that
+points at another layer still does. Nothing shows the copy yet, because a layer appears only when a rule shows it, so you add that rule. A
+question on a copied layer brings feedback layers of its own. The base layer can be duplicated too, into an ordinary layer. **Earlier** and
+**Later** on the same bar move the layer you are editing in the layer order (the base layer is always first). A later layer is drawn in front of an
+earlier one where they overlap, and is read after it. Each is one step for Undo, and the editor says what happened and where the layer is now.
+
 **Duplicate, copy, cut and paste.** Under the Objects list: **Duplicate** (Ctrl+D) puts a copy of the selected object a little to one side,
 on top, and straight after the original in reading order, and selects it. **Copy** (Ctrl+C) remembers the object and **Cut** (Ctrl+X)
 remembers it and removes it; **Paste** (Ctrl+V) then puts a copy on the layer you are on, which can be on another slide, where it lands in
@@ -42,7 +56,8 @@ order, and **Ctrl+A** (or the **Select all** button under the Objects list) sele
 click or Ctrl and Space adds or removes the item, Shift and click or Shift and the arrow keys select a range from where you began, and a
 plain click or Enter chooses one object alone. With several selected, each selected item in the list is a pressed button, so a screen
 reader says which are chosen, and each object is outlined with a dashed line on the canvas. There are no resize handles then, because a
-handle could only resize one of them: Alt and the arrow keys say so, and sizes are typed in Properties one object at a time.
+handle could only resize one of them: Alt and the arrow keys say so, and sizes are typed in Properties one object at a time. (The one
+exception is a whole group, which is resized as one: see Grouping.)
 Dragging any selected object, or the arrow keys, moves them all together (one Undo step), and clicking one of them without dragging narrows the
 selection to it. The Properties panel then offers **Line up** (Left, Centre, Right, Top, Middle, Bottom) and **Space out evenly** (Across, Down,
 which needs three or more; the outermost two stay put). Line up lines the objects up with each other, changes only where they sit and never
@@ -50,6 +65,31 @@ their sizes, and is one Undo step. With one object selected, the same Line up bu
 A rotated object is lined up by the box it would have if it were not turned. Reading order is for one object at a time, so Move earlier and
 Move later are off while several are selected. Everything other than the shared actions (text, colours, alt text, rules, timing, narration)
 is changed on one object at a time, so nothing about alt text or the other accessibility fields is ever changed for several at once.
+The exceptions are **Timing** and **Animation**, which the panel offers "for all" the selected objects: a value set there is set on every one of
+them as one Undo step, a field is blank when they differ, and an object that cannot take it (an object with no narration cannot appear after its
+narration starts) is left as it was, with a message saying so.
+
+**Snapping.** When you drag an object, a group, or a resize handle with the mouse or a finger, it jumps to line up with the slide's left edge, middle
+or right edge, top, middle or bottom, and with the same lines of the other objects on the layer, when it comes within 8 pixels of the screen of one. A dashed
+guide line shows each line it lined up with, and goes when you let go. It never snaps to the objects being dragged themselves, and when resizing only the
+edges that move jump. The **Snap** button under the canvas switches it on and off for good (it starts on, and the choice is kept on this computer, not in
+the project), and **holding Alt** while dragging turns it off for that drag. Snapping is for the pointer only: the arrow keys move by exactly the step they
+say, and **Line up** in the Properties panel (and typed places) give a keyboard the same results, so nothing depends on it. A locked object cannot be
+dragged, but other objects snap to it.
+
+**Grouping.** Group ties two or more objects together so they are chosen, moved, resized, copied and deleted as one. **Group** (Ctrl+G),
+**Ungroup** (Ctrl+Shift+G) and **Select group** are under the Objects list, and in the Properties panel while several are selected. On the
+canvas, clicking any object in a group chooses the whole group (Shift or Ctrl and click adds or removes the whole group, and a box dragged across part
+of a group takes all of it), and **Alt and click** chooses just that one object. From the keyboard, the Objects list and Page Down still choose one object
+at a time, so any member can be reached and edited alone, and **Select group** adds the rest of its group. A group shows as one solid box with resize
+handles; the objects in it keep their dashed outlines. The Objects list says ", in a group of 3". Dragging or the arrow keys move the group; dragging a
+handle (or Alt and the arrow keys, or the group's X, Y, Width and Height in Properties) **resizes the group as one**, scaling every object in it so each
+keeps its place and size relative to the rest. Only the boxes scale: a text object's font size does not change. **Line up** and **Space out
+evenly** treat a whole group as one object, and say "items" when a group is involved. Copying a whole group gives a group of its own, and copying only
+some of a group's objects gives ungrouped copies (and says so). Grouping and ungrouping are one Undo step each. A group is flat: grouping objects that
+are already in a group takes them out of it first, and a group left with one object is dissolved. If one object in a group is locked, the whole group is
+held: it will not move or resize, and the editor says why. Groups are for editing only: the course looks and behaves the same, and the validator only
+checks that a group is on one layer (`group-split`) and has two or more objects (`group-single`). The tag is saved in the slide file (format 0.17.0).
 
 **Locking.** Lock an object so it is not moved, resized, rotated or deleted by accident, for example a background panel or a title you have
 placed exactly. **Lock** (Ctrl+L) is under the Objects list, and says **Unlock** when everything selected is locked; the **Locked** box in an
@@ -60,6 +100,24 @@ anything else: you can still select it, edit its text, alt text, rules, timing a
 it (the copy is not locked). With several selected, moving, lining up and spacing out leave the locked ones where they are and say how many stayed,
 and Delete removes the others and keeps the locked ones selected so you can unlock them if you meant to remove them. Change layout and Reset layout are
 commands you ask for and can still rearrange a locked object. The published course ignores locks.
+
+**Audio description.** A video's Properties have an **Audio description** box for a learner who cannot see the picture. **Add description** adds one at a time
+in the video (the first at 0:00, then five seconds after the last), and each has the seconds into the video, **What the picture shows** (the words, which
+you write: the editor never fills them in), **Pause the video while this is spoken**, and a **Voice** with the usual narration controls. **Use the description
+as the voice** writes the voice's words from the description (they are then the voice's own, so changing the description later does not change them),
+**Give every description a voice** does it for all that have words and no voice, and each description is a line in the Narration list, named by its
+video and its time, so its audio is made like any other (the speech tool finds it under the key `<video id>/<description id>`). A description with no
+voice can only be read, which the Problems list says. The Objects list says ", described" for a video that has any. Descriptions are kept in the order
+they happen. The course shows the **Audio description** button beside the video only when there is a description. If everything important on screen is
+already said in the narration, no description is needed.
+
+**Hotspots.** **Add > Hotspot (a clickable area)** puts a transparent button on the layer, to place over a picture (a screenshot, say). It shows as a blue
+dashed box in the editor only; a learner sees nothing but the picture and, when they Tab to it, the ordinary focus ring. Its name is the Alt text field
+and starts empty, because the editor never fills in a name: write what it is, for example "The Save button". It has to be at least 24 by 24 pixels, and the
+editor starts it at 200 by 100. Rules work as on a button, and the Problems list says if it has no name or is too small.
+
+**Provenance.** A slide or object that the Capture module made keeps a record of the recording and step it came from. Nothing in the editor changes it, and
+every edit keeps it. A copy you make (Duplicate, Paste or Duplicate slide) is yours, not the recorded step, so it has none.
 
 **Shapes.** Add a rectangle, rounded rectangle, ellipse, triangle, diamond, arrow or line, and change
 the shape later. Fill and outline colour and outline width are editable. New shapes are decorative,
@@ -74,7 +132,7 @@ also says how readable the text colour is on what is behind it, against WCAG AA.
 **Rules.** Every object has a Rules section in the Properties panel. A rule reads "When ..., do ..., only if
 ...": *when* the learner presses a button, checks a quiz answer, the slide opens or closes, a video or audio
 finishes, or any variable changes (an object only offers the events it can cause); *do* go to a slide, show or
-hide a layer, set a variable, or play or pause a video or audio; and any number of conditions, which all must
+hide a layer, set a variable, add to a number variable (to count tries; "add this much", and a negative number takes away), or play or pause a video or audio; and any number of conditions, which all must
 hold, such as "choice is The short path" or "score is at least 3". The targets are lists, not typed: the
 slides, the layers of this slide, the variables, the videos and audios on this slide. Changing the action picks
 a target that suits it, and if there is none (no layers yet) the editor says what to add first. When a
@@ -84,8 +142,8 @@ from the top and a rule that goes to another slide ends the list, so rules can b
 A rule that happens when the learner presses something is saved as a click and a key press together, so it
 works without a mouse. A rule can belong to any object, and for "the slide opens" or "any variable changes"
 it does not matter which. To branch on a survey: add the input, add a Continue button, and give the button one
-rule for each path, each with a condition on the input's answer. Rules the editor cannot show (such as a
-change of object state) are kept as they are and marked as such.
+rule for each path, each with a condition on the input's answer. Rules the editor cannot show (a click with no
+key press to match, or a key press with no click) are kept as they are and marked as such.
 
 **Results and certificate.** "Results or certificate..." in the Add menu opens a picker. **Results** shows the
 learner their score and whether they passed, filled in from the quiz, and can list each question and how it went. In
@@ -272,16 +330,89 @@ box, and Move earlier, Move later and Delete. Add item adds another, up to twelv
 keeps the items. The group's own name, which a screen reader reads, is its Alt text, so say what the
 items are about. An interaction takes its colours from the theme, so only its font and size can be
 changed. On the canvas the first item is shown open. The example project `examples/interactions.osproj`
-has one slide for each. Not built yet: drag and drop, matching, hotspots, text entry, scenarios and
-character choice.
+has one slide for each. Scored drag and drop, matching, hotspots and text entry are quiz questions (see Quiz questions). A story that branches is a scenario (see
+Scenarios and the cast).
 
-**Quiz questions.** "Question, input or survey..." in the Add menu opens a picker, and its Quiz questions group
-(multiple choice or true or false) builds the
-question as a heading, the answers, and two feedback layers (right and wrong) that are already wired
-to it. Select the quiz to edit its answers (add, delete, rename, choose the correct one with the
-radio button), its points and attempts, and which layers give the feedback. The first answer starts
-as correct, and the placeholder text is yours to replace. The validator checks that exactly one
-answer is correct.
+**PowerPoint.** The **PowerPoint** button in the toolbar brings slides in from a PowerPoint presentation (a `.pptx` file; Google Slides can download one), and brings slides you brought in earlier
+up to date after the presentation has changed. It is a dialog with a few steps, each headed so a screen reader says where you are. *Choose the file.* If the project already has imported decks, say whether
+this is a new presentation or a newer version of one (the dialog guesses from the slides they have in common). *Bring slides in:* a list of the slides, each with a box (hidden ones start unticked), and the button says how many; the
+slides go after the one you are on, and it is one step to undo. The report afterwards says in plain words what was left out or changed: charts and SmartArt, animations, speaker notes, fonts that were replaced, pictures with no
+alt text (the Problems list asks for each; nothing is made up), and slides that have a picture behind the text. *Bring up to date:* every change the presentation has made since, each with a box. Changes to things you did not touch
+are ticked; anything that would replace something you changed, a shape the presentation removed that has rules or narration of yours, a slide the presentation no longer has, and a slide you left out are not. What you
+leave unticked is offered again next time. Rules, narration, timing, layers and objects you added are never touched. The presentation file is never changed. See `docs/powerpoint.md` for what to expect and how to get the best from it.
+
+**Keyboard, and a narrow window.** Each list (Slides, Objects, Problems) is one stop for the Tab key: Tab lands on the current item, the arrow keys, Home and End move between the items, and Enter chooses one and says which. F6 moves between the panels. When the window is narrow, or the page is zoomed in (to 400% on a laptop), the panels stack in one column in reading order and the page scrolls down, never sideways; the slide is drawn smaller to fit, and everything on it is also a box in Properties. A button's name starts with the words it shows, then says what it acts on ("Move earlier: rule 1"), so voice control and screen readers agree. `docs/accessibility-audit.md` says what was checked and how to check a new panel.
+
+**Looks.** A look is another way an object can appear. Text, buttons, icons, shapes and pictures have a **Looks** box in Properties, under Appearance. **Look to edit** lists Normal (the Appearance box) and then
+Hover or focus, Visited and Disabled, which the course applies on its own, and any look you add. Choose one and the same fields as the Appearance box appear for it (text colour, button colour, font and size
+for text and buttons; icon colour; fill, outline colour and outline width for a shape), each with "same as normal" as its blank. **How solid** (10 to 100) is in Appearance too, and in each look, so a look can dim an object. The canvas shows the look
+you are editing on the selected object, so you see what you are making; choose Normal, or select another object, and it goes back. A sentence under the colours says how readable the text is in that look, using the theme's real
+colours, and counts a look that makes the object see-through. **Add a look...** asks for a name (a few words, such as Correct or Selected; not Normal, and not one the object has), **Rename...** (your own looks) changes it and the rules that
+apply it follow, **Delete this look** (or **Clear this look** for a ready-made one) removes it, and says how many rules still apply it, which the Problems list then names. Each look has a **Spoken message**: the words a screen reader says when a rule
+applies the look, such as "Step 1 is marked as done". It is never written for you. A rule can apply a look with **Do: Change an object's look**: choose the object (only objects that have a look are listed) and the look, or Normal to return. The rule card says what a
+screen reader will say, or that it will say nothing, and the Problems list warns about a rule that applies a look with no spoken message. A look lasts until the slide closes. The example `examples/looks.osproj` has a step that is marked as done and a button that starts disabled.
+
+**Timing that follows a video or an audio clip.** In an object's Timing box, **Appears** has a third choice, **When a video or audio clip reaches a time**, once the slide has a video or audio file. Then
+**Follows** names the clip, **Seconds into the clip** is when the object appears, and **Stays for** is how long, in seconds of the clip (blank: until the clip ends). **Choose by playing...** opens the clip with its
+own controls: play or move to the place, press **Use this moment as the start**, move to the end and press **Use this moment as the end** (or **Stay until the clip ends**), then **Use these times**; an end before the
+start is refused with the reason. The Timing list has the same choice in each row, with a second box for the clip. In the Timeline panel the objects that follow a clip are in a group of their own under the
+slide's rows, headed "Following *the clip*", with an axis of seconds into the clip, and their grips are the same sliders. What shows in the course depends only on where the clip is, so skipping or going back is
+safe; Pause timing pauses the clip too. If a clip that objects follow is deleted, the message says how many, and the Problems list names them; copying a slide keeps each copy following its own copy of the
+clip, and an object pasted onto a slide without the clip goes back to appearing when the slide opens, and says so. YouTube and Vimeo videos cannot be followed. The example `examples/timed-media.osproj` has a
+video with four notes and an audio clip with two.
+
+**Icons.** "Image, video, audio or file..." has an **Icon** choice that opens a picker of 1,879 line icons from the Lucide set (ISC licence). Type what the icon means ("arrow", "book",
+"warning") and the best matches come first; the grid is one stop for Tab and moves with the arrow keys, Home and End, and Enter chooses. A chosen icon is put on the slide at 64 by 64 in the theme's strong
+colour, with **no alt text**: say what it means in the Alt text field ("Next", not "arrow"), or tick decorative; the editor offers the icon's name in words as a start and never fills it in. In the Properties
+panel an icon has its colour, its line width and **Change icon...**, which keeps its size, colour and alt text. An icon is saved as its shapes in the project, so it needs no file, and a course that uses one
+names Lucide on its credits page (the Problems list warns if that page is off).
+
+**Buttons.** "Button..." in the Add menu opens a picker: a plain **Button**, or a ready-made **Next**, **Back** or **Replay this slide** whose rule is already written for the mouse and the keyboard. These use
+the course actions (next slide, previous slide, replay this slide), which have no target, so they keep working when slides are moved, copied or deleted. In the Properties panel every button has a **Look**
+(Filled, Filled fully rounded, Outline, Outline fully rounded, Soft): a look sets the button's colours, outline and roundness from the theme's colours, so it follows the theme and stays readable, and leaves its words,
+font, size and rules alone; colours changed by hand show as "Your own colours". A button can also **show an icon** before or after its words; the icon is decoration and the words stay its name. The Rules box now
+offers "Go to the next slide", "Go to the previous slide" and "Replay this slide" beside "Go to a slide".
+
+**Lesson slides.** The Add slide picker has a group of six ready-made lesson slides next to the layouts: Welcome (a title, a line about the course and a Begin button), Objectives (with Back and Next), Knowledge
+check (a multiple choice question with feedback for a right and a wrong answer, wired), Scenario (a starter story with Back and Next), Resources (an accordion with Back and Next) and Summary (with Back). They are
+built into the editor and need no format change. Their buttons are already wired and reachable in reading order; the words, the question and the story are placeholders to replace. The slide they make is an
+ordinary slide, not tied to the template, and adding one is a single step for Undo.
+
+**Scenarios and the cast.** The **Characters** button in the toolbar opens the cast: the people a course can show and give a voice to. Each has a name, a few words
+on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can choose a file, or press **Make a picture...** to draw a simple person: skin tone, hair
+style and colour, expression, shirt and colour, glasses and background, with a live preview described in words, a Surprise me button, and the result saved in the project as a small drawing of
+your own (no credit needed). The maker describes the picture in words and offers that as a start for the alt text with a button, **Use that as the alt text**; it never fills the alt text in for you. You can add a person, move them and remove them.
+The dialog changes nothing until **Save the cast**, and then one Undo takes it back. A person who is still used (they speak a line in a scenario, or a choice of
+character offers them) cannot be removed, and the dialog says where they are used. Changing a person's voice changes the voice of the lines they speak and says how
+many, so make the audio again. A scenario is added from "Interaction or scenario..." (Branching scenario), and starts as a small story to write over: one situation
+with two choices, each leading to its own ending. In the Properties panel, **Scenario** holds the settings (where it starts, whether the learner can take back
+their last choice, who "you" is, a true or false variable that is set when they reach an ending, and something to think about at an ending). **Meters** adds
+bars that show a number variable as choices change it, or none at all. **Situations** has a list to choose the situation to edit, with Add situation, Move
+earlier, Move later and Delete (refused, with the reason, while a choice still leads to it). The situation being edited shows its title and its question, its
+lines and its choices. For each line you choose who says it (the narrator, "you", or a person from the cast), write the words, and tick **Spoken aloud** to give
+it narration in that person's voice; a Spoken words, voice and pronunciation section then opens the usual narration controls, and the spoken words follow the text
+for as long as they are the same. A line that is not spoken says so in the panel. Each choice has the words, where it leads, the changes it makes to number
+variables (with a minus sign it takes away), and an optional response shown straight after it. A situation with no choices is an ending. The canvas shows the first
+situation, drawn inertly; the course is where the story runs. A **Choose a character** input is added from "Question, input or survey..." and needs two people in
+the cast; its Properties panel lists the cast with a box for each person to offer. Everything is keyboard operable, a refused change says why, nothing is filled in for
+you that a screen reader depends on, and the Narration dialog lists a scenario's spoken lines. The example `examples/scenario.osproj` is a small scenario with a
+cast of three, a choice of character, two meters and an ending that shows a layer.
+
+**Quiz questions.** "Question, input or survey..." in the Add menu opens a picker with twelve kinds of question in five groups: Choose
+(multiple choice, true or false, multiple response), Type an answer (short answer, number), Fill in the blanks (typed, from drop-downs, drag the
+words), Match and order (matching, drag and drop, sequencing) and Pictures (hotspot). Each builds the question as a heading, the question itself, and
+two feedback layers (right, and wrong or partly right) that are already wired to it. A hotspot asks for its picture first. Select the question to edit
+what belongs to its kind, which is all in the Properties panel and all keyboard operable: answers with a radio button or check box for the right ones
+(and a box to switch between one right answer and several); the accepted answers of a short answer, one on each line; the right number and how far off
+may be accepted; the sentence of a fill in the blanks with an Insert a blank button, each blank's answers, and a word bank with extra words; items and
+their matches with Move earlier and Move later; the items of a sequence in the right order; a hotspot's picture, its description and its areas as
+percentages, with the canvas showing the areas as dashed boxes (solid for a right one). The placeholder text is yours to replace, and alt text is never filled
+in for you: a hotspot's picture description is required. **Points** and **Attempts allowed** are for every kind, and a question with several parts earns a
+share of its points for each part that is right (the best attempt counts); a question worth 0 points is practice. Dragging, where a question has it, is an
+extra over the drop-downs and buttons, which stay. **Write the narration from the question** in the Narration box writes what the question shows (what to do,
+and what there is to choose from) as its narration, to be changed as you like. Changing a question is a step for Undo, and a change that cannot be made,
+for example taking away the last right answer, is refused and says why. The validator checks each kind (see the validator spec). The example project
+`examples/question-types.osproj` has one slide for each kind.
 
 **Slide layouts.** The Add slide and Change layout buttons open a picker with a small drawing of each of
 26 layouts, in four groups:
@@ -307,6 +438,17 @@ stays where it was, and the editor says so. Placeholders nobody has written in (
 layout's own prompt such as "Add your content here."), and the old layout's coloured bars and picture
 area, are removed and replaced by the new layout's own, so the slide holds only the new layout. Buttons, images and any shapes you drew are not touched. It is one undo step. Only the base
 layer changes.
+
+**Editing a theme.** In the Themes gallery, **Edit this theme...** opens a dialog for the project's own copy of a theme: the built-in themes are never
+changed. It has a **Theme name**, **Start from** (the project's current theme, or any built-in one: choosing a built-in one replaces the colours and fonts
+with its own, and your logo stays), all twelve **colours**, the **heading and text fonts**, and a **logo**. Each colour is a hex code you can type (short
+forms and a missing # are fine, and a code that is not a colour is flagged and not used) beside the system colour picker. A drawing of a light and a dark slide
+changes as you go, and under the colours the dialog says in words how readable each pair is (the pairs the validator checks, which WCAG AA asks to be 4.5 to 1
+or more), with a summary read out when you finish a change. A theme that is hard to read can still be saved, since the choice is yours, and the Problems list says so.
+**Save theme** applies it as one undo step and saves it in `theme.json` under the new name. For the **logo**, choose a picture (it is copied into the project's
+images and sized in the shape of the picture, no wider than 160 to start), write its **alt text** or tick that it is decorative (the dialog will not save
+without one or the other), pick a **corner** and a **width**. It is drawn on every slide, on the canvas and in the course, behind the slide's content, and the
+Problems list warns if content reaches into its corner. Choosing a different built-in theme later keeps the logo and says so. The logo is part of the format from 0.20.0.
 
 **Themes.** The Themes button opens a gallery of eight built-in themes, each drawn as a light slide
 and a dark one with its two fonts named. Choosing one restyles the whole project in one undo step:
@@ -366,10 +508,7 @@ Preview and Publish both run `player/publish.ts` under Node, the same tool as th
 background, so the editor stays usable. Only one of them runs at a time. Both need Node.js installed; Publish
 also needs Python, for the problem check.
 
-Not built yet: editing a theme's own colours and fonts (only the built-in themes can be chosen) and theme
-images; other kinds of question (several correct answers, matching, fill in the blank) and question banks;
-drag and drop, matching, hotspot and text-entry interactions; setting an object's states (so no rule can
-change a state yet); narration that is not tied to an object (a slide with nothing to attach it to
+Not built yet: a background picture for slides (a theme has colours, fonts and one logo); keeping a theme to use in other projects; question banks, shuffled choices and timed questions; scenario situations laid out as a map you can drag (they are edited as a list); setting an object's states (so no rule can change a state yet); narration that is not tied to an object (a slide with nothing to attach it to
 needs an object for it, such as its heading); editing formatted text beyond one paragraph or heading; and a project's `modified` date (it is not updated
 on save).
 
@@ -381,14 +520,50 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | --- | --- |
 | Anywhere | Ctrl+N new project, Ctrl+O open, Ctrl+S save, Ctrl+P preview, Ctrl+Shift+P publish, Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo, F6 and Shift+F6 next and previous panel |
 | Anywhere except in a text box | Ctrl+D duplicate the selected object, Ctrl+C copy, Ctrl+X cut, Ctrl+V paste |
-| Anywhere except in a text box | Ctrl+A select every object on the layer, Ctrl+L lock or unlock the selected objects |
+| Anywhere except in a text box | Ctrl+A select every object on the layer, Ctrl+L lock or unlock the selected objects, Ctrl+G group the selected objects, Ctrl+Shift+G ungroup them |
 | Slide, Objects and Problems lists | Up and Down, Home and End move; Enter or Space chooses |
-| Slides list | Alt+Up and Alt+Down move the slide; Delete removes it |
+| Slides list | Alt+Up and Alt+Down move the slide; Delete removes it; Ctrl+D duplicates it |
 | Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object, or all selected objects if it is one of them; Shift with Up, Down, Home or End selects a range; Ctrl+Space adds or removes the focused object |
-| Canvas | Arrow keys move 1 pixel, with Shift 10, all the selected objects together; Alt+arrows resize one object; Page Down and Page Up choose the next or previous object, and with Shift add it to the selection; Delete removes the selected objects; Escape clears the selection |
+| Dragging on the canvas | Hold Alt to drag without snapping |
+| Clicking on the canvas | Clicking an object in a group chooses the whole group; hold Alt and click to choose just that object |
+| Canvas | Arrow keys move 1 pixel, with Shift 10, all the selected objects together; Alt+arrows resize one object or one whole group; Page Down and Page Up choose the next or previous object, and with Shift add it to the selection; Delete removes the selected objects; Escape clears the selection |
 
 Moves, resizes and selections made on the canvas are announced in a polite live region. Alt text and
 the other accessibility fields are never filled in for the author.
+
+## Behind the editor: what the Capture recorder needs
+
+OpenStage Capture is a separate program that records the screen. The editor starts it and talks to it, and these are the parts of the editor's
+shell (the Rust side) that make that possible. They are built and tested; the panels an author would use (a recorder panel, a clip list) are not
+built yet, so nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
+
+- **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
+  looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
+  message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.
+- **A program that runs for as long as the author works.** Publishing runs a program to the end and reads its answer. A recording needs commands while
+  it runs and a live picture of what it is doing, so the shell keeps the program's input open, reads its output a line at a time as it prints, and
+  gives the page each line as it arrives (a `stream-line` event). A command from the page is checked to be one short line of JSON before it is sent. The
+  shell does not read the protocol: lines pass through untouched, and the page decides what they mean, so unknown kinds of line are simply ignored.
+  The run's end arrives as a `stream-exit` event with the exit code, what the program said on its error channel, and whether it had to be ended by force.
+- **Stopping.** **Stop** sends the stop command, closes the program's input, and waits up to ten seconds for it to finish and print its result. Only then
+  is it ended by force, and the page is told which happened. Closing the editor stops a recording the same way (with three seconds).
+- **One recording at a time, and heavy work waits.** The recorder has a slot of its own, separate from the preview-or-publish slot, so a second recording
+  is refused politely. While a recording is going and has not been paused, a publish, preview or narration run is refused with a plain message
+  ("Pause or stop it, then try again"); editing and saving are never held back. The page says when the recorder pauses or resumes, because the shell does
+  not read the protocol.
+- **Keys that work in other programs.** Recording happens in another program, so start, pause, stop and start again have to work from there. The page
+  gives the shell key combinations and the shell registers them with the system, and each press reaches the page as a `hotkey` event carrying the key's
+  name. Each combination comes back with whether it worked and, if not, why: it must use Ctrl, Alt or Shift (or be a function key on its own) so it is not
+  pressed by accident while typing, two cannot share keys, and another program may already use it. The starting keys are Ctrl+Shift+F9 (start),
+  F10 (pause or resume), F11 (stop) and F12 (start again). A screen reader keeps Insert and Caps Lock as its own key, so `recorder.ts` warns about a
+  combination that uses one, and about the Windows key. Every key is let go when the window closes.
+- **Playing a large video.** A recording can be hundreds of megabytes or more, and reading it into memory to play it would be slow or fail. The editor
+  can open a project's `assets` folder to the page, which then plays files from it straight from disk, with seeking (`mediaUrl` in `backend.ts`).
+  Only a folder that is a project is opened, only its `assets` folder, and nothing else on the computer: a video beside it, in the project's top folder,
+  or elsewhere is refused. A project opened during a session stays opened until the editor closes.
+- **Tried in the real app**, with a stand-in recorder: lines arrived as the program printed them, commands were echoed back, a second start and a publish
+  during a recording were refused, Stop finished the program in a few milliseconds with its result, the registered keys reached the page while a different
+  program had the focus, and a 2.8 GB video played and seeked with about 14 of its 150 seconds buffered.
 
 ## Design notes
 
