@@ -91,6 +91,6 @@ Which LMSs have passed tests 1 to 4: ______
 
 Faults found and where they were fixed: ______
 
-## One question for the release gate
+## The release gate wording (decided 2026-10-15)
 
-The release gate says "Course completion and assessment success are tracked as separate states". SCORM 1.2 has only one status, so it cannot keep them separate: a course that was finished but failed is reported as failed. SCORM 2004 can keep them apart. How should the gate read for SCORM 1.2? One wording that is true: "Completion and success are both reported as correctly as SCORM 1.2 can express them, and are fully separate in SCORM 2004 (later)." The gate has not been changed. It needs your decision.
+The release gate says "Course completion and assessment success are tracked as separate states". SCORM 1.2 has only one status, so it cannot keep them separate: a course that was finished but failed is reported as failed. SCORM 2004 can keep them apart. How should the gate read for SCORM 1.2? One wording that is true: "Completion and success are both reported as correctly as SCORM 1.2 can express them, and are fully separate in SCORM 2004 (later)." Decided 2026-10-15: the gate now reads that way, and it is changed in `CLAUDE.md`.

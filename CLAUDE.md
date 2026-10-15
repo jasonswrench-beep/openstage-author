@@ -86,7 +86,7 @@ Adding to this list needs a better reason than "a competitor has it."
 
 - SCORM package launches in Moodle, Canvas and Brightspace without error
 - Passing and failing attempts both report the correct score
-- Course completion and assessment success are tracked as separate states
+- Course completion and assessment success are both reported as correctly as SCORM 1.2 can express them, and are fully separate in SCORM 2004 (later)
 - A learner who leaves mid-course returns to their exact position with state intact
 - The entire published course and the entire editor are operable by keyboard alone
 - Both are usable with NVDA and VoiceOver
