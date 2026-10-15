@@ -58,16 +58,26 @@ and pictures; the editor does not show a charge).
 ## Local models (a later phase)
 
 A small model on the author's computer would work with no key and no internet, and some are licensed Apache 2.0 like this project. From their
-own model cards (read 2026-10-15): **Qwen3.5-9B** (Apache 2.0, about 9 billion parameters, long context) and **SmolLM3-3B** (Apache 2.0, 3 billion
-parameters, English, French, Spanish, German, Italian and Portuguese). IBM Granite 4.1 8B is reported as Apache 2.0 but was not confirmed.
-The longer list at github.com/eugeneyan/open-llms stops at January 2025, so it is a good history but not a guide to today's models.
+own model cards (read 2026-10-15): **Qwen3.5-4B** (Apache 2.0, about 4 billion parameters, reads pictures as well as text, 201 languages, long
+context, and its "thinking" mode can be switched off), **Qwen3.5-9B** (Apache 2.0, about 9 billion parameters, long context) and **SmolLM3-3B**
+(Apache 2.0, 3 billion parameters, English, French, Spanish, German, Italian and Portuguese). Qwen3.5-4B is the first to try: the author's
+research (Perplexity, 2026-10-15) pointed to it, and its card confirms the licence, the picture input, and how to turn thinking off. The
+benchmarks on a model card are the maker's own and do not show that a model writes good test questions; the trial below does. IBM Granite 4.1 8B
+is reported as Apache 2.0 but was not confirmed. The longer list at github.com/eugeneyan/open-llms stops at January 2025, so it is a good
+history but not a guide to today's models.
 
 Open points before building it:
 
 - **Does it write good enough questions?** The hosted services write better wrong answers than small models usually do. The plan is a short
-  trial on three or four real slides of the author's, with the author judging the drafts side by side, before any work on bundling.
+  trial on three or four real slides of the author's, with the author judging the drafts side by side, before any work on bundling. The
+  trial would try: quiz questions with a reason for each answer, written only from the supplied slide text; the same explanation at
+  different reading levels; answers drawn only from supplied excerpts; and a first-draft description of a diagram or screenshot (a
+  suggestion for the author's alt text, never filled in silently). With Qwen3.5-4B it would also compare thinking switched on and off, not
+  assume that the slower mode writes better teaching material.
 - **How it runs.** The editor would not bundle a model. It would talk to a local server that the author installs (for example llama.cpp or
   Ollama, both widely used and open source; their licences are to be confirmed), through the same text contract as the hosted services.
+  Qwen's card describes servers that answer the same way OpenAI's service does, on the author's own computer, so a local model may need little
+  more than a different address in the OpenAI engine. That is to be confirmed when it is built.
 - **Licences.** Each model's licence is checked from its own card. A model is only ever downloaded by the author, with their yes, never
   shipped inside OpenStage. That also avoids the speech-model problem (the GPL parts), which is still open.
 - **The computer.** The memory and graphics card of the author's main computer decide which sizes are practical.
