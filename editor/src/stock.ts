@@ -42,6 +42,11 @@ export const LINK_SOURCES: { name: string; url: string; kinds: MediaKind[]; note
   { name: "Pixabay", url: "https://pixabay.com/", kinds: ["image"], searchId: "pixabay", note: "Free pictures." },
   { name: "Unsplash", url: "https://unsplash.com/", kinds: ["image"], searchId: "unsplash", note: "Free photographs. Its rules ask for credit to the photographer." },
   { name: "Freesound", url: "https://freesound.org/", kinds: ["audio"], searchId: "freesound", note: "Sounds by its community. Each has its own licence and some are not for commercial use, so check the licence on the sound's page." },
+  // Pixabay's programming interface covers pictures and video only (checked 2026-10-14), so its sound effects can be opened and downloaded but not searched from here.
+  { name: "Pixabay sound effects", url: "https://pixabay.com/sound-effects/", kinds: ["audio"], note: "Free sound effects under the Pixabay Content Licence, which does not ask for credit. Download one, add it on the \"This project\" tab, and use Edit credit to choose Pixabay." },
+  // freesoundeffects.com has no programming interface. Its home page says the free sounds are for personal and educational projects (the paid ones are for commercial use),
+  // and its licence page allows use in instructional videos, websites and software but not reselling or posting sounds for download (read 2026-10-14).
+  { name: "Free Sound Effects", url: "https://www.freesoundeffects.com/", kinds: ["audio"], note: "Its free sounds are for personal and educational projects, and the paid ones are for commercial use. It does not ask for credit, but the sounds may not be resold or posted for download. Download one, add it on the \"This project\" tab, and use Edit credit to choose Somewhere else and type its address and \"Free Sound Effects licence\"." },
   { name: "Mixkit", url: "https://mixkit.co/", kinds: ["video", "audio"], note: "Free video clips, music and sound effects, under its own licence." },
   { name: "SVG Repo", url: "https://www.svgrepo.com/", kinds: ["image"], note: "Free icons and vector pictures. Licences differ by file, so check each one." },
   { name: "Libreshot", url: "https://libreshot.com/", kinds: ["image"], note: "Free photographs." },
@@ -116,6 +121,19 @@ export function ccFromUrl(url: string): string {
   return m ? `CC ${m[1]!.toUpperCase()} ${m[2]}` : "Creative Commons";
 }
 
+/**
+ * What a Freesound licence is. Its documentation lists the licence of a sound by name ("Attribution", "Creative Commons 0", "Attribution NonCommercial"), and
+ * its answers have also carried a Creative Commons address, so both are understood. Only CC0 and plain Attribution can be used in a course: anything else
+ * (non-commercial, sampling and the rest) is null, and a licence that cannot be read is never guessed to be fine.
+ */
+export function freesoundLicence(licence: string): { cc0: boolean; label: string } | null {
+  const t = licence.trim();
+  if (/publicdomain\/zero|\/zero\//i.test(t) || /^creative commons 0$/i.test(t)) return { cc0: true, label: "CC0 1.0" };
+  if (/creativecommons\.org\/licenses\/by\/[0-9.]+/i.test(t)) return { cc0: false, label: ccFromUrl(t) };
+  if (/^attribution$/i.test(t)) return { cc0: false, label: "CC BY" };
+  return null;
+}
+
 export function searchUrl(provider: Provider, kind: MediaKind, query: string, page: number, key: string): string {
   const q = encodeURIComponent(query.trim());
   switch (provider) {
@@ -128,7 +146,8 @@ export function searchUrl(provider: Provider, kind: MediaKind, query: string, pa
         ? `https://api.pexels.com/v1/videos/search?query=${q}&per_page=${PAGE_SIZE}&page=${page}`
         : `https://api.pexels.com/v1/search?query=${q}&per_page=${PAGE_SIZE}&page=${page}`;
     case "freesound":
-      return `https://freesound.org/apiv2/search/text/?query=${q}&page=${page}&page_size=${PAGE_SIZE}&fields=id,name,username,license,url,duration,previews,description&filter=${encodeURIComponent('license:("Creative Commons 0" OR "Attribution")')}`;
+      // /apiv2/search/text/ was retired in November 2025 (it redirects here for now), so the search address is /apiv2/search/.
+      return `https://freesound.org/apiv2/search/?query=${q}&page=${page}&page_size=${PAGE_SIZE}&fields=id,name,username,license,url,duration,previews,description&filter=${encodeURIComponent('license:("Creative Commons 0" OR "Attribution")')}`;
   }
 }
 
@@ -236,9 +255,9 @@ export async function searchStock(provider: Provider, kind: MediaKind, query: st
   const data = parse(body, "Freesound");
   const hits: StockHit[] = [];
   for (const r of list(data["results"])) {
-    const lic = text(r["license"]);
     // Only what is free to use in a course: CC0 and plain Attribution. Anything else is left out, whatever the filter said.
-    if (!/publicdomain\/zero|\/by\/[0-9.]+/i.test(lic)) continue;
+    const lic = freesoundLicence(text(r["license"]));
+    if (!lic) continue;
     const previews = obj(r["previews"]);
     const mp3 = text(previews["preview-hq-mp3"]) || text(previews["preview-lq-mp3"]);
     if (!mp3) continue;
@@ -246,7 +265,7 @@ export async function searchStock(provider: Provider, kind: MediaKind, query: st
     hits.push(hit({
       provider, kind: "audio", id: String(r["id"]), title: text(r["name"]) || "Sound", downloadUrl: mp3, listenUrl: mp3, duration: Math.round(num(r["duration"])),
       pageUrl: text(r["url"]), creator: user, creatorUrl: user ? `https://freesound.org/people/${encodeURIComponent(user)}/` : "",
-      licence: ccFromUrl(lic), requiresCredit: !/publicdomain\/zero|\/zero\//i.test(lic),
+      licence: lic.label, requiresCredit: !lic.cc0,
     }));
   }
   return { page, total: num(data["count"]), hasMore: typeof data["next"] === "string" && data["next"] !== "", hits };

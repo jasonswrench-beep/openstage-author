@@ -4,7 +4,7 @@ import { emptyAi } from "./aiservices.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  ccFromUrl, clock, creditFor, nameFor, PAGE_SIZE, parseSettings, pickVideoFile, searchStock, searchUrl, serializeSettings, sourcesFor,
+  ccFromUrl, clock, creditFor, freesoundLicence, nameFor, PAGE_SIZE, parseSettings, pickVideoFile, searchStock, searchUrl, serializeSettings, sourcesFor,
   LINK_SOURCES, SOURCES, trackDownload, type Get, type MediaKind, type Provider,
 } from "./stock.ts";
 
@@ -38,7 +38,7 @@ const pexelsVideos = JSON.stringify({
   ],
 });
 const freesound = JSON.stringify({
-  count: 77, next: "https://freesound.org/apiv2/search/text/?page=2", previous: null,
+  count: 77, next: "https://freesound.org/apiv2/search/?page=2", previous: null,
   results: [
     { id: 401275, name: "Rain, Moderate, C.wav", username: "InspectorJ", license: "https://creativecommons.org/licenses/by/4.0/", url: "https://freesound.org/people/InspectorJ/sounds/401275/", duration: 60.1,
       previews: { "preview-hq-mp3": "https://cdn.freesound.org/previews/401/401275_5121236-hq.mp3", "preview-lq-mp3": "https://cdn.freesound.org/previews/401/401275_5121236-lq.mp3" } },
@@ -136,6 +136,8 @@ test("Freesound sends its key as a Token, keeps only licences a course can use, 
   assert.deepEqual(calls[0]!.headers, [["Authorization", "Token FSKEY"]]);
   assert.ok(!calls[0]!.url.includes("FSKEY"));
   assert.match(decodeURIComponent(calls[0]!.url), /filter=license:\("Creative Commons 0" OR "Attribution"\)/);
+  assert.ok(calls[0]!.url.startsWith("https://freesound.org/apiv2/search/?"), "the current search address, not the one Freesound retired");
+  assert.ok(!calls[0]!.url.includes("/search/text/"));
   assert.deepEqual(page.hits.map((h) => h.id), ["401275", "2"], "the non-commercial one and the one with no preview are left out");
   assert.equal(page.hits[0]!.licence, "CC BY 4.0");
   assert.equal(page.hits[0]!.requiresCredit, true);
@@ -145,6 +147,19 @@ test("Freesound sends its key as a Token, keeps only licences a course can use, 
   assert.equal(page.hits[1]!.requiresCredit, false);
   assert.equal(page.hits[1]!.downloadUrl, "https://cdn.freesound.org/previews/2/2-lq.mp3", "falls back to the smaller preview");
   assert.equal(page.hasMore, true);
+});
+
+test("Freesound's licence is understood as a name too, which is how its documentation lists it", async () => {
+  const sound = (id: number, license: string) => ({ id, name: `Sound ${id}`, username: "Someone", license, url: `https://freesound.org/people/Someone/sounds/${id}/`, duration: 4, previews: { "preview-hq-mp3": `https://cdn.freesound.org/previews/${id}.mp3` } });
+  const named = JSON.stringify({ count: 5, next: null, previous: null, results: [
+    sound(1, "Attribution"), sound(2, "Creative Commons 0"), sound(3, "Attribution NonCommercial"), sound(4, "Sampling+"), sound(5, "") ] });
+  const page = await searchStock("freesound", "audio", "rain", 1, "FSKEY", recorder(named).get);
+  assert.deepEqual(page.hits.map((h) => h.id), ["1", "2"], "only CC0 and plain Attribution; a licence that cannot be read is not assumed to be fine");
+  assert.deepEqual(page.hits.map((h) => [h.licence, h.requiresCredit]), [["CC BY", true], ["CC0 1.0", false]]);
+  assert.equal(freesoundLicence("https://creativecommons.org/licenses/by-nc/4.0/"), null);
+  assert.equal(freesoundLicence("https://creativecommons.org/licenses/by-sa/4.0/"), null);
+  assert.equal(freesoundLicence("http://creativecommons.org/licenses/by/3.0/")!.label, "CC BY 3.0");
+  assert.equal(freesoundLicence("  attribution ")!.cc0, false);
 });
 
 test("paging stops when there is no more", async () => {
