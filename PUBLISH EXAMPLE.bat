@@ -43,6 +43,8 @@ python tools\test_narrate.py
 if errorlevel 1 goto :failed
 python tools\test_engines.py
 if errorlevel 1 goto :failed
+python tools\test_todo.py
+if errorlevel 1 goto :failed
 python tools\test_migrate.py
 if errorlevel 1 goto :failed
 echo.
