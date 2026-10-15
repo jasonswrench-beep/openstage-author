@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { Model } from "./model.ts";
-import { keyOf, type Narration } from "./narration.ts";
+import { buildVoiceSources, emptyAi, allow, withKey } from "./aiservices.ts";
+import { audioStatus, keyOf, setVoiceSources, type CachedAudio, type Narration } from "./narration.ts";
 import { newProjectFiles } from "./template.ts";
 
 function fresh(): Model {
@@ -172,4 +173,25 @@ test("narration is saved in the object's file and reads back unchanged", () => {
   const stored = (JSON.parse(file.text) as { baseLayer: { objects: { id: string; narration: Narration }[] } }).baseLayer.objects.find((o) => o.id === t.id)!;
   assert.deepEqual(stored.narration, narrationOf(m, t.id));
   assert.equal(stored.narration.audioCache, null, "the cache is found by its key, not remembered in the file");
+});
+
+test("audio is found again by its words, so changing the language of an online voice and changing it back keeps the audio, but a new language is new audio", () => {
+  // OpenAI makes the same sound whatever the language box says, but the language is part of what names the audio, so a new language is a new file.
+  // That is why the audio is made (and charged for) again when the language changes, and why it is found again, with no new charge, when it is changed back.
+  setVoiceSources(buildVoiceSources(allow(withKey(emptyAi(), "openai", "sk-1"), "openai", "2026-10-14T10:00:00Z"), []));
+  try {
+    const m = fresh();
+    const t = m.addObject("text")!;
+    m.setNarrationScript(t.id, "Welcome to the course.");
+    assert.ok(m.setNarrationVoice(t.id, "openai:alloy"));
+    const original = narrationOf(m, t.id)!;
+    const made = new Map<string, CachedAudio>([[keyOf(original), { hash: keyOf(original), duration: 3, exactTimings: false }]]);
+    assert.equal(audioStatus(original, made).state, "ready");
+    assert.ok(m.setNarrationLang(t.id, "es"));
+    assert.equal(audioStatus(narrationOf(m, t.id)!, made).state, "missing", "a new language is a new name, so the audio has to be made");
+    assert.ok(m.setNarrationLang(t.id, original.lang));
+    assert.equal(audioStatus(narrationOf(m, t.id)!, made).state, "ready", "back to the first language, the first audio is found again");
+  } finally {
+    setVoiceSources([]);
+  }
 });

@@ -6,7 +6,7 @@ Usage:  python generate.py OP [--allow-network SERVICE,SERVICE] [--plugins-dir D
 OP is one of
   plugins    the voice plugins found in --plugins-dir, and whether each is switched on. Nothing is run and nothing is sent.
   check      {"service": "openai"}  asks the service whether the key is accepted (it costs nothing)
-  picture    {"service": "openai", "prompt": "...", "size": "square|wide|tall", "quality": "low|medium|high", "out": "FILE.png"}
+  picture    {"service": "openai", "prompt": "...", "size": "square|wide|tall", "quality": "low|medium|high", "out": "FILE.webp"}
 
 Anything that talks to a service needs the service named in --allow-network (the editor passes it only after the author
 has said yes, once, for that service) and its key in the environment (OPENSTAGE_KEY_OPENAI).
@@ -62,11 +62,11 @@ def do_check(request, config):
 
 def do_picture(request, config):
     service = _service(request, config, "picture")
-    out = _out(request, ".png")
+    out = _out(request, ".webp")
     prompt, size, quality = str(request.get("prompt", "")), str(request.get("size", "")), str(request.get("quality", "medium"))
     data, model = service.picture(prompt, size, quality, config.key(service.ID), config.model(service.ID, "picture"), config.transport)
     out.write_bytes(data)
-    return {"ok": True, "bytes": len(data), "format": "png", "service": service.ID, "model": model}
+    return {"ok": True, "bytes": len(data), "format": "webp", "service": service.ID, "model": model}
 
 
 OPS = {"plugins": do_plugins, "check": do_check, "picture": do_picture}

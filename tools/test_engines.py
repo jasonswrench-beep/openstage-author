@@ -24,7 +24,7 @@ from engines import common, openai_engine, plugins  # noqa: E402
 from engines.common import EngineError  # noqa: E402
 
 EXAMPLES = pathlib.Path(__file__).resolve().parent.parent / "examples" / "plugins"
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+WEBP = b"RIFF" + (36).to_bytes(4, "little") + b"WEBPVP8 " + b"\x00" * 28
 KEY = "sk-test-0123456789abcdef"
 
 
@@ -192,13 +192,18 @@ class OpenAI(unittest.TestCase):
             openai_engine.speak("Hi.", "alloy", 1, KEY, "bad name!", fake)
 
     def test_a_picture(self):
-        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(PNG).decode()}]}))
+        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(WEBP).decode()}]}))
         data, model = openai_engine.picture("A red barn", "wide", "low", KEY, "", fake)
-        self.assertEqual(data, PNG)
+        self.assertEqual(data, WEBP)
         self.assertEqual(model, "gpt-image-1")
         call = fake.calls[0]
         self.assertEqual(call["url"], "https://api.openai.com/v1/images/generations")
-        self.assertEqual(call["body"], {"model": "gpt-image-1", "prompt": "A red barn", "n": 1, "size": "1536x1024", "quality": "low", "output_format": "png"})
+        self.assertEqual(call["body"], {"model": "gpt-image-1", "prompt": "A red barn", "n": 1, "size": "1536x1024", "quality": "low", "output_format": "webp", "output_compression": 85})
+
+    def test_a_png_is_not_what_was_asked_for(self):
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+        with self.assertRaises(EngineError):
+            openai_engine.picture("A barn", "square", "low", KEY, "", Fake((200, {"data": [{"b64_json": base64.b64encode(png).decode()}]})))
 
     def test_a_picture_that_is_not_one(self):
         for answer in ({"data": []}, {"data": [{"b64_json": base64.b64encode(b"junk").decode()}]}, {"nope": 1}):
@@ -501,16 +506,16 @@ class Generating(unittest.TestCase):
         return engines.Config(allow_network=allow, env=env, transport=fake, plugins_dir=plugins_dir, plugins_enabled=enabled)
 
     def test_a_picture_is_written_where_asked(self):
-        out = self.tmp / "made.png"
-        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(PNG).decode()}]}))
+        out = self.tmp / "made.webp"
+        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(WEBP).decode()}]}))
         answer = generate.run("picture", {"service": "openai", "prompt": "A barn", "size": "square", "quality": "low", "out": str(out)}, self.config(fake))
-        self.assertEqual(answer, {"ok": True, "bytes": len(PNG), "format": "png", "service": "openai", "model": "gpt-image-1"})
-        self.assertEqual(out.read_bytes(), PNG)
+        self.assertEqual(answer, {"ok": True, "bytes": len(WEBP), "format": "webp", "service": "openai", "model": "gpt-image-1"})
+        self.assertEqual(out.read_bytes(), WEBP)
 
     def test_nothing_happens_for_a_service_that_was_not_allowed(self):
         fake = Fake((200, {}))
         for op, request in (("check", {"service": "openai"}),
-                            ("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.png")})):
+                            ("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.webp")})):
             answer = generate.run(op, request, self.config(fake, allow=()))
             self.assertFalse(answer["ok"], op)
             self.assertIn("has not been allowed", answer["message"])
@@ -521,19 +526,19 @@ class Generating(unittest.TestCase):
         self.assertEqual(answer, {"ok": False, "message": "There is no OpenAI key. Add it in Settings."})
 
     def test_a_service_openstage_does_not_have_is_said_so(self):
-        out = str(self.tmp / "x.png")
+        out = str(self.tmp / "x.webp")
         for name in ("midjourney", "elevenlabs"):
             self.assertIn("not a service OpenStage knows", generate.run("check", {"service": name}, self.config(Fake((200, {}))))["message"], name)
             self.assertIn("not a service OpenStage knows", generate.run("picture", {"service": name, "prompt": "x", "size": "square", "quality": "low", "out": out}, self.config(Fake((200, {}))))["message"], name)
 
     def test_the_result_goes_only_where_it_makes_sense(self):
-        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(PNG).decode()}]}))
+        fake = Fake((200, {"data": [{"b64_json": base64.b64encode(WEBP).decode()}]}))
         answer = generate.run("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.exe")}, self.config(fake))
         self.assertFalse(answer["ok"])
         self.assertEqual(fake.calls, [], "the place is checked before anything is paid for")
 
     def test_a_failure_from_the_service_is_the_answer(self):
-        answer = generate.run("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.png")},
+        answer = generate.run("picture", {"service": "openai", "prompt": "x", "size": "square", "quality": "low", "out": str(self.tmp / "x.webp")},
                               self.config(Fake((400, {"error": {"message": "Your request was rejected by the safety system."}}))))
         self.assertFalse(answer["ok"])
         self.assertIn("rejected by the safety system", answer["message"])
@@ -581,7 +586,7 @@ class LiveTestScript(unittest.TestCase):
             if url.endswith("/v1/audio/speech"):
                 return 200, pcm(2.0)
             if url.endswith("/v1/images/generations"):
-                return 200, json.dumps({"data": [{"b64_json": base64.b64encode(PNG).decode()}]}).encode("utf-8")
+                return 200, json.dumps({"data": [{"b64_json": base64.b64encode(WEBP).decode()}]}).encode("utf-8")
             raise AssertionError(f"unexpected request: {method} {url}")
         return transport
 
@@ -613,9 +618,9 @@ class LiveTestScript(unittest.TestCase):
         results, said, asked, secrets_asked = self.run_it(["y", self.OPENAI_KEY], transport=self.internet())
         self.assertEqual(len(results), 5)
         self.assertTrue(all(r.ok for r in results), [r.line() for r in results])
-        for name in ("openai-voice.wav", "openai-picture.png", "example-plugin.wav"):
+        for name in ("openai-voice.wav", "openai-picture.webp", "example-plugin.wav"):
             self.assertTrue((live_test.OUTPUT / name).is_file(), name)
-        self.assertEqual((live_test.OUTPUT / "openai-picture.png").read_bytes(), PNG)
+        self.assertEqual((live_test.OUTPUT / "openai-picture.webp").read_bytes(), WEBP)
         self.assertEqual(len(secrets_asked), 1)
         self.assertIn(("POST", "https://api.openai.com/v1/audio/speech"), self.calls)
         self.assertIn(("POST", "https://api.openai.com/v1/images/generations"), self.calls)

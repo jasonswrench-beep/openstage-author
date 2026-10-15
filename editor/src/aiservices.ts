@@ -288,7 +288,7 @@ export function permissionText(service: ServiceInfo, work: Work, detail: { narra
     : "";
   return [
     `OpenStage will send ${sends} to ${service.name} over the internet, using your ${service.name} key.${count}`,
-    `Nothing else from your course is sent. ${service.name} may charge your account for it, and its own terms and privacy rules apply to what you send. OpenStage cannot see what it costs.`,
+    `Nothing else from your course is sent. ${service.name} may charge your account for it, and its own terms and privacy rules apply to what you send. OpenStage cannot see or limit what it costs, so always check your charges on ${service.name}'s own account page. That is yours to do, not this software's.`,
     `You are asked once. You can take your permission back, or remove the key, in AI services.`,
   ];
 }

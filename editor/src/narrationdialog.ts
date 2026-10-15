@@ -7,7 +7,7 @@
 import { audioPlan, availability, servicesToAsk, type AiSettings, type PluginInfo, type ServiceId } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
 import { clockText, type Model, type NarratedObject } from "./model.ts";
-import { audioStatus, engineOf, excerpt, formatDuration, totals, totalsLine, type CachedAudio } from "./narration.ts";
+import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -58,6 +58,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     const status = h("p", { class: "as-status", role: "status" });
     const failure = h("p", { class: "dialog-error", role: "alert" });
     const makeAll = h("button", { type: "button", text: "Make all missing audio" });
+    const clearBtn = h("button", { type: "button", text: "Clear unused audio" });
     const closeBtn = h("button", { type: "button", text: "Close" });
 
     const say = (text: string) => { status.textContent = text; };
@@ -71,6 +72,9 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       const canMakeSome = items.some((i) => audioStatus(i.narration, opts.cache()).state === "missing" && availability(i.narration, context()).state !== "blocked");
       const can = canMakeSome && !running;
       if (can) makeAll.removeAttribute("aria-disabled"); else makeAll.setAttribute("aria-disabled", "true");
+      const unused = unusedAudio(items.map((i) => i.narration), opts.cache());
+      clearBtn.textContent = unused.length > 0 ? `Clear unused audio (${unused.length})` : "Clear unused audio";
+      if (unused.length > 0 && !running) clearBtn.removeAttribute("aria-disabled"); else clearBtn.setAttribute("aria-disabled", "true");
       closeBtn.textContent = running ? "Cancel" : "Close";
 
       list.replaceChildren();
@@ -164,6 +168,31 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     };
 
     makeAll.addEventListener("click", () => { if (makeAll.getAttribute("aria-disabled") !== "true") void run([]); });
+    clearBtn.addEventListener("click", async () => {
+      if (clearBtn.getAttribute("aria-disabled") === "true" || running) return;
+      failure.textContent = "";
+      const unused = unusedAudio(model.narratedObjects().map((n) => n.narration), opts.cache());
+      if (unused.length === 0) { say("Every audio file is used by a narration."); return; }
+      if (model.dirty) {
+        // The audio the saved version uses would look unused from here, so it would be cleared with the rest.
+        failure.textContent = "Save the project first, so that audio the saved version uses is not cleared too.";
+        return;
+      }
+      const bytes = unused.reduce((n, a) => n + (a.size ?? 0), 0);
+      const files = `${unused.length} ${unused.length === 1 ? "audio file" : "audio files"}`;
+      const sure = await b.confirm(`Delete ${files} that no narration uses any more${bytes > 0 ? ` (${formatBytes(bytes)})` : ""}? If you undo a change to a script, voice, speed or language, the audio for the old version will have to be made again, and an online voice charges you again.`);
+      if (!sure) return;
+      try {
+        const n = await b.deleteNarrationAudio(model.dir, unused.map((a) => a.hash));
+        await opts.refresh();
+        say(`Cleared ${n} unused ${n === 1 ? "audio file" : "audio files"}${bytes > 0 ? `, freeing ${formatBytes(bytes)}` : ""}.`);
+      } catch (err) {
+        await opts.refresh().catch(() => undefined);
+        failure.textContent = errorText(err);
+      } finally {
+        render();
+      }
+    });
     closeBtn.addEventListener("click", () => void leave());
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); void leave(); });
 
@@ -171,7 +200,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       h("h2", { id: "nr-title", text: "Narration" }),
       h("p", { class: "note", text: "Narration belongs to an object and plays when its slide opens, in reading order. An item of an interaction, such as a glossary term or a flip card, has its own narration, which plays when the learner opens that item. The captions and the transcript come from the script, so they always match what is said. To change a word, change the script and make its audio again." }),
       summary, plan, status, failure, list,
-      h("div", { class: "dialog-actions" }, makeAll, closeBtn),
+      h("div", { class: "dialog-actions" }, makeAll, clearBtn, closeBtn),
     );
     document.body.appendChild(dialog);
     render();

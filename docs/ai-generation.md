@@ -6,8 +6,9 @@ The built-in voices (Kokoro) keep working on your computer exactly as before, wi
 
 This was built from OpenAI's own documentation (checked 2026-10-14) and tested with stand-ins that answer the way the documentation
 says they do. **It was then tried with a real key on 2026-10-14**, with TEST AI SERVICES.bat (below): the key was accepted, and OpenAI made
-a voice and a picture. The author listened to and looked at what was made. **Not yet tried:** the same things from the editor window of the
-desktop app. If OpenAI changes something, its message will say what it said.
+a voice and a picture. The author listened to and looked at what was made. The voice side has also been used from the editor window of the
+desktop app: an OpenAI voice was chosen for a narration, its audio was made from the **Narration** dialog, and it was heard in a preview.
+**Not yet confirmed:** making a picture from the editor window. If OpenAI changes something, its message will say what it said.
 
 ElevenLabs (voices and sound effects) was built and tried the same day, then taken out at the author's request, because OpenAI is enough
 for now. It is in the history of the project (the commits `2e403f2` and `c3f8abd`; the engine was `tools/engines/elevenlabs_engine.py`) if it is
@@ -76,6 +77,8 @@ to a minute, and you can cancel. Each time you choose it, OpenAI charges your ac
 
 - The file is saved in your project at once, with a credit that says an AI service made it, the model, the words you gave and the time. The
   words are kept for you; learners are not shown them.
+- **The picture is a compressed WebP** (OpenAI is asked for that, at 85 out of 100), about a tenth the size of the PNG it would send otherwise, so a
+  course stays small. Every current browser shows it.
 - **You still write the alt text.** OpenStage never writes it from the description, because the picture may not be what you asked for. The
   editor offers your words as a place to start, after you insert it.
 - A picture can contain readable text. If it does, the alt text has to say what it says.
@@ -86,6 +89,13 @@ A picture made by an AI service is listed on the course's **credits page** ("Tit
 listed too ("Narration, made with OpenAI. Synthetic voices from an AI service, not a person."). OpenAI's rules ask that listeners are told a voice
 is AI-made. If the credits page is off, the editor and the checker both warn (`credit-page-off`, `voice-credit-page-off`). The Kokoro voices are
 listed as synthetic as well.
+
+## Charges are yours to check
+
+When you use an AI service with your own key, **you** are the customer and the service charges **your** account. OpenStage cannot see what you are charged and cannot
+limit it, and it does not try to guess: any figure it showed could be wrong or out of date. So always check your charges on the service's own account page, and set
+a spending limit there if it offers one. That is the author's job, not the software's. The editor says so where it matters: in **AI services**, in the question asked
+before anything is sent, and under **Make the picture**.
 
 ## What is sent, exactly
 
@@ -121,7 +131,7 @@ python tools/generate.py plugins|check|picture [same options]      (a JSON reque
 - If an engine fails, the others are still tried, the rest of that engine's narrations are not (a wrong key is not tried again and
   again), and `narrate.py` prints a `NOT MADE:` line for each and exits with 1. Audio that was made is kept.
 - The editor's desktop shell (`editor/src-tauri/src/lib.rs`) reads the key and the yes from the settings file, hands a tool only the key of a
-  service that has both, in an environment variable (never on a command line), and checks what comes back (is it a PNG, is it a sensible size)
+  service that has both, in an environment variable (never on a command line), and checks what comes back (is it a real WebP, is it a sensible size)
   before saving it in the project.
 - Tests: `python tools/test_engines.py` (no internet: the service is a stand-in and the plugin tests run the example plugin for real),
   `editor/src/aiservices.test.ts`, `player/src/credits.test.ts`, and the Rust tests in `lib.rs`.

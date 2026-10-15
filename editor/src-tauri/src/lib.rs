@@ -943,6 +943,8 @@ fn is_cache_key(s: &str) -> bool {
 struct CachedNarration {
     hash: String,
     duration: f64,
+    /// The size of the audio file in bytes, so the editor can say how much clearing unused audio frees.
+    size: u64,
     #[serde(rename = "exactTimings")]
     exact_timings: bool,
 }
@@ -966,11 +968,38 @@ fn narration_cache_at(dir: &Path) -> Result<Vec<CachedNarration>, String> {
         out.push(CachedNarration {
             hash: key.to_string(),
             duration: meta["duration"].as_f64().unwrap_or(0.0),
+            size: fs::metadata(folder.join(format!("{key}.wav"))).map(|m| m.len()).unwrap_or(0),
             exact_timings: meta["exactTimings"].as_bool().unwrap_or(false),
         });
     }
     out.sort_by(|a, b| a.hash.cmp(&b.hash));
     Ok(out)
+}
+
+/// Delete narration audio that nothing uses any more, by key. Only a real key (64 hex digits) names a file, nothing is deleted unless every key is
+/// real, and only the .wav and .json of each key inside the project's own .cache/narration are removed. Returns how many keys had a file removed.
+fn delete_narration_audio_at(dir: &Path, keys: &[String]) -> Result<usize, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !keys.iter().all(|k| is_cache_key(k)) {
+        return Err("That is not narration audio.".into());
+    }
+    let folder = dir.join(".cache").join("narration");
+    let mut removed = 0;
+    for key in keys {
+        let mut any = false;
+        for ext in ["wav", "json"] {
+            let file = folder.join(format!("{key}.{ext}"));
+            if file.is_file() && fs::remove_file(&file).is_ok() {
+                any = true;
+            }
+        }
+        if any {
+            removed += 1;
+        }
+    }
+    Ok(removed)
 }
 
 fn read_narration_audio_at(dir: &Path, key: &str) -> Result<Vec<u8>, String> {
@@ -1200,13 +1229,13 @@ fn run_generate(python: &Path, op: &str, request: &serde_json::Value, ai: &AiSet
     }
 }
 
-/// Save a picture a service made in the project's images, and return its project-relative path. The bytes have to be a real PNG,
+/// Save a picture a service made in the project's images, and return its project-relative path. The bytes have to be a real WebP,
 /// and a file that is already there is never overwritten.
 fn save_generated_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
-    if !picture_matches("png", bytes) {
+    if !picture_matches("webp", bytes) {
         return Err("What came back was not a picture OpenStage can use.".into());
     }
     let k = asset_kind("image")?;
@@ -1216,7 +1245,7 @@ fn save_generated_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Resul
     let folder = dir.join("assets").join(k.folder);
     fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     let stem: String = format!("ai-{}", safe_stem(name_hint, "made")).chars().take(48).collect();
-    let name = unique_name(&folder, stem.trim_end_matches('-'), "png");
+    let name = unique_name(&folder, stem.trim_end_matches('-'), "webp");
     fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
     Ok(format!("assets/{}/{name}", k.folder))
 }
@@ -1233,7 +1262,7 @@ fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json:
         return Err("That folder is not an OpenStage project.".into());
     }
     let (op, suffix) = match kind {
-        "picture" => ("picture", "png"),
+        "picture" => ("picture", "webp"),
         _ => return Err("Only a picture can be made.".into()),
     };
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
@@ -1468,6 +1497,12 @@ fn narration_cache(dir: String) -> Result<Vec<CachedNarration>, String> {
 fn read_narration_audio(dir: String, hash: String) -> Result<String, String> {
     use base64::Engine;
     read_narration_audio_at(Path::new(&dir), &hash).map(|bytes| base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+/// Delete the narration audio the editor says nothing uses any more.
+#[tauri::command]
+fn delete_narration_audio(dir: String, keys: Vec<String>) -> Result<usize, String> {
+    delete_narration_audio_at(Path::new(&dir), &keys)
 }
 
 /// Make narration audio. The answer is JSON: ok, and if not, why.
@@ -1782,7 +1817,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -2839,16 +2874,18 @@ mod tests {
     fn a_picture_that_came_back_is_checked_before_it_is_saved() {
         let project = temp_project("ai-save");
         let png = [&[0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][..], &[0u8; 16][..]].concat();
-        let first = save_generated_picture_at(&project, "a-red-barn", &png).unwrap();
-        assert_eq!(first, "assets/images/ai-a-red-barn.png");
-        let second = save_generated_picture_at(&project, "a-red-barn", &png).unwrap();
-        assert_eq!(second, "assets/images/ai-a-red-barn-2.png", "never overwrites");
-        assert_eq!(fs::read(project.join(&first)).unwrap(), png);
+        let webp = [&b"RIFF"[..], &[36u8, 0, 0, 0][..], &b"WEBPVP8 "[..], &[0u8; 28][..]].concat();
+        let first = save_generated_picture_at(&project, "a-red-barn", &webp).unwrap();
+        assert_eq!(first, "assets/images/ai-a-red-barn.webp");
+        let second = save_generated_picture_at(&project, "a-red-barn", &webp).unwrap();
+        assert_eq!(second, "assets/images/ai-a-red-barn-2.webp", "never overwrites");
+        assert_eq!(fs::read(project.join(&first)).unwrap(), webp);
+        assert!(save_generated_picture_at(&project, "x", &png).is_err(), "a PNG is not what was asked for");
         assert!(save_generated_picture_at(&project, "x", b"<html>not a picture</html>").is_err());
         assert!(save_generated_picture_at(&project, "x", &[]).is_err());
         assert!(save_generated_picture_at(&project, "x", b"ID3\x04\0\0\0\0\0\0").is_err(), "a sound is not a picture");
-        assert!(save_generated_picture_at(&std::env::temp_dir(), "x", &png).is_err(), "not a project");
-        let odd = save_generated_picture_at(&project, "../../Windows/System32 evil", &png).unwrap();
+        assert!(save_generated_picture_at(&std::env::temp_dir(), "x", &webp).is_err(), "not a project");
+        let odd = save_generated_picture_at(&project, "../../Windows/System32 evil", &webp).unwrap();
         assert!(odd.starts_with("assets/images/ai-") && !odd.contains(".."), "{odd}");
         let _ = fs::remove_dir_all(&project);
     }
@@ -2940,5 +2977,36 @@ mod tests {
         for bad in ["", "a\\b", "a b", "a\"b", "..\\x", "a&b", &"x".repeat(81)] {
             assert!(!plain_prog_id(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn unused_narration_audio_is_deleted_by_key_and_nothing_else_is_touched() {
+        let project = temp_project("clear-audio");
+        let folder = project.join(".cache").join("narration");
+        fs::create_dir_all(&folder).unwrap();
+        let (a, b, c) = ("a".repeat(64), "b".repeat(64), "c".repeat(64));
+        for key in [&a, &b, &c] {
+            fs::write(folder.join(format!("{key}.wav")), [1u8, 2, 3, 4]).unwrap();
+            fs::write(folder.join(format!("{key}.json")), "{}").unwrap();
+        }
+        fs::write(folder.join("notes.txt"), "mine").unwrap();
+        fs::write(project.join("project.json.keep"), "mine").unwrap();
+        let listed = narration_cache_at(&project).unwrap();
+        assert!(listed.iter().all(|c| c.size == 4), "the size of each audio file is reported");
+
+        assert_eq!(delete_narration_audio_at(&project, &[a.clone(), b.clone()]).unwrap(), 2);
+        assert!(!folder.join(format!("{a}.wav")).exists() && !folder.join(format!("{a}.json")).exists());
+        assert!(!folder.join(format!("{b}.wav")).exists());
+        assert!(folder.join(format!("{c}.wav")).exists() && folder.join(format!("{c}.json")).exists(), "audio not named is kept");
+        assert!(folder.join("notes.txt").exists() && project.join("project.json.keep").exists() && project.join("project.json").exists(), "nothing else is touched");
+        assert_eq!(delete_narration_audio_at(&project, &[a.clone()]).unwrap(), 0, "audio that is already gone counts for nothing");
+        assert_eq!(delete_narration_audio_at(&project, &[]).unwrap(), 0);
+
+        for bad in ["", "d", "../../project", "..\\..\\project", &format!("{c}.wav"), &"D".repeat(64), &"c".repeat(63), &"c".repeat(65)] {
+            assert!(delete_narration_audio_at(&project, &[c.clone(), bad.to_string()]).is_err(), "{bad}");
+        }
+        assert!(folder.join(format!("{c}.wav")).exists(), "one bad key stops everything: nothing is deleted");
+        assert!(delete_narration_audio_at(&std::env::temp_dir(), &[c.clone()]).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
     }
 }

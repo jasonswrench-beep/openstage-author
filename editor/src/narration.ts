@@ -373,6 +373,24 @@ export interface CachedAudio {
   duration: number;
   /** True when the captions are timed to the spoken words, false when they were estimated from sentence length. */
   exactTimings: boolean;
+  /** The size of the audio file in bytes, when the shell says. */
+  size?: number;
+}
+
+/**
+ * The audio in the cache that no narration in the course names any more. It is left behind when a script, voice, speed or language changes,
+ * because the old audio is named by the old words, and is found again if the change is undone. Clearing it saves space.
+ */
+export function unusedAudio(narrations: readonly Narration[], cache: ReadonlyMap<string, CachedAudio>): CachedAudio[] {
+  const used = new Set(narrations.map(keyOf));
+  return [...cache.values()].filter((a) => !used.has(a.hash));
+}
+
+/** 1536 is "1.5 KB"; 3,400,000 is "3.2 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export type AudioState = "ready" | "missing";

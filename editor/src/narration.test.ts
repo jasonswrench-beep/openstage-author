@@ -172,3 +172,21 @@ test("audio sent as base64 text comes back as the same bytes", () => {
   assert.deepEqual([...base64ToBytes(Buffer.from(wav).toString("base64"))], [...wav]);
   assert.equal(String.fromCharCode(...base64ToBytes("UklGRg==")), "RIFF");
 });
+
+test("audio that no narration names any more is found, and what is still used is never offered", async () => {
+  const { unusedAudio, formatBytes, keyOf: key } = await import("./narration.ts");
+  const a = { script: "One.", voice: "af_heart", speed: 1, lang: "en-US", pronunciations: [], audioCache: null };
+  const edited = { ...a, script: "One, edited." };
+  const cache = new Map([
+    [key(a), { hash: key(a), duration: 1, exactTimings: true, size: 100 }],
+    [key(edited), { hash: key(edited), duration: 1, exactTimings: true, size: 200 }],
+    ["f".repeat(64), { hash: "f".repeat(64), duration: 2, exactTimings: false, size: 300 }],
+  ]);
+  assert.deepEqual(unusedAudio([edited], cache).map((x) => x.size), [100, 300], "the old words' audio and a stray file are unused; the current one is not");
+  assert.deepEqual(unusedAudio([a, edited], cache).map((x) => x.size), [300]);
+  assert.deepEqual(unusedAudio([], new Map()), []);
+  assert.deepEqual(unusedAudio([a, edited], new Map([[key(a), cache.get(key(a))!]])), [], "nothing is unused when everything is named");
+  assert.equal(formatBytes(512), "512 bytes");
+  assert.equal(formatBytes(1536), "1.5 KB");
+  assert.equal(formatBytes(3.4 * 1024 * 1024), "3.4 MB");
+});

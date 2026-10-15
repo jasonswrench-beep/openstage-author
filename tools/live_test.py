@@ -249,8 +249,8 @@ def run_live_test(ask, secret, say, transport=None, env=None):
                 def picture():
                     data, model = openai_engine.picture(PICTURE_WORDS, "square", "low", key, config.model("openai", "picture"), transport)
                     OUTPUT.mkdir(parents=True, exist_ok=True)
-                    (OUTPUT / "openai-picture.png").write_bytes(data)
-                    return f"A picture of {len(data) // 1024} KB was made with {model}. Saved as openai-picture.png (open it: it should be a red circle)."
+                    (OUTPUT / "openai-picture.webp").write_bytes(data)
+                    return f"A picture of {len(data) // 1024} KB was made with {model}. Saved as openai-picture.webp (drag it onto your web browser: it should be a red circle)."
 
                 step("OpenAI makes a picture", picture)
             else:

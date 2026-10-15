@@ -184,7 +184,7 @@ each with its audio status, a "Go to" button, and "Make audio" (or "Make all mis
 project as it is on screen, saved or not, and can be cancelled; the first time can take a minute or more for each object.
 If no speech engine is set up the dialog says so and still lists everything (transcripts and captions work without audio).
 OPEN EDITOR.bat looks for the engine in the Audiobook Studio folder; otherwise set `OPENSTAGE_KOKORO_PYTHON` to the
-Python that has Kokoro installed. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
+Python that has Kokoro installed. **Clear unused audio** in the Narration dialog deletes the audio that no narration names any more (it is left behind when a script, voice, speed or language changes, and is found again if the change is undone), after asking, and says how much space it frees. It asks you to save first, so audio the saved version uses is not cleared. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
 is published with the audio already made, or without audio.
 
 **AI services.** The **AI services** button opens a dialog for OpenAI and for voice plugins (docs/ai-generation.md, docs/plugins.md). For OpenAI: the key
@@ -212,7 +212,7 @@ keeps (images, video, audio and captions), filtered by kind, with a picture of e
 where it is used, where it came from, and buttons to insert it on the slide, edit its credit, or delete it. A
 file a slide uses cannot be deleted. Everything listed is included when the course is published, and a
 checkbox switches the credits page on or off. *Find media* helps with free pictures, video and sound from the web. **No key is needed to use these sites**:
-for each kind (Images, Video, Audio) it has buttons that open Pexels, Pixabay, Unsplash, Freesound, Mixkit, SVG
+for each kind (Images, Video, Audio) it has buttons that open Pexels, Pixabay (pictures, and separately its sound effects), Unsplash, Freesound, Free Sound Effects, Mixkit, SVG
 Repo and Libreshot in your browser. Download a file there, add it on the *This project* tab with "Add image...",
 "Add video..." or "Add audio...", and use Edit credit to record where it came from, so the credits page can name
 the creator. Four of the sites can also be searched from inside the editor, if you add that site's own free key

@@ -242,7 +242,7 @@ test("listeners are told about an AI voice, and the editor says so when the cred
 test("the question before anything is sent says what is sent, to whom, and that it may cost", () => {
   const voice = permissionText(serviceById("openai"), "voice", { narrations: 3, characters: 420 });
   assert.match(voice[0]!, /send the words of the narration scripts to OpenAI over the internet, using your OpenAI key.*3 narrations, 420 characters/);
-  assert.match(voice[1]!, /Nothing else from your course is sent.*may charge your account.*cannot see what it costs/);
+  assert.match(voice[1]!, /Nothing else from your course is sent.*may charge your account.*cannot see or limit what it costs.*always check your charges on OpenAI's own account page.*yours to do, not this software's/);
   assert.match(voice[2]!, /asked once.*take your permission back/);
   assert.match(permissionText(serviceById("openai"), "picture")[0]!, /the description of the picture you write/);
   assert.match(permissionText(serviceById("openai"), "voice", { narrations: 1, characters: 5 })[0]!, /1 narration, 5 characters/);

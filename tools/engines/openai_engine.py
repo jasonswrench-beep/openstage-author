@@ -35,6 +35,10 @@ TEXT_LIMIT = 4000  # the service takes 4096 characters; a little under is safe
 PCM_RATE = 24000
 
 # How a picture is shaped, in the words the author sees, and what the service calls it.
+# A picture is asked for as WebP, compressed to 85 out of 100: about a tenth the size of the PNG OpenAI sends by default, and every browser shows it.
+PICTURE_FORMAT = "webp"
+PICTURE_COMPRESSION = 85
+
 PICTURE_SIZES = {"square": "1024x1024", "wide": "1536x1024", "tall": "1024x1536"}
 PICTURE_QUALITIES = ("low", "medium", "high")
 
@@ -71,7 +75,7 @@ def speak(text, voice, speed, key, model="", transport=None):
 
 
 def picture(prompt, size, quality, key, model="", transport=None):
-    """A picture drawn from the description, as PNG bytes."""
+    """A picture drawn from the description, as WebP bytes."""
     if size not in PICTURE_SIZES:
         raise EngineError(f"The shape of a picture is one of: {', '.join(PICTURE_SIZES)}.")
     if quality not in PICTURE_QUALITIES:
@@ -82,13 +86,13 @@ def picture(prompt, size, quality, key, model="", transport=None):
         raise EngineError("That description is too long.")
     model = _model(model, DEFAULT_PICTURE_MODEL)
     body = json.dumps({"model": model, "prompt": prompt, "n": 1, "size": PICTURE_SIZES[size], "quality": quality,
-                       "output_format": "png"}).encode("utf-8")
+                       "output_format": PICTURE_FORMAT, "output_compression": PICTURE_COMPRESSION}).encode("utf-8")
     answer = common.call(NAME, key, transport, "POST", f"{BASE}/v1/images/generations", _headers(key), body, timeout=300, kind="picture request")
     try:
         data = base64.b64decode(json.loads(answer.decode("utf-8"))["data"][0]["b64_json"], validate=False)
     except (ValueError, KeyError, IndexError, TypeError):
         raise EngineError(f"{NAME} answered, but not with a picture OpenStage understands.") from None
-    if not common.has_png_header(data):
+    if not common.has_webp_header(data):
         raise EngineError(f"{NAME} answered, but not with a picture OpenStage understands.")
     return data, model
 

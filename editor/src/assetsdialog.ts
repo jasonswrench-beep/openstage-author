@@ -486,7 +486,7 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
         h("div", { class: "field" }, h("label", { for: shape.id, text: "Shape" }), shape),
         h("div", { class: "field" }, h("label", { for: quality.id, text: "Quality" }), quality),
         h("div", { class: "btn-row" }, go, cancel),
-        h("p", { class: "note", text: `Each time you choose this, ${svc.name} charges your account. Your description is sent to ${svc.name}; nothing else from your course is.` }),
+        h("p", { class: "note", text: `Each time you choose this, ${svc.name} charges your account. Check your charges on ${svc.name}'s own account page: OpenStage cannot see or limit them. Your description is sent to ${svc.name}; nothing else from your course is.` }),
         result);
     }
 

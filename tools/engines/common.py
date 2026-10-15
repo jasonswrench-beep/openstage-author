@@ -187,8 +187,8 @@ def split_text(text, limit):
     return pieces
 
 
-def has_png_header(data):
-    return data[:8] == b"\x89PNG\r\n\x1a\n"
+def has_webp_header(data):
+    return len(data) > 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
 
 
 def has_mp3_header(data):

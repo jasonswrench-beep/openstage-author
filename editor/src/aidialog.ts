@@ -106,6 +106,7 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
 
     const intro = h("div", {},
       h("p", { text: "Make voices and pictures with a service you have your own key for, and use other voice models through plugins. Nothing is sent anywhere until you add a key and say yes to that service." }),
+      h("p", { class: "note", text: "Always check your charges. You pay the service for what you make, and OpenStage cannot see or limit what you spend, so look at the charges on the service's own account page now and then. That is yours to do, not this software's." }),
       h("p", { class: "note", text: "Your keys are kept on this computer only, in OpenStage's own settings. They are never saved in a project, so sharing a project never shares a key. Voices are always the ready-made ones a service offers: OpenStage does not copy anyone's voice." }));
 
     // ---- one block for each service
