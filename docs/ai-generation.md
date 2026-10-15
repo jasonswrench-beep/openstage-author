@@ -56,6 +56,11 @@ project never shares a key. Changing the key takes back your yes, because a diff
 Once OpenAI is set up, its voices are in the **Voice** list of an object's Narration section, under "OpenAI, over the internet". Under the list,
 a note says where the voice is made. Then:
 
+- **Hear the voice first.** The **Hear this voice** button under the Voice list plays a short sample, one fixed sentence in the voice (never any of your
+  words). Press it again while the sample is being made to cancel, or while it plays to stop. The first time costs a few seconds, and for an OpenAI voice
+  one short sentence goes to OpenAI and OpenAI may charge your account for it. The sample is then **kept on this computer** (in OpenStage's own cache
+  folder, `%LOCALAPPDATA%\com.openstageauthor.editor\voice-samples`, never in a project), so hearing the same voice again sends nothing and costs nothing.
+  A new sample is made when the voice, its language, the model (or the plugin's version) changes. The folder is only a convenience and can be emptied at any time.
 - **Make the audio** from the **Narration** dialog, as always. Its first lines say, for each engine, where the audio will be made and whether
   anything is sent. Before the words of a script are sent for the first time you are asked, and the question says how many narrations and
   characters. The scripts are sent; nothing else from your course is.
@@ -103,6 +108,7 @@ before anything is sent, and under **Make the picture**.
 | --- | --- |
 | A voice | the script of each narration being made, the voice name, the speed, and your key |
 | A picture | the description, the shape, the quality, and your key |
+| Hearing a voice (the first time only) | one fixed sample sentence, the voice name, and your key; none of your words |
 | Checking the key | your key |
 
 Nothing else: no slide, no image, no other part of your course, and nothing about you. OpenAI has its own terms and privacy rules for what it
@@ -116,13 +122,14 @@ OpenStage uses (a recent speech model and image model), or type a new name if on
 
 ## For developers: the command line
 
-The editor does none of this itself. It asks two Python tools, which are the only code that talks to a service, so there is one place that
+The editor does none of this itself. It asks Python tools (`narrate.py`, `generate.py` and `voice_sample.py`), which are the only code that talks to a service, so there is one place that
 checks permission and one place that handles a key. Both need only the standard library.
 
 ```
 python tools/narrate.py PROJECT [--only ID,ID] [--cache-root DIR]
                         [--allow-network openai] [--plugins-dir DIR] [--plugins-enabled ID,ID]
 python tools/generate.py plugins|check|picture [same options]      (a JSON request on standard input)
+python tools/voice_sample.py --cache-dir DIR [same options]         ({"voice": "...", "lang": "..."} on standard input)
 ```
 
 - A voice of a service is made only if its service is in `--allow-network` **and** its key is in the environment
@@ -140,5 +147,5 @@ python tools/generate.py plugins|check|picture [same options]      (a JSON reque
 
 - Other services. Adding one is a new module beside `tools/engines/openai_engine.py` and an entry in `editor/src/aiservices.ts`.
 - Sound effects, and picture and sound plugins. The plugin contract (docs/plugins.md) is for voices only; the `picture` and `sound` jobs are reserved.
-- Choosing a voice by listening to a sample, and showing what a service has charged.
+- Showing what a service has charged (on purpose: the software cannot see it, so it tells you to check your own account).
 - Using a service from the command line in a way that asks for permission; the command line trusts its options.

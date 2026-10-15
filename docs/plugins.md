@@ -88,6 +88,9 @@ Answer, when it did not (the message is shown to the author, so write it for the
   message if the program stops.
 - A request has no time limit short of 30 minutes. The author can cancel at any time and the whole process tree is stopped.
 - One request at a time. The next is sent after the answer.
+- **Samples.** When the author presses **Hear this voice**, OpenStage sends an ordinary `speak` request with a short fixed sentence (in the voice's language, or the
+  narration's if the voice speaks many) at speed 1, and keeps the answer on the author's computer, named from the voice, the language, the sentence and the
+  plugin's `version`. **Change `version` when your voices change**, or the author keeps hearing the old sample.
 
 ## Try it
 

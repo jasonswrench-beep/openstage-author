@@ -11,6 +11,7 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { parseMade, parsePlugins, parseServiceAnswer, type MadeAnswer, type PluginList, type ServiceAnswer, type ServiceId } from "./aiservices.ts";
 import type { FileText, OpenedProject } from "./model.ts";
 import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } from "./narration.ts";
+import { parseSample, type SampleAnswer } from "./voicesample.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
 import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
 
@@ -121,6 +122,11 @@ export interface Backend {
   aiService(op: "check", service: ServiceId): Promise<ServiceAnswer>;
   /** Make a picture with a service and save it in the project's images. This costs the author money. */
   aiMake(dir: string, kind: "picture", request: Record<string, unknown>): Promise<MadeAnswer>;
+  /**
+   * A short sample of a voice, to hear before choosing it: one fixed sentence in the voice's language, made the first time and then kept on this
+   * computer. None of the author's words are used. A voice of a service is charged for the first time only, by the service, to the author's account.
+   */
+  voiceSample(voice: string, lang: string): Promise<SampleAnswer>;
   /** A URL the page can show an image from, for a file inside the project's assets folder. */
   assetUrl(dir: string, path: string): Promise<string>;
   /**
@@ -254,6 +260,9 @@ const tauriBackend: Backend = {
   },
   async aiMake(dir, kind, request) {
     return parseMade(await invoke<string>("ai_make", { dir, kind, request: JSON.stringify(request) }));
+  },
+  async voiceSample(voice, lang) {
+    return parseSample(await invoke<string>("voice_sample", { voice, lang }));
   },
   // The file comes back as a data URL string, which needs no binary transfer and no special
   // permission, and works for every image type including SVG.
@@ -397,6 +406,9 @@ const previewBackend: Backend = {
   },
   async aiMake(dir, kind, request) {
     return parseMade(JSON.stringify(await post("/api/ai-make", { dir, kind, request })));
+  },
+  async voiceSample(voice, lang) {
+    return parseSample(JSON.stringify(await post("/api/voice-sample", { voice, lang })));
   },
   async assetUrl(dir, path) {
     const res = await fetch(`/api/asset?dir=${encodeURIComponent(dir)}&path=${encodeURIComponent(path)}`);

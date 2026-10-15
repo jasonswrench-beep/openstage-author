@@ -1330,6 +1330,109 @@ async fn ai_make(app: tauri::AppHandle, dir: String, kind: String, request: Stri
         .map_err(|e| e.to_string())?
 }
 
+// ---- Hearing a voice before choosing it
+//
+// A sample is one short fixed sentence in a voice, made by tools/voice_sample.py the first time and kept in the editor's own cache folder (not in
+// a project), so hearing the same voice again costs nothing. None of the author's words are used. The tool decides what a sample is called; this
+// side only passes the request on, and reads back a file it has checked is named like a sample and is a sensible size.
+
+/// The most a sample can weigh: a few seconds of speech is well under a megabyte, so anything near this is not a sample.
+const MAX_SAMPLE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// A voice's name as it may be passed to the tool: some characters, not too many, nothing that is not printable. (The tool checks the voice
+/// itself; this stops anything odd from being sent at all.)
+fn voice_name_ok(voice: &str) -> bool {
+    (1..=100).contains(&voice.chars().count()) && voice.chars().all(|c| !c.is_control())
+}
+
+/// A language code such as en-US or fr-FR.
+fn language_ok(lang: &str) -> bool {
+    (1..=16).contains(&lang.len()) && lang.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+/// The sample file the tool named, read from the cache. It has to be named like one (64 hex digits and .wav), so the answer of a damaged or
+/// replaced tool can never point at some other file.
+fn read_sample_at(cache: &Path, file: &str) -> Result<Vec<u8>, String> {
+    let named = file.strip_suffix(".wav").is_some_and(is_cache_key);
+    if !named {
+        return Err("The sample was not named the way a sample is.".into());
+    }
+    let path = cache.join(file);
+    let size = fs::metadata(&path).map(|m| m.len()).map_err(|_| "The sample was made, but it could not be found.".to_string())?;
+    if size > MAX_SAMPLE_BYTES {
+        return Err("The sample is larger than a sample should be.".into());
+    }
+    fs::read(&path).map_err(|e| format!("Could not read the sample: {e}"))
+}
+
+/// Make a sample of a voice, or find the one kept, and answer with JSON: ok, then the audio (a WAV as base64), whether it was kept already, and
+/// who makes the voice; or ok false and why. `engine` is the Python to run the tool in (Kokoro's own for a Kokoro voice).
+fn voice_sample_blocking(engine: &Path, voice: &str, lang: &str, cache: &Path, ai: &AiSettings, plugins: Option<&Path>) -> Result<String, String> {
+    use base64::Engine;
+    if !voice_name_ok(voice) || !language_ok(lang) {
+        return Err("That is not a voice.".into());
+    }
+    let _slot = JobSlot::take()?;
+    let tool = find_tool("voice_sample.py").ok_or("Could not find tools/voice_sample.py.")?;
+    let mut cmd = Command::new(engine);
+    cmd.arg(&tool).arg("--cache-dir").arg(cache);
+    apply_ai(&mut cmd, ai, plugins);
+    let kokoro = !voice.contains(':');
+    let request = serde_json::json!({ "voice": voice, "lang": lang }).to_string().into_bytes();
+    match run_job_input(cmd, Some(request)) {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let line = text.lines().rev().find(|l| l.trim_start().starts_with('{')).unwrap_or("");
+            let answer: serde_json::Value = serde_json::from_str(line).map_err(|_| "The tool did not give an answer OpenStage understands.".to_string())?;
+            if answer["ok"].as_bool() != Some(true) {
+                return Ok(serde_json::json!({ "ok": false, "message": answer["message"].as_str().unwrap_or("The sample could not be made.") }).to_string());
+            }
+            let bytes = read_sample_at(cache, answer["file"].as_str().unwrap_or(""))?;
+            Ok(serde_json::json!({
+                "ok": true,
+                "audio": base64::engine::general_purpose::STANDARD.encode(bytes),
+                "cached": answer["cached"].as_bool().unwrap_or(false),
+                "engine": answer["engine"], "name": answer["name"], "where": answer["where"], "duration": answer["duration"],
+            })
+            .to_string())
+        }
+        Ok(out) => {
+            let tail: Vec<String> = String::from_utf8_lossy(&out.stderr).lines().map(str::trim).filter(|l| !l.is_empty()).rev().take(3).map(str::to_string).collect();
+            Err(format!("The tool stopped before it finished. {}", tail.into_iter().rev().collect::<Vec<_>>().join(" ")).trim().to_string())
+        }
+        Err(JobError::Cancelled) => Ok(serde_json::json!({ "ok": false, "cancelled": true, "message": "Cancelled." }).to_string()),
+        Err(JobError::Missing) if kokoro => Err("The speech engine could not be started. Check OPENSTAGE_KOKORO_PYTHON.".into()),
+        Err(JobError::Missing) => Err(NO_PYTHON.into()),
+        Err(JobError::Failed(e)) => Err(format!("Could not run the tool: {e}")),
+    }
+}
+
+/// Where samples are kept: the editor's own cache folder, which is safe to empty at any time.
+fn voice_samples_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_cache_dir().map_err(|e| e.to_string())?.join("voice-samples"))
+}
+
+/// A short sample of a voice, to hear before choosing it. A Kokoro voice is made on this computer, for nothing; a voice of a service goes to the
+/// service the first time (a very small charge) and is then kept.
+#[tauri::command]
+async fn voice_sample(app: tauri::AppHandle, voice: String, lang: String) -> Result<String, String> {
+    let cache = voice_samples_dir(&app)?;
+    let ai = ai_settings(&app);
+    let plugins = plugins_dir(&app).ok();
+    // Kokoro needs the Python it is installed in. Everything else needs only an ordinary Python.
+    let engine = if voice.contains(':') {
+        tools_python()
+    } else {
+        match engine_path() {
+            Some(path) => path,
+            None => return Ok(serde_json::json!({ "ok": false, "message": NO_ENGINE }).to_string()),
+        }
+    };
+    tauri::async_runtime::spawn_blocking(move || voice_sample_blocking(&engine, &voice, &lang, &cache, &ai, plugins.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 fn read_asset_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
     let rel_path = Path::new(rel);
     let clean = rel.starts_with("assets/")
@@ -1817,7 +1920,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3008,5 +3111,72 @@ mod tests {
         assert!(folder.join(format!("{c}.wav")).exists(), "one bad key stops everything: nothing is deleted");
         assert!(delete_narration_audio_at(&std::env::temp_dir(), &[c.clone()]).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_voice_and_a_language_are_checked_before_anything_is_asked_of_the_tool() {
+        for good in ["af_heart", "openai:alloy", "my-plugin:narrator", "ef_dora"] {
+            assert!(voice_name_ok(good), "{good}");
+        }
+        for bad in ["", "bad\nvoice", "bad\u{0}voice", &"v".repeat(101)] {
+            assert!(!voice_name_ok(bad), "{bad:?}");
+        }
+        for good in ["en-US", "fr", "pt-BR", "zh"] {
+            assert!(language_ok(good), "{good}");
+        }
+        for bad in ["", "en US", "en_US", "../x", &"l".repeat(17), "\u{e9}n"] {
+            assert!(!language_ok(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_sample_is_read_only_if_it_is_named_like_one_and_is_a_sensible_size() {
+        let cache = temp_project("sample-read");
+        let key = "a".repeat(64);
+        fs::write(cache.join(format!("{key}.wav")), b"RIFFdata").unwrap();
+        assert_eq!(read_sample_at(&cache, &format!("{key}.wav")).unwrap(), b"RIFFdata");
+        fs::write(cache.join("project.json.bak"), "mine").unwrap();
+        for bad in ["", "project.json", "project.json.bak", "../project.json", "..\\project.json", &format!("{key}.json"), &format!("{key}.wav.wav"), &format!("{}.wav", "A".repeat(64)), &format!("{}.wav", "a".repeat(63)), &format!("sub/{key}.wav")] {
+            assert!(read_sample_at(&cache, bad).is_err(), "{bad}");
+        }
+        assert!(read_sample_at(&cache, &format!("{}.wav", "b".repeat(64))).is_err(), "named like a sample but not there");
+        let big = cache.join(format!("{}.wav", "c".repeat(64)));
+        fs::File::create(&big).unwrap().set_len(MAX_SAMPLE_BYTES + 1).unwrap();
+        assert!(read_sample_at(&cache, &format!("{}.wav", "c".repeat(64))).unwrap_err().contains("larger"));
+        let _ = fs::remove_dir_all(&cache);
+    }
+
+    #[test]
+    fn a_voice_sample_is_made_by_the_tool_kept_and_asks_nothing_of_a_service_that_was_not_allowed() {
+        use base64::Engine;
+        let _turn = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let Ok(python) = std::env::var("OPENSTAGE_PYTHON") else {
+            eprintln!("skipped: OPENSTAGE_PYTHON is not set");
+            return;
+        };
+        let Some(script) = find_repo_file("tools/voice_sample.py") else {
+            eprintln!("skipped: repository not found");
+            return;
+        };
+        let plugins = script.parent().unwrap().parent().unwrap().join("examples").join("plugins");
+        let cache = temp_project("sample-tool").join("samples");
+        let ai = AiSettings::parse(r#"{"ai":{"plugins":{"tone-voice":true}}}"#);
+
+        let first: serde_json::Value = serde_json::from_str(&voice_sample_blocking(Path::new(&python), "tone-voice:low", "en-US", &cache, &ai, Some(&plugins)).expect("runs")).unwrap();
+        assert_eq!(first["ok"], true, "{first}");
+        assert_eq!(first["cached"], false);
+        assert_eq!((first["engine"].as_str(), first["where"].as_str()), (Some("tone-voice"), Some("computer")));
+        let wav = base64::engine::general_purpose::STANDARD.decode(first["audio"].as_str().unwrap()).unwrap();
+        assert_eq!(&wav[..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        let second: serde_json::Value = serde_json::from_str(&voice_sample_blocking(Path::new(&python), "tone-voice:low", "en-US", &cache, &ai, Some(&plugins)).expect("runs")).unwrap();
+        assert_eq!((second["ok"].clone(), second["cached"].clone()), (true.into(), true.into()), "the sample is kept");
+
+        let off: serde_json::Value = serde_json::from_str(&voice_sample_blocking(Path::new(&python), "openai:alloy", "en-US", &cache, &AiSettings::default(), None).expect("runs")).unwrap();
+        assert_eq!(off["ok"], false);
+        assert!(off["message"].as_str().unwrap().contains("has not been allowed"), "{off}");
+        assert!(voice_sample_blocking(Path::new(&python), "bad\nvoice", "en-US", &cache, &ai, None).is_err());
+        assert!(voice_sample_blocking(Path::new(&python), "af_heart", "en US", &cache, &ai, None).is_err());
+        let _ = fs::remove_dir_all(cache.parent().unwrap());
     }
 }

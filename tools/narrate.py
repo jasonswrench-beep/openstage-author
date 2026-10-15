@@ -231,7 +231,15 @@ def generate(project_dir, narration):
 
 # ---------------------------------------------------------------- entry point
 
+# The parts without which Kokoro itself is not there. Anything else that cannot be imported is an extra a language needs (the Japanese
+# and Chinese voices need packages the English ones do not), and Kokoro's voices in other languages still work.
+KOKORO_CORE = {"kokoro", "soundfile", "numpy", "torch"}
+
+
 def kokoro_missing(exc):
+    if exc.name and exc.name not in KOKORO_CORE:
+        return (f"Kokoro is installed here, but this voice's language needs an extra part ({exc.name}) that has not been installed, "
+                "so this voice cannot be made on this computer. Kokoro's voices in other languages are not affected.")
     return (f"Kokoro is not available in this Python ({exc.name}). "
             "Set OPENSTAGE_KOKORO_PYTHON to a Python that has it, or use --no-generate.")
 

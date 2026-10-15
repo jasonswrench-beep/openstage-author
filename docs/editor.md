@@ -169,7 +169,9 @@ the checkbox, statement or pair that saved to one is deleted (see Questions, inp
 **Narration.** Any object can speak. In the Properties panel, the Narration section holds the object's script: what
 the learner hears when its slide opens, in reading order. Writing the first words makes narration, in the voice and
 speed of the narration before it, so a course keeps one voice; clearing the script removes it (undo brings all of it
-back). Once there is a script the section also has a Voice list, grouped by language ("Heart, woman"), a Speed (0.5
+back). Once there is a script the section also has a Voice list, grouped by language ("Heart, woman"), a **Hear this voice** button that plays a short sample of the voice shown (one fixed sentence, never the author's words; the
+same button cancels while the sample is being made and stops it while it plays; the first sample of a voice is made on request and kept on this computer, so hearing it again is quick and free; for a service's voice the
+first one is one short request to the service, which may charge the author, as the note under the button says), a Speed (0.5
 to 2, where 1 is normal), and a Pronunciations list for words the voice gets wrong, each a word as spelled in the
 script and its IPA, which is checked as the validator checks it. The captions and the transcript come from the
 script, so they always match what is said.

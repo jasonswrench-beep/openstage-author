@@ -44,6 +44,7 @@ import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MI
 import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
+import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
 import { failureText, narrationLine } from "./publishing.ts";
@@ -829,6 +830,7 @@ export class App {
       voice.dataset["key"] = `prop:${prefix}-voice`;
       voice.addEventListener("change", () => { const msg = m.setNarrationVoice(key, voice.value); if (msg) this.announce(msg); });
       parts.push(h("div", { class: "field" }, h("label", { for: `p-${prefix}-voice`, text: "Voice" }), voice));
+      if (traits.known) parts.push(h("div", { class: "btn-row" }, this.hearButton(n.voice, n.lang, prefix)), h("p", { id: `${prefix}-hear-note`, class: "note", text: sampleNote(traits) }));
       parts.push(h("p", { id: `${prefix}-voice-note`, class: "note", text: voiceNote(traits) }));
       parts.push(...[...voiceLimits(traits), disclosureNote(traits, m.project.credits)].filter((t) => t !== "").map((t) => h("p", { class: "note", text: t })));
       if (traits.multilingual) {
@@ -849,6 +851,89 @@ export class App {
       parts.push(h("p", { class: "note", text: statusLine(state) }), holder);
     }
     return parts;
+  }
+
+  // ---- hearing a voice before choosing it
+
+  /** The sample being made or played, if any. Only one at a time, because making one uses the same slot as a preview or making audio. */
+  private hearing: { state: "making" | "playing"; voice: string; audio?: HTMLAudioElement; url?: string } | null = null;
+
+  private hearingState(voice: string): SampleState {
+    return this.hearing && this.hearing.voice === voice ? this.hearing.state : "idle";
+  }
+
+  /** The button that plays a short sample of the voice shown beside it. It also cancels the making and stops the playing, so the keyboard stays on it. */
+  private hearButton(voice: string, lang: string, prefix: string): HTMLButtonElement {
+    const view = sampleButton(this.hearingState(voice));
+    const b = this.small(view.label, view.title, () => void this.hearVoice(voice, lang));
+    b.classList.add("hear-voice");
+    b.dataset["voice"] = voice;
+    b.dataset["key"] = `prop:${prefix}-hear`;
+    b.setAttribute("aria-describedby", `${prefix}-hear-note`);
+    return b;
+  }
+
+  /** Every Hear button shows what pressing it does now. They are found rather than remembered, because the Properties panel is redrawn from time to time. */
+  private paintHearButtons(): void {
+    for (const b of Array.from(this.root.querySelectorAll<HTMLButtonElement>("button.hear-voice"))) {
+      const view = sampleButton(this.hearingState(b.dataset["voice"] ?? ""));
+      b.textContent = view.label;
+      b.title = view.title;
+    }
+  }
+
+  private stopSample(): void {
+    const was = this.hearing;
+    this.hearing = null;
+    was?.audio?.pause();
+    if (was?.url) URL.revokeObjectURL(was.url);
+    this.paintHearButtons();
+  }
+
+  private async hearVoice(voice: string, lang: string): Promise<void> {
+    const current = this.hearing;
+    if (current?.state === "making") {
+      if (current.voice === voice) await backend.cancelJob().catch(() => false); // the answer comes back as "cancelled" and is announced below
+      else this.announce("Another sample is being made. Wait for it, or cancel it first.");
+      return;
+    }
+    if (current?.state === "playing") {
+      this.stopSample();
+      if (current.voice === voice) {
+        this.announce("Stopped.");
+        return;
+      }
+    }
+    const making = { state: "making" as const, voice };
+    this.hearing = making;
+    this.paintHearButtons();
+    this.announce(sampleMakingText(voice));
+    let answer: SampleAnswer;
+    try {
+      answer = await backend.voiceSample(voice, lang);
+    } catch (err) {
+      answer = { ok: false, message: errorText(err) };
+    }
+    if (this.hearing !== making) return;
+    if (!answer.ok) {
+      this.hearing = null;
+      this.paintHearButtons();
+      this.announce(answer.cancelled ? "Cancelled." : `No sample. ${answer.message}`);
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([answer.wav], { type: "audio/wav" }));
+    const audio = new Audio(url);
+    const playing = { state: "playing" as const, voice, audio, url };
+    this.hearing = playing;
+    audio.addEventListener("ended", () => { if (this.hearing === playing) this.stopSample(); });
+    this.paintHearButtons();
+    try {
+      await audio.play();
+      this.announce(samplePlayingText(voice));
+    } catch {
+      if (this.hearing === playing) this.stopSample();
+      this.announce("The sample is ready, but the sound could not be started. Press the button to try again.");
+    }
   }
 
   /** A field whose box takes the full width, with its label above it. */

@@ -42,6 +42,23 @@ function plainPng(w, h) {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]);
 }
 
+/** A mono 16-bit WAV file of a plain tone, at 24 kHz, fading in and out so it does not click. */
+function toneWav(hz, seconds) {
+  const rate = 24000;
+  const count = Math.round(rate * seconds);
+  const out = Buffer.alloc(44 + count * 2);
+  out.write("RIFF", 0, "latin1"); out.writeUInt32LE(36 + count * 2, 4); out.write("WAVE", 8, "latin1"); out.write("fmt ", 12, "latin1");
+  out.writeUInt32LE(16, 16); out.writeUInt16LE(1, 20); out.writeUInt16LE(1, 22); out.writeUInt32LE(rate, 24); out.writeUInt32LE(rate * 2, 28);
+  out.writeUInt16LE(2, 32); out.writeUInt16LE(16, 34); out.write("data", 36, "latin1"); out.writeUInt32LE(count * 2, 40);
+  for (let i = 0; i < count; i++) {
+    const fade = Math.min(1, i / 1200, (count - i) / 1200);
+    out.writeInt16LE(Math.round(Math.sin((2 * Math.PI * hz * i) / rate) * 6000 * fade), 44 + i * 2);
+  }
+  return out;
+}
+
+const samplesMade = new Set();
+
 function open(dir) {
   const project = readFileSync(path.join(dir, "project.json"), "utf-8");
   const ids = [...new Set(JSON.parse(project).scenes.flatMap((s) => s.slides))];
@@ -188,6 +205,20 @@ createServer(async (req, res) => {
       for (let n = 2; existsSync(path.join(dir, "assets", folder, name)); n++) name = `${stem}-${n}.${ext}`;
       writeFileSync(path.join(dir, "assets", folder, name), plainPng(96, 64));
       return send(res, 200, { ok: true, path: `assets/${folder}/${name}`, service: request.service, model: "stand-in" });
+    }
+    // A stand-in for hearing a voice: a short tone whose pitch depends on the voice, so different voices can be told apart. The first time a voice
+    // is asked for, it takes a moment and says it was made; after that it says it was kept, as the real thing does. A voice called "...fail" fails.
+    if (url.pathname === "/api/voice-sample") {
+      const { voice = "", lang = "en-US" } = await body(req);
+      if (typeof voice !== "string" || !voice || voice.length > 100) return send(res, 400, "That is not a voice.", "text/plain");
+      if (voice.endsWith("fail")) return send(res, 200, { ok: false, message: "The stand-in voice was asked to fail." });
+      const kept = samplesMade.has(`${voice}|${lang}`);
+      if (!kept) await new Promise((done) => setTimeout(done, Number(process.env.OPENSTAGE_SAMPLE_DELAY_MS ?? 600)));
+      samplesMade.add(`${voice}|${lang}`);
+      let pitch = 200;
+      for (const c of voice) pitch = 180 + ((pitch * 31 + c.charCodeAt(0)) % 400);
+      const engine = voice.includes(":") ? voice.split(":")[0] : "kokoro";
+      return send(res, 200, { ok: true, audio: toneWav(pitch, 1.2).toString("base64"), cached: kept, engine, name: engine === "openai" ? "OpenAI" : engine === "kokoro" ? "Kokoro" : engine, where: engine === "openai" ? "internet" : "computer", duration: 1.2 });
     }
     if (url.pathname === "/api/asset") {
       const dir = url.searchParams.get("dir");

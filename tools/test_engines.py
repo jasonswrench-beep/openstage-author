@@ -20,6 +20,7 @@ import engines  # noqa: E402
 import generate  # noqa: E402
 import live_test  # noqa: E402
 import narrate  # noqa: E402
+import voice_sample  # noqa: E402
 from engines import common, openai_engine, plugins  # noqa: E402
 from engines.common import EngineError  # noqa: E402
 
@@ -708,6 +709,234 @@ class LiveTestScript(unittest.TestCase):
         bat = (pathlib.Path(__file__).resolve().parent.parent / "TEST AI SERVICES.bat").read_bytes()
         self.assertIn(b"tools\\live_test.py", bat)
         self.assertIn(b"\r\n", bat, "a batch file needs Windows line endings for labels and blocks to work")
+
+class VoiceSamples(unittest.TestCase):
+    """Hearing a voice before choosing it: one short fixed sentence, made once and kept."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="openstage-samples-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(plugins.close_all)
+        self.cache = self.tmp / "voice-samples"
+        self.plugin_dir = self.tmp / "plugins"
+        shutil.copytree(EXAMPLES / "tone-voice", self.plugin_dir / "tone-voice")
+
+    def config(self, fake=None, allow=("openai",), enabled=("tone-voice",), key=KEY, model=""):
+        env = {engines.key_variable("openai"): key} if key else {}
+        if model:
+            env["OPENSTAGE_MODEL_OPENAI_SPEECH"] = model
+        return engines.Config(allow_network=allow, plugins_dir=str(self.plugin_dir), plugins_enabled=enabled, env=env, transport=fake)
+
+    def sample(self, voice, config, lang="en-US"):
+        return voice_sample.run({"voice": voice, "lang": lang}, config, self.cache)
+
+    def files(self):
+        return sorted(p.name for p in self.cache.iterdir()) if self.cache.exists() else []
+
+    def test_a_service_voice_says_the_fixed_sentence_once_and_is_then_kept(self):
+        fake = Fake((200, pcm(2.0)))
+        first = self.sample("openai:alloy", self.config(fake))
+        self.assertTrue(first["ok"], first)
+        self.assertFalse(first["cached"])
+        self.assertRegex(first["file"], r"^[0-9a-f]{64}\.wav$")
+        self.assertAlmostEqual(first["duration"], 2.0, places=2)
+        self.assertEqual((first["engine"], first["name"], first["where"]), ("openai", "OpenAI", "internet"))
+        self.assertEqual(len(fake.calls), 1)
+        sent = fake.calls[0]["body"]
+        self.assertEqual((sent["input"], sent["voice"], sent["speed"]), (voice_sample.SENTENCES["en"], "alloy", 1.0))
+        self.assertEqual(sent["response_format"], "pcm")
+        self.assertEqual(self.files(), [first["file"]], "nothing else is left in the folder")
+        again = self.sample("openai:alloy", self.config(fake))
+        self.assertEqual((again["ok"], again["cached"], again["file"]), (True, True, first["file"]))
+        self.assertEqual(len(fake.calls), 1, "hearing it again sends nothing")
+
+    def test_none_of_the_authors_words_are_sent(self):
+        fake = Fake((200, pcm(1.0)))
+        self.sample("openai:nova", self.config(fake))
+        self.assertEqual(fake.calls[0]["body"]["input"], voice_sample.SENTENCES["en"])
+        self.assertLess(len(voice_sample.SENTENCES["en"]), 80, "short, so it is quick and costs next to nothing")
+
+    def test_a_kept_sample_plays_even_if_the_service_is_no_longer_allowed(self):
+        fake = Fake((200, pcm(1.0)))
+        self.sample("openai:echo", self.config(fake))
+        later = self.sample("openai:echo", self.config(fake, allow=(), key=""))
+        self.assertTrue(later["ok"] and later["cached"], later)
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_without_the_authors_yes_or_key_nothing_is_sent_and_nothing_is_kept(self):
+        fake = Fake((200, pcm(1.0)))
+        no = self.sample("openai:alloy", self.config(fake, allow=()))
+        self.assertFalse(no["ok"])
+        self.assertIn("has not been allowed", no["message"])
+        nokey = self.sample("openai:alloy", self.config(fake, key=""))
+        self.assertFalse(nokey["ok"])
+        self.assertIn("no OpenAI key", nokey["message"])
+        self.assertEqual(fake.calls, [])
+        self.assertEqual(self.files(), [])
+
+    def test_a_different_model_is_a_different_sample(self):
+        fake = Fake((200, pcm(1.0)))
+        a = self.sample("openai:alloy", self.config(fake))
+        b = self.sample("openai:alloy", self.config(fake, model="gpt-other-tts"))
+        self.assertNotEqual(a["file"], b["file"])
+        self.assertEqual(len(fake.calls), 2)
+        self.assertEqual(fake.calls[1]["body"]["model"], "gpt-other-tts")
+        c = self.sample("openai:echo", self.config(fake))
+        self.assertNotEqual(a["file"], c["file"], "another voice, another sample")
+
+    def test_the_sample_is_in_the_language_of_the_narration_or_the_voice(self):
+        self.assertEqual(voice_sample.language_of("ef_dora", "en-US"), "es", "a Kokoro voice speaks the language its name begins with")
+        self.assertEqual(voice_sample.language_of("af_heart", "fr-FR"), "en")
+        self.assertEqual(voice_sample.language_of("bf_emma", "en-US"), "en")
+        self.assertEqual(voice_sample.language_of("zf_xiaobei", "en-US"), "zh")
+        self.assertEqual(voice_sample.language_of("openai:alloy", "fr-FR"), "fr", "a voice that speaks many follows the narration")
+        self.assertEqual(voice_sample.language_of("openai:alloy", "pt-BR"), "pt")
+        self.assertEqual(voice_sample.language_of("openai:alloy", "xx"), "en", "no sentence for it: English")
+        self.assertEqual(voice_sample.language_of("openai:alloy", ""), "en")
+        fake = Fake((200, pcm(1.0)))
+        english = self.sample("openai:alloy", self.config(fake), "en-US")
+        french = self.sample("openai:alloy", self.config(fake), "fr-FR")
+        self.assertEqual(fake.calls[1]["body"]["input"], voice_sample.SENTENCES["fr"])
+        self.assertNotEqual(english["file"], french["file"], "a new language is a new sample")
+
+    def test_every_language_has_a_short_sentence(self):
+        for language in set(voice_sample.KOKORO_LANGUAGES.values()) | {"en", "de", "nl", "ru", "ko", "ar"}:
+            sentence = voice_sample.SENTENCES[language]
+            self.assertTrue(0 < len(sentence) <= 80, language)
+            self.assertNotIn("\u2014", sentence)
+
+    def test_a_plugin_voice_is_made_on_this_computer_and_kept(self):
+        first = self.sample("tone-voice:low", self.config())
+        self.assertTrue(first["ok"], first)
+        self.assertEqual((first["engine"], first["where"]), ("tone-voice", "computer"))
+        self.assertFalse(first["cached"])
+        self.assertGreater(first["duration"], 0.3)
+        self.assertTrue(self.sample("tone-voice:low", self.config())["cached"])
+        self.assertNotEqual(first["file"], self.sample("tone-voice:high", self.config())["file"])
+
+    def test_a_plugin_that_is_off_or_missing_makes_nothing(self):
+        off = self.sample("tone-voice:low", self.config(enabled=()))
+        self.assertFalse(off["ok"])
+        self.assertIn("plugin", off["message"])
+        gone = self.sample("nobody:low", self.config())
+        self.assertFalse(gone["ok"])
+        self.assertEqual(self.files(), [])
+
+    def test_a_new_version_of_a_plugin_is_a_new_sample(self):
+        before = voice_sample.sample_key(self.config(), "tone-voice:low", "en-US")
+        manifest = self.plugin_dir / "tone-voice" / "plugin.json"
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        data["version"] = "2.0.0"
+        manifest.write_text(json.dumps(data), encoding="utf-8")
+        self.assertNotEqual(before, voice_sample.sample_key(self.config(), "tone-voice:low", "en-US"))
+
+    def test_kokoro_is_asked_in_its_own_way_and_a_voice_it_lacks_is_refused(self):
+        calls = []
+
+        def fake_kokoro(voice, sentence):
+            calls.append((voice, sentence))
+            return common.wav_from_pcm(pcm(1.5), 24000)
+
+        original = voice_sample._kokoro_wav
+        voice_sample._kokoro_wav = fake_kokoro
+        self.addCleanup(setattr, voice_sample, "_kokoro_wav", original)
+        got = self.sample("af_heart", self.config(allow=(), key=""))
+        self.assertTrue(got["ok"], got)
+        self.assertEqual((got["engine"], got["name"], got["where"]), ("kokoro", "Kokoro", "computer"))
+        self.assertEqual(calls, [("af_heart", voice_sample.SENTENCES["en"])])
+        self.assertTrue(self.sample("af_heart", self.config())["cached"])
+        self.assertEqual(len(calls), 1)
+        for bad in ("zz_nobody", "../x.pt", "C:\\voices\\mine.pt", "af_heart.pt"):
+            refused = self.sample(bad, self.config())
+            self.assertFalse(refused["ok"], bad)
+        self.assertEqual(len(calls), 1, "nothing that is not one of Kokoro's voices reaches Kokoro")
+
+    def test_kokoro_not_installed_is_said_in_words(self):
+        def missing(voice, sentence):
+            raise ImportError("No module named 'kokoro'", name="kokoro")
+
+        original = voice_sample._kokoro_wav
+        voice_sample._kokoro_wav = missing
+        self.addCleanup(setattr, voice_sample, "_kokoro_wav", original)
+        got = self.sample("af_heart", self.config())
+        self.assertFalse(got["ok"])
+        self.assertIn("Kokoro is not available", got["message"])
+        self.assertEqual(self.files(), [])
+
+        def extra(voice, sentence):
+            raise ImportError("No module named 'pyopenjtalk'", name="pyopenjtalk")
+
+        voice_sample._kokoro_wav = extra
+        got = self.sample("jf_alpha", self.config())
+        self.assertFalse(got["ok"])
+        self.assertIn("pyopenjtalk", got["message"])
+        self.assertIn("extra part", got["message"])
+        self.assertNotIn("OPENSTAGE_KOKORO_PYTHON", got["message"], "Kokoro is there; only this language's helper is not")
+        self.assertEqual(self.files(), [])
+
+        def odd(voice, sentence):
+            raise RuntimeError("the model file is missing\nat line 3")
+
+        voice_sample._kokoro_wav = odd
+        got = self.sample("af_heart", self.config())
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["message"], "Kokoro could not make a sample of this voice. It said: the model file is missing")
+
+    def test_a_service_that_fails_leaves_nothing_behind_and_the_key_stays_secret(self):
+        fake = Fake((401, {"error": {"message": f"Incorrect API key provided: {KEY}."}}))
+        got = self.sample("openai:alloy", self.config(fake))
+        self.assertFalse(got["ok"])
+        self.assertIn("did not accept the key", got["message"])
+        self.assertNotIn(KEY, got["message"])
+        self.assertEqual(self.files(), [])
+
+    def test_a_damaged_sample_is_made_again(self):
+        fake = Fake((200, pcm(1.0)))
+        first = self.sample("openai:alloy", self.config(fake))
+        (self.cache / first["file"]).write_bytes(b"x" * 100)
+        again = self.sample("openai:alloy", self.config(fake))
+        self.assertTrue(again["ok"] and not again["cached"], again)
+        self.assertEqual(len(fake.calls), 2)
+        self.assertGreater(seconds_of((self.cache / again["file"]).read_bytes()), 0.5)
+
+    def test_what_is_not_a_voice_is_refused(self):
+        config = self.config()
+        for voice in (None, "", 5, "a" * 101, "bad\nvoice", "bad\x00voice"):
+            got = voice_sample.run({"voice": voice, "lang": "en-US"}, config, self.cache)
+            self.assertEqual(got, {"ok": False, "message": "That is not a voice."}, repr(voice))
+        self.assertEqual(voice_sample.run({"voice": "openai:alloy", "lang": 5}, config, self.cache)["message"], "That is not a voice.")
+        self.assertEqual(self.files(), [])
+
+    def test_the_arguments(self):
+        self.assertIsNone(voice_sample.parse_args([]))
+        self.assertIsNone(voice_sample.parse_args(["--cache-dir"]))
+        self.assertIsNone(voice_sample.parse_args(["--cache-dir", "x", "--nonsense", "y"]))
+        self.assertIsNone(voice_sample.parse_args(["x"]))
+        got = voice_sample.parse_args(["--cache-dir", "x", "--allow-network", "openai", "--plugins-dir", "p", "--plugins-enabled", "a,b"])
+        self.assertEqual(got, {"cache_dir": "x", "allow_network": {"openai"}, "plugins_dir": "p", "plugins_enabled": {"a", "b"}})
+
+    def run_tool(self, request, *args):
+        import subprocess
+
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        env.pop(engines.key_variable("openai"), None)
+        done = subprocess.run([sys.executable, str(pathlib.Path(voice_sample.__file__)), "--cache-dir", str(self.cache), *args],
+                              input=request.encode("utf-8"), capture_output=True, env=env, timeout=60)
+        return done.returncode, done.stdout.decode("utf-8").strip().splitlines()
+
+    def test_the_tool_runs_from_the_command_line(self):
+        code, lines = self.run_tool('{"voice": "tone-voice:low", "lang": "en-US"}', "--plugins-dir", str(self.plugin_dir), "--plugins-enabled", "tone-voice")
+        self.assertEqual(code, 0)
+        answer = json.loads(lines[-1])
+        self.assertTrue(answer["ok"], answer)
+        self.assertEqual(self.files(), [answer["file"]])
+        code, lines = self.run_tool('{"voice": "openai:alloy"}')
+        self.assertEqual(code, 0)
+        self.assertIn("has not been allowed", json.loads(lines[-1])["message"])
+        code, lines = self.run_tool("not json")
+        self.assertEqual(json.loads(lines[-1]), {"ok": False, "message": "The request was not understood."})
+        self.assertEqual(self.run_tool("{}", "--bogus")[0], 2)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
