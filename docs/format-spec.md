@@ -101,7 +101,7 @@ in the project (`asset-missing`). The picture is only a picture of the person: t
 screen reader beside a line (the name is read), and is described once where a learner has to pick a person (see the character input). (Added in 0.21.0.)
 
 `sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
-course (the cache is always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
+course (the cache and the empty `.gitkeep` placeholder files are always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
 with a slash, such as `raw/footage`, is from the project folder, and a folder takes everything inside it. Names must be plain: no leading slash, no
 backslash, no `..`. It matters for raw recordings and interaction logs, which would otherwise be handed to every learner. The validator warns when
 recognizable raw capture material (a file called `events.jsonl`, or a folder called `capture` or `captures`) sits in the project and is not listed

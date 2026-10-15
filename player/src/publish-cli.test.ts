@@ -175,6 +175,26 @@ test("what the project lists in sourceExclude stays out of the package's source 
   }
 });
 
+test("the empty .gitkeep placeholders stay out of the package, in the course folder and in the source copy", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    for (const sub of ["audio", "images", "video"]) {
+      mkdirSync(path.join(project, "assets", sub), { recursive: true });
+      writeFileSync(path.join(project, "assets", sub, ".gitkeep"), "");
+    }
+    const { result, status } = run(project, path.join(dir, "course"));
+    assert.equal(status, 0, JSON.stringify(result));
+    const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, "course-scorm12.zip")))));
+    assert.deepEqual(entries.filter((e) => e.endsWith(".gitkeep")), [], "no placeholder travels in the zip");
+    assert.ok(entries.includes("source/project.osproj/project.json"), "the project itself still travels");
+    assert.ok(!existsSync(path.join(dir, "course", "assets", "audio", ".gitkeep")), "and none is left in the course folder");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a project with raw recording material that is not listed is warned about but still publishes", { skip: !havePython }, () => {
   const dir = scratch();
   try {

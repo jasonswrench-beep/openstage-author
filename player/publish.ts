@@ -236,9 +236,10 @@ if (!preview) {
 
   const zipEntries: Record<string, Uint8Array> = { "imsmanifest.xml": new TextEncoder().encode(manifest) };
   for (const f of courseFiles) zipEntries[f] = readFileSync(path.join(outDir, f));
-  // The cache is never carried. Whatever the project lists in sourceExclude stays out too (raw recordings, for instance).
+  // The cache is never carried, and neither are the empty .gitkeep placeholders (the course folder leaves them out too, and an LMS may
+  // not like empty hidden files). Whatever the project lists in sourceExclude stays out too (raw recordings, for instance).
   const exclude = project.sourceExclude ?? [];
-  for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/") && !isExcluded(f, exclude))) {
+  for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/") && path.basename(f) !== ".gitkeep" && !isExcluded(f, exclude))) {
     zipEntries[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
   }
   writeFileSync(zipPath, zipSync(zipEntries, { level: 6 }));
