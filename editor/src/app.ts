@@ -44,7 +44,9 @@ import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MI
 import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
-import { openRecorder } from "./recorderdialog.ts";
+import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
+import { RecorderController } from "./capturecontroller.ts";
+import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
@@ -157,6 +159,9 @@ export class App {
   private readonly narrationBtn: HTMLButtonElement;
   private readonly aiBtn: HTMLButtonElement;
   private readonly recorderBtn: HTMLButtonElement;
+  /** Holds a recording, so it goes on when the dialog is closed. */
+  private readonly recorder = new RecorderController(backend);
+  private recorderSettings: RecordSettings = defaultSettings();
   private readonly timingBtn: HTMLButtonElement;
   private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
@@ -222,7 +227,8 @@ export class App {
     this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
-    this.recorderBtn = this.tool("OpenScreen", "The screen recorder: whether this computer is ready to record", () => void this.openRecorderDialog());
+    this.recorderBtn = this.tool("OpenScreen", "Record the screen, and check that this computer is ready to record", () => void this.openRecorderDialog());
+    this.watchRecorder();
     this.aiBtn = this.tool("AI services", "A key for OpenAI, to make voices and pictures with it, and voice plugins", () => void this.openAiServicesDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
     this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
@@ -565,10 +571,25 @@ export class App {
     if (this.model) this.renderProps();
   }
 
-  /** The screen recorder (OpenScreen). So far the dialog finds the recorder program and checks that this computer is ready to record. */
+  /** The screen recorder (OpenScreen): choose what to record, record, and check that this computer is ready. */
   private async openRecorderDialog(): Promise<void> {
-    await openRecorder({ backend, dir: this.model?.dir ?? null });
+    const m = this.model;
+    await openRecorder({
+      backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
+      keepSettings: (s) => { this.recorderSettings = s; },
+      excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
+    });
     this.recorderBtn.focus();
+  }
+
+  /** The toolbar button says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
+  private watchRecorder(): void {
+    const short: Partial<Record<RecordPhase, string>> = { starting: "starting", countdown: "counting down", recording: "recording", paused: "paused", stopping: "stopping" };
+    this.recorder.subscribe((session, say) => {
+      const word = short[session.phase];
+      this.recorderBtn.textContent = word ? `OpenScreen (${word})` : "OpenScreen";
+      if (say.length > 0 && !recorderDialogOpen()) this.announce(say.join(" "));
+    });
   }
 
   private async openAiServicesDialog(): Promise<void> {

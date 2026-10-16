@@ -7,6 +7,7 @@ import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
+import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
 import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
@@ -1144,6 +1145,22 @@ export class Model {
     return slides === "last"
       ? "The course now counts as complete when the learner reaches the last slide and has finished every quiz."
       : "The course now counts as complete when the learner has seen every slide and finished every quiz.";
+  }
+
+  /**
+   * Leave a folder out of the source/ copy of the project that a published package carries (sourceExclude in project.json), unless it is
+   * left out already. Raw recordings and what was noted of an author's mouse and keyboard must never reach learners. This is bookkeeping, not part
+   * of the design, so it is not an undo step; the project just needs saving. Returns whether the list changed. A name that is not a plain
+   * folder name (a slash at the start, a backslash, ..) is refused.
+   */
+  excludeFromPackage(name: string): boolean {
+    const plain = /^[A-Za-z0-9._ -]+(\/[A-Za-z0-9._ -]+)*$/.test(name) && !name.split("/").some((p) => p === ".." || p === ".");
+    if (!plain) return false;
+    const list = this.project.sourceExclude ?? [];
+    if (isExcluded(`${name}/x`, list)) return false;
+    this.project.sourceExclude = [...list, name];
+    this.emit({ kind: "content" });
+    return true;
   }
 
   // ---- assets, credits, video and audio

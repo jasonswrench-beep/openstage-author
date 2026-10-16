@@ -553,14 +553,30 @@ OpenStage Capture is a separate program that records the screen. The editor star
 shell (the Rust side) that make that possible. They are built and tested; the panels an author would use (a recorder panel, a clip list) are not
 built yet, so apart from the check dialog in the first item nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
 
-- **The OpenScreen button and the check.** OpenScreen is the name authors see for the Capture module. The toolbar's **OpenScreen** button opens a dialog that
-  says whether the recorder program was found and, when the author presses **Check this computer**, runs the recorder's own `setup-check`: the Windows version,
-  screen capture, the video and sound encoders, the microphone and the camera and the permission to use them, and the room left on the disk of the open project.
-  Each finding is said in plain words, starting with "Passed." or "Problem." (never by colour alone), and one sentence at the end says whether the computer is
-  ready. The check records nothing, asks Windows for no permission and sends nothing anywhere. It is a native dialog, so focus moves in, Tab stays inside, Escape
-  closes it (and stops a check that is still running), and focus returns to the button; the sentence is in a status region so it is read when the check ends.
-  Recording and editing from this dialog are not built yet. The reading of the findings is `editor/src/capturecheck.ts`, the dialog is `editor/src/recorderdialog.ts`.
-  `OPEN EDITOR.bat` builds the recorder after the editor (into `capture\target\release`, where the editor looks), and opens the editor even if that fails.
+- **OpenScreen: recording from the editor.** OpenScreen is the name authors see for the Capture module. The toolbar's **OpenScreen** button opens a dialog
+  with three parts: **Record**, the recording as it goes, and **Is this computer ready to record?**
+  - **Record.** The author names the recording and chooses what to record: a whole screen, one window (found with **Look for windows**; the window is asked for
+    by its title), or part of a screen (four numbers, at least 64 by 64 pixels). They choose a microphone, whose sound to record (the computer's own sound includes a
+    screen reader's speech), a webcam (none unless chosen), and whether to note what they do with the mouse and keyboard (off unless chosen, with a plain note about what that
+    keeps and that password keys are never noted). The lists of screens, microphones, sound outputs and cameras come from the recorder's `probe`. A countdown of 0 to 10 seconds, and the
+    recorder's short sound for each step (countdown, start, pause, resume, stop, on by default for anyone who cannot see the screen) can be changed. **Practice** records a
+    made-up picture and sound instead of the screen, to try the controls. The recording is kept in a `captures` folder inside the course's own folder, in a folder named for the
+    recording and ending in `.capture`, and the first time the editor adds `captures` to the course's `sourceExclude`, so the raw recording and its notes never go into a published
+    package (the project then needs saving; it is not an undo step). **Start recording** says in words why it cannot start when a choice is missing.
+  - **The recording as it goes.** The dialog shows a sentence for the state ("Recording take 1, 12 seconds. Interaction recording is on. Sound: microphone good, the computer's
+    sound quiet."), with **Pause** or **Resume**, **Stop**, **Start again** (the old take is set aside, never erased) and **Add a marker** (with words if wanted), the markers, and
+    everything the recorder said (warnings and problems, each starting "Note." or "Problem."). Changes of state, markers, warnings and the end are spoken through a status
+    region; the sound levels and the running time are shown but not spoken, so a screen reader is not talked over. The recorder's keys work from any program while recording:
+    Ctrl+Shift+F10 pause or resume, Ctrl+Shift+F11 stop, Ctrl+Shift+F12 start again (the editor says which could not be used, and the buttons always work). A recording goes
+    on if the dialog is closed: the toolbar button then reads "OpenScreen (recording)" and the editor speaks the news itself. If the recorder ends without finishing, the editor says so
+    and repairs what was recorded (at most about a second can be lost). When it finishes, the dialog says where the recording is kept and offers to show its folder.
+  - **Is this computer ready to record?** **Check this computer** runs the recorder's own `setup-check`: the Windows version, screen capture, the video and sound encoders, the microphone and
+    the camera and the permission to use them, and the room left on the disk of the open project. Each finding starts with "Passed." or "Problem." (never colour alone), and one sentence at
+    the end says whether the computer is ready. It records nothing, asks Windows for no permission and sends nothing anywhere.
+  It is a native dialog, so focus moves in, Tab stays inside, Escape closes it and focus returns to the button. Not built yet: choosing part of a screen by dragging (the numbers are typed),
+  a list of earlier takes, changing the keys, editing a recording, and putting one in a course. The logic is `editor/src/capturesession.ts` (the choices, the recorder's options, what its lines
+  mean and the words for each state), `editor/src/capturecontroller.ts` (starting it, the commands, the keys, the repair; tested against a stand-in recorder), `editor/src/capturecheck.ts`
+  and the dialog `editor/src/recorderdialog.ts`. `OPEN EDITOR.bat` builds the recorder after the editor (into `capture\target\release`, where the editor looks), and opens the editor even if that fails.
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.
