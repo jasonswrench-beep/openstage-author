@@ -1982,6 +1982,113 @@ fn allow_recording_media(app: tauri::AppHandle, dir: String, name: String) -> Re
     app.asset_protocol_scope().allow_directory(&takes, true).map_err(|e| e.to_string())
 }
 
+// ---- captions
+//
+// A course keeps its captions as WebVTT files in assets/captions. The page decides what the words are; these commands only read and write the files
+// safely: one plain name under assets/captions, text only, never larger than a caption file should be, and put in place whole or not at all.
+
+const MAX_CAPTION_FILE: u64 = 5 * 1024 * 1024;
+
+/// A caption file's name: one plain name ending in `.vtt`, nothing that climbs out of the folder.
+fn caption_name_ok(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(".vtt") else { return false };
+    !stem.is_empty()
+        && !stem.starts_with('.')
+        && name.chars().count() <= 100
+        && !name.contains("..")
+        && name.chars().all(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+}
+
+/// Where a caption file is, from the path the page keeps (`assets/captions/<name>.vtt`), if the course is a project and the path is really that.
+fn captions_path_at(dir: &Path, rel: &str) -> Result<PathBuf, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let name = rel.strip_prefix("assets/captions/").unwrap_or("");
+    if !caption_name_ok(name) {
+        return Err("That is not the path of a caption file in this course.".into());
+    }
+    Ok(dir.join("assets").join("captions").join(name))
+}
+
+fn read_caption_text(file: &Path) -> Result<String, String> {
+    let meta = fs::metadata(file).map_err(|e| format!("Could not read the caption file: {e}"))?;
+    if !meta.is_file() {
+        return Err("That is not a file.".into());
+    }
+    if meta.len() > MAX_CAPTION_FILE {
+        return Err(format!("That caption file is larger than {} MB.", MAX_CAPTION_FILE / (1024 * 1024)));
+    }
+    let bytes = fs::read(file).map_err(|e| format!("Could not read the caption file: {e}"))?;
+    String::from_utf8(bytes).map_err(|_| "That caption file is not saved as UTF-8 text. Open it in Notepad, choose Save As, and set Encoding to UTF-8.".to_string())
+}
+
+/// The text of a caption file already in the course, or None if there is no such file.
+fn read_captions_at(dir: &Path, rel: &str) -> Result<Option<String>, String> {
+    let file = captions_path_at(dir, rel)?;
+    if !file.is_file() {
+        return Ok(None);
+    }
+    read_caption_text(&file).map(Some)
+}
+
+/// The text of a caption file the author picked from anywhere (`.vtt` or `.srt`), to be read and turned into captions. Nothing is copied or kept.
+fn read_caption_source_at(source: &Path) -> Result<String, String> {
+    let ext = source.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if ext != "vtt" && ext != "srt" {
+        return Err("Caption files must be .vtt or .srt files.".into());
+    }
+    read_caption_text(source)
+}
+
+/// Save captions as a WebVTT file in the course. With `existing` (the path of a caption file already in the course) that file is replaced; otherwise a
+/// new file is made from `name_hint`, and nothing already there is overwritten. Returns the course-relative path.
+fn write_captions_at(dir: &Path, name_hint: &str, existing: Option<&str>, text: &str) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if text.len() as u64 > MAX_CAPTION_FILE {
+        return Err(format!("Those captions are larger than {} MB.", MAX_CAPTION_FILE / (1024 * 1024)));
+    }
+    if !text.starts_with("WEBVTT") {
+        return Err("The captions are not in the WebVTT form (the first line has to be WEBVTT).".into());
+    }
+    let folder = dir.join("assets").join("captions");
+    let target = match existing {
+        Some(rel) if captions_path_at(dir, rel)?.is_file() => captions_path_at(dir, rel)?,
+        _ => {
+            fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+            folder.join(unique_name(&folder, &safe_stem(name_hint, "captions"), "vtt"))
+        }
+    };
+    let temp = target.with_extension("vtt.tmp");
+    fs::write(&temp, text).map_err(|e| format!("Could not save the captions: {e}"))?;
+    fs::rename(&temp, &target).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not save the captions: {e}")
+    })?;
+    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("captions.vtt");
+    Ok(format!("assets/captions/{name}"))
+}
+
+/// The text of a caption file in this course (`assets/captions/<name>.vtt`), or null if there is none.
+#[tauri::command]
+fn captions_read(dir: String, rel: String) -> Result<Option<String>, String> {
+    read_captions_at(Path::new(&dir), &rel)
+}
+
+/// The text of a `.vtt` or `.srt` file the author chose, to read it into the captions dialog.
+#[tauri::command]
+fn caption_source_read(source: String) -> Result<String, String> {
+    read_caption_source_at(Path::new(&source))
+}
+
+/// Save WebVTT captions in the course and return their path.
+#[tauri::command]
+fn captions_write(dir: String, name_hint: String, existing: Option<String>, text: String) -> Result<String, String> {
+    write_captions_at(Path::new(&dir), &name_hint, existing.as_deref(), &text)
+}
+
 // ---- the Capture recorder
 //
 // OpenStage Capture is a separate program that the editor starts and talks to (see stream.rs). Nothing here records anything.
@@ -2079,7 +2186,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, allow_recording_media])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, allow_recording_media, captions_read, captions_write, caption_source_read])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3409,5 +3516,57 @@ mod tests {
         assert!(write_recording_edit_at(&project, "Missing.capture", "{}").is_err());
         assert!(write_recording_edit_at(&project, "Demo.capture", &format!("{{\"x\":\"{}\"}}", "a".repeat(9 * 1024 * 1024))).is_err(), "too large");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn captions_are_saved_as_webvtt_under_assets_captions_and_nothing_else_is_reachable() {
+        let project = temp_project("captions");
+        let text = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello\n";
+        let first = write_captions_at(&project, "My lesson!", None, text).unwrap();
+        assert_eq!(first, "assets/captions/My-lesson.vtt");
+        assert_eq!(read_captions_at(&project, &first).unwrap().as_deref(), Some(text));
+        let second = write_captions_at(&project, "My lesson!", None, text).unwrap();
+        assert_eq!(second, "assets/captions/My-lesson-2.vtt", "a new file never overwrites one that is there");
+        let changed = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nChanged\n";
+        assert_eq!(write_captions_at(&project, "ignored", Some(&first), changed).unwrap(), first, "an existing file is replaced in place");
+        assert_eq!(read_captions_at(&project, &first).unwrap().as_deref(), Some(changed));
+        assert_eq!(read_captions_at(&project, &second).unwrap().as_deref(), Some(text), "the other file is untouched");
+        let gone = write_captions_at(&project, "fresh", Some("assets/captions/gone.vtt"), text).unwrap();
+        assert_eq!(gone, "assets/captions/fresh.vtt", "an existing path that is not there makes a new file instead");
+        assert_eq!(read_captions_at(&project, "assets/captions/none.vtt").unwrap(), None);
+        let names: Vec<String> = fs::read_dir(project.join("assets").join("captions")).unwrap().flatten().filter_map(|e| e.file_name().into_string().ok()).collect();
+        assert!(names.iter().all(|n| n.ends_with(".vtt")), "no half-written file is left: {names:?}");
+
+        for bad in ["", "not captions", "wEBVTT\n", " WEBVTT\n", "1\n00:00:00,000 --> 00:00:01,000\nHi\n"] {
+            assert!(write_captions_at(&project, "x", None, bad).is_err(), "{bad:?}");
+        }
+        assert!(write_captions_at(&project, "x", None, &format!("WEBVTT\n\n{}", "a".repeat(6 * 1024 * 1024))).is_err(), "too large");
+        for bad in ["", "assets/captions/", "assets/captions/.vtt", "assets/captions/../project.json", "assets/captions/a/b.vtt", "assets/captions/a.srt", "assets/images/a.vtt", "../assets/captions/a.vtt", "assets\\captions\\a.vtt", "assets/captions/a:b.vtt", "/assets/captions/a.vtt"] {
+            assert!(read_captions_at(&project, bad).is_err(), "{bad:?}");
+            assert!(write_captions_at(&project, "x", Some(bad), text).is_err(), "{bad:?}");
+        }
+        assert!(read_captions_at(&std::env::temp_dir(), &first).is_err(), "not a project");
+        assert!(write_captions_at(&std::env::temp_dir(), "x", None, text).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_caption_file_the_author_picked_is_read_as_text_and_only_if_it_is_one() {
+        let dir = std::env::temp_dir().join(format!("openstage-test-caption-source-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.srt"), "1\n00:00:01,000 --> 00:00:02,000\nHi\n").unwrap();
+        fs::write(dir.join("b.VTT"), "WEBVTT\n").unwrap();
+        fs::write(dir.join("c.txt"), "WEBVTT\n").unwrap();
+        fs::write(dir.join("d.srt"), [0x31u8, 0x0a, 0xe9, 0xff]).unwrap();
+        fs::create_dir_all(dir.join("e.vtt")).unwrap();
+        assert!(read_caption_source_at(&dir.join("a.srt")).unwrap().contains("Hi"));
+        assert_eq!(read_caption_source_at(&dir.join("b.VTT")).unwrap(), "WEBVTT\n");
+        assert!(read_caption_source_at(&dir.join("c.txt")).is_err(), "only .vtt and .srt");
+        let e = read_caption_source_at(&dir.join("d.srt")).unwrap_err();
+        assert!(e.contains("UTF-8"), "{e}");
+        assert!(read_caption_source_at(&dir.join("e.vtt")).is_err(), "a folder is not a file");
+        assert!(read_caption_source_at(&dir.join("missing.vtt")).is_err());
+        let _ = fs::remove_dir_all(&dir);
     }
 }

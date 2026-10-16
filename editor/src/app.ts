@@ -47,6 +47,8 @@ import { askPermission, openAiServices } from "./aidialog.ts";
 import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
 import { RecorderController } from "./capturecontroller.ts";
 import { openRecordingEditor } from "./editrecording.ts";
+import { openCaptions } from "./captionsdialog.ts";
+import type { Extra } from "./captions.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
@@ -163,6 +165,8 @@ export class App {
   /** Holds a recording, so it goes on when the dialog is closed. */
   private readonly recorder = new RecorderController(backend);
   private recorderSettings: RecordSettings = defaultSettings();
+  /** What is known about videos made from a recording this session, by their path in the course: what is on the screen, and how long they are. For their transcripts. */
+  private readonly madeVideos = new Map<string, { extras: Extra[]; lengthMs: number }>();
   private readonly timingBtn: HTMLButtonElement;
   private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
@@ -578,17 +582,41 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
-      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src) => this.putVideoOnSlide(m, src) }); },
+      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog() }); },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
     this.recorderBtn.focus();
   }
 
   /** Put a finished recording, already copied into the course, on the slide the author is on. It starts with no description and no captions: the author writes them. */
-  private putVideoOnSlide(m: Model, src: string): string {
+  private putVideoOnSlide(m: Model, src: string, facts?: { extras: Extra[]; lengthMs: number }): string {
     const o = m.addMedia("video", src);
     if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the video again.";
-    return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and a captions file, both in the Properties panel. They are listed in the Problems panel.`;
+    if (facts) this.madeVideos.set(src, facts);
+    return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and captions. Write the captions with the button below, or find them in the Properties panel. Both are listed in the Problems panel.`;
+  }
+
+  /**
+   * Write, time and check the captions of the video or audio clip that is selected, and make its transcript. Resolves with what to tell the author:
+   * the Properties button speaks it through the editor; the recording editor, which is a dialog of its own, shows it in its own words.
+   */
+  private async openCaptionsDialog(): Promise<string> {
+    const m = this.model;
+    const o = m?.object;
+    if (!m || !o || (o.type !== "video" && o.type !== "audio")) return "Select a video or audio clip on the slide first, then write its captions.";
+    const src = String(o.content["src"] ?? "");
+    const captions = typeof o.content["captions"] === "string" && o.content["captions"] !== "" ? String(o.content["captions"]) : null;
+    const facts = this.madeVideos.get(src);
+    const said = await openCaptions({
+      backend, dir: m.dir, kind: o.type, mediaPath: src, captions,
+      transcript: parseBody(String(o.content["transcript"] ?? "")),
+      extras: facts?.extras ?? [], lengthMs: facts?.lengthMs ?? null,
+      apply: (path, transcript) => {
+        m.setMediaCaptions(o.id, path);
+        if (transcript !== null) m.setMediaTranscript(o.id, transcript);
+      },
+    });
+    return said;
   }
 
   /** The toolbar button says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
@@ -1410,6 +1438,11 @@ export class App {
   /** The video or audio clip's captions and transcript. */
   private mediaFields(m: Model, o: OSObject): HTMLElement[] {
     const captions = typeof o.content["captions"] === "string" ? String(o.content["captions"]) : "";
+    const write = this.small("Write captions...", "Write, time and check the captions here, or start from a script or a caption file", () => void this.openCaptionsDialog().then((said) => {
+      if (said !== "") this.announce(said);
+      document.getElementById("p-write-captions")?.focus();
+    }));
+    write.id = "p-write-captions";
     const choose = this.small("Choose captions file...", "Choose a .vtt captions file from your computer", () => void this.chooseCaptions(o.id));
     const remove = this.small("Remove captions", "Stop using the captions file", () => { const msg = m.setMediaCaptions(o.id, null); if (msg) this.announce(msg); });
     this.setEnabled(remove, captions !== "");
@@ -1417,7 +1450,7 @@ export class App {
     return [h("fieldset", {}, h("legend", { text: o.type === "video" ? "Video" : "Audio" }),
       h("p", { class: "note", text: `File: ${String(o.content["src"] ?? "")}` }),
       h("p", { class: "note", id: "caption-state", text: captions ? `Captions: ${captions}` : "Captions: none" }),
-      h("div", { class: "btn-row" }, choose, remove),
+      h("div", { class: "btn-row" }, write, choose, remove),
       transcript === null
         ? h("p", { class: "note", text: "This transcript has formatting the editor cannot edit yet, so it is left as it is." })
         : this.field("transcript", "Transcript (shown under the player)", transcript, (v) => { const msg = m.setMediaTranscript(o.id, v); if (msg) this.announce(msg); }, { area: true, rows: 5 }),
@@ -3910,7 +3943,7 @@ export class App {
   private onGlobalKey(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
     // Editing a recording has keys of its own (Ctrl+S saves the edit, Ctrl+Z undoes it, F6 moves between its parts). None of them is for the course.
-    if (target.closest(".recording-editor")) return;
+    if (target.closest(".recording-editor") || target.closest(".captions-dialog")) return;
     const typing = target.matches("input:not([type=checkbox]), textarea, select");
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); void this.save(); }

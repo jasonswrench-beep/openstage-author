@@ -15,6 +15,7 @@ import { EditSession } from "../../capture-timeline/src/session.ts";
 import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
 import { applyExportLine, exportPlan, initialExport, summariseExport, type ExportPlan, type ExportState } from "./captureexport.ts";
+import { extrasFromEdit, type Extra } from "./captions.ts";
 import { recordingFolder } from "./recordingfolder.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -36,8 +37,13 @@ export interface EditRecordingOptions {
   dir: string;
   /** The recording's folder name, such as `Week 3.capture`. */
   name: string;
-  /** Put a video that is already in the course's assets on the slide the author is on. Returns what to tell them. */
-  placeVideo: (assetPath: string) => string;
+  /**
+   * Put a video that is already in the course's assets on the slide the author is on. Returns what to tell them. `facts` is what the edit knows that
+   * the editor needs to write the video's transcript: what is on the screen that the voice does not say, and how long the video is.
+   */
+  placeVideo: (assetPath: string, facts: { extras: Extra[]; lengthMs: number }) => string;
+  /** Open the captions dialog for the video that was just put on the slide. */
+  writeCaptions: () => Promise<string>;
 }
 
 /** The longest an export may run before it is stopped. A long recording takes a while; this is only a safety net. */
@@ -71,7 +77,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const exportNotes = h("ul", { class: "rc-list", "aria-label": "What the recorder said about the video" });
     const place = h("button", { type: "button", text: "Put the video on the current slide" });
     const reveal = h("button", { type: "button", text: "Show the video in its folder" });
-    const madeRow = h("div", { class: "dialog-actions", hidden: true }, place, reveal);
+    const captionsBtn = h("button", { type: "button", text: "Write captions for the video", hidden: true });
+    const madeRow = h("div", { class: "dialog-actions", hidden: true }, place, captionsBtn, reveal);
     const exportBox = h("section", { "aria-labelledby": "re-export-title", hidden: true },
       h("h3", { id: "re-export-title", text: "The video" }), progress, exportSay, exportNotes, madeRow);
     dialog.append(
@@ -112,6 +119,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     let exporting = false;
     let plan: ExportPlan | null = null;
     let made = false;
+    /** What the edit knew when the video was made (the edit may be changed after), for the video's transcript. */
+    let facts: { extras: Extra[]; lengthMs: number } = { extras: [], lengthMs: 0 };
 
     function drawNotes(state: ExportState): void {
       exportNotes.replaceChildren(...state.notes.map((n) => h("li", {}, h("strong", { class: n.ok ? "rc-pass" : "rc-problem", text: n.ok ? "Note. " : "Problem. " }), h("span", { text: n.text }))));
@@ -126,6 +135,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       }
       exporting = true;
       made = false;
+      captionsBtn.hidden = true;
+      facts = { extras: extrasFromEdit(session.model), lengthMs: modelLengthMs(session.model) };
       plan = exportPlan(opts.dir, opts.name, { reduceMotion: reduce.checked });
       let state = initialExport();
       exportBox.hidden = false;
@@ -159,7 +170,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     async function putOnSlide(): Promise<void> {
       if (plan === null || !made) return;
       try {
-        exportSay.textContent = opts.placeVideo(await b.importAsset(opts.dir, plan.out, "video"));
+        exportSay.textContent = opts.placeVideo(await b.importAsset(opts.dir, plan.out, "video"), facts);
+        captionsBtn.hidden = false;
       } catch (err) {
         exportSay.textContent = `The video could not be put in the course. ${err instanceof Error ? err.message : String(err)}`;
       }
@@ -180,6 +192,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     make.addEventListener("click", () => { if (make.getAttribute("aria-disabled") !== "true") void makeVideo(); });
     cancelVideo.addEventListener("click", () => { exportSay.textContent = "Cancelling the video."; void b.streamStop().catch(() => false); });
     place.addEventListener("click", () => void putOnSlide());
+    captionsBtn.addEventListener("click", () => void opts.writeCaptions().then((said) => { if (said !== "") exportSay.textContent = said; captionsBtn.focus(); }));
     reveal.addEventListener("click", () => { if (plan !== null) void b.revealInFolder(plan.out).catch((err: unknown) => { exportSay.textContent = `Could not show the folder. ${err instanceof Error ? err.message : String(err)}`; }); });
     close.addEventListener("click", () => void finish());
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); void finish(); });

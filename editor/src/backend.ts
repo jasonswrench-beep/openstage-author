@@ -148,6 +148,17 @@ export interface Backend {
   /** An address a video or audio element can play a file of a take from, straight from disk with seeking. */
   recordingMediaUrl(dir: string, name: string, rel: string): Promise<string>;
 
+  // ---- captions: WebVTT files in the course's assets/captions (editor/src/captions.ts says what is in them)
+
+  /** Ask the author for a captions file to read into the captions dialog (.vtt or .srt). Null if they cancelled. */
+  pickCaptionSource(): Promise<string | null>;
+  /** The text of a .vtt or .srt file the author picked. Nothing is copied into the course. */
+  captionSourceRead(source: string): Promise<string>;
+  /** The text of a captions file in the course (`assets/captions/<name>.vtt`), or undefined if there is none. */
+  captionsRead(dir: string, path: string): Promise<string | undefined>;
+  /** Save WebVTT captions in the course: in place of `existing` when that file is there, otherwise as a new file named from `nameHint`. Returns the path. */
+  captionsWrite(dir: string, nameHint: string, existing: string | null, text: string): Promise<string>;
+
   // ---- the Capture recorder: a separate program the editor starts and talks to, one line of JSON at a time
 
   /** Where the recorder is, or a message that says why it cannot be used and what to do. */
@@ -193,7 +204,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
 const testPick = (kind: PickKind): string | null | undefined =>
   (window as unknown as { __openstageTestPick?: TestPick }).__openstageTestPick?.(kind);
@@ -300,6 +311,17 @@ const tauriBackend: Backend = {
     const sep = dir.includes("\\") ? "\\" : "/";
     return convertFileSrc([dir.replace(/[\\/]+$/, ""), "captures", name, ...rel.split("/")].join(sep));
   },
+  async pickCaptionSource() {
+    const forced = testPick("captionsource");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a captions file", filters: [{ name: "Captions", extensions: ["vtt", "srt"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  captionSourceRead: (source) => invoke<string>("caption_source_read", { source }),
+  async captionsRead(dir, path) {
+    return (await invoke<string | null>("captions_read", { dir, rel: path })) ?? undefined;
+  },
+  captionsWrite: (dir, nameHint, existing, text) => invoke<string>("captions_write", { dir, nameHint, existing, text }),
   async captureCheck() {
     try {
       return { ok: true, path: await invoke<string>("capture_check") };
@@ -459,6 +481,18 @@ const previewBackend: Backend = {
   },
   async recordingMediaUrl() {
     throw new Error("Playing a recording needs the desktop app.");
+  },
+  async pickCaptionSource() {
+    return new URLSearchParams(location.search).get("captionsource") ?? window.prompt("Path of a captions file (.vtt or .srt)");
+  },
+  async captionSourceRead() {
+    throw new Error("Reading a captions file needs the desktop app.");
+  },
+  async captionsRead() {
+    throw new Error("Editing captions needs the desktop app.");
+  },
+  async captionsWrite() {
+    throw new Error("Saving captions needs the desktop app.");
   },
   async captureCheck() {
     return { ok: false, message: "The recorder needs the desktop app." };

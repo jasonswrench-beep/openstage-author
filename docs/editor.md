@@ -253,6 +253,21 @@ usual YouTube or Vimeo address forms, and needs a name, a transcript and a tick 
 video has accurate captions". On the canvas an embed is a placeholder, so editing never loads anything from the
 web. The learner needs an internet connection to play it, and the LMS must allow embedded players.
 
+**Captions and the transcript of a video or audio clip.** In the Properties panel, **Write captions...** opens a dialog (`editor/src/captionsdialog.ts`) where the captions are written, timed,
+checked and saved, with nothing saved until **Save and use these captions** (or Ctrl+S). The clip plays in the dialog, and the captions in the list are shown over it. Every caption is a labelled
+group of fields (**Starts at**, **Ends at**, **Words**, in seconds, or as `1:05`), with **Start now** and **End now** to take a time from the player, and **Delete**; **Add a caption**, **Put the captions in
+order of time**, **Break long lines** (to 42 characters) and **Undo the last change to the list** work on the whole list. A caption that is hard to read says why, in words, next to its fields: more than
+two lines, a line over 42 characters, faster than 20 characters a second, or on screen for under a second (the numbers are `DEFAULT_LIMITS` in `editor/src/captions.ts`, from published caption guides,
+and a warning never stops saving). The captions together are checked for order, overlap and running past the end of the clip. Ways to start: type them; **Make captions from this script** (paste the
+words that are spoken: they are cut at the ends of sentences and clauses to fit, and the times are spread over the clip by length, as **estimates**; a note stays in the dialog, and in the saved WebVTT file as a `NOTE`, until
+**I have checked the times** is pressed; nothing listens to the voice); or **Bring in a .vtt or .srt file...** (what cannot be read is left out and said). **Copy as WebVTT** and **Copy as SRT** put them on the clipboard for other programs. Anything
+that would replace captions that already have words asks first, and can be undone. Saving writes plain WebVTT into `assets/captions` (a new file named from the clip, or the same file again when the clip already
+uses one) and points the clip at it; styling or positions in an older file are not kept. **Make a transcript from the captions** puts the spoken words, run into paragraphs, in the transcript box, with what is on the
+screen (from a recording: the words of text overlays, shapes and arrows that were given a description, and what each zoom shows) in square brackets where it happens; it is saved with the captions. A transcript with formatting
+the editor cannot edit is left as it is. The pure parts (reading and writing WebVTT and SRT, the warnings, the script cutting, the transcript) are `editor/src/captions.ts`, with tests. The shell commands are `captions_read`,
+`captions_write` and `caption_source_read` in `lib.rs` (only `assets/captions/<name>.vtt` is reachable, text only, 5 MB at most, replaced whole or not at all). Not built: captions from a recorded voice (speech
+recognition; see `docs/decisions/0002-speech-recognition.md`), marking which captions were edited by hand, and a languages choice for each caption track.
+
 **Questions, inputs and surveys.** "Question, input or survey..." in the Add menu opens one picker with
 three groups: Quiz questions (multiple choice, true or false), Inputs that save a choice (checkboxes,
 radio buttons, drop-down, list) and Surveys (Likert scale, semantic differential). An input is added with
@@ -593,8 +608,9 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   "Note." or "Problem.", with one sentence for the whole; a video that did not read back right is never called good. **Use cuts instead of animated zooms** (off unless chosen) is kinder to anyone
   bothered by movement. When the video is made, **Put the video on the current slide** copies it into the course's `assets/video` and adds a video object to the slide. That object starts with no
   description and no captions, and the Problems panel asks for both, because both are required and the editor never fills them in. **Show the video in its folder** opens its folder. An edit that
-  still lacks something accessibility needs (a description for a text overlay, for instance) is refused, with what is missing. Not built: making the video anyway when that is so, choosing its size or
-  speed, writing captions from the recording (Capture's Phase 6), and linking the video to the steps of a lesson. The options and the words are `editor/src/captureexport.ts`.
+  still lacks something accessibility needs (a description for a text overlay, for instance) is refused, with what is missing. Once the video is on the slide, **Write captions for the video** opens the captions
+  dialog on it, with the edit's on-screen words and zooms ready for its transcript. Not built: making the video anyway when that is so, choosing its size or
+  speed, and linking the video to the steps of a lesson. The options and the words are `editor/src/captureexport.ts`.
   Other things not built are listed in `capture-timeline/README.md` (snapping, dragging several clips, removing a stretch, screens for overlays and zoom, a captions track).
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
