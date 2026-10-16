@@ -279,12 +279,13 @@ fn killing_the_program_mid_recording_loses_almost_nothing_and_recover_repairs_it
     assert_eq!(result_of(&recovered).2, "recovered");
 
     assert_eq!(take_state(&project, 1), "recovered");
-    let leftover = fs::read_dir(project.join("takes/take-001/segments"))
+    let leftover_names: Vec<String> = fs::read_dir(project.join("takes/take-001/segments"))
         .unwrap()
         .flatten()
         .filter(|e| e.path().extension().unwrap() != "seg")
-        .count();
-    assert_eq!(leftover, 0, "every piece is complete after recovery");
+        .map(|e| format!("{} ({} bytes)", e.file_name().to_string_lossy(), e.metadata().map(|m| m.len()).unwrap_or(0)))
+        .collect();
+    assert!(leftover_names.is_empty(), "every piece is complete after recovery; left behind: {leftover_names:?}");
 
     // Running it again changes nothing.
     let (_, again) = run_once(&["recover", "--project", project.to_str().unwrap()]);
@@ -558,6 +559,10 @@ fn plain_mode_speaks_in_sentences_follows_a_demo_script_and_leaves_no_json() {
             project.to_str().unwrap(),
             "--countdown-ms",
             "0",
+            // The resume sound takes about 0.3 second to play on a computer with speakers, and that wait is deliberately not
+            // recording time, so the sounds are off here: this test is about the sentences and the pause, not the sounds.
+            "--cues",
+            "off",
             "--plain",
             "--demo-script",
             "marker:look here@500;pause@800;resume@1100;stop@1600",
@@ -730,8 +735,9 @@ fn recording_with_the_cues_on_or_off_is_accepted_and_records_the_same() {
             "600",
             "--cues",
             cues,
+            // Nearly silent, so running the tests does not play a loud sound on a computer with speakers.
             "--cue-volume",
-            "40",
+            "1",
             "--ignore-stdin-eof",
         ]);
         assert!(status.success(), "cues {cues}");
