@@ -582,7 +582,7 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
-      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog() }); },
+      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
     this.recorderBtn.focus();
@@ -594,6 +594,15 @@ export class App {
     if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the video again.";
     if (facts) this.madeVideos.set(src, facts);
     return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and captions. Write the captions with the button below, or find them in the Properties panel. Both are listed in the Problems panel.`;
+  }
+
+  /** Put what a recording shows on its screen into the selected video's audio description, each with a voice. Says what to do about a missing speech engine. */
+  private describeScreenOfVideo(m: Model, extras: Extra[]): string {
+    const o = m.object;
+    if (!o || o.type !== "video") return "Select the video on the slide first, then describe what is on the screen.";
+    const r = m.describeScreen(o.id, extras);
+    const engine = r.added > 0 && !this.narrationEngineReady ? " Kokoro, the speech engine on this computer, is not set up yet, so they have words but no sound until it is. Everything else keeps working." : "";
+    return `${r.message}${engine}`;
   }
 
   /**

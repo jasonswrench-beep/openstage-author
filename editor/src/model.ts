@@ -1811,6 +1811,42 @@ export class Model {
   }
 
   /**
+   * Add what a recording shows on its screen (the words of its overlays, what its zooms show) to a video as audio descriptions, each with a voice that
+   * says its words, as one undo step. This is the audio route for text a learner reads in a recording (story D7). A description that is already there at
+   * the same time with the same words is skipped, so pressing it twice adds nothing twice, and the list never goes past the limit. The author reads and
+   * changes them afterwards: audio description is for what the voice leaves out, so one the voice already says is theirs to delete.
+   */
+  describeScreen(objectId: string, items: readonly { atMs: number; text: string }[]): { added: number; message: string } {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "video") return { added: 0, message: "Select a video first." };
+    const cues = this.cuesOf(obj);
+    const have = new Set(cues.map((c) => `${c.time}|${c.text.trim()}`));
+    const wanted = items
+      .map((i) => ({ time: Math.min(Math.max(Math.round(i.atMs), 0), 86_400_000), text: i.text.replace(/\s+/g, " ").trim().slice(0, 2000) }))
+      .filter((i) => i.text !== "" && !have.has(`${i.time}|${i.text}`));
+    if (wanted.length === 0) return { added: 0, message: items.length === 0 ? "Nothing on the screen needs describing: no text, described shapes or zooms were added to this recording." : "Everything on the screen is already described." };
+    const room = DESCRIPTION_LIMIT - cues.length;
+    const take = wanted.slice(0, Math.max(room, 0));
+    if (take.length === 0) return { added: 0, message: `A video can have up to ${DESCRIPTION_LIMIT} descriptions.` };
+    this.record("");
+    const ids = cues.map((c) => c.id);
+    let like = this.narratedObjects().at(-1)?.narration;
+    const added: DescriptionCue[] = take.map((i) => {
+      const id = `ad-${nextNumber(ids, "ad-")}`;
+      ids.push(id);
+      like = newNarration(i.text, like);
+      return { id, time: i.time, text: i.text, pause: true, narration: like };
+    });
+    this.writeCues(obj, [...cues, ...added]);
+    this.emit({ kind: "structure", objectId });
+    const left = wanted.length - take.length;
+    return {
+      added: added.length,
+      message: `Added ${added.length} ${added.length === 1 ? "description" : "descriptions"} from what is on the screen, each with a voice that says its words.${left > 0 ? ` ${left} more did not fit, because a video can have up to ${DESCRIPTION_LIMIT}.` : ""} If your own voice already says one of them, delete it. Make the audio from the Narration button.`,
+    };
+  }
+
+  /**
    * Change the voice. The language stored beside it follows the voice, except for a voice that speaks many languages, which
    * keeps the language the author set (or the course's language if the voice before it spoke only one).
    */

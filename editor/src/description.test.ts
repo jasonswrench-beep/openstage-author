@@ -153,6 +153,40 @@ test("the Narration list names a description by its video and its time, after th
   assert.deepEqual(listed.map((n) => n.item), [null, null, null]);
 });
 
+test("what a recording shows on its screen becomes audio descriptions with a voice, in one undo step, and never twice", () => {
+  const { m, v } = withVideo();
+  const items = [{ atMs: 4000, text: "  On screen:   Click Save " }, { atMs: 1500, text: "The picture zooms in: the toolbar" }, { atMs: 2000, text: "   " }];
+  const r = m.describeScreen(v.id, items);
+  assert.equal(r.added, 2, "the one with no words is left out");
+  assert.match(r.message, /^Added 2 descriptions from what is on the screen, each with a voice that says its words\./);
+  assert.match(r.message, /If your own voice already says one of them, delete it\./);
+  const cues = cuesOf(m, v);
+  assert.deepEqual(cues.map((c) => [c.time, c.text, c.pause]), [[1500, "The picture zooms in: the toolbar", true], [4000, "On screen: Click Save", true]], "in the order they happen, with the words squeezed");
+  assert.deepEqual(cues.map((c) => (c.narration as { script: string } | null)?.script), ["The picture zooms in: the toolbar", "On screen: Click Save"], "each has a voice that says its words");
+  assert.equal(new Set(cues.map((c) => c.id)).size, 2, "ids are their own");
+  assert.equal(m.describeScreen(v.id, items).added, 0, "pressing it again adds nothing");
+  assert.equal(m.describeScreen(v.id, items).message, "Everything on the screen is already described.");
+  assert.equal(cuesOf(m, v).length, 2);
+  m.undo();
+  assert.equal(cuesOf(m, v).length, 0, "one undo takes all of them away");
+});
+
+test("describing the screen keeps the author's own descriptions, says when there is nothing, and stops at the limit", () => {
+  const { m, v } = withVideo();
+  m.addDescription(v.id);
+  m.updateDescription(v.id, "ad-1", { text: "A woman opens a laptop." });
+  assert.equal(m.describeScreen(v.id, [{ atMs: 1000, text: "On screen: Title" }]).added, 1);
+  assert.deepEqual(cuesOf(m, v).map((c) => c.text), ["A woman opens a laptop.", "On screen: Title"]);
+  assert.equal(cuesOf(m, v)[0]!.narration, null, "the author's description is not given a voice behind their back");
+  assert.match(m.describeScreen(v.id, []).message, /Nothing on the screen needs describing/);
+  const many = Array.from({ length: DESCRIPTION_LIMIT + 5 }, (_x, i) => ({ atMs: 10_000 + i, text: `Item ${i}` }));
+  const r = m.describeScreen(v.id, many);
+  assert.equal(cuesOf(m, v).length, DESCRIPTION_LIMIT);
+  assert.equal(r.added, DESCRIPTION_LIMIT - 2);
+  assert.match(r.message, /7 more did not fit/);
+  assert.match(m.describeScreen(v.id, [{ atMs: 99, text: "More" }]).message, /up to 60 descriptions/);
+});
+
 test("giving every description a voice leaves ones that have a voice, or no words, alone, in one undo step", () => {
   const { m, v } = withVideo();
   for (let i = 0; i < 4; i++) m.addDescription(v.id);

@@ -109,7 +109,11 @@ as the voice** writes the voice's words from the description (they are then the 
 video and its time, so its audio is made like any other (the speech tool finds it under the key `<video id>/<description id>`). A description with no
 voice can only be read, which the Problems list says. The Objects list says ", described" for a video that has any. Descriptions are kept in the order
 they happen. The course shows the **Audio description** button beside the video only when there is a description. If everything important on screen is
-already said in the narration, no description is needed.
+already said in the narration, no description is needed. For a video made from a recording, **Describe what is on the screen** (in the recording window, once
+the video is on a slide) adds one description for each text overlay, each shape or arrow that was given a description, and each zoom (what it shows), at the time
+it happens, already with a voice that says its words, as one undo step (`Model.describeScreen`). That is the audio route for text a learner reads in a recording (story D7).
+Pressing it again adds nothing twice, and it never touches descriptions the author wrote. If the recorded voice already says one of them, delete it. It is only offered right
+after the video is put on the slide, because the editor does not yet remember which recording a video came from (that belongs with provenance, request OS-14, in Capture's Phase 7).
 
 **Hotspots.** **Add > Hotspot (a clickable area)** puts a transparent button on the layer, to place over a picture (a screenshot, say). It shows as a blue
 dashed box in the editor only; a learner sees nothing but the picture and, when they Tab to it, the ordinary focus ring. Its name is the Alt text field
