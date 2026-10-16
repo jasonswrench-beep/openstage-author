@@ -11,6 +11,7 @@
 import { errorText, type Backend } from "./backend.ts";
 import { CHECK_LIMIT_MS, checkArguments, parseFinding, summarise, type Finding } from "./capturecheck.ts";
 import { runOneShot, type RecorderController } from "./capturecontroller.ts";
+import { recordingNameOf } from "./recordingfolder.ts";
 import {
   describeSession, formatTime, MAX_COUNTDOWN, parseProbe, parseWindow, recordingFolder, settingsProblem,
   type Interactions, type RecordSettings, type Session, type Source, type Target, type WindowChoice,
@@ -39,6 +40,8 @@ export interface RecorderDialogOptions {
   keepSettings: (s: RecordSettings) => void;
   /** Leave the recordings folder out of the published package. Returns what to tell the author, or null if it was already left out. */
   excludeCaptures: () => string | null;
+  /** Open the editing screens on a recording of this course, by its folder name. Resolves when the author closes them. */
+  editRecording: (name: string) => Promise<void>;
 }
 
 let dialogOpen = false;
@@ -159,7 +162,8 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     const where = h("p", { id: "rc-where" });
     const show = h("button", { type: "button", text: "Show the recording in its folder" });
     const done = h("button", { type: "button", text: "Done" });
-    const doneRow = h("div", { class: "dialog-actions" }, show, done);
+    const editNow = h("button", { type: "button", text: "Edit the recording I just made" });
+    const doneRow = h("div", { class: "dialog-actions" }, editNow, show, done);
     const controls = h("div", { class: "dialog-actions" }, pause, stop, again);
     const markerRow = h("div", { class: "field" }, h("label", { for: "rc-marker", text: "Words for a marker (optional)" }), h("div", {}, markerLabel, " ", addMarker));
     const live = h("section", { "aria-labelledby": "rc-live-title", hidden: true }, liveTitle, now, controls, markerRow,
@@ -173,6 +177,27 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     const checkBox = h("section", { "aria-labelledby": "rc-check-title" },
       h("h3", { id: "rc-check-title", text: "Is this computer ready to record?" }), found, h("div", { class: "dialog-actions" }, check), list);
     const close = h("button", { type: "button", text: "Close" });
+
+    // ---- the recordings already made, to edit
+    const recordingsSel = h("select", { id: "rc-recordings" });
+    const editBtn = h("button", { type: "button", id: "rc-edit", text: "Edit this recording" });
+    const editBox = h("section", { "aria-labelledby": "rc-edit-title", hidden: true },
+      h("h3", { id: "rc-edit-title", text: "Edit a recording" }),
+      h("p", { class: "note", text: "Open a recording made in this course to cut it, and to add text, shapes and zoom. The recording itself, its picture and sound, is never changed." }),
+      field("rc-recordings", "Recording", recordingsSel), h("div", { class: "dialog-actions" }, editBtn));
+    async function refreshRecordings(): Promise<void> {
+      if (opts.dir === null) return;
+      const names = await b.listRecordings(opts.dir).catch(() => [] as string[]);
+      const keep = recordingsSel.value;
+      recordingsSel.replaceChildren(...names.map((n) => h("option", { value: n, text: n.replace(/\.capture$/, "") })));
+      if (names.includes(keep)) recordingsSel.value = keep;
+      editBox.hidden = names.length === 0;
+    }
+    async function edit(name: string, back: HTMLElement): Promise<void> {
+      if (c.busy) { say(["A recording is going. Wait until it is finished, then edit."]); return; }
+      await opts.editRecording(name);
+      back.focus();
+    }
 
     // ---- showing the state
     function ready(): string | null {
@@ -204,6 +229,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
       markerRow.hidden = over;
       doneRow.hidden = !over;
       show.hidden = session.phase !== "finished" || session.folder === "";
+      editNow.hidden = show.hidden;
       liveTitle.textContent = session.phase === "finished" ? "Finished" : session.phase === "failed" ? "The recording did not finish" : "Recording";
       markers.replaceChildren(...session.markers.map((m) => h("li", { text: `${formatTime(m.elapsedMs)}${m.label ? `: ${m.label}` : ""}` })));
       notes.replaceChildren(...session.notes.map((n) => h("li", {}, h("strong", { class: n.ok ? "rc-pass" : "rc-problem", text: n.ok ? "Note. " : "Problem. " }), h("span", { text: n.text }))));
@@ -213,8 +239,10 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     const unsubscribe = c.subscribe((session, messages) => {
       showSession(session);
       if (messages.length > 0) say(messages);
+      if (session.phase === "finished") void refreshRecordings();
     });
     showSession(c.session);
+    void refreshRecordings();
 
     // ---- what the author does
     start.addEventListener("click", async () => {
@@ -234,6 +262,8 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     addMarker.addEventListener("click", async () => { await c.marker(markerLabel.value); markerLabel.value = ""; markerLabel.focus(); });
     markerLabel.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addMarker.click(); } });
     done.addEventListener("click", () => { c.dismiss(); say([]); start.focus(); });
+    editBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void edit(recordingsSel.value, editBtn); });
+    editNow.addEventListener("click", () => void edit(recordingNameOf(c.session.folder), editNow));
     show.addEventListener("click", () => { void b.revealInFolder(c.session.folder).catch((err: unknown) => say([`Could not show the folder. ${errorText(err)}`])); });
     for (const el of [name, practice, target, display, windowSel, microphone, output, camera, interactions, countdown, sounds, left.input, top.input, width.input, height.input]) {
       el.addEventListener("input", showSetup);
@@ -295,7 +325,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
       h("h2", { id: "rc-title", text: "OpenScreen: the screen recorder" }),
       h("p", { text: "OpenScreen records your screen, your voice and the computer's own sound, so you can put the recording in a course. It works on Windows. It is a separate program that OpenStage starts." }),
       h("p", { class: "note", text: "Recording from here is new. Putting a recording in a course, and editing it, are still being built. A recording is kept in the course's captures folder, which is left out of the published course." }),
-      status, live, setup, checkBox, h("div", { class: "dialog-actions" }, close),
+      status, live, setup, editBox, checkBox, h("div", { class: "dialog-actions" }, close),
     );
     document.body.appendChild(dialog);
     dialog.showModal();

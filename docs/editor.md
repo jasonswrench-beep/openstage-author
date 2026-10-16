@@ -577,6 +577,18 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   a list of earlier takes, changing the keys, editing a recording, and putting one in a course. The logic is `editor/src/capturesession.ts` (the choices, the recorder's options, what its lines
   mean and the words for each state), `editor/src/capturecontroller.ts` (starting it, the commands, the keys, the repair; tested against a stand-in recorder), `editor/src/capturecheck.ts`
   and the dialog `editor/src/recorderdialog.ts`. `OPEN EDITOR.bat` builds the recorder after the editor (into `capture\target\release`, where the editor looks), and opens the editor even if that fails.
+- **OpenScreen: editing a recording.** The recorder's preview, timeline and clip list (`capture-timeline/`, plain DOM with no dependencies, with the edit model in `capture-edit/`) open in a
+  dialog of their own: from **Edit a recording** in the OpenScreen dialog (every recording in the course's `captures` folder is listed) or from **Edit the recording I just made** when a recording has
+  finished. The edit is a list of what to keep and what to add (trims, splits, text, shapes, blur, zoom); it is saved as `edit.json` inside the recording, whole or not at all, and the recorded picture
+  and sound are never changed. **Save the edit** or Ctrl+S saves it; Close asks first if there are changes that are not saved. The screens keep their own keys and their own line of
+  announcements (a polite live region, so nothing is read twice): F6 and Shift+F6 move between the preview, the timeline and the clip list and say where they arrived, Ctrl+Z and Ctrl+Y undo and redo
+  the edit. While the dialog is open the editor's own Ctrl+S, Ctrl+Z and F6 step aside, so none of them reaches the course. The screens are kept in their light colours to match the editor.
+  The shell reaches a recording only by the course's folder and the recording's folder name: it lists the recordings, reads the recording's `.json` files, lists the folders of a take, writes `edit.json` (and
+  nothing else), and lets the page play the media of one recording's `takes` folder from disk with seeking (`list_recordings`, `recording_read`, `recording_folders`, `recording_write_edit`,
+  `allow_recording_media` in `lib.rs`; a name must be one plain folder name ending in `.capture`, a place inside it plain names joined by `/`, only `.json` is read as text). The screens read a recording
+  through `editor/src/recordingfolder.ts`, and the dialog is `editor/src/editrecording.ts`. A recording made with Practice has no real picture or sound, so it opens as an empty edit and says why.
+  Not built: an export button (the recorder's `render` command makes the finished MP4), putting the result in a course, and the things listed as not done in `capture-timeline/README.md`
+  (snapping, dragging several clips, removing a stretch, screens for overlays and zoom, a captions track).
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.

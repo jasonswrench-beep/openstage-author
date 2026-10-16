@@ -135,6 +135,19 @@ export interface Backend {
    */
   mediaUrl(dir: string, path: string): Promise<string>;
 
+  // ---- the recordings of a course (OpenScreen): `<course>/captures/<name>.capture`, reached by the course's folder and the recording's folder name only
+
+  /** The recordings in the course, by folder name. */
+  listRecordings(dir: string): Promise<string[]>;
+  /** The text of a .json file inside a recording (`capture.json`, `edit.json`, `takes/take-001/take.json`), or undefined if there is none. */
+  recordingRead(dir: string, name: string, rel: string): Promise<string | undefined>;
+  /** The folders directly inside a place in a recording. */
+  recordingFolders(dir: string, name: string, rel: string): Promise<string[]>;
+  /** Save the edit of a recording as its edit.json, whole or not at all. The only file ever written in a recording. */
+  recordingWriteEdit(dir: string, name: string, text: string): Promise<void>;
+  /** An address a video or audio element can play a file of a take from, straight from disk with seeking. */
+  recordingMediaUrl(dir: string, name: string, rel: string): Promise<string>;
+
   // ---- the Capture recorder: a separate program the editor starts and talks to, one line of JSON at a time
 
   /** Where the recorder is, or a message that says why it cannot be used and what to do. */
@@ -273,6 +286,19 @@ const tauriBackend: Backend = {
     await invoke<void>("allow_project_media", { dir });
     const sep = dir.includes("\\") ? "\\" : "/";
     return convertFileSrc(`${dir.replace(/[\\/]+$/, "")}${sep}${path.split("/").join(sep)}`);
+  },
+  listRecordings: (dir) => invoke<string[]>("list_recordings", { dir }),
+  async recordingRead(dir, name, rel) {
+    return (await invoke<string | null>("recording_read", { dir, name, rel })) ?? undefined;
+  },
+  recordingFolders: (dir, name, rel) => invoke<string[]>("recording_folders", { dir, name, rel }),
+  recordingWriteEdit: (dir, name, text) => invoke<void>("recording_write_edit", { dir, name, text }),
+  async recordingMediaUrl(dir, name, rel) {
+    // Only the media of a take can be played, and a path that climbs out of it is not a path.
+    if (!/^takes\/take-\d+\/[^/\\]+$/.test(rel)) throw new Error("That file is not in a take of the recording.");
+    await invoke<void>("allow_recording_media", { dir, name });
+    const sep = dir.includes("\\") ? "\\" : "/";
+    return convertFileSrc([dir.replace(/[\\/]+$/, ""), "captures", name, ...rel.split("/")].join(sep));
   },
   async captureCheck() {
     try {
@@ -418,6 +444,21 @@ const previewBackend: Backend = {
   },
   async mediaUrl() {
     throw new Error("Playing a large video needs the desktop app.");
+  },
+  async listRecordings() {
+    return [];
+  },
+  async recordingRead() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingFolders() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingWriteEdit() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingMediaUrl() {
+    throw new Error("Playing a recording needs the desktop app.");
   },
   async captureCheck() {
     return { ok: false, message: "The recorder needs the desktop app." };

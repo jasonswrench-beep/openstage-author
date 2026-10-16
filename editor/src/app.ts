@@ -46,6 +46,7 @@ import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, v
 import { askPermission, openAiServices } from "./aidialog.ts";
 import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
 import { RecorderController } from "./capturecontroller.ts";
+import { openRecordingEditor } from "./editrecording.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
@@ -577,6 +578,7 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
+      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name }); },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
     this.recorderBtn.focus();
@@ -3900,6 +3902,8 @@ export class App {
 
   private onGlobalKey(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
+    // Editing a recording has keys of its own (Ctrl+S saves the edit, Ctrl+Z undoes it, F6 moves between its parts). None of them is for the course.
+    if (target.closest(".recording-editor")) return;
     const typing = target.matches("input:not([type=checkbox]), textarea, select");
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); void this.save(); }
