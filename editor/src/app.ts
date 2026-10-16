@@ -44,6 +44,7 @@ import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MI
 import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
+import { openRecorder } from "./recorderdialog.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
@@ -155,6 +156,7 @@ export class App {
   private readonly variablesBtn: HTMLButtonElement;
   private readonly narrationBtn: HTMLButtonElement;
   private readonly aiBtn: HTMLButtonElement;
+  private readonly recorderBtn: HTMLButtonElement;
   private readonly timingBtn: HTMLButtonElement;
   private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
@@ -220,6 +222,7 @@ export class App {
     this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
+    this.recorderBtn = this.tool("OpenScreen", "The screen recorder: whether this computer is ready to record", () => void this.openRecorderDialog());
     this.aiBtn = this.tool("AI services", "A key for OpenAI, to make voices and pictures with it, and voice plugins", () => void this.openAiServicesDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
     this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
@@ -236,7 +239,7 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -560,6 +563,12 @@ export class App {
     setVoiceSources(buildVoiceSources(this.settings.ai, this.plugins.plugins));
     this.voiceEpoch++;
     if (this.model) this.renderProps();
+  }
+
+  /** The screen recorder (OpenScreen). So far the dialog finds the recorder program and checks that this computer is ready to record. */
+  private async openRecorderDialog(): Promise<void> {
+    await openRecorder({ backend, dir: this.model?.dir ?? null });
+    this.recorderBtn.focus();
   }
 
   private async openAiServicesDialog(): Promise<void> {

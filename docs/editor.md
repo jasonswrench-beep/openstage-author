@@ -551,8 +551,16 @@ the other accessibility fields are never filled in for the author.
 
 OpenStage Capture is a separate program that records the screen. The editor starts it and talks to it, and these are the parts of the editor's
 shell (the Rust side) that make that possible. They are built and tested; the panels an author would use (a recorder panel, a clip list) are not
-built yet, so nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
+built yet, so apart from the check dialog in the first item nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
 
+- **The OpenScreen button and the check.** OpenScreen is the name authors see for the Capture module. The toolbar's **OpenScreen** button opens a dialog that
+  says whether the recorder program was found and, when the author presses **Check this computer**, runs the recorder's own `setup-check`: the Windows version,
+  screen capture, the video and sound encoders, the microphone and the camera and the permission to use them, and the room left on the disk of the open project.
+  Each finding is said in plain words, starting with "Passed." or "Problem." (never by colour alone), and one sentence at the end says whether the computer is
+  ready. The check records nothing, asks Windows for no permission and sends nothing anywhere. It is a native dialog, so focus moves in, Tab stays inside, Escape
+  closes it (and stops a check that is still running), and focus returns to the button; the sentence is in a status region so it is read when the check ends.
+  Recording and editing from this dialog are not built yet. The reading of the findings is `editor/src/capturecheck.ts`, the dialog is `editor/src/recorderdialog.ts`.
+  `OPEN EDITOR.bat` builds the recorder after the editor (into `capture\target\release`, where the editor looks), and opens the editor even if that fails.
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.
