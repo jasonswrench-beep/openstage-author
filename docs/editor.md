@@ -587,8 +587,15 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   nothing else), and lets the page play the media of one recording's `takes` folder from disk with seeking (`list_recordings`, `recording_read`, `recording_folders`, `recording_write_edit`,
   `allow_recording_media` in `lib.rs`; a name must be one plain folder name ending in `.capture`, a place inside it plain names joined by `/`, only `.json` is read as text). The screens read a recording
   through `editor/src/recordingfolder.ts`, and the dialog is `editor/src/editrecording.ts`. A recording made with Practice has no real picture or sound, so it opens as an empty edit and says why.
-  Not built: an export button (the recorder's `render` command makes the finished MP4), putting the result in a course, and the things listed as not done in `capture-timeline/README.md`
-  (snapping, dragging several clips, removing a stretch, screens for overlays and zoom, a captions track).
+  **Making a video.** **Make a video from this edit** saves the edit first (the recorder reads `edit.json`), then runs the recorder's `render` and says how far it has got, in words, as it
+  works (about every tenth), with **Cancel the video**. The video is written in the recording's own `exports` folder (`<course>/captures/<name>.capture/exports/<name>.mp4`), so a half-made file is never
+  in the course, and the recorder reads it back the way a player would. Its checks (the length, the size, the sound, and notes such as text that does not fit its box) are listed, each starting
+  "Note." or "Problem.", with one sentence for the whole; a video that did not read back right is never called good. **Use cuts instead of animated zooms** (off unless chosen) is kinder to anyone
+  bothered by movement. When the video is made, **Put the video on the current slide** copies it into the course's `assets/video` and adds a video object to the slide. That object starts with no
+  description and no captions, and the Problems panel asks for both, because both are required and the editor never fills them in. **Show the video in its folder** opens its folder. An edit that
+  still lacks something accessibility needs (a description for a text overlay, for instance) is refused, with what is missing. Not built: making the video anyway when that is so, choosing its size or
+  speed, writing captions from the recording (Capture's Phase 6), and linking the video to the steps of a lesson. The options and the words are `editor/src/captureexport.ts`.
+  Other things not built are listed in `capture-timeline/README.md` (snapping, dragging several clips, removing a stretch, screens for overlays and zoom, a captions track).
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.

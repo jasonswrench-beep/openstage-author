@@ -578,10 +578,17 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
-      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name }); },
+      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src) => this.putVideoOnSlide(m, src) }); },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
     this.recorderBtn.focus();
+  }
+
+  /** Put a finished recording, already copied into the course, on the slide the author is on. It starts with no description and no captions: the author writes them. */
+  private putVideoOnSlide(m: Model, src: string): string {
+    const o = m.addMedia("video", src);
+    if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the video again.";
+    return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and a captions file, both in the Properties panel. They are listed in the Problems panel.`;
   }
 
   /** The toolbar button says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
