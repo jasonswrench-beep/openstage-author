@@ -44,5 +44,14 @@ AI services and voice plugins (connected by the user; not included, bundled or h
   examples/plugins is part of OpenStage Author (Apache License 2.0). No component of these
   services is distributed with a course; a course credits the services that made its material.
 
+OpenStage Capture (screen recording; the capture/, capture-edit/ and capture-timeline/ folders)
+  The recorder is a Rust program built from the crates listed, each with its licence, in
+  capture/THIRD-PARTY.md (every one MIT, Apache-2.0 or similarly permissive; the rule checker
+  capture/tools/check_rules.py fails the build otherwise). It records through services that are
+  part of Windows (screen capture, sound, camera and video encoding); none of that is distributed
+  with it. It contains no FFmpeg. The edit model and the editing screens are TypeScript with no
+  outside code. The audit of other recorders, and why none of their code is used, is in
+  docs/decisions/0001-screen-capture.md.
+
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.

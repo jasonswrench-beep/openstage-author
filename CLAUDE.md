@@ -22,11 +22,16 @@ and zoom, in the manner of a screen recording studio.
 
 **Phase 1 (format, validator, player, SCORM 1.2 wrapper) is built and works for the user.
 Still open: testing in Moodle, Canvas and Brightspace, and NVDA and VoiceOver passes.**
-Phase 2, the editor, has started.
+Phase 2, the editor, is a Tauri app (Rust shell, TypeScript web layer sharing the player's renderer)
+in `editor/`. It is built well past its first slice: `ROADMAP.md` says what is done and what is left,
+and `docs/editor.md` says how it works.
 
-The user confirmed on 2026-10-10 that the editor can begin, as a Tauri app (Rust shell, TypeScript
-web layer sharing the player's renderer). The first slice is in `editor/`. Anything beyond it,
-such as placing objects, triggers or the timeline, is agreed with the user first.
+The Capture module (screen recording and a mid-level editor for recordings, shown to authors as
+OpenScreen) was brought into this repository on 2026-10-15, under `capture/`, `capture-edit/`,
+`capture-timeline/` and `docs/capture/`. It is not yet joined to the editor; `ROADMAP.md` has the order
+of that work.
+
+Anything that is not on `ROADMAP.md` is agreed with the user first.
 
 ## Non-negotiable rules
 
@@ -67,8 +72,34 @@ such as placing objects, triggers or the timeline, is agreed with the user first
 - Local models sit behind three plugin contracts: audio from text, captions from media,
   image from prompt. Nothing model-specific enters the format or the renderer.
 - TypeScript throughout, except the Capture program, which is Rust because screen capture
-  needs native code. Electron or Tauri shell. Cross-platform from the start, except the
+  needs native code. The shell is Tauri. Cross-platform from the start, except the
   Capture module, which is Windows first.
+
+### Licensing
+
+This project is Apache 2.0. Apache 2.0 cannot incorporate GPL or AGPL code: the combined work would
+have to ship under the GPL, relicensing the project. Treat a copyleft licence as a hard stop for
+anything linked, vendored or copied, not a tradeoff to weigh. Running a GPL tool that the user
+installed, as a separate process, is fine and is a different question.
+
+Before adding any dependency, check its licence. Permissive (MIT, BSD, Apache 2.0, ISC) is fine.
+LGPL is dynamic-linking only. GPL and AGPL are refused. Open model weights are not automatically
+open source, so audit those one by one too. Record anything adopted in `NOTICE` with its
+attribution. The Capture program's rule checker (`capture/tools/check_rules.py`) enforces this for
+its Rust dependencies on every change.
+
+**FFmpeg is not used.** If it ever is, it must be an LGPL build: no `--enable-gpl`, no
+`--enable-nonfree`, no GPL libraries such as libx264, linked dynamically, with the matching source
+and configure options shipped. The full list is in `docs/decisions/0001-screen-capture.md`.
+
+### Screen capture
+
+Screen recording is OpenStage's own Rust program, `openstage-capture`, built on Windows' own capture
+and encoding services (shown to authors as OpenScreen). Do not adopt a third-party recorder's code:
+outside recorders are copyleft. Authors may record with any program of their own, as a
+separate program. The reasoning, the audit and the platform notes are in
+`docs/decisions/0001-screen-capture.md`, and Capture's own documents are in `docs/capture/`. Read
+them before any work on capture, recording or simulation.
 
 ## Out of scope — do not build these
 
