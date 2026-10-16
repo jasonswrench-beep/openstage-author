@@ -616,6 +616,15 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   dialog on it, with the edit's on-screen words and zooms ready for its transcript. Not built: making the video anyway when that is so, choosing its size or
   speed, and linking the video to the steps of a lesson. The options and the words are `editor/src/captureexport.ts`.
   Other things not built are listed in `capture-timeline/README.md` (snapping, dragging several clips, removing a stretch, screens for overlays and zoom, a captions track).
+  **Steps from a recording.** **Make steps from this recording** (in the OpenScreen dialog, and for the recording just made) opens a review dialog (`editor/src/stepsdialog.ts`) for the steps that can be made from
+  what the author did while OpenScreen was noting the mouse and keyboard (`takes/take-N/events.jsonl`): one step for each click (told as "Click the Save button.", "Choose Open from the menu.", "Double-click ...",
+  "Right-click ..."; without a name, "Click the highlighted spot."), each stretch of typing ("Type "report"."), each key such as Enter or Ctrl+S, each change of program, and each marker. Anything the edit cuts out makes no
+  step. Every step is a labelled group of fields: **Words the learner reads**, **Description of the picture**, **Picture taken at (seconds into the take)**, a tick for "I have checked the words and the picture description",
+  and **Move up**, **Move down**, **Merge with the next step**, **Split in two** (or **Undo the merge**), **Delete**; **Add a step by hand**, **Undo the last change to the list** and **Start again from what I did while recording** work on the list,
+  and every change is said in words. The words and the picture description are proposed from the log and are the author's only once the step is ticked as checked; slides made from steps will use a picture description only for a checked
+  step. **Save the steps** (or Ctrl+S) writes `steps.json` in the recording, which the next opening reads back. A recording with no log says how to get one, and steps can still be added by hand. The pure parts are `editor/src/steps.ts`
+  and `editor/src/stepsource.ts` (with tests); the shell reads a take's `events.jsonl` (up to 32 MB) and writes `steps.json` (`recording_write_steps`; only `edit.json` and `steps.json` can ever be written in a recording). The plan for pictures,
+  slides, Practice and Assessment is `docs/decisions/0003-steps-and-practice.md`. Not built: pictures of the steps, slides from them, and the three lessons.
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.

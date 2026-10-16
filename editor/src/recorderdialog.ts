@@ -42,6 +42,8 @@ export interface RecorderDialogOptions {
   excludeCaptures: () => string | null;
   /** Open the editing screens on a recording of this course, by its folder name. Resolves when the author closes them. */
   editRecording: (name: string) => Promise<void>;
+  /** Open the steps made from a recording of this course, by its folder name. Resolves when the author closes them. */
+  makeSteps: (name: string) => Promise<void>;
 }
 
 let dialogOpen = false;
@@ -163,7 +165,8 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     const show = h("button", { type: "button", text: "Show the recording in its folder" });
     const done = h("button", { type: "button", text: "Done" });
     const editNow = h("button", { type: "button", text: "Edit the recording I just made" });
-    const doneRow = h("div", { class: "dialog-actions" }, editNow, show, done);
+    const stepsNow = h("button", { type: "button", text: "Make steps from the recording I just made" });
+    const doneRow = h("div", { class: "dialog-actions" }, editNow, stepsNow, show, done);
     const controls = h("div", { class: "dialog-actions" }, pause, stop, again);
     const markerRow = h("div", { class: "field" }, h("label", { for: "rc-marker", text: "Words for a marker (optional)" }), h("div", {}, markerLabel, " ", addMarker));
     const live = h("section", { "aria-labelledby": "rc-live-title", hidden: true }, liveTitle, now, controls, markerRow,
@@ -181,10 +184,11 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     // ---- the recordings already made, to edit
     const recordingsSel = h("select", { id: "rc-recordings" });
     const editBtn = h("button", { type: "button", id: "rc-edit", text: "Edit this recording" });
+    const stepsBtn = h("button", { type: "button", id: "rc-steps", text: "Make steps from this recording" });
     const editBox = h("section", { "aria-labelledby": "rc-edit-title", hidden: true },
-      h("h3", { id: "rc-edit-title", text: "Edit a recording" }),
-      h("p", { class: "note", text: "Open a recording made in this course to cut it, and to add text, shapes and zoom. The recording itself, its picture and sound, is never changed." }),
-      field("rc-recordings", "Recording", recordingsSel), h("div", { class: "dialog-actions" }, editBtn));
+      h("h3", { id: "rc-edit-title", text: "Edit a recording, or make steps from it" }),
+      h("p", { class: "note", text: "Open a recording made in this course to cut it, and to add text, shapes and zoom. The recording itself, its picture and sound, is never changed. Steps are what the recording shows one thing at a time (a click, some typing), proposed from what you did while recording, for a lesson the learner follows." }),
+      field("rc-recordings", "Recording", recordingsSel), h("div", { class: "dialog-actions" }, editBtn, stepsBtn));
     async function refreshRecordings(): Promise<void> {
       if (opts.dir === null) return;
       const names = await b.listRecordings(opts.dir).catch(() => [] as string[]);
@@ -196,6 +200,11 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     async function edit(name: string, back: HTMLElement): Promise<void> {
       if (c.busy) { say(["A recording is going. Wait until it is finished, then edit."]); return; }
       await opts.editRecording(name);
+      back.focus();
+    }
+    async function steps(name: string, back: HTMLElement): Promise<void> {
+      if (c.busy) { say(["A recording is going. Wait until it is finished, then make steps."]); return; }
+      await opts.makeSteps(name);
       back.focus();
     }
 
@@ -264,6 +273,8 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     done.addEventListener("click", () => { c.dismiss(); say([]); start.focus(); });
     editBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void edit(recordingsSel.value, editBtn); });
     editNow.addEventListener("click", () => void edit(recordingNameOf(c.session.folder), editNow));
+    stepsBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void steps(recordingsSel.value, stepsBtn); });
+    stepsNow.addEventListener("click", () => void steps(recordingNameOf(c.session.folder), stepsNow));
     show.addEventListener("click", () => { void b.revealInFolder(c.session.folder).catch((err: unknown) => say([`Could not show the folder. ${errorText(err)}`])); });
     for (const el of [name, practice, target, display, windowSel, microphone, output, camera, interactions, countdown, sounds, left.input, top.input, width.input, height.input]) {
       el.addEventListener("input", showSetup);

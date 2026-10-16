@@ -48,6 +48,7 @@ import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
 import { RecorderController } from "./capturecontroller.ts";
 import { openRecordingEditor } from "./editrecording.ts";
 import { openCaptions } from "./captionsdialog.ts";
+import { openSteps } from "./stepsdialog.ts";
 import type { Extra } from "./captions.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
@@ -583,6 +584,11 @@ export class App {
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
       editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
+      makeSteps: async (name) => {
+        if (!m) return;
+        const said = await openSteps({ backend, dir: m.dir, name });
+        if (said !== "") this.announce(said);
+      },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
     this.recorderBtn.focus();

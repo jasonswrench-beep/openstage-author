@@ -1833,6 +1833,20 @@ fn allow_project_media(app: tauri::AppHandle, dir: String) -> Result<(), String>
 /// The most text read from, or written to, a recording's JSON file. An edit of a long recording is far smaller than this.
 const MAX_RECORDING_TEXT: u64 = 8 * 1024 * 1024;
 
+/// The most a take's interaction log may weigh when it is read. The cursor is noted about thirty times a second, so an hour is a few megabytes.
+const MAX_INTERACTION_LOG: u64 = 32 * 1024 * 1024;
+
+/// Whether a place inside a recording is a take's interaction log: `takes/take-001/events.jsonl`, and nothing else.
+fn is_interaction_log(rel: &Path) -> bool {
+    let parts: Vec<&str> = rel.iter().filter_map(|p| p.to_str()).collect();
+    parts.len() == 3
+        && parts[0] == "takes"
+        && parts[1].len() > 5
+        && parts[1].starts_with("take-")
+        && parts[1][5..].chars().all(|c| c.is_ascii_digit())
+        && parts[2] == "events.jsonl"
+}
+
 /// A recording's folder name: something, then `.capture`, with no way to name another folder or a drive.
 fn recording_name_ok(name: &str) -> bool {
     let named = name.strip_suffix(".capture").is_some_and(|stem| !stem.trim().is_empty());
@@ -1905,15 +1919,16 @@ fn list_recordings_at(dir: &Path) -> Result<Vec<String>, String> {
 fn read_recording_text_at(dir: &Path, name: &str, rel: &str) -> Result<Option<String>, String> {
     let base = recording_at(dir, name)?;
     let rel = recording_rel(rel)?;
-    if rel.extension().and_then(|e| e.to_str()) != Some("json") {
-        return Err("Only the recording's .json files can be read as text.".into());
+    let log = is_interaction_log(&rel);
+    if rel.extension().and_then(|e| e.to_str()) != Some("json") && !log {
+        return Err("Only the recording's .json files and its interaction logs can be read as text.".into());
     }
     let file = base.join(rel);
     let Ok(meta) = fs::metadata(&file) else { return Ok(None) };
     if !meta.is_file() {
         return Ok(None);
     }
-    if meta.len() > MAX_RECORDING_TEXT {
+    if meta.len() > if log { MAX_INTERACTION_LOG } else { MAX_RECORDING_TEXT } {
         return Err("That file is larger than a recording's notes should be.".into());
     }
     fs::read_to_string(&file).map(Some).map_err(|e| format!("Could not read the file: {e}"))
@@ -1930,21 +1945,35 @@ fn recording_folders_at(dir: &Path, name: &str, rel: &str) -> Result<Vec<String>
     Ok(out)
 }
 
-/// Write `edit.json` into a recording: the only file that is ever written there. It has to be JSON, and it is put in place whole or not at all.
-fn write_recording_edit_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
+/// Write one of the two files the editor keeps in a recording, `edit.json` (the edit) or `steps.json` (the steps made from what the author did), and nothing
+/// else ever. It has to be a JSON object, and it is put in place whole or not at all.
+fn write_recording_json_at(dir: &Path, name: &str, file: &str, what: &str, text: &str) -> Result<(), String> {
     let base = recording_at(dir, name)?;
+    if file != "edit.json" && file != "steps.json" {
+        return Err("Only the edit and the steps can be saved in a recording.".into());
+    }
     if text.len() as u64 > MAX_RECORDING_TEXT {
-        return Err("That edit is larger than an edit should be.".into());
+        return Err(format!("That {what} is larger than a {what} should be."));
     }
     if !serde_json::from_str::<serde_json::Value>(text).map(|v| v.is_object()).unwrap_or(false) {
-        return Err("The edit is not in a form that can be saved.".into());
+        return Err(format!("The {what} is not in a form that can be saved."));
     }
-    let temp = base.join("edit.json.tmp");
-    fs::write(&temp, text).map_err(|e| format!("Could not save the edit: {e}"))?;
-    fs::rename(&temp, base.join("edit.json")).map_err(|e| {
+    let temp = base.join(format!("{file}.tmp"));
+    fs::write(&temp, text).map_err(|e| format!("Could not save the {what}: {e}"))?;
+    fs::rename(&temp, base.join(file)).map_err(|e| {
         let _ = fs::remove_file(&temp);
-        format!("Could not save the edit: {e}")
+        format!("Could not save the {what}: {e}")
     })
+}
+
+/// Write `edit.json` into a recording.
+fn write_recording_edit_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
+    write_recording_json_at(dir, name, "edit.json", "edit", text)
+}
+
+/// Write `steps.json` into a recording.
+fn write_recording_steps_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
+    write_recording_json_at(dir, name, "steps.json", "list of steps", text)
 }
 
 /// The recordings in this course, by folder name.
@@ -1969,6 +1998,12 @@ fn recording_folders(dir: String, name: String, rel: String) -> Result<Vec<Strin
 #[tauri::command]
 fn recording_write_edit(dir: String, name: String, text: String) -> Result<(), String> {
     write_recording_edit_at(Path::new(&dir), &name, &text)
+}
+
+/// Save the steps made from a recording as its `steps.json`.
+#[tauri::command]
+fn recording_write_steps(dir: String, name: String, text: String) -> Result<(), String> {
+    write_recording_steps_at(Path::new(&dir), &name, &text)
 }
 
 /// Let the page play the videos and sounds of one recording straight from disk, with seeking. Only that recording's `takes` folder is opened up, for
@@ -2186,7 +2221,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, allow_recording_media, captions_read, captions_write, caption_source_read])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, allow_recording_media, captions_read, captions_write, caption_source_read])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3496,6 +3531,45 @@ mod tests {
         assert!(read_recording_text_at(&project, "Missing.capture", "capture.json").is_err());
         assert!(read_recording_text_at(&std::env::temp_dir(), "A demo.capture", "capture.json").is_err(), "not a project");
         assert!(list_recordings_at(&std::env::temp_dir()).is_err());
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_takes_interaction_log_can_be_read_as_text_and_no_other_file_that_is_not_json() {
+        let project = temp_project("interaction-log");
+        let folder = recording_in(&project, "Demo.capture");
+        let log = "{\"t\":0,\"type\":\"window\",\"title\":\"x\",\"process\":\"x.exe\"}\n";
+        fs::write(folder.join("takes").join("take-001").join("events.jsonl"), log).unwrap();
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/events.jsonl").unwrap().as_deref(), Some(log));
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "takes/take-002/events.jsonl").unwrap(), None, "no such take, no log");
+        for bad in ["events.jsonl", "takes/events.jsonl", "takes/take-001/other.jsonl", "takes/take-/events.jsonl", "takes/take-1a/events.jsonl", "takes/take-001/sub/events.jsonl", "takes/take-001/screen.mp4", "takes/take-001/mic.wav"] {
+            assert!(read_recording_text_at(&project, "Demo.capture", bad).is_err() || read_recording_text_at(&project, "Demo.capture", bad).unwrap().is_none(), "{bad:?}");
+        }
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/screen.mp4").is_err(), "a video is still not text");
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/other.jsonl").is_err(), "only the interaction log");
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/../take-001/events.jsonl").is_err(), "no climbing");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn steps_are_saved_whole_into_steps_json_and_only_the_edit_and_the_steps_are_ever_written() {
+        let project = temp_project("recording-steps");
+        let folder = recording_in(&project, "Demo.capture");
+        write_recording_steps_at(&project, "Demo.capture", "{\"steps\":[]}").unwrap();
+        assert_eq!(fs::read_to_string(folder.join("steps.json")).unwrap(), "{\"steps\":[]}");
+        write_recording_steps_at(&project, "Demo.capture", "{\"steps\":[1]}").unwrap();
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "steps.json").unwrap().as_deref(), Some("{\"steps\":[1]}"), "replaced");
+        assert!(!folder.join("steps.json.tmp").exists(), "no half-written file is left");
+        for bad in ["", "not json", "[1,2]", "{\"unfinished\":"] {
+            assert!(write_recording_steps_at(&project, "Demo.capture", bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(fs::read_to_string(folder.join("steps.json")).unwrap(), "{\"steps\":[1]}", "a refused list changes nothing");
+        assert!(write_recording_steps_at(&project, "../Demo.capture", "{}").is_err());
+        assert!(write_recording_steps_at(&project, "Missing.capture", "{}").is_err());
+        for bad_file in ["capture.json", "../edit.json", "edit.json.tmp", "takes/take-001/take.json", ""] {
+            assert!(write_recording_json_at(&project, "Demo.capture", bad_file, "x", "{}").is_err(), "{bad_file:?}");
+        }
+        assert_eq!(fs::read_to_string(folder.join("capture.json")).unwrap(), "{\"format\":\"openstage-capture-project\",\"title\":\"Demo\"}", "nothing else was touched");
         let _ = fs::remove_dir_all(&project);
     }
 
