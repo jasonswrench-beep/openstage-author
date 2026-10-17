@@ -21,6 +21,7 @@ must give the same findings.
 | `src/ops.ts` | The editing actions on clips |
 | `src/items.ts` | The actions on overlays and zooms: text, shapes, arrows, blur, redaction, zoom |
 | `src/paste.ts` | Copy and paste of clips, overlays and zooms: a snapshot of chosen rows, pasted at a time, all or nothing, on the same kind of track |
+| `src/callouts.ts` | The callout gallery (text, title, lower third, highlight box, circle, arrow, blur, cover) put in at a time on the first track that takes it, and a zoom from a rectangle made the picture's shape |
 | `src/contrast.ts`, `src/regions.ts` | Colours and contrast; rectangles on the picture and saying where they are in words |
 | `src/history.ts` | Undo and redo, with a drag as one step |
 | `src/limits.ts` | How far a clip, overlay or zoom can be moved or trimmed (the ends of a slider), found by asking the editing actions |

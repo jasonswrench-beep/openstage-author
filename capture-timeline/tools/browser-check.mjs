@@ -1242,6 +1242,178 @@ await check("the tool bar and the zoom slider fit in the timeline's box and the 
   if (box.lanesTop >= box.cellBottom) throw new Error("the tracks are pushed out of sight by the controls");
 }, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
 
+
+// ---- callouts, the overlay form, and working on the picture ----
+
+const BIG = { search: "?list=closed", viewport: { width: 1280, height: 900 } };
+
+await check("the callout bar is one tab stop, every button has a name, and Left, Right, Home and End move along it", async (page, t) => {
+  const bar = page.getByRole("toolbar", { name: "Add to the picture at the playhead" });
+  const names = await bar.getByRole("button").allTextContents();
+  assertEqual(names.slice(0, 3), ["Text", "Title", "Lower third"], "the first buttons");
+  assertEqual(names.at(-1), "Draw a zoom", "the last button");
+  const stops = await bar.locator("button[tabindex='0']").count();
+  assertEqual(stops, 1, "one tab stop");
+  await bar.locator("button[tabindex='0']").focus();
+  await t.key("End");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent), "Draw a zoom", "End");
+  await t.key("Home");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent), "Text", "Home");
+  await t.key("ArrowRight");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent), "Title", "Right");
+}, BIG);
+
+await check("a Text callout is added at the playhead, said, chosen, its form opens on the words, and undo takes it away", async (page, t) => {
+  await page.getByRole("button", { name: "Text", exact: true }).click();
+  assertMatch(await t.said(), /^Added the text overlay "Text" to the Overlays track at 0 seconds/, "what was said");
+  assertEqual(await page.evaluate(() => document.activeElement.labels?.[0]?.textContent), "Words", "focus is on the words");
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("Click Save");
+  await page.keyboard.press("Control+Enter");
+  assertMatch(await t.said(), /now says: Click Save/, "the words were entered");
+  assertEqual(await page.locator(".os-pv-text").first().textContent(), "Click Save", "the picture shows the words");
+  assertEqual(await page.evaluate(() => document.activeElement.value), "Click Save", "the box still has focus and the words");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await t.key("Control+z");
+  await t.key("Control+z");
+  assertEqual(await page.locator(".os-pv-text").count(), 0, "undone");
+}, BIG);
+
+await check("a Highlight box says what is still needed, the form gives the alt text, and a place typed as a percentage moves the frame", async (page, t) => {
+  await page.getByRole("button", { name: "Highlight box" }).click();
+  assertMatch(await t.said(), /Still needed: .*alt text|Still needed: .*what/i, "what is still needed");
+  const alt = page.getByLabel("What it points out (alt text)");
+  assertEqual(await page.evaluate(() => document.activeElement.labels?.[0]?.textContent), "What it points out (alt text)", "focus is on the alt text");
+  await alt.fill("The Save button");
+  await page.keyboard.press("Enter");
+  assertMatch(await t.said(), /./, "said");
+  const left = page.getByLabel("Left (%)");
+  await left.fill("12.5");
+  await page.keyboard.press("Enter");
+  assertEqual(await left.inputValue(), "12.5", "the box shows what is held");
+  await left.fill("120");
+  await page.keyboard.press("Enter");
+  assertMatch(await t.said(), /more than 100/, "a wrong percentage is explained");
+  assertEqual(await left.getAttribute("aria-invalid"), "true", "and marked");
+  await page.keyboard.press("Escape");
+  assertEqual(await left.inputValue(), "12.5", "Escape puts it back");
+  const frame = await page.evaluate(() => {
+    const draw = document.querySelector(".os-pv-draw").getBoundingClientRect();
+    const f = document.querySelector(".os-pv-frame");
+    const r = f.getBoundingClientRect();
+    return { hidden: f.hidden, leftPercent: ((r.left - draw.left) / draw.width) * 100, name: f.getAttribute("aria-label") };
+  });
+  assertEqual(frame.hidden, false, "the frame is shown");
+  if (Math.abs(frame.leftPercent - 12.5) > 0.8) throw new Error(`the frame is at ${frame.leftPercent}% not 12.5%`);
+  assertMatch(frame.name, /Frame of the shape "Highlight box"/, "the frame is named");
+}, BIG);
+
+await check("dragging the frame moves the overlay in one undo step; Escape during a drag puts it back", async (page, t) => {
+  await page.getByRole("button", { name: "Highlight box" }).click();
+  const left = page.getByLabel("Left (%)");
+  const before = await left.inputValue();
+  const box = await page.locator(".os-pv-frame").boundingBox();
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 30, cy + 10, { steps: 5 });
+  await page.mouse.move(cx + 60, cy + 20, { steps: 5 });
+  await page.mouse.up();
+  const after = await left.inputValue();
+  if (Number(after) <= Number(before)) throw new Error(`the overlay did not move right: ${before} then ${after}`);
+  assertMatch(await t.said(), /./, "said");
+  await t.key("Control+z");
+  assertEqual(await left.inputValue(), before, "one undo puts it back");
+  // A drag cancelled with Escape changes nothing.
+  const box2 = await page.locator(".os-pv-frame").boundingBox();
+  await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box2.x + box2.width / 2 + 50, box2.y + box2.height / 2, { steps: 4 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  assertEqual(await left.inputValue(), before, "cancelled");
+}, BIG);
+
+await check("the frame moves and resizes from the keyboard: arrows 1 percent, Shift 5, Alt resizes", async (page, t) => {
+  await page.getByRole("button", { name: "Highlight box" }).click();
+  const left = page.getByLabel("Left (%)");
+  const width = page.getByLabel("Width (%)");
+  const l0 = Number(await left.inputValue());
+  const w0 = Number(await width.inputValue());
+  await page.locator(".os-pv-frame").focus();
+  await page.keyboard.press("ArrowRight");
+  assertEqual(Number(await left.inputValue()), l0 + 1, "one percent right");
+  await page.keyboard.press("Shift+ArrowRight");
+  assertEqual(Number(await left.inputValue()), l0 + 6, "five more");
+  await page.keyboard.press("Alt+ArrowRight");
+  assertEqual(Number(await width.inputValue()), w0 + 1, "one percent wider");
+  await page.keyboard.press("Alt+ArrowLeft");
+  assertEqual(Number(await width.inputValue()), w0, "and back");
+  assertEqual(await page.evaluate(() => document.activeElement.className.includes("os-pv-frame")), true, "focus stays on the frame");
+  await page.keyboard.press("Escape");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent?.startsWith("Play")), true, "Escape leaves the frame");
+}, BIG);
+
+await check("drawing a zoom: the button says what to do, a drag makes a zoom of the picture's shape, and its description is asked for", async (page, t) => {
+  const draw = page.getByRole("button", { name: "Draw a zoom" });
+  await draw.click();
+  assertEqual(await draw.getAttribute("aria-pressed"), "true", "pressed");
+  assertMatch(await t.said(), /Drag across the picture/, "what to do");
+  const stage = await page.locator(".os-pv-stage").boundingBox();
+  await page.mouse.move(stage.x + stage.width * 0.2, stage.y + stage.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(stage.x + stage.width * 0.5, stage.y + stage.height * 0.4, { steps: 6 });
+  await page.mouse.up();
+  assertMatch(await t.said(), /^Added the zoom "Zoom" to the .*Zoom.* track at 0 seconds/, "the zoom was added");
+  assertMatch(await t.said(), /Still needed:/, "the description is asked for");
+  assertEqual(await draw.getAttribute("aria-pressed"), "false", "drawing stopped");
+  assertEqual(await page.evaluate(() => document.activeElement.labels?.[0]?.textContent), "What the zoom shows", "focus is on the description");
+  const size = await page.getByLabel("Size (%)").inputValue();
+  if (Number(size) < 25 || Number(size) > 35) throw new Error(`the zoom is ${size}% across, not about 30`);
+  await page.keyboard.type("The gradebook menu");
+  await page.keyboard.press("Control+Enter");
+  assertMatch(await t.said(), /moves in and out/, "the description was entered");
+}, BIG);
+
+await check("Escape cancels drawing a zoom, and a tiny drag makes nothing", async (page, t) => {
+  const draw = page.getByRole("button", { name: "Draw a zoom" });
+  await draw.click();
+  await page.keyboard.press("Escape");
+  assertEqual(await draw.getAttribute("aria-pressed"), "false", "cancelled");
+  assertMatch(await t.said(), /cancelled/, "said");
+  await draw.click();
+  const stage = await page.locator(".os-pv-stage").boundingBox();
+  await page.mouse.move(stage.x + 40, stage.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(stage.x + 41, stage.y + 41);
+  await page.mouse.up();
+  assertMatch(await t.said(), /too small/, "said");
+  assertEqual(await page.getByRole("grid").locator("tr", { hasText: "Zoom" }).count(), 0, "nothing was added");
+}, BIG);
+
+await check("Zoom on a part works without a mouse, and a second overlapping zoom goes on its own track", async (page, t) => {
+  const part = page.getByRole("button", { name: "Zoom on a part" });
+  await part.focus();
+  await page.keyboard.press("Enter");
+  assertMatch(await t.said(), /^Added the zoom "Zoom" to the .*Zoom.* track at 0 seconds/, "added");
+  await page.locator(".os-pv-frame").focus();
+  assertMatch((await page.locator(".os-pv-frame").getAttribute("aria-label")) ?? "", /Frame of the zoom/, "its frame");
+  await part.focus();
+  await page.keyboard.press("Enter");
+  assertMatch(await t.said(), /Zoom 2 track/, "a second track was made for the overlap");
+}, BIG);
+
+await check("every control of the overlay form has a name, and the form is in the page only for a chosen overlay or zoom", async (page) => {
+  assertEqual(await page.locator(".os-if").isVisible(), false, "hidden for a clip");
+  await page.getByRole("button", { name: "Title" }).click();
+  const bad = await page.evaluate(() =>
+    [...document.querySelectorAll(".os-if input, .os-if select, .os-if textarea")].filter((el) => !(el.labels && el.labels.length > 0)).map((el) => el.outerHTML.slice(0, 60)),
+  );
+  assertEqual(bad, [], "controls without a label");
+}, BIG);
+
 await browser.close();
 server.kill();
 console.log(`\n${passes} passed, ${failures} failed.`);

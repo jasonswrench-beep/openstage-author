@@ -20,7 +20,9 @@ import {
   ALLOWED_SOURCES,
   MAX_VOLUME_DB,
   MIN_VOLUME_DB,
+  addCallout,
   addTrack,
+  addZoomRegion,
   copyRows,
   deleteClip,
   deleteItem,
@@ -49,8 +51,17 @@ import {
   renameItem,
   reorderClip,
   setClipLength,
+  setArrowEnds,
+  setArrowStyle,
   setClipStart,
+  setCoverColor,
   setFades,
+  setItemAltText,
+  setItemRect,
+  setShapeStyle,
+  setText,
+  setTextStyle,
+  setZoom,
   setMuted,
   setVolume,
   splitAt,
@@ -59,8 +70,16 @@ import {
   trimItemEnd,
   trimItemStart,
   trimStart,
+  type ArrowStyle,
+  type CalloutKind,
   type Copied,
+  type Item,
   type Model,
+  type Point,
+  type Rect,
+  type ShapeStyle,
+  type TextStyle,
+  type ZoomSettings,
   type Range,
   type Result,
   type Row,
@@ -823,6 +842,120 @@ export class EditSession {
     const end = pastedEndMs(copied, at);
     this.#movePlayhead(Math.min(end, this.lengthMs));
     return ok(`${result.message} The playhead is now at ${describeTime(this.#playheadMs)}, where the pasted ${ids.length === 1 ? "row ends" : "rows end"}.${extra}`);
+  }
+
+  // ---- callouts, zooms and the look of an overlay ----
+
+  /** The overlay or zoom the form shows (the primary row), or undefined when a clip or nothing is chosen. */
+  get item(): Item | undefined {
+    const id = this.#primaryId;
+    return id === undefined ? undefined : findItem(this.#history.model, id)?.item;
+  }
+
+  /** Add a row made by `make`, and choose it, so the screens move focus to it. */
+  #addRow(make: (model: Model) => Result): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    const before = this.#history.model;
+    const index = this.rows.findIndex((r) => r.clipId === this.#primaryId);
+    const result = this.#history.run(make);
+    if (!result.ok) return no(result.message);
+    if (this.#history.model === before) return ok(result.message);
+    const first = result.focus?.find((id) => findItem(this.#history.model, id) !== undefined);
+    if (first !== undefined) {
+      this.#chosen = new Set([first]);
+      this.#primaryId = first;
+      this.#anchorId = first;
+    }
+    return ok(result.message + this.#afterChange(index));
+  }
+
+  /** Put a ready-made callout in at the playhead and choose it. */
+  addCalloutHere(kind: CalloutKind): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addCallout(m, kind, at));
+  }
+
+  /** Put a zoom in at the playhead, showing a rectangle of the picture, and choose it. */
+  addZoomHere(rect: Rect): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addZoomRegion(m, rect, at));
+  }
+
+  /** The chosen overlay or zoom, or a sentence saying that it is not one. */
+  #oneItem(): Item | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const item = findItem(this.#history.model, row.clipId)?.item;
+    if (item === undefined) return this.#notAnItem(row);
+    return item;
+  }
+
+  #notAnItem(row: Row): Outcome {
+    return no(`${quote(row.name)} is a clip, not an overlay or zoom. This is for the things drawn on the picture.`);
+  }
+
+  /** Move or resize the chosen overlay or zoom: where on the picture it shows. */
+  setItemPlace(rect: Rect): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setItemRect(m, item.id, rect));
+  }
+
+  /** Change the ends of the chosen arrow. */
+  setArrowPlace(from: Point, to: Point): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setArrowEnds(m, item.id, from, to));
+  }
+
+  /** Change the words of the chosen text overlay. */
+  setItemWords(text: string): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setText(m, item.id, text));
+  }
+
+  /** Change the look of the chosen text overlay. */
+  setItemTextLook(style: TextStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setTextStyle(m, item.id, style));
+  }
+
+  /** Change the look of the chosen shape. */
+  setItemShapeLook(style: ShapeStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setShapeStyle(m, item.id, style));
+  }
+
+  /** Change the look of the chosen arrow. */
+  setItemArrowLook(style: ArrowStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setArrowStyle(m, item.id, style));
+  }
+
+  /** Change the colour of the chosen cover. */
+  setItemCoverColor(color: string): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setCoverColor(m, item.id, color));
+  }
+
+  /** Change the description or the move time of the chosen zoom. */
+  setItemZoom(settings: ZoomSettings): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setZoom(m, item.id, settings));
+  }
+
+  /** Say what the chosen shape or arrow points out, or that it is only decoration. */
+  setItemAlt(text: { altText?: string; decorative?: boolean }): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setItemAltText(m, item.id, text));
   }
 
   /** Move the chosen clip one place earlier or later in the order of its track. */

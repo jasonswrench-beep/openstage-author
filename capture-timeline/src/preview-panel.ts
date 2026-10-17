@@ -31,6 +31,7 @@ import {
 } from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { h, nextId } from "./dom.ts";
+import { attachPictureEditing, type PictureEditing } from "./picture-edit.ts";
 import type { MediaLibrary } from "./project.ts";
 import type { EditSession, Outcome } from "./session.ts";
 
@@ -38,6 +39,8 @@ export interface PreviewOptions {
   /** Where messages are said. Without it the panel makes its own line at the top. */
   announcer?: Announcer;
   title?: string;
+  /** Called when drawing on the picture added something (a zoom), so its form can be shown. */
+  onAdded?: () => void;
 }
 
 export interface PreviewPanel {
@@ -47,6 +50,10 @@ export interface PreviewPanel {
   toggle(): Outcome;
   /** Put keyboard focus on the Play button. */
   focus(): void;
+  /** Start or stop drawing a zoom with the pointer. */
+  toggleDrawZoom(): { ok: boolean; message: string; drawing: boolean };
+  /** Be told when drawing a zoom starts or stops. */
+  onDrawingChange(listener: (drawing: boolean) => void): void;
   /** Use another set of recordings (after opening a recording). */
   setLibrary(library: MediaLibrary): void;
   destroy(): void;
@@ -111,6 +118,15 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     soundHost,
   );
   container.append(root);
+
+  const editing: PictureEditing = attachPictureEditing({
+    figure: root.querySelector<HTMLElement>(".os-pv-figure") ?? root,
+    stage,
+    session,
+    announcer,
+    leave: () => playButton.focus(),
+    onAdded: () => options.onAdded?.(),
+  });
 
   // ---- the recordings ----
 
@@ -279,6 +295,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
 
   function showZoom(moment: Moment): void {
     const r = moment.zoom.rect;
+    editing.setZoom(r);
     if (r.width >= FULL && r.height >= FULL) {
       pictureLayer.style.transform = "";
       return;
@@ -336,6 +353,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     arrange(fixedLayer, corner);
     showOverlays(moment);
     showZoom(moment);
+    editing.update();
     const total = session.lengthMs;
     timeText.textContent = `${formatTimecode(moment.timeMs)} of ${formatTimecode(total)}`;
     const label = `Preview of the edit at ${describeTime(moment.timeMs)}. Use the Describe button for what is showing.`;
@@ -441,6 +459,8 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       } else show(session.playheadMs);
     } else if (kind === "model" && !playing) {
       show(session.playheadMs);
+    } else if (kind === "selection" || kind === "model") {
+      editing.update();
     }
   });
 
@@ -453,6 +473,8 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       return playing;
     },
     toggle,
+    toggleDrawZoom: () => editing.toggleDrawZoom(),
+    onDrawingChange: (fn) => editing.onDrawingChange(fn),
     focus: () => playButton.focus(),
     setLibrary(next) {
       if (playing) stopPlaying();
@@ -464,6 +486,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     },
     destroy(): void {
       stop();
+      editing.destroy();
       if (playing) stopPlaying();
       discard();
       session.setTransport(undefined);

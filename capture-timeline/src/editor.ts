@@ -6,6 +6,8 @@
 
 import { Announcer } from "./announcer.ts";
 import { h } from "./dom.ts";
+import { mountCalloutBar, type CalloutBar } from "./callout-panel.ts";
+import { mountItemForm, type ItemFormPanel } from "./item-form.ts";
 import { mountClipList, type ClipListPanel } from "./panel.ts";
 import { EMPTY_LIBRARY, type MediaLibrary } from "./project.ts";
 import { mountPreview, type PreviewPanel } from "./preview-panel.ts";
@@ -28,6 +30,8 @@ export interface Editor {
   readonly preview: PreviewPanel;
   readonly timeline: TimelinePanel;
   readonly list: ClipListPanel;
+  readonly callouts: CalloutBar;
+  readonly itemForm: ItemFormPanel;
   readonly announcer: Announcer;
   /** Put keyboard focus on the timeline. */
   focus(): void;
@@ -38,6 +42,7 @@ export interface Editor {
 export function mountEditor(container: HTMLElement, session: EditSession, options: EditorOptions = {}): Editor {
   const announcer = new Announcer(options.announce);
   const previewHost = h("div", { class: "os-ed-preview" });
+  const calloutHost = h("div", { class: "os-ed-callouts" });
   const timelineHost = h("div", { class: "os-ed-timeline" });
   const listHost = h("div", { class: "os-ed-list" });
   const propertiesButton = h("button", { type: "button", class: "os-cl-button", "aria-expanded": "false", "aria-controls": "os-ed-list" }, "Properties and clip list");
@@ -45,7 +50,7 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   listHost.id = "os-ed-list";
   listHost.hidden = !(options.listOpen ?? false);
   propertiesButton.setAttribute("aria-expanded", listHost.hidden ? "false" : "true");
-  const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, timelineHost, listHost);
+  const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, calloutHost, timelineHost, listHost);
   container.append(root);
 
   /** Show or hide the clip list and its form. Whatever sends focus to the list opens it first, so focus is never sent to something hidden. */
@@ -61,13 +66,28 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
     if (open) list.focus();
   });
 
+  // The form for a chosen overlay or zoom sits above the clip list in the same panel.
+  const itemHost = h("div", { class: "os-ed-item" });
+  listHost.append(itemHost);
+  const itemForm = mountItemForm(itemHost, session, { announcer, leave: () => timeline.focus() });
   const list = mountClipList(listHost, session, { announcer, playhead: false, ...(options.rows === undefined ? {} : { rows: options.rows }), title: "Clip list" });
   const timeline = mountTimeline(timelineHost, session, {
     announcer,
-    onEdit: () => { openList(); list.focusDetails(); },
+    onEdit: () => { openList(); if (!itemForm.focus()) list.focusDetails(); },
     ...(options.library === undefined ? {} : { library: options.library }),
   });
-  const preview = mountPreview(previewHost, session, options.library ?? EMPTY_LIBRARY, { announcer });
+  /** Something was added to the picture: show its form and put focus in the first box that needs filling in. */
+  const showAdded = (): void => {
+    openList();
+    itemForm.focus();
+  };
+  const preview = mountPreview(previewHost, session, options.library ?? EMPTY_LIBRARY, { announcer, onAdded: showAdded });
+  const callouts = mountCalloutBar(calloutHost, session, {
+    announcer,
+    drawZoom: () => preview.toggleDrawZoom(),
+    onDrawingChange: (fn) => preview.onDrawingChange(fn),
+    onAdded: showAdded,
+  });
 
   const regions = [
     { name: "Preview", element: preview.element, focus: () => preview.focus() },
@@ -91,12 +111,16 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
     preview,
     timeline,
     list,
+    callouts,
+    itemForm,
     announcer,
     focus: () => timeline.focus(),
     announce: (message) => announcer.say(message),
     destroy(): void {
       preview.destroy();
+      callouts.destroy();
       timeline.destroy();
+      itemForm.destroy();
       list.destroy();
       announcer.destroy();
       root.remove();

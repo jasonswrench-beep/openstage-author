@@ -458,6 +458,42 @@ export function setShapeStyle(model: Model, itemId: string, style: ShapeStyle): 
   );
 }
 
+export interface ArrowStyle {
+  readonly color?: string;
+  readonly lineWidthBp?: number;
+}
+
+export function setArrowStyle(model: Model, itemId: string, style: ArrowStyle): Result {
+  return change(
+    model,
+    itemId,
+    "set arrow style",
+    (i) => {
+      if (i.kind !== "arrow") return `${describeItemName(i)} is not an arrow.`;
+      const color = style.color === undefined ? i.color : normalizeColor(style.color);
+      if (color === undefined) return "That is not a colour. Write it like #FFD400.";
+      return { ...i, color, lineWidthBp: style.lineWidthBp ?? i.lineWidthBp };
+    },
+    (i) => `${describeItemName(i)} has a new look.`,
+  );
+}
+
+/** Change the colour a cover (redaction) is filled with. */
+export function setCoverColor(model: Model, itemId: string, color: string): Result {
+  return change(
+    model,
+    itemId,
+    "set cover colour",
+    (i) => {
+      if (i.kind !== "redact") return `${describeItemName(i)} is not a cover.`;
+      const normal = normalizeColor(color);
+      if (normal === undefined) return "That is not a colour. Write it like #000000.";
+      return { ...i, color: normal };
+    },
+    (i) => `${describeItemName(i)} has a new colour.`,
+  );
+}
+
 export interface ZoomSettings {
   readonly transitionMs?: number;
   readonly description?: string;
