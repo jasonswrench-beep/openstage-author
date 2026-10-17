@@ -19,6 +19,8 @@ export interface EditorOptions {
   rows?: "sentence" | "cells";
   /** The recordings the preview plays. Without it the preview shows placeholders. */
   library?: MediaLibrary;
+  /** Start with the clip list and its form open at the side. They are closed by default so the picture and the timeline have the room. */
+  listOpen?: boolean;
 }
 
 export interface Editor {
@@ -38,17 +40,35 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   const previewHost = h("div", { class: "os-ed-preview" });
   const timelineHost = h("div", { class: "os-ed-timeline" });
   const listHost = h("div", { class: "os-ed-list" });
-  const root = h("div", { class: "os-ed" }, announcer.element, previewHost, timelineHost, listHost);
+  const propertiesButton = h("button", { type: "button", class: "os-cl-button", "aria-expanded": "false", "aria-controls": "os-ed-list" }, "Properties and clip list");
+  const bar = h("div", { class: "os-ed-bar", role: "group", "aria-label": "Editing screens" }, propertiesButton);
+  listHost.id = "os-ed-list";
+  listHost.hidden = !(options.listOpen ?? false);
+  propertiesButton.setAttribute("aria-expanded", listHost.hidden ? "false" : "true");
+  const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, timelineHost, listHost);
   container.append(root);
 
+  /** Show or hide the clip list and its form. Whatever sends focus to the list opens it first, so focus is never sent to something hidden. */
+  const setListOpen = (open: boolean): void => {
+    listHost.hidden = !open;
+    propertiesButton.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+  const openList = (): void => { if (listHost.hidden) setListOpen(true); };
+  propertiesButton.addEventListener("click", () => {
+    const open = listHost.hidden;
+    setListOpen(open);
+    announcer.say(open ? "Properties and clip list opened." : "Properties and clip list closed.");
+    if (open) list.focus();
+  });
+
   const list = mountClipList(listHost, session, { announcer, playhead: false, ...(options.rows === undefined ? {} : { rows: options.rows }), title: "Clip list" });
-  const timeline = mountTimeline(timelineHost, session, { announcer, onEdit: () => list.focusDetails() });
+  const timeline = mountTimeline(timelineHost, session, { announcer, onEdit: () => { openList(); list.focusDetails(); } });
   const preview = mountPreview(previewHost, session, options.library ?? EMPTY_LIBRARY, { announcer });
 
   const regions = [
     { name: "Preview", element: preview.element, focus: () => preview.focus() },
     { name: "Timeline", element: timeline.element, focus: () => timeline.focus() },
-    { name: "Clip list", element: list.element, focus: () => list.focus() },
+    { name: "Clip list", element: list.element, focus: () => { openList(); list.focus(); } },
   ];
 
   // F6 and Shift+F6 move between the regions, and say which one they arrived in.

@@ -28,6 +28,10 @@ Things to try, with the keyboard only:
 
 Add `?rows=cells` to the page address to have the clip list's rows read by their cells instead of as sentences (to compare with a screen reader). Add `?long=1` for a one hour recording cut into 720 clips, to see that it stays quick.
 
+## The layout
+
+The picture is large at the top, with its play controls above it, and the timeline is under it, in the manner of a video editor. The clip list and its form are in a panel at the side that opens from the **Properties and clip list** button (closed when the editor starts, so the picture and the timeline have the room; the demo page starts with it open, and `?list=closed` shows the real editor's start). Nothing scrolls the whole page: the picture takes what is left, and the timeline and the panel scroll inside their own boxes. F6, Enter on a clip and the button all open the panel first, so focus is never sent to something that is hidden, and Tab and the button always close it again. The hints that the timeline's controls point to are kept in the page for a screen reader and are written out under Keyboard shortcuts. Below 52 rem wide the panel goes under the timeline.
+
 ## What it does
 
 * **The clip list.** A table (`grid`) with a caption, column headers, and one row for every clip, overlay and zoom: Name, Track, Type, Start, Length, End, State. A form for the row you are on: name, start, length, end, track, volume, fade in, fade out, muted. Rows can be chosen several at a time.

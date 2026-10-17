@@ -55,7 +55,7 @@ function load(model: Model, label: string, say: string, options: { folder?: Proj
     current.folder?.release();
   }
   const session = new EditSession(model);
-  const editor = mountEditor(host as HTMLElement, session, { rows, library: options.folder === undefined ? EMPTY_LIBRARY : libraryOf(options.folder) });
+  const editor = mountEditor(host as HTMLElement, session, { rows, listOpen: new URLSearchParams(location.search).get("list") !== "closed", library: options.folder === undefined ? EMPTY_LIBRARY : libraryOf(options.folder) });
   current = { session, editor, label, folder: options.folder, handle: options.handle };
   session.subscribe((kind) => {
     if (kind === "model" || kind === "saved") showState();

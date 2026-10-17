@@ -43,7 +43,7 @@ async function check(name, body, options = {}) {
   page.on("console", (m) => m.type() === "error" && problems.push(`console error: ${m.text()}`));
   try {
     await page.goto(BASE + (options.search ?? ""));
-    await page.locator(".os-cl-table tbody tr").first().waitFor();
+    await page.locator(".os-cl-table tbody tr").first().waitFor({ state: options.search?.includes("list=closed") ? "attached" : "visible" });
     await body(page, new Helpers(page));
     if (problems.length > 0) throw new Error(problems.join("; "));
     passes += 1;
@@ -1037,6 +1037,56 @@ await check("no animation or motion is used (reduced motion has nothing to turn 
   }).length);
   assertEqual(animated, 0, "elements with an animation or a transition");
 }, { reducedMotion: "reduce" });
+
+// ---- the layout: the picture and the timeline first, the clip list in a panel that opens ----
+
+await check("the clip list starts closed in the real editor: the button says so, and the picture and timeline are all there is", async (page) => {
+  const button = page.getByRole("button", { name: "Properties and clip list" });
+  assertEqual(await button.getAttribute("aria-expanded"), "false", "button says closed");
+  assertEqual(await page.locator(".os-ed-list").isHidden(), true, "the list is not on the screen");
+  assertEqual(await page.locator(".os-pv-stage").isVisible(), true, "the picture is");
+  assertEqual(await page.locator(".os-tl-lanes").isVisible(), true, "the timeline is");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("the Properties button opens the clip list and puts focus in it, and a second press closes it and keeps focus on the button", async (page, t) => {
+  const button = page.getByRole("button", { name: "Properties and clip list" });
+  await button.focus();
+  await t.key("Enter");
+  assertEqual(await button.getAttribute("aria-expanded"), "true", "open");
+  assertEqual(await page.evaluate(() => !!document.activeElement.closest(".os-ed-list")), true, "focus is in the list");
+  assertEqual(await t.said(), "Properties and clip list opened.", "said");
+  await button.focus();
+  await t.key("Enter");
+  assertEqual(await button.getAttribute("aria-expanded"), "false", "closed");
+  assertEqual(await page.locator(".os-ed-list").isHidden(), true, "hidden again");
+  assertEqual(await page.evaluate(() => document.activeElement === document.querySelector(".os-ed-bar button")), true, "focus stays on the button");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("F6 and Enter on a clip open the closed clip list before sending focus to it, so focus is never sent to something hidden", async (page, t) => {
+  await page.locator(".os-pv button").first().focus();
+  await t.key("F6");
+  assertEqual(await page.evaluate(() => !!document.activeElement.closest(".os-tl")), true, "F6 goes on to the timeline");
+  await t.key("F6");
+  assertEqual(await page.locator(".os-ed-list").isVisible(), true, "F6 opened the list");
+  assertEqual(await page.evaluate(() => !!document.activeElement.closest(".os-ed-list")), true, "and focus is in it");
+  await page.getByRole("button", { name: "Properties and clip list" }).click();
+  assertEqual(await page.locator(".os-ed-list").isHidden(), true, "closed again");
+  await t.focusClip("Add an assignment");
+  await t.key("Enter");
+  assertEqual(await page.locator(".os-ed-list").isVisible(), true, "Enter on a clip opened the list");
+  assertEqual(await page.evaluate(() => document.activeElement.id.endsWith("-name")), true, "focus is in the Name box");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("the editor does not scroll the page: the picture takes what is left and the timeline scrolls inside its own box", async (page) => {
+  const box = await page.evaluate(() => {
+    const ed = document.querySelector(".os-ed").getBoundingClientRect();
+    const stage = document.querySelector(".os-pv-stage").getBoundingClientRect();
+    return { edHeight: ed.height, stageHeight: stage.height, stageInside: stage.bottom <= ed.bottom && stage.top >= ed.top, stageWidth: stage.width };
+  });
+  if (!box.stageInside) throw new Error("the picture sticks out of the editor");
+  if (box.stageHeight < 200) throw new Error(`the picture is only ${Math.round(box.stageHeight)}px high`);
+  if (Math.abs(box.stageWidth / box.stageHeight - 16 / 9) > 0.05) throw new Error("the picture is not 16 by 9");
+}, { search: "?list=closed", viewport: { width: 1280, height: 1000 } });
 
 await browser.close();
 server.kill();
