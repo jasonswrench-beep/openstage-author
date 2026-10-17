@@ -139,6 +139,15 @@
   max-width: 9rem;
 }
 
+.os-ed .os-tl-controls input[type="text"] {
+  width: 7rem;
+}
+
+.os-ed .os-tl-controls .os-cl-field,
+.os-ed .os-tl-controls .os-cl-row-buttons {
+  flex: none;
+}
+
 .os-ed .os-cl-title {
   font-size: 0.95rem;
   margin: 0 0 0.25rem;
@@ -178,7 +187,19 @@
 }
 
 .os-ed {
-  --os-tl-lane-h: 2.6rem;
+  --os-tl-lane-h: 3rem;
+}
+
+/* A track's name stays on one line, so a lane is never taller than its clips; the whole name is in the hover text and in what a screen reader says. */
+.os-ed .os-tl-lane-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-ed .os-tl-lane-name {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
 }
 
 @media (max-width: 52rem) {

@@ -12,3 +12,4 @@ export * from "./preview.ts";
 export * from "./limits.ts";
 export * from "./fromTakes.ts";
 export * from "./playback.ts";
+export * from "./paste.ts";

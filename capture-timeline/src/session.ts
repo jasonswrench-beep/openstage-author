@@ -21,9 +21,11 @@ import {
   MAX_VOLUME_DB,
   MIN_VOLUME_DB,
   addTrack,
+  copyRows,
   deleteClip,
   deleteItem,
   describeAt,
+  describeCopied,
   describeChange,
   describeLength,
   describeRows,
@@ -41,6 +43,8 @@ import {
   moveItem,
   moveItemToTrack,
   parseTime,
+  pastedEndMs,
+  pasteCopied,
   renameClip,
   renameItem,
   reorderClip,
@@ -55,6 +59,7 @@ import {
   trimItemEnd,
   trimItemStart,
   trimStart,
+  type Copied,
   type Model,
   type Range,
   type Result,
@@ -78,9 +83,9 @@ export interface Moved extends Outcome {
 /**
  * What changed, so a screen only redraws what it must. `drag` is the edit changing under a drag in progress: a
  * screen that is not showing the drag leaves it until the drag ends and `model` follows. `saved` is the edit being
- * marked as saved. `transport` is playing starting or stopping.
+ * marked as saved. `transport` is playing starting or stopping. `clipboard` is something being copied, so a Paste button can show it can be used.
  */
-export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport";
+export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport" | "clipboard";
 
 export type Where = "previous" | "next" | "first" | "last";
 
@@ -185,6 +190,8 @@ export class EditSession {
   #drag: OpenDrag | undefined;
   #transport: Transport | undefined;
   #playing = false;
+  /** What was copied: kept inside the session, not on the computer's clipboard, so it is only ever this edit's own rows. */
+  #clipboard: readonly Copied[] = [];
 
   constructor(model: Model, limit?: number) {
     this.#history = new History(model, limit);
@@ -770,6 +777,52 @@ export class EditSession {
     if ("ok" in row) return row;
     if (!this.#isClip(row)) return this.#notAClip(row, "Only clips can be joined.");
     return this.#run((m) => joinWithNext(m, row.clipId));
+  }
+
+  /** Copy the chosen rows (clips, overlays, zooms). Nothing in the edit changes. */
+  copySelected(): Outcome {
+    this.#settle();
+    const ids = this.selectedRows.map((r) => r.clipId);
+    if (ids.length === 0) return no(NOTHING_SELECTED);
+    const copied = copyRows(this.#history.model, ids);
+    if (copied.length === 0) return no("Nothing that can be copied is chosen.");
+    this.#clipboard = copied;
+    this.#emit("clipboard");
+    return ok(`${describeCopied(copied)} Move the playhead and paste to put ${copied.length === 1 ? "it" : "them"} there.`);
+  }
+
+  /** Is there anything copied to paste? */
+  get canPaste(): boolean {
+    return this.#clipboard.length > 0;
+  }
+
+  /**
+   * Paste what was copied so that it begins at the playhead. The pasted rows become the choice, and the playhead moves to
+   * where they end, so pasting again lays another copy right after.
+   */
+  paste(): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    if (this.#clipboard.length === 0) return no("Nothing has been copied yet. Choose a clip, copy it, then paste.");
+    const at = this.#playheadMs;
+    const before = this.#history.model;
+    const index = this.rows.findIndex((r) => r.clipId === this.#primaryId);
+    const copied = this.#clipboard;
+    const result = this.#history.run((m) => pasteCopied(m, copied, at));
+    if (!result.ok) return no(result.message);
+    if (this.#history.model === before) return ok(result.message);
+    const ids = result.focus ?? [];
+    const first = ids[0];
+    if (first !== undefined) {
+      // The choice moves to the pasted rows before the screens redraw, so focus goes to them and not to the old row.
+      this.#chosen = new Set(ids);
+      this.#primaryId = first;
+      this.#anchorId = first;
+    }
+    const extra = this.#afterChange(index);
+    const end = pastedEndMs(copied, at);
+    this.#movePlayhead(Math.min(end, this.lengthMs));
+    return ok(`${result.message} The playhead is now at ${describeTime(this.#playheadMs)}, where the pasted ${ids.length === 1 ? "row ends" : "rows end"}.${extra}`);
   }
 
   /** Move the chosen clip one place earlier or later in the order of its track. */

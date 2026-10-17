@@ -36,7 +36,11 @@ The picture is large at the top, with its play controls above it, and the timeli
 
 * **The clip list.** A table (`grid`) with a caption, column headers, and one row for every clip, overlay and zoom: Name, Track, Type, Start, Length, End, State. A form for the row you are on: name, start, length, end, track, volume, fade in, fade out, muted. Rows can be chosen several at a time.
 * **The timeline.** A track for each of the edit's tracks, with each clip a block along a ruler. The playhead is a slider on the ruler. Zoom in and out (up to 400 pixels for each second) or show the whole edit; only the marks in view are drawn, so an hour-long recording stays quick. An empty track can be added, to move clips onto.
-* **The commands**, from the keyboard in both the timeline and the list, and as buttons in the list: split at the playhead (the chosen clip, or every track), trim the start or end to the playhead, delete (leave a gap, or close it), join with the next clip, move earlier or later in the track, mute, undo, redo, play and pause, and "describe what is at the playhead" (story C4, on request). Split, trim, delete and mute act on every chosen clip as one undo step; the others ask for one.
+* **The tool bar** above the tracks: Undo, Redo, Copy, Paste, Split, Delete and Delete, close gap, each a button with a small drawing and its name, the same commands as the keys. The bar is one Tab stop, and Left, Right, Home and End move along it. A tool that cannot do anything now (Undo with nothing to undo, Paste with nothing copied) is dimmed (`aria-disabled`, not `disabled`), stays in the bar, and says why when pressed. Undo and Redo say what they would undo or redo in their hover text.
+* **Copy and paste** (Ctrl+C, Ctrl+V, the buttons in the bar and in the clip list). Copy takes a snapshot of the chosen clips, overlays or zooms and changes nothing. Paste puts copies in so that the earliest begins at the playhead and the rest keep their distance from it, each on the track it came from, or on another track of the same kind if its own has no room. It is all or nothing: if any copy has nowhere to go, nothing is pasted and the sentence says which one and what is in the way. The pasted rows become the choice and the playhead moves to where they end, so pasting again lays another copy right after. One paste is one undo step. What was copied is kept inside the editor, not on the computer's clipboard, so it never mixes with text copied elsewhere and is gone when the editor is closed.
+* **The zoom slider** beside the tool bar: a slider from the whole edit to as far in as it goes, in even steps (each step is the same factor), that says in words how much time fits across the timeline. Zoom out, Zoom in and Show the whole edit are buttons beside it, and the keys +, - and 0 still work.
+* **Pictures along the clips** of a screen, a webcam or an imported video: small pictures of the recording at that moment, only for the part in view, made by seeking a hidden video and drawing it on a canvas (the way the steps feature grabs pictures). They are decoration: hidden from a screen reader, which has the clip's name and sentence, and if the web view will not hand a picture over, or a recording cannot be read, the clip is shown as it was, with no message. The name sits on its own solid patch at the top left so it stays readable. Sound clips have no picture (a waveform is not built).
+* **The commands**, from the keyboard in both the timeline and the list, and as buttons in the list: split at the playhead (the chosen clip, or every track), trim the start or end to the playhead, delete (leave a gap, or close it), join with the next clip, move earlier or later in the track, copy and paste, mute, undo, redo, play and pause, and "describe what is at the playhead" (story C4, on request). Split, trim, delete and mute act on every chosen clip as one undo step; the others ask for one.
 * **The preview.** The pictures in track order (the webcam in the bottom right corner unless it says where), blur, blackout, shapes and arrows that zoom with the picture, text that does not, and the zoom moving along the exporter's curve (or cutting, for reduced motion). The sound of every microphone, computer-sound and sound-file clip, at the volume and fades set. A screen recording's own sound is not played, because the exporter does not use it.
 * **Moving to another track.** A drag onto another track, or the Track box in the form, moves a clip, overlay or zoom to a track that takes it, keeping its time. A track that does not take it, or a clip already there, is explained in words.
 * **Files.** Open and save an edit file, and open a recording folder. Unsaved changes are shown and asked about before leaving the page.
@@ -48,11 +52,11 @@ Snapping a drag to other clips or the playhead; dragging several clips at once (
 
 ## Accessibility: what changed, in the terms the project asks for
 
-**Keyboard access.** Every command is available from the keyboard and as a button, and every change that can be made with the mouse can be made without it: a drag by a key held on a grip or by the Start and Length boxes, a move to another track by the Track box, a range of clips by Shift and the arrow keys, clips that are not next to each other by Ctrl and the arrow keys with Ctrl+Space, the playhead by its keys or its box, the zoom by its keys or buttons. Nothing is disabled (a disabled button leaves the Tab order, and takes keyboard focus with it); a command that cannot be done says why instead. Letter keys (S, B, E, J, M, D) and Space work only when a clip, a row, a grip or the playhead has focus, never inside a text box, so they cannot get in the way of typing. Ctrl+Z inside a text box undoes the typing, not the edit.
+**Keyboard access.** Every command is available from the keyboard and as a button, and every change that can be made with the mouse can be made without it: a drag by a key held on a grip or by the Start and Length boxes, a move to another track by the Track box, a range of clips by Shift and the arrow keys, clips that are not next to each other by Ctrl and the arrow keys with Ctrl+Space, the playhead by its keys or its box, the zoom by its keys, its slider or its buttons. Nothing is disabled (a disabled button leaves the Tab order, and takes keyboard focus with it); a command that cannot be done says why instead. The tool bar dims the tools that cannot be used now with `aria-disabled`, which a screen reader announces as unavailable while the button stays where it is. Letter keys (S, B, E, J, M, D) and Space work only when a clip, a row, a grip or the playhead has focus, never inside a text box, so they cannot get in the way of typing. Ctrl+Z inside a text box undoes the typing, not the edit.
 
 **No keyboard trap.** Tab and Shift+Tab always move on. Escape in a text box puts the old text back, and if there is nothing to put back, returns to the list or the timeline. Escape on a grip, or during a mouse drag, cancels it. When the last row is deleted, focus goes to the "no clips" message instead of being lost. A mouse drag never has to be finished with the mouse.
 
-**Focus order.** The line of announcements, the preview (its controls), the timeline (its controls, the playhead, the clips as one stop, then the start and end grips of the chosen clip), the clip list (the table as one stop, the command buttons, the form), the keyboard shortcuts. After a command that redraws a screen, focus is put back on the clip or row that had it. A key held on a grip ends the step when the focus leaves the grip.
+**Focus order.** The line of announcements, the preview (its controls), the timeline (the tool bar as one stop, the zoom buttons and slider, the playhead time box and its buttons, the playhead, the clips as one stop, then the start and end grips of the chosen clip), the clip list (the table as one stop, the command buttons, the form), the keyboard shortcuts. After a command that redraws a screen, focus is put back on the clip or row that had it. A key held on a grip ends the step when the focus leaves the grip.
 
 **Screen reader output.**
 * The list is a `grid`; each row has its sentence as its name ("Add an assignment, screen on the Screen track, starts at 30 seconds, 30 seconds long, ends at 1 minute."), and its cells keep the column headers. (`?rows=cells` reads the cells instead.)
@@ -118,12 +122,25 @@ I made these so the work could go on. Each is one small change to reverse; tell 
 24. **Save writes `edit.json` into the recording folder** (where the browser lets a page write to a folder it was given, as Edge and Chrome do), otherwise into the file that was opened, otherwise a download. A copy always asks.
 25. **The text in the preview is drawn with the browser's fonts**, so line breaks can differ a little from the exported video. The exported video is what counts.
 
+**The tool bar, copy and paste, the zoom slider and the pictures** (2026-10-17)
+
+26. **The tool bar has short names with small drawings** (Undo, Redo, Copy, Paste, Split, Delete, Delete, close gap) rather than drawings alone, so a name is always on the screen and the button's spoken name is what is written on it. Its hover text gives the full command and key.
+27. **Copy and paste keep their own store inside the editor, not the computer's clipboard.** Cost: you cannot paste a clip into another recording's editor window. Benefit: a clip is never confused with text, and nothing private is left on the clipboard.
+28. **Paste puts the copy at the playhead and moves the playhead to its end**, so pressing it twice makes two copies in a row. The alternative is leaving the playhead, so a second paste would be refused for overlapping the first.
+29. **Paste goes on the same kind of track when its own is taken, and refuses (changing nothing) when no track has room.** It never adds a track by itself.
+30. **A tool that cannot be used is dimmed, not disabled,** to keep the "nothing is disabled" rule (a disabled button leaves the Tab order). The same for the zoom slider on an edit too short to zoom.
+31. **The zoom slider is even in factor, not in time:** halfway along is halfway in the way the + and - keys feel. Keyboard steps on it are 1 of 100 (Page Up and Page Down 10).
+32. **Pictures are made only for the clips in view,** from the middle of each stretch, rounded to a tidy moment so a little scrolling or zooming reuses them (up to 400 are kept), newest request first. A recording that cannot be read gets no pictures and no message.
+33. **A lane is 3 rem tall (it was 2.6)** so the pictures are big enough to mean something, and a track's name stays on one line with the whole name in its hover text and its spoken name.
+34. **The playhead time box is left alone while you are in it, even while playing.** Before, each frame put the playing time back, so a time could not be typed while the edit played (found by the browser check failing one run in three). Leaving the box now updates it, and text you did not change is never entered, so leaving the box cannot put the playhead back.
+
 ## For developers
 
 ```
 src/session.ts          the logic: choice, playhead, every command and its sentence, drags, playing. No screen; tested with Node alone.
 src/geometry.ts         the timeline's arithmetic: scale, zoom steps, ruler marks, pointer to time, arrow-key navigation
 src/commands.ts         the commands and their keys, in one table that both screens use
+src/thumbnails.ts       small pictures of a recording at a moment, for the strips on the clips; fails quietly
 src/panel.ts            the clip list on screen: plain DOM, no libraries
 src/timeline-panel.ts   the timeline on screen
 src/preview-panel.ts    the preview and playing
@@ -138,7 +155,7 @@ test/                   Node's own test runner
 ```
 
 ```
-npx tsc -p .                       type check (TypeScript 5.8 or newer, @types/node)
+npx tsc -p .                       type check (TypeScript 5.8 or newer, @types/node); clean on 2026-10-17 with TypeScript 6.0.3
 node --test "test/*.test.ts"       the tests
 node tools/browser-check.mjs       the browser check: PLAYWRIGHT_DIR=<folder of an installed playwright>
 node demo/serve.mjs --open         the demo

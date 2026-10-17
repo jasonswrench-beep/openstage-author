@@ -363,7 +363,8 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       slider.setAttribute("aria-valuetext", session.playheadText);
     }
     sliderFill.style.width = length === 0 ? "0%" : `${(at / length) * 100}%`;
-    setField(timeInput, formatTimecode(at));
+    // While the author is in the box it is left alone, even while playing, or a time could not be typed.
+    if (document.activeElement !== timeInput) setField(timeInput, formatTimecode(at));
   }
 
   function focusSelected(): void {
@@ -516,9 +517,15 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   /** Wire a text box so Enter or leaving it applies what was typed, and Escape puts the old text back. */
   function commitOnLeave(input: HTMLInputElement, apply: (text: string) => Outcome, current: () => string): void {
     let tried: string | undefined;
+    // What the box showed when the author came to it, or last held a value they entered. Text that is still that was not
+    // typed by them, so it is not entered (the playhead box moves on while it plays, and leaving it must not undo that).
+    let baseline = input.value;
+    input.addEventListener("focus", () => {
+      baseline = input.value;
+    });
     const commit = (): void => {
       const text = input.value;
-      if (text === current() || text === tried) return;
+      if (text === baseline || text === current() || text === tried) return;
       const outcome = apply(text);
       if (outcome.ok) {
         tried = undefined;
@@ -527,6 +534,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
         input.removeAttribute("aria-errormessage");
         // The sentence is said once; the box shows the exact value now held.
         input.value = current();
+        baseline = input.value;
       } else {
         tried = text;
         input.setAttribute("aria-invalid", "true");
@@ -543,6 +551,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
         e.preventDefault();
         if (input.value !== current()) {
           input.value = current();
+          baseline = input.value;
           tried = undefined;
           input.removeAttribute("aria-invalid");
           formError.textContent = "";
@@ -566,6 +575,10 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   commitOnLeave(fields.fadeIn, (t) => session.setFadeInText(t), () => formatTimecode(session.details?.fadeInMs ?? 0));
   commitOnLeave(fields.fadeOut, (t) => session.setFadeOutText(t), () => formatTimecode(session.details?.fadeOutMs ?? 0));
   commitOnLeave(timeInput, (t) => session.setPlayheadText(t), () => formatTimecode(session.playheadMs));
+  // Leaving the box brings it up to date with the playhead, unless it holds a time that was refused (kept so it can be fixed).
+  timeInput.addEventListener("blur", () => {
+    if (!timeInput.hasAttribute("aria-invalid")) setField(timeInput, formatTimecode(session.playheadMs));
+  });
   muted.addEventListener("change", () => run(session.setSelectedMuted(muted.checked)));
   trackSelect.addEventListener("change", () => {
     const outcome = session.moveSelectedToTrack(trackSelect.value);

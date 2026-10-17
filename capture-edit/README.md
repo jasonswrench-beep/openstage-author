@@ -20,6 +20,7 @@ must give the same findings.
 | `src/time.ts` | Times in words ("1 minute 12.4 seconds"), typed times, the keyboard steps |
 | `src/ops.ts` | The editing actions on clips |
 | `src/items.ts` | The actions on overlays and zooms: text, shapes, arrows, blur, redaction, zoom |
+| `src/paste.ts` | Copy and paste of clips, overlays and zooms: a snapshot of chosen rows, pasted at a time, all or nothing, on the same kind of track |
 | `src/contrast.ts`, `src/regions.ts` | Colours and contrast; rectangles on the picture and saying where they are in words |
 | `src/history.ts` | Undo and redo, with a drag as one step |
 | `src/limits.ts` | How far a clip, overlay or zoom can be moved or trimmed (the ends of a slider), found by asking the editing actions |

@@ -36,6 +36,7 @@ let failures = 0;
 let passes = 0;
 
 async function check(name, body, options = {}) {
+  if (process.env.ONLY !== undefined && !name.includes(process.env.ONLY)) return; // ONLY="part of a name" runs just those checks
   const context = await browser.newContext({ viewport: { width: 1100, height: 2400 }, ...options });
   const page = await context.newPage();
   const problems = [];
@@ -145,7 +146,8 @@ await check("with ?rows=cells the rows are read by their cells and carry no sent
 }, { search: "?rows=cells" });
 
 await check("every button has a name, and its key is announced to the screen reader", async (page) => {
-  const buttons = await page.locator("button").evaluateAll((all) => all.map((b) => [b.textContent.trim(), b.getAttribute("aria-keyshortcuts")]));
+  // A button is named by its aria-label if it has one (the icon-only zoom buttons), else by its text.
+  const buttons = await page.locator("button").evaluateAll((all) => all.map((b) => [(b.getAttribute("aria-label") ?? b.textContent).trim(), b.getAttribute("aria-keyshortcuts")]));
   for (const [text] of buttons) if (text === "") throw new Error("a button has no name");
   const split = buttons.find(([t]) => t.startsWith("Split at playhead"));
   assertEqual(split?.[1], "S", "the split button's key");
@@ -270,7 +272,7 @@ await check("a command that cannot be done says why, changes nothing, and leaves
   assertMatch(await t.said(), /^Cannot split "Add an assignment" at 0 seconds: it runs from 30 seconds to 1 minute, so the playhead has to be inside it\.$/, "said why");
   assertEqual((await t.focusedRow())?.name, "Add an assignment", "focus");
   assertEqual((await t.rowNames()).length, 12, "rows");
-  assertEqual(await page.getByRole("button", { name: "Undo" }).count(), 1, "undo button is always there");
+  assertEqual(await page.locator(".os-cl-commands").getByRole("button", { name: "Undo" }).count(), 1, "undo button is always there");
 });
 
 await check("Delete leaves a gap, Shift+Delete closes it, focus goes to the row that took the place, undo brings it back", async (page, t) => {
@@ -293,7 +295,7 @@ await check("pressing a button with the keyboard works and the focus stays on th
   await t.key("Enter");
   assertMatch(await t.said(), /deleted/, "said");
   assertEqual(await page.evaluate(() => document.activeElement.textContent.trim().startsWith("Delete, close the gap")), true, "focus stays on the button");
-  await page.getByRole("button", { name: "Undo" }).focus();
+  await page.locator(".os-cl-commands").getByRole("button", { name: "Undo" }).focus();
   await t.key("Space");
   assertEqual(await t.said(), "Undid: delete clip.", "undo");
   assertEqual((await t.rowNames()).includes("Add an assignment"), true, "row is back");
@@ -492,7 +494,7 @@ await check("the start grip moves with the keys, a held key is one undo step, th
   await t.key("Escape");
   assertEqual(await t.said(), "Cancelled. Nothing was changed.", "Escape");
   assertEqual(await grip.getAttribute("aria-valuenow"), "60000", "put back");
-  assertEqual(await page.getByRole("button", { name: "Undo" }).count(), 1);
+  assertEqual(await page.locator(".os-cl-commands").getByRole("button", { name: "Undo" }).count(), 1);
   await t.key("Control+z");
   assertEqual(await t.said(), "Nothing to undo.", "Escape recorded nothing");
 });
@@ -505,7 +507,7 @@ await check("the end grip trims the end, and holding keys with Tab away finishes
   assertEqual(await grip.getAttribute("aria-valuetext"), "ends at 59.8 seconds, 29.8 seconds long");
   await t.key("Tab"); // leaving the grip finishes the drag at once
   assertEqual((await t.listTimes("Add an assignment"))[4], "0:59.8", "end in the list");
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.locator(".os-cl-commands").getByRole("button", { name: "Undo" }).click();
   assertMatch(await t.said(), /^Undid: trim clip end\./, "one step");
 });
 
@@ -793,6 +795,8 @@ await check("moving the playhead while it plays carries on from there; editing w
   await page.waitForTimeout(300);
   const box = page.getByLabel("Playhead time", { exact: true });
   await box.fill("50");
+  await page.waitForTimeout(250);
+  assertEqual(await box.inputValue(), "50", "the box is left alone while the author types in it, even though the edit is playing");
   await box.press("Enter");
   await page.waitForTimeout(300);
   await t.focusClip("Add an assignment");
@@ -921,6 +925,28 @@ if (haveFixture) {
     assertEqual(saved.suggestedFilename(), "edit.json");
   }, { search: "?pickers=input" });
 
+  await check("pictures appear along the screen and webcam clips, only there, hidden from a screen reader, and only the ones in view are made", async (page, t) => {
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByRole("button", { name: "Open a recording folder" }).click()]);
+    await chooser.setFiles(fixture);
+    await page.waitForFunction(() => document.querySelector(".os-cl-status").textContent.startsWith("Opened the recording"));
+    await page.waitForFunction(() => [...document.querySelectorAll(".os-tl-tile")].some((el) => el.style.backgroundImage.startsWith('url("data:image/jpeg')), null, { timeout: 20_000 });
+    assertEqual(await page.locator('.os-tl-lane[data-kind="screen"] .os-tl-strip').count(), 1, "a strip on the screen clip");
+    assertEqual(await page.locator('.os-tl-lane[data-kind="webcam"] .os-tl-strip').count(), 1, "a strip on the webcam clip");
+    assertEqual(await page.locator('.os-tl-lane[data-kind="audio"] .os-tl-strip').count(), 0, "none on sound");
+    assertEqual(await page.locator(".os-tl-strip").evaluateAll((all) => all.every((el) => el.getAttribute("aria-hidden") === "true")), true, "hidden from a screen reader");
+    // the clip is still named by its sentence, not by its pictures, and its name is still on the page
+    assertMatch((await t.clip("Screen of take 1").getAttribute("aria-label")) ?? "", /^Screen of take 1, screen on the Screen track/, "the sentence");
+    // the pictures differ along the clip, so they really are different moments
+    await page.waitForFunction(() => new Set([...document.querySelectorAll('.os-tl-lane[data-kind="screen"] .os-tl-tile')].map((el) => el.style.backgroundImage).filter((v) => v !== "")).size >= 3, null, { timeout: 20_000 });
+    // zoomed far in, only the tiles in view are made, however long the clip is drawn
+    await t.focusClip("Screen of take 1");
+    for (let i = 0; i < 6; i++) await t.key("+");
+    await page.waitForTimeout(500);
+    const tiles = await page.locator(".os-tl-tile").count();
+    if (tiles > 80) throw new Error(`${tiles} pictures are drawn: only the ones in view should be`);
+    if (tiles === 0) throw new Error("no pictures after zooming in");
+  }, { search: "?pickers=input", viewport: { width: 1100, height: 1400 } });
+
   await check("a folder that is not a recording is refused in words, and what was open stays open", async (page, t) => {
     const other = join(dir, "holiday");
     writeFileSync(join(dir, "holiday.txt"), "x");
@@ -941,7 +967,7 @@ await check("a key held on a grip ends the step when the focus goes somewhere el
   await t.key("ArrowLeft", "ArrowLeft");
   await page.getByLabel("Playhead time", { exact: true }).focus(); // the focus leaves the grip
   assertEqual((await t.listTimes("Add an assignment"))[4], "0:59.8", "the list already shows it");
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.locator(".os-cl-commands").getByRole("button", { name: "Undo" }).click();
   assertMatch(await t.said(), /^Undid: trim clip end\./, "one step");
 });
 
@@ -1087,6 +1113,134 @@ await check("the editor does not scroll the page: the picture takes what is left
   if (box.stageHeight < 200) throw new Error(`the picture is only ${Math.round(box.stageHeight)}px high`);
   if (Math.abs(box.stageWidth / box.stageHeight - 16 / 9) > 0.05) throw new Error("the picture is not 16 by 9");
 }, { search: "?list=closed", viewport: { width: 1280, height: 1000 } });
+
+// ---- the tool bar, copy and paste, and the zoom slider ----
+
+const tools = (page) => page.getByRole("toolbar", { name: "Editing tools" });
+
+await check("the tool bar is one Tab stop; the arrow keys, Home and End move along it; it has Undo, Redo, Copy, Paste, Split and two Deletes", async (page, t) => {
+  const bar = tools(page);
+  const names = await bar.getByRole("button").evaluateAll((all) => all.map((b) => b.textContent.trim()));
+  assertEqual(names, ["Undo", "Redo", "Copy", "Paste", "Split", "Delete", "Delete, close gap"], "the tools");
+  assertEqual(await bar.locator('button[tabindex="0"]').count(), 1, "one Tab stop");
+  await bar.getByRole("button", { name: "Undo" }).focus();
+  await t.key("ArrowRight", "ArrowRight");
+  assertEqual(await t.focusLabel(), "Copy", "two to the right");
+  await t.key("End");
+  assertEqual(await t.focusLabel(), "Delete, close gap", "End");
+  await t.key("ArrowRight");
+  assertEqual(await t.focusLabel(), "Delete, close gap", "no wrapping past the end");
+  await t.key("Home");
+  assertEqual(await t.focusLabel(), "Undo", "Home");
+  assertEqual(await bar.locator('button[tabindex="0"]').evaluate((b) => b.textContent.trim()), "Undo", "the Tab stop follows the focus");
+  assertEqual(await bar.getByRole("button", { name: "Split" }).getAttribute("aria-keyshortcuts"), "S", "the key is announced");
+  assertEqual(await bar.locator("svg").evaluateAll((all) => all.every((s) => s.getAttribute("aria-hidden") === "true")), true, "the drawings are hidden from a screen reader");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("Split, Delete and Undo in the tool bar do what the keys do, say so, and keep the focus on the button", async (page, t) => {
+  const bar = tools(page);
+  await t.focusClip("Add an assignment");
+  await page.getByLabel("Playhead time", { exact: true }).fill("45");
+  await t.key("Enter");
+  await t.focusClip("Add an assignment");
+  assertEqual(await bar.getByRole("button", { name: "Undo" }).getAttribute("aria-disabled"), "true", "nothing to undo yet");
+  await bar.getByRole("button", { name: "Split" }).click();
+  assertMatch(await t.said(), /split at 45 seconds/i, "split said");
+  assertEqual(await bar.getByRole("button", { name: "Undo" }).getAttribute("aria-disabled"), "false", "undo is available now");
+  assertMatch((await bar.getByRole("button", { name: "Undo" }).getAttribute("title")) ?? "", /^Undo split clip/, "undo says what it would undo");
+  await bar.getByRole("button", { name: "Undo" }).click();
+  assertMatch(await t.said(), /^Undid: split clip/, "undo said");
+  assertEqual(await bar.getByRole("button", { name: "Redo" }).getAttribute("aria-disabled"), "false", "redo is available");
+  await bar.getByRole("button", { name: "Redo" }).focus();
+  await t.key("Enter");
+  assertMatch(await t.said(), /^Redid: split clip/, "redo said");
+  await bar.getByRole("button", { name: "Delete", exact: true }).focus();
+  await t.key("Space");
+  assertMatch(await t.said(), /deleted/i, "delete said");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent.trim()), "Delete", "focus stays on the button");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("a tool that cannot be used still answers in words: Paste with nothing copied, Split outside the clip", async (page, t) => {
+  const bar = tools(page);
+  assertEqual(await bar.getByRole("button", { name: "Paste" }).getAttribute("aria-disabled"), "true", "nothing to paste");
+  await bar.getByRole("button", { name: "Paste" }).click({ force: true }); // dimmed, not disabled: it still answers
+  assertMatch(await t.said(), /^Nothing has been copied yet/, "paste said why not");
+  await t.focusClip("Add an assignment");
+  await bar.getByRole("button", { name: "Split" }).click();
+  assertMatch(await t.said(), /^Cannot split "Add an assignment"/, "split said why not");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("Ctrl+C and Ctrl+V copy and paste a clip: said, chosen, playhead moves to its end, one undo, and a second paste follows the first", async (page, t) => {
+  await t.focusClip("Open the gradebook"); // 0 to 30
+  const before = await page.locator(".os-tl-clip").count();
+  await t.key("Control+c");
+  assertMatch(await t.said(), /^Copied "Open the gradebook", 30 seconds long\./, "copy said");
+  assertEqual(await tools(page).getByRole("button", { name: "Paste" }).getAttribute("aria-disabled"), "false", "Paste is available now");
+  await page.getByLabel("Playhead time", { exact: true }).fill("90"); // the end of the edit
+  await t.key("Enter");
+  await t.focusClip("Open the gradebook");
+  await t.key("Control+v");
+  assertMatch(await t.said(), /^Pasted the clip "Open the gradebook" at 1 minute 30 seconds\./, "paste said");
+  assertEqual(await page.locator(".os-tl-clip").count(), before + 1, "one more clip");
+  assertEqual(await t.chosenClips(), ["Open the gradebook"], "the pasted one is chosen");
+  assertEqual((await page.evaluate(() => document.activeElement.dataset.id)) !== undefined, true, "focus is on a clip");
+  assertMatch(await page.getByRole("slider", { name: "Playhead" }).getAttribute("aria-valuetext"), /^2 minutes/, "playhead at the end of the paste");
+  await t.key("Control+v");
+  assertEqual(await page.locator(".os-tl-clip").count(), before + 2, "a second paste follows");
+  await t.key("Control+z", "Control+z");
+  assertEqual(await page.locator(".os-tl-clip").count(), before, "two pastes, two undos");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("pasting where the track is taken goes to another track of the same kind or says what is in the way", async (page, t) => {
+  await t.focusClip("Open the gradebook");
+  await t.key("Control+c");
+  await page.getByLabel("Playhead time", { exact: true }).fill("5");
+  await t.key("Enter");
+  await t.focusClip("Open the gradebook");
+  await t.key("Control+v");
+  assertMatch(await t.said(), /^Cannot paste "Open the gradebook" at 5 seconds\. It would overlap/, "refused in words");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("Ctrl+C in a text box copies the text and does not copy a clip", async (page, t) => {
+  await t.focusClip("Open the gradebook");
+  await page.getByLabel("Playhead time", { exact: true }).focus();
+  await t.key("Control+c");
+  assertEqual(await tools(page).getByRole("button", { name: "Paste" }).getAttribute("aria-disabled"), "true", "no clip was copied");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("the zoom slider zooms, says how much time fits, and agrees with the buttons and keys", async (page, t) => {
+  const slider = page.getByRole("slider", { name: "Zoom" });
+  const width = async () => page.locator(".os-tl-canvas").evaluate((el) => el.scrollWidth);
+  const fitted = await width();
+  assertEqual(await slider.inputValue(), "0", "starts at the whole edit");
+  assertMatch((await slider.getAttribute("aria-valuetext")) ?? "", /^The whole edit, 1 minute \d+(\.\d+)? seconds across$/, "words at the whole edit");
+  await slider.focus();
+  for (let i = 0; i < 10; i++) await t.key("ArrowRight");
+  const zoomedWidth = await width();
+  if (zoomedWidth <= fitted * 1.2) throw new Error("the slider did not zoom in");
+  assertMatch((await slider.getAttribute("aria-valuetext")) ?? "", /^\d+(\.\d+)? seconds across$|^\d+ minute/, "words when zoomed");
+  await t.key("End");
+  assertEqual(await slider.inputValue(), "100", "End is as far in as it goes");
+  await page.getByRole("button", { name: "Show the whole edit" }).click();
+  assertEqual(await slider.inputValue(), "0", "the button puts the slider back");
+  assertEqual(await width(), fitted, "and the timeline");
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  if (Number(await slider.inputValue()) <= 0) throw new Error("the Zoom in button did not move the slider");
+  await slider.focus();
+  await t.key("Escape");
+  assertEqual(await page.evaluate(() => !!document.activeElement.closest(".os-tl-lanes")), true, "Escape goes back to the clips");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
+
+await check("the tool bar and the zoom slider fit in the timeline's box and the clips are still all there", async (page) => {
+  const box = await page.evaluate(() => {
+    const cell = document.querySelector(".os-ed-timeline").getBoundingClientRect();
+    const bar = document.querySelector(".os-tl-bar").getBoundingClientRect();
+    const lanes = document.querySelector(".os-tl-lanes").getBoundingClientRect();
+    return { barInside: bar.top >= cell.top && bar.bottom <= cell.bottom, lanesTop: lanes.top, cellBottom: cell.bottom, cellHeight: cell.height };
+  });
+  if (!box.barInside) throw new Error("the tool bar sticks out of the timeline");
+  if (box.lanesTop >= box.cellBottom) throw new Error("the tracks are pushed out of sight by the controls");
+}, { search: "?list=closed", viewport: { width: 1280, height: 900 } });
 
 await browser.close();
 server.kill();

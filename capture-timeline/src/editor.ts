@@ -55,14 +55,18 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   };
   const openList = (): void => { if (listHost.hidden) setListOpen(true); };
   propertiesButton.addEventListener("click", () => {
-    const open = listHost.hidden;
+    const open = Boolean(listHost.hidden); // it is closed now, so this press opens it
     setListOpen(open);
     announcer.say(open ? "Properties and clip list opened." : "Properties and clip list closed.");
     if (open) list.focus();
   });
 
   const list = mountClipList(listHost, session, { announcer, playhead: false, ...(options.rows === undefined ? {} : { rows: options.rows }), title: "Clip list" });
-  const timeline = mountTimeline(timelineHost, session, { announcer, onEdit: () => { openList(); list.focusDetails(); } });
+  const timeline = mountTimeline(timelineHost, session, {
+    announcer,
+    onEdit: () => { openList(); list.focusDetails(); },
+    ...(options.library === undefined ? {} : { library: options.library }),
+  });
   const preview = mountPreview(previewHost, session, options.library ?? EMPTY_LIBRARY, { announcer });
 
   const regions = [

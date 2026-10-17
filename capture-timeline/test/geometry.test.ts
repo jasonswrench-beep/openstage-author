@@ -7,6 +7,8 @@ import {
   fitScale,
   msAtX,
   navigate,
+  scaleAtSlider,
+  sliderOf,
   tickStepMs,
   ticksBetween,
   tidy,
@@ -105,4 +107,25 @@ test("an empty track is skipped, and a row that is not there goes to the first",
   const id = (name: string) => s.rows.find((r) => r.name === name)?.clipId ?? "";
   assert.equal(navigate(s.rows, tracks, id("Zoom on the totals"), "up")?.name, "Arrow to the Add button");
   assert.equal(navigate(s.rows, tracks, "nope", "down")?.name, "Open the gradebook");
+});
+
+test("the zoom slider runs from the whole edit to as far in as it goes, in even steps", () => {
+  const fit = fitScale(940, 94_500);
+  assert.equal(scaleAtSlider(0, fit), fit);
+  assert.equal(scaleAtSlider(100, fit), MAX_PX_PER_MS);
+  assert.equal(sliderOf(fit, fit), 0);
+  assert.equal(sliderOf(MAX_PX_PER_MS, fit), 100);
+  // halfway on the slider is halfway in the way zooming feels: the same factor either side
+  const middle = scaleAtSlider(50, fit);
+  assert.ok(Math.abs(middle / fit - MAX_PX_PER_MS / middle) < 1e-9);
+  // the slider and the zoom keys agree: where the slider says a scale is, the slider puts it back
+  for (const p of [0, 12.5, 40, 77, 100]) assert.ok(Math.abs(sliderOf(scaleAtSlider(p, fit), fit) - p) < 0.1);
+  // out-of-range places are held to the ends
+  assert.equal(scaleAtSlider(-5, fit), fit);
+  assert.equal(scaleAtSlider(500, fit), MAX_PX_PER_MS);
+  assert.equal(sliderOf(fit / 10, fit), 0);
+  // a very short edit has nowhere to zoom to: the slider is at 0 whatever the scale
+  const tiny = fitScale(940, 1000);
+  assert.equal(sliderOf(tiny, tiny), 0);
+  assert.equal(scaleAtSlider(60, tiny), tiny * Math.pow(1, 0.6));
 });
