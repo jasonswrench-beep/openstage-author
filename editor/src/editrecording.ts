@@ -50,8 +50,8 @@ export interface EditRecordingOptions {
   describeScreen: (extras: Extra[]) => string;
 }
 
-/** Turn on when the Rust video maker reads edit format 0.4 and draws transitions (see ROADMAP.md). Until then a video is not attempted for an edit that has one. */
-export const VIDEO_MAKER_DRAWS_TRANSITIONS = false;
+/** Whether the Rust video maker reads edit format 0.4 and draws transitions. Written 2026-10-17 and not yet built or tried on a PC; set to false to refuse a video for an edit that has a transition. */
+export const VIDEO_MAKER_DRAWS_TRANSITIONS = true;
 
 /** The longest an export may run before it is stopped. A long recording takes a while; this is only a safety net. */
 export const EXPORT_LIMIT_MS = 4 * 60 * 60 * 1000;

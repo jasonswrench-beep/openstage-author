@@ -23,9 +23,9 @@
 //!   `zoom-aspect` warning already tells the author.)
 
 use crate::canvas::{Canvas, Picture, PixelRect, Rgb, SourceRect};
-use crate::plan::{FrameRecipe, Layer};
+use crate::plan::{FrameRecipe, Layer, LayerTransition, TransitionPhase};
 use crate::text::{TextRenderer, TextRequest};
-use openstage_capture_project::{EditItem, EditRect, EditShapeKind, EditTrackKind, EDIT_FULL};
+use openstage_capture_project::{EditItem, EditRect, EditShapeKind, EditTrackKind, EditTransitionKind, EDIT_FULL};
 use std::rc::Rc;
 
 /// Where pictures come from.
@@ -155,6 +155,47 @@ fn draw(canvas: &mut Canvas, picture: &Picture, area: Area) {
     }
 }
 
+/// Draw `picture` over `area` the way a transition says: faded in or out, wiped in from the left or the top, slid in from
+/// the right, or (for the picture held under an arriving one) left alone or pushed off to the left. With no transition it
+/// is drawn plainly. Everything is whole numbers once the area is rounded, so the frame is the same bytes every time.
+fn draw_with(canvas: &mut Canvas, picture: &Picture, area: Area, transition: Option<&LayerTransition>) {
+    let Some(t) = transition else {
+        draw(canvas, picture, area);
+        return;
+    };
+    let region = area.nearest().clipped(canvas.width, canvas.height);
+    if region.is_empty() {
+        return;
+    }
+    let mut scratch = Canvas::new(canvas.width, canvas.height);
+    draw(&mut scratch, picture, area);
+    let visible = match t.phase {
+        TransitionPhase::Out => 1.0 - t.progress,
+        _ => t.progress,
+    };
+    let (w, h) = (region.w as f64, region.h as f64);
+    match (t.phase, t.kind) {
+        (TransitionPhase::Under, EditTransitionKind::Slide) => {
+            canvas.lay_over(&scratch, region, 255, -((w * t.progress).round() as i32));
+        }
+        (TransitionPhase::Under, _) => canvas.lay_over(&scratch, region, 255, 0),
+        (_, EditTransitionKind::Fade | EditTransitionKind::CrossFade) => {
+            canvas.lay_over(&scratch, region, (255.0 * visible).round() as u32, 0);
+        }
+        (_, EditTransitionKind::WipeRight) => {
+            let part = PixelRect::new(region.x, region.y, (w * visible).round() as i32, region.h);
+            canvas.lay_over(&scratch, part, 255, 0);
+        }
+        (_, EditTransitionKind::WipeDown) => {
+            let part = PixelRect::new(region.x, region.y, region.w, (h * visible).round() as i32);
+            canvas.lay_over(&scratch, part, 255, 0);
+        }
+        (_, EditTransitionKind::Slide) => {
+            canvas.lay_over(&scratch, region, 255, (w * (1.0 - visible)).round() as i32);
+        }
+    }
+}
+
 fn colour(text: &str, what: &str) -> Result<Rgb, String> {
     Rgb::parse(text).map_err(|e| format!("{what}: {e}"))
 }
@@ -198,7 +239,7 @@ pub fn compose_frame(
             w: fitted.w / frame.view.w,
             h: fitted.h / frame.view.h,
         };
-        draw(canvas, &picture, zoomed);
+        draw_with(canvas, &picture, zoomed, layer.transition.as_ref());
     }
 
     // 2. What belongs to the picture, in the order the edit lists it.
@@ -251,7 +292,7 @@ pub fn compose_frame(
             (None, true) => frame.fixed(&DEFAULT_WEBCAM_PLACE),
             (None, false) => frame.whole(),
         };
-        draw(canvas, &picture, fit(target, &picture));
+        draw_with(canvas, &picture, fit(target, &picture), layer.transition.as_ref());
     }
 
     // 4. Text.
@@ -329,6 +370,8 @@ mod tests {
             kind,
             placement,
             source_time_ms: 1234,
+            held: false,
+            transition: None,
         }
     }
 
@@ -660,5 +703,98 @@ mod tests {
         time("screen, webcam, blur and blackout", recipe(vec![screen(), webcam(None)], overlays.clone(), whole_view()));
         let zoom = ZoomView { rect: rect(1000.0, 1000.0, 6000.0, 6000.0), moving: true };
         time("the same, in the middle of a zoom", recipe(vec![screen(), webcam(None)], overlays, zoom));
+    }
+
+    fn in_transition(mut l: Layer, kind: EditTransitionKind, phase: TransitionPhase, progress: f64) -> Layer {
+        l.transition = Some(LayerTransition { kind, phase, progress });
+        l
+    }
+
+    fn bright() -> Pictures {
+        let mut p = pictures();
+        p.by_media.insert("screen.mp4".into(), Rc::new(Picture::solid(160, 90, Rgb(200, 100, 50))));
+        p.by_media.insert("second.mp4".into(), Rc::new(Picture::solid(160, 90, Rgb(10, 20, 30))));
+        p
+    }
+
+    fn second() -> Layer {
+        layer("second.mp4", EditTrackKind::Screen, EditSourceKind::Screen, None)
+    }
+
+    #[test]
+    fn a_fade_in_shows_the_picture_by_its_progress_over_black() {
+        let mut p = bright();
+        let l = in_transition(screen(), EditTransitionKind::Fade, TransitionPhase::In, 0.5);
+        let (canvas, _) = draw_frame(&recipe(vec![l], vec![], whole_view()), &mut p, (160, 90));
+        let red = canvas.pixel(80, 45).0;
+        assert!(red > 90 && red < 110, "about half of 200, not {red}");
+        let start = in_transition(screen(), EditTransitionKind::Fade, TransitionPhase::In, 0.0);
+        let (canvas, _) = draw_frame(&recipe(vec![start], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 45), Rgb(0, 0, 0), "nothing yet");
+        let end = in_transition(screen(), EditTransitionKind::Fade, TransitionPhase::In, 1.0);
+        let (canvas, _) = draw_frame(&recipe(vec![end], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 45), Rgb(200, 100, 50), "all of it");
+    }
+
+    #[test]
+    fn a_fade_out_goes_the_other_way() {
+        let mut p = bright();
+        let l = in_transition(screen(), EditTransitionKind::Fade, TransitionPhase::Out, 1.0);
+        let (canvas, _) = draw_frame(&recipe(vec![l], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 45), Rgb(0, 0, 0));
+    }
+
+    #[test]
+    fn a_wipe_uncovers_the_picture_from_the_left_or_from_the_top() {
+        let mut p = bright();
+        let right = in_transition(screen(), EditTransitionKind::WipeRight, TransitionPhase::In, 0.5);
+        let (canvas, _) = draw_frame(&recipe(vec![right], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(40, 45), Rgb(200, 100, 50));
+        assert_eq!(canvas.pixel(120, 45), Rgb(0, 0, 0));
+        let down = in_transition(screen(), EditTransitionKind::WipeDown, TransitionPhase::In, 0.5);
+        let (canvas, _) = draw_frame(&recipe(vec![down], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 20), Rgb(200, 100, 50));
+        assert_eq!(canvas.pixel(80, 70), Rgb(0, 0, 0));
+    }
+
+    #[test]
+    fn a_slide_brings_the_picture_in_from_the_right() {
+        let mut p = bright();
+        let l = in_transition(screen(), EditTransitionKind::Slide, TransitionPhase::In, 0.5);
+        let (canvas, _) = draw_frame(&recipe(vec![l], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(40, 45), Rgb(0, 0, 0), "not here yet");
+        assert_eq!(canvas.pixel(120, 45), Rgb(200, 100, 50), "arrived on the right");
+    }
+
+    #[test]
+    fn a_cross_fade_goes_from_the_held_picture_to_the_new_one() {
+        let mut p = bright();
+        let held = in_transition(screen(), EditTransitionKind::CrossFade, TransitionPhase::Under, 0.0);
+        let arriving = in_transition(second(), EditTransitionKind::CrossFade, TransitionPhase::In, 0.0);
+        let (canvas, _) = draw_frame(&recipe(vec![held.clone(), arriving], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 45), Rgb(200, 100, 50), "at the start, still the old picture");
+        let done = in_transition(second(), EditTransitionKind::CrossFade, TransitionPhase::In, 1.0);
+        let (canvas, _) = draw_frame(&recipe(vec![held, done], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(80, 45), Rgb(10, 20, 30), "at the end, the new one");
+    }
+
+    #[test]
+    fn in_a_slide_the_held_picture_is_pushed_off_to_the_left() {
+        let mut p = bright();
+        let held = in_transition(screen(), EditTransitionKind::Slide, TransitionPhase::Under, 0.5);
+        let arriving = in_transition(second(), EditTransitionKind::Slide, TransitionPhase::In, 0.5);
+        let (canvas, _) = draw_frame(&recipe(vec![held, arriving], vec![], whole_view()), &mut p, (160, 90));
+        assert_eq!(canvas.pixel(40, 45), Rgb(200, 100, 50), "the old picture is on the left");
+        assert_eq!(canvas.pixel(120, 45), Rgb(10, 20, 30), "the new one is on the right");
+    }
+
+    #[test]
+    fn a_transition_draws_the_same_bytes_every_time() {
+        let draw_it = || {
+            let mut p = bright();
+            let l = in_transition(screen(), EditTransitionKind::Fade, TransitionPhase::In, 0.37);
+            draw_frame(&recipe(vec![l], vec![], whole_view()), &mut p, (160, 90)).0.bgra
+        };
+        assert_eq!(draw_it(), draw_it());
     }
 }

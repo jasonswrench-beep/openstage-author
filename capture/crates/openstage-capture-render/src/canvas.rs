@@ -160,6 +160,29 @@ impl Canvas {
         self.bgra[i + 3] = 255;
     }
 
+    /// Lay the pixels of `top` (a canvas of the same size) over this one, inside `region` only, with the given share
+    /// (0 to 255) of them. `shift_x` moves what is laid over to the right (or, if negative, to the left); only pixels
+    /// that come from inside `region` are used, so a slide never brings in what lies outside the picture. Whole numbers
+    /// only, so the same frame is always the same bytes. Used by transitions.
+    pub fn lay_over(&mut self, top: &Canvas, region: PixelRect, share: u32, shift_x: i32) {
+        if share == 0 || top.width != self.width || top.height != self.height {
+            return;
+        }
+        let share = share.min(255);
+        let area = region.clipped(self.width, self.height);
+        for y in area.y..area.y + area.h {
+            for x in area.x..area.x + area.w {
+                let from = x - shift_x;
+                if from < area.x || from >= area.x + area.w {
+                    continue;
+                }
+                let j = (y as usize * top.width as usize + from as usize) * 4;
+                let colour = Rgb(top.bgra[j + 2], top.bgra[j + 1], top.bgra[j]);
+                self.blend(x as u32, y as u32, colour, share);
+            }
+        }
+    }
+
     /// Cover a rectangle with a solid colour.
     pub fn fill_rect(&mut self, rect: PixelRect, color: Rgb) {
         let r = rect.clipped(self.width, self.height);

@@ -20,6 +20,9 @@ pub const MIN_CLIP_MS: f64 = 100.0;
 pub const MAX_IMPORTED_VIDEO_MS: f64 = 30_000.0;
 pub const MIN_VOLUME_DB: f64 = -40.0;
 pub const MAX_VOLUME_DB: f64 = 20.0;
+/// The shortest and longest a transition may last (new in 0.4).
+pub const MIN_TRANSITION_MS: f64 = 100.0;
+pub const MAX_TRANSITION_MS: f64 = 5000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -101,6 +104,59 @@ pub struct SourceInfo {
     pub has_text_alternative: Option<bool>,
 }
 
+/// The kinds of transition (new in 0.4). A transition changes the picture only, never the sound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransitionKind {
+    Fade,
+    CrossFade,
+    /// Left to right.
+    WipeRight,
+    /// Top to bottom.
+    WipeDown,
+    Slide,
+}
+
+impl TransitionKind {
+    /// The kind written in the file, or `None` for a name this program does not know.
+    pub fn from_name(name: &str) -> Option<TransitionKind> {
+        match name {
+            "fade" => Some(TransitionKind::Fade),
+            "cross-fade" => Some(TransitionKind::CrossFade),
+            "wipe-right" => Some(TransitionKind::WipeRight),
+            "wipe-down" => Some(TransitionKind::WipeDown),
+            "slide" => Some(TransitionKind::Slide),
+            _ => None,
+        }
+    }
+
+    /// How the kind is said to the author.
+    pub fn words(self) -> &'static str {
+        match self {
+            TransitionKind::Fade => "fade",
+            TransitionKind::CrossFade => "cross-fade",
+            TransitionKind::WipeRight => "wipe, left to right",
+            TransitionKind::WipeDown => "wipe, top to bottom",
+            TransitionKind::Slide => "slide",
+        }
+    }
+}
+
+/// How a clip's picture arrives or leaves. The kind is kept as written so that a name this program does not know
+/// is reported as a problem with the edit (`bad-transition`) rather than making the whole file unreadable.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Transition {
+    pub kind: String,
+    pub duration_ms: f64,
+}
+
+impl Transition {
+    /// The kind, if it is one this program knows.
+    pub fn known_kind(&self) -> Option<TransitionKind> {
+        TransitionKind::from_name(&self.kind)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Clip {
@@ -118,6 +174,12 @@ pub struct Clip {
     /// Where the picture sits in the finished video (new in 0.3), or `None` for where it is drawn by default.
     #[serde(default)]
     pub placement: Option<Rect>,
+    /// How the picture arrives (new in 0.4).
+    #[serde(default)]
+    pub transition_in: Option<Transition>,
+    /// How the picture leaves (new in 0.4). Only a fade.
+    #[serde(default)]
+    pub transition_out: Option<Transition>,
     pub alt_text: Option<String>,
     pub decorative: Option<bool>,
 }
@@ -414,6 +476,97 @@ fn whole(n: f64) -> bool {
     n.is_finite() && n >= 0.0 && n.fract() == 0.0
 }
 
+/// The checks on a clip's transitions (the same as the editor's `checkTransitions`).
+fn check_transitions(
+    clip: &Clip,
+    source: Option<SourceKind>,
+    previous: Option<&Clip>,
+    label: &str,
+    here: &dyn Fn(&'static str, Severity, String) -> Problem,
+    out: &mut Vec<Problem>,
+) {
+    let (tin, tout) = (clip.transition_in.as_ref(), clip.transition_out.as_ref());
+    if tin.is_none() && tout.is_none() {
+        return;
+    }
+    if matches!(source, Some(SourceKind::Microphone | SourceKind::SystemAudio | SourceKind::Audio)) {
+        out.push(here(
+            "transition-not-allowed",
+            Severity::Error,
+            format!("{label} holds sound only, so it cannot have a transition. Take the transition away."),
+        ));
+        return;
+    }
+    let mut bad = |what: &str, t: &Transition| -> bool {
+        let known = t.known_kind().is_some();
+        let fine = whole(t.duration_ms) && t.duration_ms >= MIN_TRANSITION_MS && t.duration_ms <= MAX_TRANSITION_MS;
+        if known && fine {
+            return false;
+        }
+        out.push(here(
+            "bad-transition",
+            Severity::Error,
+            if known {
+                format!(
+                    "{label} has a {what} transition of {}. A transition lasts from {} to {}.",
+                    describe_time(t.duration_ms.max(0.0)),
+                    describe_time(MIN_TRANSITION_MS),
+                    describe_time(MAX_TRANSITION_MS)
+                )
+            } else {
+                format!("{label} has a {what} transition this program does not know.")
+            },
+        ));
+        true
+    };
+    let in_bad = tin.is_some_and(|t| bad("starting", t));
+    let out_bad = tout.is_some_and(|t| bad("ending", t));
+    if let Some(t) = tout {
+        if !out_bad && t.known_kind() != Some(TransitionKind::Fade) {
+            out.push(here(
+                "bad-transition",
+                Severity::Error,
+                format!("{label} leaves with a transition that is not a fade. Only a fade can be used on the way out."),
+            ));
+        }
+    }
+    let length = clip.length_ms();
+    match (tin, tout) {
+        (Some(a), Some(b)) if !in_bad && !out_bad && a.duration_ms + b.duration_ms > length => out.push(here(
+            "bad-transition",
+            Severity::Error,
+            format!(
+                "{label} has transitions that last {} together, which does not fit in its {}.",
+                describe_time(a.duration_ms + b.duration_ms),
+                describe_time(length)
+            ),
+        )),
+        (Some(a), _) if !in_bad && a.duration_ms > length => out.push(here(
+            "bad-transition",
+            Severity::Error,
+            format!(
+                "{label} has a starting transition of {}, which does not fit in its {}.",
+                describe_time(a.duration_ms),
+                describe_time(length)
+            ),
+        )),
+        _ => {}
+    }
+    if let Some(a) = tin {
+        let touching = previous.is_some_and(|p| p.end_ms() == clip.start_ms);
+        if !in_bad && a.known_kind() != Some(TransitionKind::Fade) && !touching {
+            out.push(here(
+                "transition-no-neighbour",
+                Severity::Warning,
+                format!(
+                    "{label} starts with a {}, but no picture ends where it starts, so it comes in over black.",
+                    a.kind
+                ),
+            ));
+        }
+    }
+}
+
 /// Every problem in an edit.
 pub fn validate(edit: &Edit) -> Vec<Problem> {
     let mut out = Vec::new();
@@ -483,6 +636,7 @@ pub fn validate(edit: &Edit) -> Vec<Problem> {
                 ));
             }
 
+            check_transitions(clip, edit.source(&clip.source).map(|s| s.kind), previous, &label, &here, &mut out);
             match edit.source(&clip.source) {
                 None => out.push(here(
                     "unknown-source",
@@ -864,10 +1018,10 @@ pub fn parse_edit(text: &str) -> Result<ParsedEdit, String> {
         return Err(format!("This is not an OpenStage Capture edit file: its format should be \"{EDIT_FORMAT}\"."));
     }
     match value.get("schemaVersion").and_then(|v| v.as_str()) {
-        Some(v) if v.starts_with("0.1.") || v.starts_with("0.2.") || v.starts_with("0.3.") => {}
+        Some(v) if v.starts_with("0.1.") || v.starts_with("0.2.") || v.starts_with("0.3.") || v.starts_with("0.4.") => {}
         other => {
             return Err(format!(
-                "This edit file is version {}, and this program reads versions 0.1, 0.2 and 0.3. It was probably made by a newer program.",
+                "This edit file is version {}, and this program reads versions 0.1 to 0.4. It was probably made by a newer program.",
                 other.unwrap_or("(missing)")
             ))
         }
@@ -969,7 +1123,7 @@ mod tests {
             ("nonsense", "not a readable edit file"),
             ("[]", "not an OpenStage Capture edit file"),
             (r#"{"format":"openstage-capture-edit"}"#, "version (missing)"),
-            (r#"{"format":"openstage-capture-edit","schemaVersion":"0.4.0"}"#, "version 0.4.0"),
+            (r#"{"format":"openstage-capture-edit","schemaVersion":"0.5.0"}"#, "version 0.5.0"),
             (r#"{"format":"openstage-capture-edit","schemaVersion":"0.1.0"}"#, "cannot be read"),
         ] {
             let message = parse_edit(text).unwrap_err();

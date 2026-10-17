@@ -11,6 +11,7 @@ use crate::audio::AudioSpan;
 use crate::zoom::{zoom_view, ZoomSpan, ZoomView};
 use openstage_capture_project::{
     validate_edit, Edit, EditItem, EditRect, EditSeverity, EditSourceKind, EditSourceRef, EditTrackKind,
+    EditTransitionKind,
 };
 
 /// How the video is to be made.
@@ -34,6 +35,40 @@ impl Default for RenderSettings {
     }
 }
 
+/// How far back from the end of the clip before, in milliseconds, the picture held under an arriving one is taken from.
+const HELD_BACK_MS: u64 = 40;
+
+/// A transition at the start or end of a picture, as the plan keeps it (new in edit format 0.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpanTransition {
+    pub kind: EditTransitionKind,
+    pub duration_ms: u64,
+}
+
+/// Where a layer is in a transition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransitionPhase {
+    /// The picture is arriving: it shows by `progress`.
+    In,
+    /// The picture is leaving (a fade): it shows by `1 - progress`.
+    Out,
+    /// The last picture of the clip before, held still while the next one arrives (a slide pushes it away).
+    Under,
+}
+
+/// A transition in progress on a layer. `progress` goes from 0 to 1 over its length, eased.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LayerTransition {
+    pub kind: EditTransitionKind,
+    pub phase: TransitionPhase,
+    pub progress: f64,
+}
+
+fn smoothstep(t: f64) -> f64 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// A picture (a recording of the screen or webcam, an imported video or an image) placed in the video.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VideoSpan {
@@ -48,6 +83,11 @@ pub struct VideoSpan {
     pub out_end_ms: u64,
     /// Where in the source it starts. Zero for an image.
     pub source_start_ms: u64,
+    /// Where in the source it ends (the last moment a held picture is taken from).
+    pub source_end_ms: u64,
+    /// How it arrives and leaves (new in edit format 0.4).
+    pub transition_in: Option<SpanTransition>,
+    pub transition_out: Option<SpanTransition>,
 }
 
 /// One picture to draw in a frame.
@@ -62,6 +102,10 @@ pub struct Layer {
     pub placement: Option<EditRect>,
     /// Which moment of the source to show.
     pub source_time_ms: u64,
+    /// True for the last picture of the clip before, held still under an arriving one.
+    pub held: bool,
+    /// A transition showing on this layer now, if any.
+    pub transition: Option<LayerTransition>,
 }
 
 /// Everything needed to draw one frame.
@@ -89,6 +133,11 @@ pub struct RenderPlan {
 
 fn whole(ms: f64) -> u64 {
     ms.max(0.0).round() as u64
+}
+
+fn span_transition(t: Option<&openstage_capture_project::EditTransition>) -> Option<SpanTransition> {
+    let t = t?;
+    Some(SpanTransition { kind: t.known_kind()?, duration_ms: whole(t.duration_ms) })
 }
 
 /// Check an edit and the settings, and make the plan. `Err` says in words why it cannot be rendered.
@@ -154,6 +203,9 @@ pub fn plan(edit: &Edit, settings: &RenderSettings) -> Result<RenderPlan, String
                     out_start_ms: out_start,
                     out_end_ms: out_end,
                     source_start_ms: whole(clip.source_start_ms),
+                    source_end_ms: whole(clip.source_end_ms),
+                    transition_in: span_transition(clip.transition_in.as_ref()),
+                    transition_out: span_transition(clip.transition_out.as_ref()),
                 });
             }
             if matches!(source.kind, EditSourceKind::Microphone | EditSourceKind::SystemAudio | EditSourceKind::Audio) {
@@ -196,6 +248,33 @@ pub fn plan(edit: &Edit, settings: &RenderSettings) -> Result<RenderPlan, String
     })
 }
 
+/// The transition a picture is showing at a moment (in microseconds), if any.
+fn transition_at(span: &VideoSpan, time_us: u64) -> Option<LayerTransition> {
+    if let Some(t) = span.transition_in {
+        let length_us = t.duration_ms * 1000;
+        let into = time_us.saturating_sub(span.out_start_ms * 1000);
+        if length_us > 0 && into < length_us {
+            return Some(LayerTransition {
+                kind: t.kind,
+                phase: TransitionPhase::In,
+                progress: smoothstep(into as f64 / length_us as f64),
+            });
+        }
+    }
+    if let Some(t) = span.transition_out {
+        let length_us = t.duration_ms * 1000;
+        let starts_us = (span.out_end_ms * 1000).saturating_sub(length_us);
+        if length_us > 0 && time_us >= starts_us {
+            return Some(LayerTransition {
+                kind: t.kind,
+                phase: TransitionPhase::Out,
+                progress: smoothstep((time_us - starts_us) as f64 / length_us as f64),
+            });
+        }
+    }
+    None
+}
+
 impl RenderPlan {
     /// When frame `index` is shown, in microseconds.
     pub fn frame_time_us(&self, index: u64) -> u64 {
@@ -211,25 +290,54 @@ impl RenderPlan {
             kind: span.kind,
             placement: span.placement,
             source_time_ms: span.source_start_ms,
+            held: false,
+            transition: None,
         }
     }
 
     /// Everything needed to draw frame `index`.
     pub fn frame(&self, index: u64) -> FrameRecipe {
         let time_us = self.frame_time_us(index);
-        let layers = self
-            .video
-            .iter()
-            .filter(|s| s.out_start_ms * 1000 <= time_us && time_us < s.out_end_ms * 1000)
-            .map(|s| Layer {
+        let mut layers = Vec::new();
+        for s in self.video.iter().filter(|s| s.out_start_ms * 1000 <= time_us && time_us < s.out_end_ms * 1000) {
+            let transition = if self.settings.reduce_motion { None } else { transition_at(s, time_us) };
+            // A cross-fade, wipe or slide needs the clip before under it, held at its last picture.
+            if let Some(t) = transition.filter(|t| t.phase == TransitionPhase::In && t.kind != EditTransitionKind::Fade)
+            {
+                let before = self.video.iter().find(|p| p.track_id == s.track_id && p.out_end_ms == s.out_start_ms);
+                if let Some(p) = before {
+                    let time = if p.kind == EditSourceKind::Image {
+                        p.source_start_ms
+                    } else {
+                        p.source_end_ms.saturating_sub(HELD_BACK_MS).max(p.source_start_ms)
+                    };
+                    layers.push(Layer {
+                        clip_id: p.clip_id.clone(),
+                        track_kind: p.track_kind,
+                        source: p.source.clone(),
+                        kind: p.kind,
+                        placement: p.placement,
+                        source_time_ms: time,
+                        held: true,
+                        transition: Some(LayerTransition {
+                            kind: t.kind,
+                            phase: TransitionPhase::Under,
+                            progress: t.progress,
+                        }),
+                    });
+                }
+            }
+            layers.push(Layer {
                 clip_id: s.clip_id.clone(),
                 track_kind: s.track_kind,
                 source: s.source.clone(),
                 kind: s.kind,
                 placement: s.placement,
                 source_time_ms: s.source_start_ms + (time_us - s.out_start_ms * 1000) / 1000,
-            })
-            .collect();
+                held: false,
+                transition,
+            });
+        }
         let overlays = self
             .overlays
             .iter()
@@ -390,5 +498,40 @@ mod tests {
     fn planning_twice_gives_the_same_plan() {
         let e = fixture("valid-with-overlays.json");
         assert_eq!(plan(&e, &settings()).unwrap(), plan(&e, &settings()).unwrap());
+    }
+
+    #[test]
+    fn a_fade_at_the_start_is_a_transition_on_the_clip_for_its_length_and_then_none() {
+        let p = plan(&fixture("valid-transition.json"), &settings()).unwrap();
+        // The second piece starts at 20 s with a cross-fade of 0.8 s; the first ends with a fade of 0.5 s.
+        let early = p.frame(19 * 30 + 29); // 19.966 s, inside the last 0.5 s of the first piece
+        let out = early.layers[0].transition.expect("leaving with a fade");
+        assert_eq!((out.kind, out.phase), (EditTransitionKind::Fade, TransitionPhase::Out));
+        assert!(out.progress > 0.9, "nearly gone, not {}", out.progress);
+        assert!(p.frame(300).layers[0].transition.is_none(), "10 s in, none");
+    }
+
+    #[test]
+    fn a_cross_fade_holds_the_last_picture_of_the_clip_before_under_the_new_one() {
+        let p = plan(&fixture("valid-transition.json"), &settings()).unwrap();
+        let f = p.frame(600 + 12); // 0.4 s into the cross-fade
+        assert_eq!(f.layers.len(), 2);
+        assert!(f.layers[0].held && !f.layers[1].held);
+        assert_eq!(f.layers[0].transition.unwrap().phase, TransitionPhase::Under);
+        assert_eq!(f.layers[1].transition.unwrap().phase, TransitionPhase::In);
+        assert_eq!(f.layers[0].source_time_ms, 19_960, "40 ms before the end of the first piece");
+        assert_eq!(f.layers[1].source_time_ms, 20_400);
+        let after = p.frame(600 + 24 + 1); // 0.83 s: over
+        assert_eq!(after.layers.len(), 1);
+        assert!(after.layers[0].transition.is_none());
+    }
+
+    #[test]
+    fn reduced_motion_cuts_instead_of_blending() {
+        let still =
+            plan(&fixture("valid-transition.json"), &RenderSettings { reduce_motion: true, ..settings() }).unwrap();
+        let f = still.frame(600 + 12);
+        assert_eq!(f.layers.len(), 1);
+        assert!(f.layers[0].transition.is_none());
     }
 }
