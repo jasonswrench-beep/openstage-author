@@ -129,6 +129,14 @@ export async function readProject(folder: ProjectFolder): Promise<ProjectResult>
     const parsed = parse(saved);
     if (parsed.ok) {
       notes.push("Opened the edit that was saved in this recording.");
+      const used = new Set<number>();
+      for (const source of parsed.model.sources) if (source.ref.kind === "take") used.add(source.ref.take);
+      const left = takes.filter((t) => !used.has(t.take));
+      if (left.length > 0) {
+        const names = left.map((t) => `take ${t.take}${t.durationMs === null ? "" : ` (${Math.round(t.durationMs / 1000)} seconds)`}`);
+        const list = names.length === 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1] ?? ""}`;
+        notes.push(`This saved edit does not use ${list}, which ${left.length === 1 ? "was" : "were"} recorded after it was saved. What you see here is the older edit, not your newest recording.`);
+      }
       return { ok: true, project: { folder, title, model: parsed.model, fromEditFile: true, notes, problems: parsed.problems } };
     }
     notes.push(`The saved edit could not be read (${parsed.message}), so a new edit was made from the takes.`);

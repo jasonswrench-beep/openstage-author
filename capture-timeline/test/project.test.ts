@@ -36,6 +36,18 @@ test("an edit saved in the folder is opened as it was, with what is still wrong 
   assert.equal(result.project.model.tracks.length, 5);
 });
 
+test("takes recorded after the saved edit are named, so an old edit is not mistaken for the newest recording", async () => {
+  const saved = serialize(sampleModel());
+  const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "edit.json": saved, "takes/take-001/take.json": take(1), "takes/take-007/take.json": take(7, "complete", 66_949), "takes/take-008/take.json": take(8, "complete", 46_045) });
+  const result = await readProject(folder);
+  assert.ok(result.ok);
+  assert.equal(result.project.fromEditFile, true);
+  assert.deepEqual(result.project.notes, [
+    "Opened the edit that was saved in this recording.",
+    "This saved edit does not use take 7 (67 seconds) and take 8 (46 seconds), which were recorded after it was saved. What you see here is the older edit, not your newest recording.",
+  ]);
+});
+
 test("an edit that cannot be read is said so and a new one is made from the takes", async () => {
   const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "edit.json": "{not json", "takes/take-001/take.json": take(1) });
   const result = await readProject(folder);
