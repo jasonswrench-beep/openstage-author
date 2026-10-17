@@ -583,7 +583,7 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
-      editRecording: async (name) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
+      editRecording: async (name, newestTake) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, newestTake: newestTake === true, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
       makeSteps: async (name) => {
         if (!m) return;
         const said = await openSteps({ backend, dir: m.dir, name });

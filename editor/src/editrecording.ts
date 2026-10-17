@@ -10,7 +10,7 @@
 
 import { describeLength, listCaption, modelLengthMs, serialize } from "../../capture-edit/src/index.ts";
 import { mountEditor } from "../../capture-timeline/src/editor.ts";
-import { libraryOf, readProject } from "../../capture-timeline/src/project.ts";
+import { backupName, libraryOf, readProject } from "../../capture-timeline/src/project.ts";
 import { EditSession } from "../../capture-timeline/src/session.ts";
 import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
@@ -37,6 +37,8 @@ export interface EditRecordingOptions {
   dir: string;
   /** The recording's folder name, such as `Week 3.capture`. */
   name: string;
+  /** Start a new edit of the newest take, not the edit saved before (the old one is kept as a copy when the new one is saved). */
+  newestTake?: boolean;
   /**
    * Put a video that is already in the course's assets on the slide the author is on. Returns what to tell them. `facts` is what the edit knows that
    * the editor needs to write the video's transcript: what is on the screen that the voice does not say, and how long the video is.
@@ -97,6 +99,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const folder = recordingFolder(b, opts.dir, opts.name);
     let session: EditSession | undefined;
     let editor: ReturnType<typeof mountEditor> | undefined;
+    /** The saved edit that a new edit of the newest take replaces, until it has been copied aside. */
+    let toKeep: { text: string; name: string } | undefined;
 
     const showState = () => {
       if (session === undefined) return;
@@ -106,6 +110,13 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     async function saveEdit(): Promise<void> {
       if (session === undefined || editor === undefined) return;
       try {
+        if (toKeep !== undefined) {
+          if (!(await folder.writeText(toKeep.name, toKeep.text))) {
+            editor.announce(`The edit saved before could not be copied to ${toKeep.name}, so nothing was saved and nothing was changed on the disk.`);
+            return;
+          }
+          toKeep = undefined;
+        }
         const ok = await folder.writeText("edit.json", serialize(session.model));
         if (ok) {
           session.markSaved();
@@ -212,7 +223,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     // Leaving with changes that are not saved is asked about by the Close button; the window closing is asked about by the editor.
 
     void (async () => {
-      const result = await readProject(folder);
+      const result = await readProject(folder, opts.newestTake === true ? { newestTakeOnly: true } : {});
       if (!result.ok) {
         state.textContent = result.message;
         save.hidden = true;
@@ -222,6 +233,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       }
       const { project } = result;
       heading.textContent = `Edit the recording: ${project.title}`;
+      if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
       session = new EditSession(project.model);
       editor = mountEditor(host, session, { library: libraryOf(project.folder) });
       session.subscribe((kind) => {

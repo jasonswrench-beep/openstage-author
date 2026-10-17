@@ -41,7 +41,7 @@ export interface RecorderDialogOptions {
   /** Leave the recordings folder out of the published package. Returns what to tell the author, or null if it was already left out. */
   excludeCaptures: () => string | null;
   /** Open the editing screens on a recording of this course, by its folder name. Resolves when the author closes them. */
-  editRecording: (name: string) => Promise<void>;
+  editRecording: (name: string, newestTake?: boolean) => Promise<void>;
   /** Open the steps made from a recording of this course, by its folder name. Resolves when the author closes them. */
   makeSteps: (name: string) => Promise<void>;
 }
@@ -197,9 +197,9 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
       if (names.includes(keep)) recordingsSel.value = keep;
       editBox.hidden = names.length === 0;
     }
-    async function edit(name: string, back: HTMLElement): Promise<void> {
+    async function edit(name: string, back: HTMLElement, newestTake = false): Promise<void> {
       if (c.busy) { say(["A recording is going. Wait until it is finished, then edit."]); return; }
-      await opts.editRecording(name);
+      await opts.editRecording(name, newestTake);
       back.focus();
     }
     async function steps(name: string, back: HTMLElement): Promise<void> {
@@ -272,7 +272,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     markerLabel.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addMarker.click(); } });
     done.addEventListener("click", () => { c.dismiss(); say([]); start.focus(); });
     editBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void edit(recordingsSel.value, editBtn); });
-    editNow.addEventListener("click", () => void edit(recordingNameOf(c.session.folder), editNow));
+    editNow.addEventListener("click", () => void edit(recordingNameOf(c.session.folder), editNow, true));
     stepsBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void steps(recordingsSel.value, stepsBtn); });
     stepsNow.addEventListener("click", () => void steps(recordingNameOf(c.session.folder), stepsNow));
     show.addEventListener("click", () => { void b.revealInFolder(c.session.folder).catch((err: unknown) => say([`Could not show the folder. ${errorText(err)}`])); });

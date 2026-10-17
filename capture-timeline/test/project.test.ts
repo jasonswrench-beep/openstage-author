@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { serialize } from "../../capture-edit/src/index.ts";
-import { fromDirectoryHandle, libraryOf, mediaPath, memoryFolder, readProject, takeFolder } from "../src/project.ts";
+import { backupName, fromDirectoryHandle, libraryOf, mediaPath, memoryFolder, readProject, takeFolder } from "../src/project.ts";
 import { sampleModel } from "../src/sample.ts";
 
 const manifest = JSON.stringify({ format: "openstage-capture-project", schemaVersion: "0.2.5", id: "cap-1", title: "Lesson 1", language: "en-US", tracks: {}, edit: null });
@@ -46,6 +46,27 @@ test("takes recorded after the saved edit are named, so an old edit is not mista
     "Opened the edit that was saved in this recording.",
     "This saved edit does not use take 7 (67 seconds) and take 8 (46 seconds), which were recorded after it was saved. What you see here is the older edit, not your newest recording.",
   ]);
+});
+
+test("asking for the newest take makes a new edit of it and keeps the saved edit's text to copy aside", async () => {
+  const saved = serialize(sampleModel());
+  const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "edit.json": saved, "takes/take-001/take.json": take(1), "takes/take-002/take.json": take(2, "complete", 8000), "takes/take-003/take.json": take(3, "complete", 5000) });
+  const result = await readProject(folder, { newestTakeOnly: true });
+  assert.ok(result.ok);
+  assert.equal(result.project.fromEditFile, false);
+  assert.equal(result.project.newestTake, 3);
+  assert.equal(result.project.replacedEdit, saved);
+  assert.deepEqual(result.project.model.tracks[0]?.clips.map((c) => c.name), ["Screen of take 3"]);
+  assert.equal(result.project.notes[0], "Started a new edit from your newest recording, take 3. The edit saved before is kept: when you save this one, the old one is first copied to edit-before-take-3.json.");
+  assert.equal(backupName(3), "edit-before-take-3.json");
+});
+
+test("asking for the newest take with no saved edit says nothing about keeping one", async () => {
+  const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "takes/take-001/take.json": take(1), "takes/take-002/take.json": take(2) });
+  const result = await readProject(folder, { newestTakeOnly: true });
+  assert.ok(result.ok);
+  assert.equal(result.project.replacedEdit, undefined);
+  assert.equal(result.project.notes[0], "Started a new edit from your newest recording, take 2.");
 });
 
 test("an edit that cannot be read is said so and a new one is made from the takes", async () => {

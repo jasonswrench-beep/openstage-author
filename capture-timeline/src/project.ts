@@ -51,6 +51,10 @@ export interface OpenedProject {
   readonly notes: readonly string[];
   /** The checks of the edit that came from the file, in words (not for a new edit). */
   readonly problems: readonly Problem[];
+  /** When a new edit was made of the newest take in place of a saved one: the text of the saved edit, so it can be kept before it is replaced. */
+  readonly replacedEdit?: string;
+  /** The number of the take a new edit was made of, when only the newest take was asked for. */
+  readonly newestTake?: number;
 }
 
 export type ProjectResult = { readonly ok: true; readonly project: OpenedProject } | { readonly ok: false; readonly message: string };
@@ -92,7 +96,7 @@ function readTake(text: string, folderName: string): TakeInfo | string {
 }
 
 /** Read a recording folder: its title, its takes, and the edit (the saved one, or a new one made from the takes). */
-export async function readProject(folder: ProjectFolder): Promise<ProjectResult> {
+export async function readProject(folder: ProjectFolder, options: { readonly newestTakeOnly?: boolean } = {}): Promise<ProjectResult> {
   const manifestText = await folder.readText("capture.json");
   if (manifestText === undefined) {
     return { ok: false, message: `${folder.name} is not a recording made by OpenStage Capture: it has no capture.json. Choose the folder that ends in .capture.` };
@@ -125,6 +129,17 @@ export async function readProject(folder: ProjectFolder): Promise<ProjectResult>
   }
 
   const saved = await folder.readText("edit.json");
+  if (options.newestTakeOnly === true) {
+    const newest = takes.filter((t) => t.state !== "recording" && t.state !== "setAside").sort((a, b) => b.take - a.take)[0];
+    if (newest !== undefined) {
+      const fresh = editFromTakes([newest]);
+      const kept = saved === undefined ? "" : ` The edit saved before is kept: when you save this one, the old one is first copied to ${backupName(newest.take)}.`;
+      return {
+        ok: true,
+        project: { folder, title, model: fresh.model, fromEditFile: false, notes: [`Started a new edit from your newest recording, take ${newest.take}.${kept}`, ...fresh.notes], problems: [], newestTake: newest.take, ...(saved === undefined ? {} : { replacedEdit: saved }) },
+      };
+    }
+  }
   if (saved !== undefined) {
     const parsed = parse(saved);
     if (parsed.ok) {
@@ -143,6 +158,11 @@ export async function readProject(folder: ProjectFolder): Promise<ProjectResult>
   }
   const made = editFromTakes(takes);
   return { ok: true, project: { folder, title, model: made.model, fromEditFile: false, notes: [...notes, ...made.notes], problems: [] } };
+}
+
+/** The file the old edit is copied to before a new edit of the newest take replaces it. */
+export function backupName(take: number): string {
+  return `edit-before-take-${take}.json`;
 }
 
 /** The edit as the text to write into `edit.json`. */
