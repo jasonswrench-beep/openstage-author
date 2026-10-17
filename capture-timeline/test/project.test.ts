@@ -46,6 +46,7 @@ test("takes recorded after the saved edit are named, so an old edit is not mista
     "Opened the edit that was saved in this recording.",
     "This saved edit does not use take 7 (67 seconds) and take 8 (46 seconds), which were recorded after it was saved. What you see here is the older edit, not your newest recording.",
   ]);
+  assert.deepEqual(result.project.unusedTakes, [8, 7]);
 });
 
 test("asking for the newest take makes a new edit of it and keeps the saved edit's text to copy aside", async () => {

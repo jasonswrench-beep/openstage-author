@@ -53,6 +53,8 @@ export interface OpenedProject {
   readonly problems: readonly Problem[];
   /** When a new edit was made of the newest take in place of a saved one: the text of the saved edit, so it can be kept before it is replaced. */
   readonly replacedEdit?: string;
+  /** The numbers of finished takes that the saved edit does not use, newest first (only for an edit opened from `edit.json`). */
+  readonly unusedTakes?: readonly number[];
   /** The number of the take a new edit was made of, when only the newest take was asked for. */
   readonly newestTake?: number;
 }
@@ -146,13 +148,14 @@ export async function readProject(folder: ProjectFolder, options: { readonly new
       notes.push("Opened the edit that was saved in this recording.");
       const used = new Set<number>();
       for (const source of parsed.model.sources) if (source.ref.kind === "take") used.add(source.ref.take);
-      const left = takes.filter((t) => !used.has(t.take));
+      const left = takes.filter((t) => !used.has(t.take) && t.state !== "recording" && t.state !== "setAside");
       if (left.length > 0) {
         const names = left.map((t) => `take ${t.take}${t.durationMs === null ? "" : ` (${Math.round(t.durationMs / 1000)} seconds)`}`);
         const list = names.length === 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1] ?? ""}`;
         notes.push(`This saved edit does not use ${list}, which ${left.length === 1 ? "was" : "were"} recorded after it was saved. What you see here is the older edit, not your newest recording.`);
       }
-      return { ok: true, project: { folder, title, model: parsed.model, fromEditFile: true, notes, problems: parsed.problems } };
+      const unusedTakes = left.map((t) => t.take).sort((a, b) => b - a);
+      return { ok: true, project: { folder, title, model: parsed.model, fromEditFile: true, notes, problems: parsed.problems, ...(unusedTakes.length > 0 ? { unusedTakes } : {}) } };
     }
     notes.push(`The saved edit could not be read (${parsed.message}), so a new edit was made from the takes.`);
   }

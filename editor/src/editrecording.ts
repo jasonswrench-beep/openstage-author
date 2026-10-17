@@ -222,8 +222,30 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     });
     // Leaving with changes that are not saved is asked about by the Close button; the window closing is asked about by the editor.
 
+    /** Ask which edit to open, when takes were recorded after the saved edit. Resolves to true for a new edit of the newest take. */
+    function askWhich(newest: number, title: string): Promise<boolean> {
+      return new Promise((done) => {
+        const keep = h("button", { type: "button", text: "Open my saved edit" });
+        const fresh = h("button", { type: "button", text: `Start a new edit of the newest recording (take ${newest})` });
+        const box = h("section", { "aria-labelledby": "re-ask-title" },
+          h("h3", { id: "re-ask-title", tabindex: "-1", text: "Which edit do you want?" }),
+          h("p", { text: `${title} has a recording made after the edit you saved. Your saved edit is the older one. If you start a new edit of the newest recording, your saved edit is kept: it is copied to ${backupName(newest)} when you first save the new one.` }),
+          h("div", { class: "dialog-actions" }, keep, fresh));
+        host.replaceChildren(box);
+        state.textContent = "Choose which edit to open, or press Close to leave.";
+        keep.focus();
+        const finish = (value: boolean) => { box.remove(); done(value); };
+        keep.addEventListener("click", () => finish(false));
+        fresh.addEventListener("click", () => finish(true));
+      });
+    }
+
     void (async () => {
-      const result = await readProject(folder, opts.newestTake === true ? { newestTakeOnly: true } : {});
+      let result = await readProject(folder, opts.newestTake === true ? { newestTakeOnly: true } : {});
+      const unused = result.ok ? result.project.unusedTakes : undefined;
+      if (result.ok && unused !== undefined && unused[0] !== undefined) {
+        if (await askWhich(unused[0], result.project.title)) result = await readProject(folder, { newestTakeOnly: true });
+      }
       if (!result.ok) {
         state.textContent = result.message;
         save.hidden = true;
