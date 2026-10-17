@@ -174,12 +174,24 @@
   background: rgba(255, 212, 0, 0.18);
 }
 
+/* The gallery is a column beside the picture, so it costs width (plentiful) and not height (scarce). */
 .os-co {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.4rem;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
   padding: 0.15rem 0;
+}
+
+.os-co .os-tl-sep {
+  height: 1px;
+  width: auto;
+  background: var(--os-cl-line);
+  margin: 0.15rem 0;
+}
+
+.os-co .os-co-button {
+  text-align: left;
 }
 
 .os-co-title {

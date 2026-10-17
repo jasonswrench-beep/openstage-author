@@ -1247,7 +1247,7 @@ await check("the tool bar and the zoom slider fit in the timeline's box and the 
 
 const BIG = { search: "?list=closed", viewport: { width: 1280, height: 900 } };
 
-await check("the callout bar is one tab stop, every button has a name, and Left, Right, Home and End move along it", async (page, t) => {
+await check("the callout bar is one tab stop, every button has a name, and Up, Down, Home and End move along it", async (page, t) => {
   const bar = page.getByRole("toolbar", { name: "Add to the picture at the playhead" });
   const names = await bar.getByRole("button").allTextContents();
   assertEqual(names.slice(0, 3), ["Text", "Title", "Lower third"], "the first buttons");
@@ -1259,8 +1259,8 @@ await check("the callout bar is one tab stop, every button has a name, and Left,
   assertEqual(await page.evaluate(() => document.activeElement.textContent), "Draw a zoom", "End");
   await t.key("Home");
   assertEqual(await page.evaluate(() => document.activeElement.textContent), "Text", "Home");
-  await t.key("ArrowRight");
-  assertEqual(await page.evaluate(() => document.activeElement.textContent), "Title", "Right");
+  await t.key("ArrowDown");
+  assertEqual(await page.evaluate(() => document.activeElement.textContent), "Title", "Down");
 }, BIG);
 
 await check("a Text callout is added at the playhead, said, chosen, its form opens on the words, and undo takes it away", async (page, t) => {

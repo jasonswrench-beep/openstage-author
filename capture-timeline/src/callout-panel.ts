@@ -4,7 +4,7 @@
  * a lower third, a highlight box, a circle, an arrow, a blur, a cover), or a zoom. The new row is chosen and its form opens in
  * the Properties panel with focus in the first box that needs filling in.
  *
- * The bar is one stop in the tab order; Left and Right, Home and End move along it. "Draw a zoom" is for the mouse (it says
+ * The bar is one stop in the tab order; Up and Down (or Left and Right), Home and End move along it. "Draw a zoom" is for the mouse (it says
  * so, and what to use instead); "Zoom on a part" does the same without one.
  */
 
@@ -49,8 +49,8 @@ export function mountCalloutBar(container: HTMLElement, session: EditSession, op
     if (ok) options.onAdded();
   };
 
-  const bar = h("div", { class: "os-co", role: "toolbar", "aria-label": "Add to the picture at the playhead", "aria-orientation": "horizontal", id });
-  bar.append(h("span", { class: "os-co-title", "aria-hidden": "true" }, "Add at the playhead:"));
+  const bar = h("div", { class: "os-co", role: "toolbar", "aria-label": "Add to the picture at the playhead", "aria-orientation": "vertical", id });
+  bar.append(h("span", { class: "os-co-title", "aria-hidden": "true" }, "Add at the playhead"));
   for (const info of CALLOUTS) {
     bar.append(
       add(info.label, `${info.hint}. Added at the playhead.`, () => {
@@ -85,7 +85,7 @@ export function mountCalloutBar(container: HTMLElement, session: EditSession, op
   });
   bar.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-    const to = e.key === "ArrowRight" ? stop + 1 : e.key === "ArrowLeft" ? stop - 1 : e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : undefined;
+    const to = e.key === "ArrowDown" || e.key === "ArrowRight" ? stop + 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? stop - 1 : e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : undefined;
     if (to === undefined) return;
     e.preventDefault();
     const next = Math.min(buttons.length - 1, Math.max(0, to));

@@ -103,7 +103,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
   const describeButton = h("button", { type: "button", class: "os-cl-button", "aria-keyshortcuts": "D" }, "Describe what is showing", h("kbd", { class: "os-cl-key", "aria-hidden": "true" }, "D"));
   const reduce = h("input", { id: `${id}-reduce`, type: "checkbox" });
   reduce.checked = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const reduceLabel = h("label", { class: "os-cl-check", for: `${id}-reduce` }, reduce, " Cut zooms instead of moving (reduced motion)");
+  const reduceLabel = h("label", { class: "os-cl-check", for: `${id}-reduce` }, reduce, " Cut zooms (reduced motion)");
   const readout = h("p", { class: "os-cl-readout" });
   // The sound has no picture. Its players are kept here, out of sight and out of the way of a screen reader.
   const soundHost = h("div", { hidden: true, "aria-hidden": "true" });

@@ -30,7 +30,7 @@ Add `?rows=cells` to the page address to have the clip list's rows read by their
 
 ## The layout
 
-The picture is large at the top, with its play controls above it, and the timeline is under it, in the manner of a video editor. The clip list and its form are in a panel at the side that opens from the **Properties and clip list** button (closed when the editor starts, so the picture and the timeline have the room; the demo page starts with it open, and `?list=closed` shows the real editor's start). Nothing scrolls the whole page: the picture takes what is left, and the timeline and the panel scroll inside their own boxes. F6, Enter on a clip and the button all open the panel first, so focus is never sent to something that is hidden, and Tab and the button always close it again. The hints that the timeline's controls point to are kept in the page for a screen reader and are written out under Keyboard shortcuts. Below 52 rem wide the panel goes under the timeline.
+The picture is large at the top, with its play controls above it, and the timeline is under it, in the manner of a video editor. The clip list and its form are in a panel at the side that opens from the **Properties and clip list** button (closed when the editor starts, so the picture and the timeline have the room; the demo page starts with it open, and `?list=closed` shows the real editor's start). Nothing scrolls the whole page: the picture takes what is left, and the timeline and the panel scroll inside their own boxes. F6, Enter on a clip and the button all open the panel first, so focus is never sent to something that is hidden, and Tab and the button always close it again. The hints that the timeline's controls point to are kept in the page for a screen reader and are written out under Keyboard shortcuts. The callout gallery is a column of buttons at the left of the picture, so it costs width and not height. The line of announcements is a fixed three lines (it scrolls, and shows the whole sentence on hover, if one is longer), so a long sentence never makes the picture and the timeline jump. Below 52 rem wide the panel goes under the timeline and the gallery goes under the picture, in a row that wraps.
 
 ## What it does
 
@@ -147,6 +147,7 @@ I made these so the work could go on. Each is one small change to reverse; tell 
 40. **A drag changes the edit once, when you let go.** The frame follows the pointer meanwhile. The alternative, changing the edit on every movement, would make one drag many undo steps.
 41. **The frame sits beside the picture, not in it.** The picture is one image to a screen reader with no parts of its own, so the frame (which must be reachable by keyboard) is in a layer laid over it.
 42. **Drawing a zoom is for the mouse, and says so,** with Zoom on a part and the form as the keyboard way. Arrows are not dragged on the picture; their ends are typed as percentages.
+43. **The gallery is a column beside the picture, not a row under it,** and the announcement line has a fixed height. Both are to give the picture the height; a row under it and a line that grew with each sentence made the picture small and made it jump (found when a drawing check clicked in the wrong place because the picture moved). The cost is a three-line limit on what is shown, though all of it is spoken.
 
 ## For developers
 
