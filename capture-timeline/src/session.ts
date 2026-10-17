@@ -440,6 +440,37 @@ export class EditSession {
     return { ok: true, message: this.#choiceSentence(), changed };
   }
 
+  /**
+   * Choose a block of the timeline: every clip on the tracks from the one where the choice started to this one (in the order the
+   * tracks are shown) that is showing at some time between the two clips. Shift and click on a clip in another track chooses what
+   * is showing across all the tracks in between at that time, which is what cutting one moment out of a recording needs.
+   */
+  selectBlock(id: string): Moved {
+    this.#settle();
+    const rows = this.rows;
+    const target = rows.find((r) => r.clipId === id);
+    if (target === undefined) return { ok: false, message: `There is no row with the id ${id}.`, changed: false };
+    const start = rows.find((r) => r.clipId === (this.#anchorId ?? this.#primaryId)) ?? target;
+    const order = this.model.tracks.map((t) => t.id);
+    const a = order.indexOf(start.trackId);
+    const b = order.indexOf(target.trackId);
+    const [lowTrack, highTrack] = a <= b ? [a, b] : [b, a];
+    const from = Math.min(start.startMs, target.startMs);
+    const to = Math.max(start.endMs, target.endMs);
+    const next = new Set<string>([start.clipId, target.clipId]);
+    for (const r of rows) {
+      const t = order.indexOf(r.trackId);
+      if (t < lowTrack || t > highTrack) continue;
+      const showing = r.lengthMs === 0 ? r.startMs >= from && r.startMs <= to : r.startMs < to && r.endMs > from;
+      if (showing) next.add(r.clipId);
+    }
+    const changed = this.#primaryId !== id || next.size !== this.#chosen.size || [...next].some((x) => !this.#chosen.has(x));
+    this.#chosen = next;
+    this.#primaryId = id;
+    if (changed) this.#emit("selection");
+    return { ok: true, message: this.#choiceSentence(), changed };
+  }
+
   /** Add a row to the choice, or take it out (Ctrl+Space). One row always stays chosen. */
   toggleSelected(id: string | undefined = this.#primaryId): Moved {
     this.#settle();

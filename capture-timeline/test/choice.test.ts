@@ -2,7 +2,8 @@
 // Choosing several rows, and what the commands do with them.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findClip } from "../../capture-edit/src/index.ts";
+import { addClip, addTrack, createModel, findClip } from "../../capture-edit/src/index.ts";
+import { SAMPLE_SOURCES } from "../src/sample.ts";
 import { EditSession, type ChangeKind } from "../src/session.ts";
 import { names, open, row, select } from "./helpers.ts";
 
@@ -234,4 +235,47 @@ test("an empty edit has nothing to choose", () => {
   const s = new EditSession(open().model);
   s.deleteSelected(false);
   assert.ok(s.rows.length > 0);
+});
+
+// ---- choosing a block across tracks ----
+
+function threeTracksSplitAtFour(): EditSession {
+  let model = createModel(SAMPLE_SOURCES);
+  const specs = [["screen", "Screen", "screen.mp4"], ["audio", "Voice", "mic.wav"], ["webcam", "Presenter", "webcam.mp4"]] as const;
+  for (const [kind, name, file] of specs) {
+    const track = addTrack(model, kind);
+    model = track.model;
+    const id = track.focus?.[0] ?? "";
+    const media = { kind: "take" as const, take: 1, media: file };
+    const first = addClip(model, id, { source: media, startMs: 0, lengthMs: 4000, name: `${name} A` });
+    assert.ok(first.ok);
+    model = first.model;
+    const second = addClip(model, id, { source: media, startMs: 4000, lengthMs: 6000, name: `${name} B` });
+    assert.ok(second.ok);
+    model = second.model;
+  }
+  return new EditSession(model);
+}
+
+test("Shift and click on a clip in another track chooses what is showing across the tracks between, not a stretch of the list", () => {
+  const s = threeTracksSplitAtFour();
+  s.select(row(s, "Screen A").clipId);
+  const moved = s.selectBlock(row(s, "Presenter A").clipId);
+  assert.ok(moved.ok);
+  assert.deepEqual(s.selectedRows.map((r) => r.name).sort(), ["Presenter A", "Screen A", "Voice A"]);
+  assert.equal(s.selectedId, row(s, "Presenter A").clipId);
+});
+
+test("choosing a block takes in the later clips when the two ends are at different times, and keeps to the tracks between", () => {
+  const s = threeTracksSplitAtFour();
+  s.select(row(s, "Screen A").clipId);
+  s.selectBlock(row(s, "Voice B").clipId);
+  assert.deepEqual(s.selectedRows.map((r) => r.name).sort(), ["Screen A", "Screen B", "Voice A", "Voice B"]);
+});
+
+test("a block on one track is the same as a range", () => {
+  const s = threeTracksSplitAtFour();
+  s.select(row(s, "Voice A").clipId);
+  s.selectBlock(row(s, "Voice B").clipId);
+  assert.deepEqual(s.selectedRows.map((r) => r.name).sort(), ["Voice A", "Voice B"]);
 });

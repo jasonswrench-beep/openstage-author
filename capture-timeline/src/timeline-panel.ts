@@ -136,7 +136,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
 
   const helpRows = [
     ["Left and Right arrows", "Choose the clip before or after, in the same track. With Shift, choose a range of clips."],
-    ["Up and Down arrows", "Choose the clip showing at the same time in the track above or below."],
+    ["Up and Down arrows", "Choose the clip showing at the same time in the track above or below. With Shift, add that track to the choice, so one moment across several tracks can be chosen and cut together."],
     ["Home and End", "Choose the first or last clip in the track."],
     ["Ctrl with the arrow keys", "Move without changing which clips are chosen. Then Ctrl+Space adds the clip you are on to the choice, or takes it out, so clips that are not next to each other can be chosen."],
     ["Ctrl+Space", "Add the clip you are on to the choice, or take it out."],
@@ -453,7 +453,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       say(EDGE[direction]);
       return;
     }
-    const moved = extend && (direction === "left" || direction === "right") ? session.selectRange(target.clipId) : session.select(target.clipId);
+    const moved = !extend ? session.select(target.clipId) : direction === "left" || direction === "right" ? session.selectRange(target.clipId) : session.selectBlock(target.clipId);
     focusPrimary();
     if (extend && moved.changed) say(moved.message);
   }
@@ -715,7 +715,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       return;
     }
     if (e.shiftKey) {
-      say(session.selectRange(rowId).message);
+      say(session.selectBlock(rowId).message);
       focusPrimary();
       return;
     }
