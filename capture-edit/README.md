@@ -21,6 +21,7 @@ must give the same findings.
 | `src/ops.ts` | The editing actions on clips |
 | `src/items.ts` | The actions on overlays and zooms: text, shapes, arrows, blur, redaction, zoom |
 | `src/paste.ts` | Copy and paste of clips, overlays and zooms: a snapshot of chosen rows, pasted at a time, all or nothing, on the same kind of track |
+| `src/media.ts` | Putting an imported picture, video or sound in the edit (source, track, clip), and saying what text it still needs |
 | `src/transitions.ts` | Transitions (fade, cross-fade, two wipes, slide) on the way into or out of a clip: set, change, take away, and said in words (edit format 0.4) |
 | `src/callouts.ts` | The callout gallery (text, title, lower third, highlight box, circle, arrow, blur, cover) put in at a time on the first track that takes it, and a zoom from a rectangle made the picture's shape |
 | `src/contrast.ts`, `src/regions.ts` | Colours and contrast; rectangles on the picture and saying where they are in words |

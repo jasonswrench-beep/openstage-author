@@ -16,6 +16,7 @@ import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
 import { applyExportLine, exportPlan, initialExport, summariseExport, type ExportPlan, type ExportState } from "./captureexport.ts";
 import { extrasFromEdit, type Extra } from "./captions.ts";
+import { chooseMedia, measureInBrowser } from "./mediapick.ts";
 import { recordingFolder } from "./recordingfolder.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -265,7 +266,10 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       heading.textContent = `Edit the recording: ${project.title}`;
       if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
       session = new EditSession(project.model);
-      editor = mountEditor(host, session, { library: libraryOf(project.folder) });
+      editor = mountEditor(host, session, {
+        library: libraryOf(project.folder, (asset) => b.assetUrl(opts.dir, `assets/${asset}`)),
+        addMedia: (kind) => chooseMedia(b, opts.dir, kind, measureInBrowser),
+      });
       session.subscribe((kind) => {
         if (kind === "model" || kind === "saved") showState();
       });

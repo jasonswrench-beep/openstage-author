@@ -131,6 +131,25 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     fadeOut: h("input", { id: `${id}-fadeOut`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
   };
   const trackSelect = h("select", { id: `${id}-track`, class: "os-cl-input" });
+  // Words for people who cannot see the picture or hear the sound: required for an imported image, video or sound.
+  const altInput = h("input", { id: `${id}-alt`, type: "text", class: "os-cl-input", autocomplete: "off", "aria-describedby": `${id}-alt-hint` });
+  const decorative = h("input", { id: `${id}-decorative`, type: "checkbox" });
+  const decorativeLabel = h("label", { class: "os-cl-check", for: `${id}-decorative` }, decorative, " Decorative: it adds nothing that needs describing");
+  const hasText = h("input", { id: `${id}-hastext`, type: "checkbox", "aria-describedby": `${id}-hastext-hint` });
+  const hasTextLabel = h("label", { class: "os-cl-check", for: `${id}-hastext` }, hasText, " It has captions, a script or a transcript");
+  const altBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-alt", role: "group", "aria-label": "Words for people who cannot see this picture" },
+    h("div", { class: "os-cl-field" }, h("label", { for: `${id}-alt` }, "Alt text: what the picture shows"), altInput),
+    decorativeLabel,
+    h("p", { class: "os-cl-hint", id: `${id}-alt-hint` }, "Say what the picture shows or means in a few words, as you would to someone on the phone. Or mark it decorative if it is only for looks."),
+  );
+  const textBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-alt", role: "group", "aria-label": "Words for people who cannot see or hear this" },
+    hasTextLabel,
+    h("p", { class: "os-cl-hint", id: `${id}-hastext-hint` }, "An imported video or sound needs captions, a script or a transcript. Tick this when it has one. The video's own sound is not used in the finished video."),
+  );
   const transitionFields = {
     inKind: h("select", { id: `${id}-tin`, class: "os-cl-input" }),
     inLength: h("input", { id: `${id}-tinLength`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
@@ -176,6 +195,8 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     timeFields,
     h("div", { class: "os-cl-fields" }, trackField),
     soundFields,
+    altBox,
+    textBox,
     transitionBox,
     mutedLabel,
     formError,
@@ -347,6 +368,8 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       trackField.hidden = true;
       soundFields.hidden = true;
       transitionBox.hidden = true;
+      altBox.hidden = true;
+      textBox.hidden = true;
       mutedLabel.hidden = true;
       return;
     }
@@ -360,6 +383,13 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     setField(fields.end, formatTimecode(details.endMs));
     soundFields.hidden = !details.isClip;
     mutedLabel.hidden = !details.isClip;
+    altBox.hidden = !details.isImage;
+    textBox.hidden = !details.isImportedMedia;
+    if (details.isImage) {
+      setField(altInput, details.altText);
+      decorative.checked = details.decorative;
+    }
+    hasText.checked = details.hasTextAlternative;
     transitionBox.hidden = !details.hasPicture;
     if (details.hasPicture) {
       const ti = details.transitionIn;
@@ -382,7 +412,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     }
     const current = choices.find((c) => c.current);
     if (current !== undefined) trackSelect.value = current.id;
-    if (![...Object.values(fields), transitionFields.inLength, transitionFields.outLength].some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
+    if (![...Object.values(fields), transitionFields.inLength, transitionFields.outLength, altInput].some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
     const muteButton = buttons.get("mute");
     if (muteButton?.firstChild) muteButton.firstChild.textContent = details.isClip ? (details.muted ? "Unmute clip" : "Mute clip") : "Mute or unmute clip";
   }
@@ -628,6 +658,9 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       }
     });
   }
+  commitOnLeave(altInput, (t) => session.setImageAlt(t), () => session.details?.altText ?? "");
+  decorative.addEventListener("change", () => run(session.setImageDecorative(decorative.checked)));
+  hasText.addEventListener("change", () => run(session.setMediaHasText(hasText.checked)));
   commitOnLeave(timeInput, (t) => session.setPlayheadText(t), () => formatTimecode(session.playheadMs));
   // Leaving the box brings it up to date with the playhead, unless it holds a time that was refused (kept so it can be fixed).
   timeInput.addEventListener("blur", () => {
@@ -650,6 +683,15 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   function focusDetails(): void {
     if (form.hidden || timeFields.hidden) {
       focusSelected();
+      return;
+    }
+    const d = session.details;
+    if (d !== undefined && d.isImage && !d.decorative && d.altText.trim() === "") {
+      altInput.focus(); // a new picture needs its alt text first
+      return;
+    }
+    if (d !== undefined && d.isImportedMedia && !d.hasTextAlternative) {
+      hasText.focus();
       return;
     }
     fields.name.focus();

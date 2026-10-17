@@ -29,6 +29,10 @@ import {
   MAX_VOLUME_DB,
   MIN_VOLUME_DB,
   addCallout,
+  addImportedFile,
+  setHasTextAlternative,
+  setImageText,
+  type ImportedFile,
   addTrack,
   addZoomRegion,
   copyRows,
@@ -142,6 +146,13 @@ export interface Details {
   readonly fadeOutMs: number;
   /** A clip with a picture can have transitions; a sound cannot. */
   readonly hasPicture: boolean;
+  /** An image: it needs alt text, or to be marked decorative. */
+  readonly isImage: boolean;
+  readonly altText: string;
+  readonly decorative: boolean;
+  /** An imported video or sound: it needs captions, a script or a transcript. */
+  readonly isImportedMedia: boolean;
+  readonly hasTextAlternative: boolean;
   readonly transitionIn?: Transition;
   readonly transitionOut?: Transition;
 }
@@ -294,6 +305,7 @@ export class EditSession {
     const row = this.selectedRow;
     if (row === undefined) return undefined;
     const found = findClip(this.#history.model, row.clipId);
+    const sourceKind = found === undefined ? undefined : findSource(this.#history.model, found.clip.source)?.kind;
     return {
       id: row.clipId,
       name: row.name,
@@ -308,6 +320,11 @@ export class EditSession {
       volumeDb: found?.clip.volumeDb ?? 0,
       fadeInMs: found?.clip.fadeInMs ?? 0,
       fadeOutMs: found?.clip.fadeOutMs ?? 0,
+      isImage: sourceKind === "image",
+      altText: found?.clip.altText ?? "",
+      decorative: found?.clip.decorative === true,
+      isImportedMedia: found !== undefined && found.clip.source.kind === "asset" && (sourceKind === "video" || sourceKind === "audio"),
+      hasTextAlternative: found === undefined ? false : findSource(this.#history.model, found.clip.source)?.hasTextAlternative === true,
       hasPicture: found !== undefined && !["microphone", "system-audio", "audio"].includes(findSource(this.#history.model, found.clip.source)?.kind ?? "audio"),
       ...(found?.clip.transitionIn === undefined ? {} : { transitionIn: found.clip.transitionIn }),
       ...(found?.clip.transitionOut === undefined ? {} : { transitionOut: found.clip.transitionOut }),
@@ -876,7 +893,7 @@ export class EditSession {
     const result = this.#history.run(make);
     if (!result.ok) return no(result.message);
     if (this.#history.model === before) return ok(result.message);
-    const first = result.focus?.find((id) => findItem(this.#history.model, id) !== undefined);
+    const first = result.focus?.find((id) => findItem(this.#history.model, id) !== undefined || findClip(this.#history.model, id) !== undefined);
     if (first !== undefined) {
       this.#chosen = new Set([first]);
       this.#primaryId = first;
@@ -889,6 +906,45 @@ export class EditSession {
   addCalloutHere(kind: CalloutKind): Outcome {
     const at = this.#playheadMs;
     return this.#addRow((m) => addCallout(m, kind, at));
+  }
+
+  /** Put a picture, video or sound from the course's files in at the playhead, and choose it. */
+  addMediaFile(file: ImportedFile): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addImportedFile(m, file, at));
+  }
+
+  /** The chosen image clip, or a sentence saying why not. */
+  #oneImage(): { clipId: string } | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only an image has alt text.");
+    if (findSource(this.#history.model, found.clip.source)?.kind !== "image") return no(`${quote(row.name)} is not an image, so it has no alt text.`);
+    return { clipId: row.clipId };
+  }
+
+  /** What the chosen image shows, in words. */
+  setImageAlt(text: string): Outcome {
+    const c = this.#oneImage();
+    if ("ok" in c) return c;
+    return this.#run((m) => setImageText(m, c.clipId, { altText: text }));
+  }
+
+  /** Mark the chosen image as decorative, or not. */
+  setImageDecorative(decorative: boolean): Outcome {
+    const c = this.#oneImage();
+    if ("ok" in c) return c;
+    return this.#run((m) => setImageText(m, c.clipId, { decorative }));
+  }
+
+  /** Say whether the imported video or sound the chosen clip uses has captions, a script or a transcript. */
+  setMediaHasText(has: boolean): Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only an imported video or sound has captions or a transcript.");
+    return this.#run((m) => setHasTextAlternative(m, found.clip.source, has));
   }
 
   /** Put a zoom in at the playhead, showing a rectangle of the picture, and choose it. */

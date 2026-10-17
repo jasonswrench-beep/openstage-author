@@ -328,11 +328,21 @@ export interface MediaLibrary {
 /** A library with nothing in it: every picture and sound is shown as a placeholder. */
 export const EMPTY_LIBRARY: MediaLibrary = { url: async () => undefined };
 
-/** The media of an open recording. */
-export function libraryOf(folder: ProjectFolder): MediaLibrary {
+/** The media of an open recording. `assetUrl` gives an address for a file from the course's files (`images/logo.png`), if the program can. */
+export function libraryOf(folder: ProjectFolder, assetUrl?: (asset: string) => Promise<string | undefined>): MediaLibrary {
   const cache = new Map<string, Promise<string | undefined>>();
   return {
     url(ref) {
+      if (ref.kind === "asset") {
+        if (assetUrl === undefined) return Promise.resolve(undefined);
+        const key = `asset:${ref.asset}`;
+        let made = cache.get(key);
+        if (made === undefined) {
+          made = assetUrl(ref.asset).catch(() => undefined);
+          cache.set(key, made);
+        }
+        return made;
+      }
       const path = mediaPath(ref);
       if (path === undefined) return Promise.resolve(undefined);
       let found = cache.get(path);

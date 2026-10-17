@@ -6,7 +6,7 @@
 
 import { Announcer } from "./announcer.ts";
 import { h } from "./dom.ts";
-import { mountCalloutBar, type CalloutBar } from "./callout-panel.ts";
+import { mountCalloutBar, type AddMedia, type CalloutBar } from "./callout-panel.ts";
 import { mountItemForm, type ItemFormPanel } from "./item-form.ts";
 import { mountClipList, type ClipListPanel } from "./panel.ts";
 import { EMPTY_LIBRARY, type MediaLibrary } from "./project.ts";
@@ -23,6 +23,8 @@ export interface EditorOptions {
   library?: MediaLibrary;
   /** Start with the clip list and its form open at the side. They are closed by default so the picture and the timeline have the room. */
   listOpen?: boolean;
+  /** How a picture, video or sound is chosen and brought into the course. Without it the buttons for files are left out. */
+  addMedia?: AddMedia;
 }
 
 export interface Editor {
@@ -79,7 +81,7 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   /** Something was added to the picture: show its form and put focus in the first box that needs filling in. */
   const showAdded = (): void => {
     openList();
-    itemForm.focus();
+    if (!itemForm.focus()) list.focusDetails();
   };
   const preview = mountPreview(previewHost, session, options.library ?? EMPTY_LIBRARY, { announcer, onAdded: showAdded });
   const callouts = mountCalloutBar(calloutHost, session, {
@@ -87,6 +89,7 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
     drawZoom: () => preview.toggleDrawZoom(),
     onDrawingChange: (fn) => preview.onDrawingChange(fn),
     onAdded: showAdded,
+    ...(options.addMedia === undefined ? {} : { addMedia: options.addMedia }),
   });
 
   const regions = [

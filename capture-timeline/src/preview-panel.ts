@@ -65,8 +65,10 @@ const DRIFT_S = 0.3;
 interface Slot {
   readonly key: string;
   readonly ref: SourceRef;
-  readonly kind: "video" | "audio";
+  readonly kind: "video" | "audio" | "image";
   el: HTMLVideoElement | HTMLAudioElement | undefined;
+  /** A still picture (an imported image) is shown with an image, which has no time to keep. */
+  img: HTMLImageElement | undefined;
   /** `loading` until the library has answered; `missing` if it has nothing for this recording. */
   state: "loading" | "ready" | "missing";
   gain: GainNode | undefined;
@@ -133,17 +135,22 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
   const slots = new Map<string, Slot>();
   let audio: AudioContext | undefined;
 
-  function slotFor(ref: SourceRef, kind: "video" | "audio"): Slot {
+  function slotFor(ref: SourceRef, kind: "video" | "audio" | "image"): Slot {
     const key = keyOf(ref);
     let slot = slots.get(key);
     if (slot !== undefined) return slot;
-    slot = { key, ref, kind, el: undefined, state: "loading", gain: undefined };
+    slot = { key, ref, kind, el: undefined, img: undefined, state: "loading", gain: undefined };
     slots.set(key, slot);
     const made = slot;
     void library.url(ref).then((url) => {
       if (slots.get(key) !== made) return; // the library was changed meanwhile
       if (url === undefined) {
         made.state = "missing";
+      } else if (kind === "image") {
+        const img = h("img", { class: "os-pv-media", alt: "", draggable: "false" });
+        img.src = url;
+        made.img = img;
+        made.state = "ready";
       } else {
         const el = kind === "video" ? h("video", { class: "os-pv-media", playsinline: true, preload: "auto" }) : h("audio", { preload: "auto" });
         if (el instanceof HTMLVideoElement) el.muted = true; // the exporter does not use a screen recording's own sound
@@ -180,6 +187,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       slot.el?.pause();
       slot.el?.removeAttribute("src");
       slot.el?.load();
+      slot.img?.removeAttribute("src");
     }
     slots.clear();
   }
@@ -217,8 +225,8 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       box.classList.remove("os-pv-corner");
       place(box, clip.placement ?? { x: 0, y: 0, width: FULL, height: FULL });
     }
-    const slot = slotFor(clip.source, "video");
-    const wanted = slot.el ?? placeholder(clip, slot);
+    const slot = slotFor(clip.source, clip.kind === "image" ? "image" : "video");
+    const wanted = slot.img ?? slot.el ?? placeholder(clip, slot);
     if (box.firstChild !== wanted) box.replaceChildren(wanted);
     applyTransition(box, clip);
     return box;
@@ -395,7 +403,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     // The recordings.
     const active = new Set<string>();
     for (const clip of moment.pictures) {
-      const slot = slotFor(clip.source, "video");
+      const slot = slotFor(clip.source, clip.kind === "image" ? "image" : "video");
       active.add(slot.key);
       keep(slot, clip.sourceMs, playing && clip.held !== true);
     }

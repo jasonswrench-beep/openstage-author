@@ -15,3 +15,4 @@ export * from "./playback.ts";
 export * from "./paste.ts";
 export * from "./callouts.ts";
 export * from "./transitions.ts";
+export * from "./media.ts";

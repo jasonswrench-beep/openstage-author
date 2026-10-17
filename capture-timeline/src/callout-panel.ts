@@ -8,10 +8,16 @@
  * so, and what to use instead); "Zoom on a part" does the same without one.
  */
 
-import { CALLOUTS } from "../../capture-edit/src/index.ts";
+import { CALLOUTS, type ImportedFile } from "../../capture-edit/src/index.ts";
 import type { Announcer } from "./announcer.ts";
 import { h, nextId } from "./dom.ts";
 import type { EditSession } from "./session.ts";
+
+/** What the program that can open files found when the author chose one: the file, now in the course's files, or why not. */
+export type MediaPick = { readonly ok: true; readonly file: ImportedFile } | { readonly ok: false; readonly message: string };
+
+/** Ask the author for a picture, a video or a sound, and bring it into the course. Cancelling is `ok: false` with a sentence saying so. */
+export type AddMedia = (kind: ImportedFile["kind"]) => Promise<MediaPick>;
 
 export interface CalloutBar {
   readonly element: HTMLElement;
@@ -27,6 +33,8 @@ export interface CalloutBarOptions {
   readonly onDrawingChange: (listener: (drawing: boolean) => void) => void;
   /** A callout or zoom was added: show its form. */
   readonly onAdded: () => void;
+  /** How a file is chosen and brought into the course. Without it (a plain browser), the buttons for files are not shown. */
+  readonly addMedia?: AddMedia;
 }
 
 /** The middle quarter of the picture, in the picture's own shape: where "Zoom on a part" starts. */
@@ -72,6 +80,34 @@ export function mountCalloutBar(container: HTMLElement, session: EditSession, op
   }, false);
   bar.append(draw);
   options.onDrawingChange((drawing) => draw.setAttribute("aria-pressed", drawing ? "true" : "false"));
+
+  const addMedia = options.addMedia;
+  if (addMedia !== undefined) {
+    bar.append(h("span", { class: "os-tl-sep", "aria-hidden": "true" }));
+    const files: ReadonlyArray<readonly [ImportedFile["kind"], string, string]> = [
+      ["image", "Picture from a file", "Choose a picture file. It is copied into the course and put in at the playhead."],
+      ["video", "Video from a file", "Choose a video file. It is copied into the course and put in at the playhead (at most 30 seconds of it are used)."],
+      ["audio", "Sound from a file", "Choose a sound file (WAV). It is copied into the course and put in at the playhead."],
+    ];
+    for (const [kind, label, hint] of files) {
+      bar.append(
+        add(label, hint, () => {
+          announcer.say("Choose a file in the window that opens.");
+          void addMedia(kind).then(
+            (picked) => {
+              if (!picked.ok) {
+                announcer.say(picked.message);
+                return;
+              }
+              const outcome = session.addMediaFile(picked.file);
+              afterAdd(outcome.message, outcome.ok);
+            },
+            (error: unknown) => announcer.say(`The file could not be added. ${error instanceof Error ? error.message : String(error)}`),
+          );
+        }),
+      );
+    }
+  }
 
   let stop = 0;
   const showStop = (index: number): void => {

@@ -169,6 +169,10 @@ the rest of the editor knows (the window in front, what the cursor is over, over
 
 **Set a transition** (`setTransition`) sets, changes or takes away a clip's `transitionIn` or `transitionOut`; half a second if no length is given. It refuses sound, a kind that cannot be used on the way out, a length out of range, and lengths that do not fit. When nothing ends where the clip starts it still does the job and adds a warning to the sentence. **Split** gives the starting transition to the first piece and the ending one to the second. **Delete a range** keeps a transition only on the outer edges that remain. **Join** keeps the first clip's starting transition and the second's ending one. **Trim, move and paste** shrink a transition that no longer fits (never below 0.1 seconds) and drop it when its clip becomes a sound-only one.
 
+### Imported pictures, video and sound
+
+**Add an imported file** (`addImportedFile`) is given what the program that can open files found out about a file it has copied into the course (where it is inside the course's `assets` folder, what kind it is, a name, how long it is) and a time. It makes the file one of the edit's sources if it is not already, finds a track with room for it (a picture or video on an Imported media track, a sound on an Audio track; a track is added if none has room) and puts a clip there. A still image is shown for 5 seconds; a video uses at most its first 30 seconds, and the sentence says when it was shortened; a video's own sound is not used in the finished video (add the sound as a sound file). It then says what is still needed: alt text or "decorative" for an image, and captions, a script or a transcript for a video or sound. **Set text for media** (`setHasTextAlternative`) records that an imported video or sound has captions, a script or a transcript. The video maker can use PNG, JPEG and GIF pictures, MP4 video and WAV sound; the editor refuses other files before copying them. No version change: imported files were already part of the format (0.1).
+
 ## 5. Choices that could have gone the other way
 
 Made on the owner's delegation; each can be changed.

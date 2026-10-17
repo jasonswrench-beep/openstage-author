@@ -1449,6 +1449,40 @@ await check("a transition is added with T, changed in the form, drawn in the pre
   assertMatch(await t.said(), /sound only/, "T explains");
 });
 
+await check("pictures, video and sound are added from files: the buttons are in the callout bar, alt text comes first, and the preview shows the picture", async (page, t) => {
+  const playhead = page.getByLabel("Playhead time", { exact: true });
+  const bar = page.getByRole("toolbar", { name: "Add to the picture at the playhead" });
+  await playhead.fill("5");
+  await playhead.press("Enter");
+  await bar.getByRole("button", { name: "Picture from a file" }).click();
+  await page.waitForTimeout(200);
+  assertMatch(await t.said(), /Added the track "Imported media"\. Added the clip "Logo" to the Imported media track at 5 seconds, 5 seconds long\. Still needed: alt text/, "said what is still needed");
+  const alt = page.getByLabel("Alt text: what the picture shows", { exact: true });
+  assertEqual(await alt.evaluate((el) => el === document.activeElement), true, "focus is on the alt text box");
+  assertEqual(await page.locator(".os-pv-box img.os-pv-media").count(), 1, "the preview shows the picture");
+  await alt.fill("The course logo, a blue book");
+  await alt.press("Enter");
+  assertMatch(await t.said(), /now has alt text: The course logo/, "alt text said");
+  await page.getByLabel("Decorative: it adds nothing that needs describing").check();
+  assertMatch(await t.said(), /decorative/, "decorative said");
+  await bar.getByRole("button", { name: "Sound from a file" }).click();
+  await page.waitForTimeout(200);
+  assertMatch(await t.said(), /Added the clip "Music" to the Audio.* track at 5 seconds/, "sound added");
+  const has = page.getByLabel("It has captions, a script or a transcript");
+  assertEqual(await has.evaluate((el) => el === document.activeElement), true, "focus is on the captions box");
+  await has.check();
+  assertMatch(await t.said(), /now marked as having captions/, "said");
+  await bar.getByRole("button", { name: "Video from a file" }).click();
+  await page.waitForTimeout(200);
+  assertMatch(await t.said(), /Only its first 30 seconds are used/, "video shortened and said so");
+  assertEqual(await alt.isVisible(), false, "no alt text box for a video");
+}, { search: "?files=fake" });
+
+await check("without the program that opens files, the buttons for files are not offered", async (page) => {
+  const bar = page.getByRole("toolbar", { name: "Add to the picture at the playhead" });
+  assertEqual(await bar.getByRole("button", { name: "Picture from a file" }).count(), 0, "no buttons");
+});
+
 await check("every control of the overlay form has a name, and the form is in the page only for a chosen overlay or zoom", async (page) => {
   assertEqual(await page.locator(".os-if").isVisible(), false, "hidden for a clip");
   await page.getByRole("button", { name: "Title" }).click();
