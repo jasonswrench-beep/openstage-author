@@ -24,7 +24,7 @@
  * each row (`aria-label`) or the cells read better, is what the first test with one has to settle.
  */
 
-import { COLUMNS, formatTimecode, type Row, type StepKey } from "../../capture-edit/src/index.ts";
+import { COLUMNS, IN_KINDS, OUT_KINDS, TRANSITION_NAMES, formatTimecode, type Row, type StepKey, type TransitionKind } from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { COMMANDS, commandFor, isTextField } from "./commands.ts";
 import { h, nextId, type Attrs } from "./dom.ts";
@@ -131,6 +131,18 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     fadeOut: h("input", { id: `${id}-fadeOut`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
   };
   const trackSelect = h("select", { id: `${id}-track`, class: "os-cl-input" });
+  const transitionFields = {
+    inKind: h("select", { id: `${id}-tin`, class: "os-cl-input" }),
+    inLength: h("input", { id: `${id}-tinLength`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
+    outKind: h("select", { id: `${id}-tout`, class: "os-cl-input" }),
+    outLength: h("input", { id: `${id}-toutLength`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
+  };
+  const kindOptions = (kinds: readonly TransitionKind[]) => [
+    h("option", { value: "none" }, "None, a straight cut"),
+    ...kinds.map((k) => h("option", { value: k }, TRANSITION_NAMES[k])),
+  ];
+  transitionFields.inKind.replaceChildren(...kindOptions(IN_KINDS));
+  transitionFields.outKind.replaceChildren(...kindOptions(OUT_KINDS));
   const muted = h("input", { id: `${id}-muted`, type: "checkbox" });
   const mutedLabel = h("label", { class: "os-cl-check", for: `${id}-muted` }, muted, " Muted");
   const formError = h("p", { class: "os-cl-error", id: `${id}-error` });
@@ -143,6 +155,16 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     field("fadeOut", "Fade out"),
     h("p", { class: "os-cl-hint", id: `${id}-volume-hint` }, "Volume: a whole number from -40 to 20. 0 is as recorded; -6 is about half as loud."),
   );
+  const tfield = (key: keyof typeof transitionFields, suffix: string, label: string) =>
+    h("div", { class: "os-cl-field" }, h("label", { for: `${id}-${suffix}` }, label), transitionFields[key]);
+  const transitionBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-transitions", role: "group", "aria-label": "Transitions (the picture only; the sound is not changed)" },
+    tfield("inKind", "tin", "Arrives with"),
+    tfield("inLength", "tinLength", "Arrival length"),
+    tfield("outKind", "tout", "Leaves with"),
+    tfield("outLength", "toutLength", "Leave length"),
+  );
   const timeFields = h("div", { class: "os-cl-fields" }, field("name", "Name"), field("start", "Start"), field("length", "Length"), field("end", "End"));
   const trackField = h("div", { class: "os-cl-field" }, h("label", { for: `${id}-track` }, "Track"), trackSelect);
   const manyNote = h("p", { class: "os-cl-hint", id: `${id}-many` });
@@ -154,6 +176,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     timeFields,
     h("div", { class: "os-cl-fields" }, trackField),
     soundFields,
+    transitionBox,
     mutedLabel,
     formError,
   );
@@ -323,6 +346,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       timeFields.hidden = true;
       trackField.hidden = true;
       soundFields.hidden = true;
+      transitionBox.hidden = true;
       mutedLabel.hidden = true;
       return;
     }
@@ -336,6 +360,15 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     setField(fields.end, formatTimecode(details.endMs));
     soundFields.hidden = !details.isClip;
     mutedLabel.hidden = !details.isClip;
+    transitionBox.hidden = !details.hasPicture;
+    if (details.hasPicture) {
+      const ti = details.transitionIn;
+      const to = details.transitionOut;
+      if (document.activeElement !== transitionFields.inKind) transitionFields.inKind.value = ti?.kind ?? "none";
+      if (document.activeElement !== transitionFields.outKind) transitionFields.outKind.value = to?.kind ?? "none";
+      setField(transitionFields.inLength, ti === undefined ? "" : formatTimecode(ti.durationMs));
+      setField(transitionFields.outLength, to === undefined ? "" : formatTimecode(to.durationMs));
+    }
     setField(fields.volume, String(details.volumeDb));
     setField(fields.fadeIn, formatTimecode(details.fadeInMs));
     setField(fields.fadeOut, formatTimecode(details.fadeOutMs));
@@ -349,7 +382,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     }
     const current = choices.find((c) => c.current);
     if (current !== undefined) trackSelect.value = current.id;
-    if (!Object.values(fields).some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
+    if (![...Object.values(fields), transitionFields.inLength, transitionFields.outLength].some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
     const muteButton = buttons.get("mute");
     if (muteButton?.firstChild) muteButton.firstChild.textContent = details.isClip ? (details.muted ? "Unmute clip" : "Mute clip") : "Mute or unmute clip";
   }
@@ -574,6 +607,27 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   commitOnLeave(fields.volume, (t) => session.setVolumeText(t), () => String(session.details?.volumeDb ?? 0));
   commitOnLeave(fields.fadeIn, (t) => session.setFadeInText(t), () => formatTimecode(session.details?.fadeInMs ?? 0));
   commitOnLeave(fields.fadeOut, (t) => session.setFadeOutText(t), () => formatTimecode(session.details?.fadeOutMs ?? 0));
+  commitOnLeave(transitionFields.inLength, (t) => session.setTransitionLengthText("in", t), () => {
+    const d = session.details?.transitionIn;
+    return d === undefined ? "" : formatTimecode(d.durationMs);
+  });
+  commitOnLeave(transitionFields.outLength, (t) => session.setTransitionLengthText("out", t), () => {
+    const d = session.details?.transitionOut;
+    return d === undefined ? "" : formatTimecode(d.durationMs);
+  });
+  for (const [select, which] of [[transitionFields.inKind, "in"], [transitionFields.outKind, "out"]] as const) {
+    select.addEventListener("change", () => {
+      const outcome = session.setTransitionKind(which, select.value);
+      say(outcome.message);
+      if (!outcome.ok) syncForm();
+    });
+    select.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        focusSelected();
+      }
+    });
+  }
   commitOnLeave(timeInput, (t) => session.setPlayheadText(t), () => formatTimecode(session.playheadMs));
   // Leaving the box brings it up to date with the playhead, unless it holds a time that was refused (kept so it can be fixed).
   timeInput.addEventListener("blur", () => {

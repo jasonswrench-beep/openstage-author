@@ -65,6 +65,7 @@ export const COMMANDS: readonly Command[] = [
     match: (e) => (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "v",
     run: (s) => s.paste(),
   },
+  { id: "transition", label: "Add a transition to this cut", key: "T", aria: "T", match: (e) => isKey(e, "t"), run: (s) => s.addTransitionHere() },
   { id: "mute", label: "Mute or unmute clip", key: "M", aria: "M", match: (e) => isKey(e, "m"), run: (s) => s.toggleMute() },
   {
     id: "play",

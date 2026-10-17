@@ -50,6 +50,9 @@ export interface EditRecordingOptions {
   describeScreen: (extras: Extra[]) => string;
 }
 
+/** Turn on when the Rust video maker reads edit format 0.4 and draws transitions (see ROADMAP.md). Until then a video is not attempted for an edit that has one. */
+export const VIDEO_MAKER_DRAWS_TRANSITIONS = false;
+
 /** The longest an export may run before it is stopped. A long recording takes a while; this is only a safety net. */
 export const EXPORT_LIMIT_MS = 4 * 60 * 60 * 1000;
 
@@ -146,6 +149,11 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       if (session.dirty) {
         await saveEdit();
         if (session.dirty) { exportBox.hidden = false; exportSay.textContent = "The edit could not be saved, so no video was made."; return; }
+      }
+      if (!VIDEO_MAKER_DRAWS_TRANSITIONS && session.model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined))) {
+        exportBox.hidden = false;
+        exportSay.textContent = "No video was made. This edit has a transition, and the program that makes the video cannot draw transitions yet. Take the transitions off, or wait for the next update of the recorder. Nothing in the edit was changed.";
+        return;
       }
       exporting = true;
       made = false;

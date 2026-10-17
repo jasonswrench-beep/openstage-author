@@ -41,7 +41,7 @@ test("the saved text lists things in one fixed order and leaves out what is not 
   const first = text.indexOf('"format"');
   assert.ok(first >= 0 && first < text.indexOf('"schemaVersion"') && text.indexOf('"schemaVersion"') < text.indexOf('"nextId"'));
   assert.ok(!text.includes("altText") && !text.includes("decorative"));
-  assert.ok(text.includes(`"schemaVersion": "${EDIT_SCHEMA_VERSION}"`));
+  assert.ok(text.includes(`"schemaVersion": "0.3.0"`), "an edit with no transition is still written as 0.3.0, so a reader of 0.3 opens it");
 });
 
 test("an edit with only needs-attention problems is still sound", () => {
@@ -59,7 +59,7 @@ test("a file that is not an edit, or is a version this program does not read, is
     ["not json at all", /not a readable edit file/],
     ["[]", /not an OpenStage Capture edit file/],
     ['{"format":"something-else"}', /not an OpenStage Capture edit file/],
-    ['{"format":"openstage-capture-edit","schemaVersion":"0.4.0"}', /version 0.4.0, and this program reads versions 0.1, 0.2 and 0.3/],
+    ['{"format":"openstage-capture-edit","schemaVersion":"0.5.0"}', /version 0.5.0, and this program reads versions 0.1 to 0.4/],
     ['{"format":"openstage-capture-edit"}', /version undefined/],
     ['{"format":"openstage-capture-edit","schemaVersion":"0.1.0","nextId":1,"sources":[],"tracks":[{"id":"t","kind":"hologram","name":"x","clips":[]}]}', /does not know: hologram/],
     ['{"format":"openstage-capture-edit","schemaVersion":"0.1.0","nextId":"x","sources":[],"tracks":[]}', /nextId is missing or is not a number/],

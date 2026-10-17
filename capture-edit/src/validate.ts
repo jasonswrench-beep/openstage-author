@@ -20,14 +20,19 @@ import {
   findSource,
   MAX_IMPORTED_VIDEO_MS,
   MAX_VOLUME_DB,
+  MAX_TRANSITION_MS,
   MIN_CLIP_MS,
+  MIN_TRANSITION_MS,
   MIN_VOLUME_DB,
   itemEndMs,
+  TRANSITION_KINDS,
+  TRANSITION_NAMES,
   trackKindName,
   type Clip,
   type Item,
   type Model,
   type Track,
+  type Transition,
 } from "./model.ts";
 import { contrastRatio, describeRatio, isColor, neededRatio, VERY_SMALL_TEXT_BP } from "./contrast.ts";
 import { isPoint, isRect } from "./regions.ts";
@@ -56,6 +61,9 @@ export type ProblemCode =
   | "item-wrong-track"
   | "bad-rect"
   | "placement-not-allowed"
+  | "transition-not-allowed"
+  | "bad-transition"
+  | "transition-no-neighbour"
   | "bad-color"
   | "bad-style"
   | "text-empty"
@@ -104,6 +112,81 @@ export function itemKindName(item: Item): string {
 /** The most zooms that may start within one second. Zooms that follow each other faster than this are too busy to follow. */
 export const MAX_ZOOMS_PER_SECOND = 3;
 
+const TRANSITION_PICTURE_SOURCES = ["screen", "webcam", "video", "image"];
+
+/** The transitions of a clip: only a picture can have them, they must be sound, fit inside the clip, and (to blend) have a clip to blend from. */
+function checkTransitions(
+  model: Model,
+  track: Track,
+  clip: Clip,
+  previous: Clip | undefined,
+  label: string,
+  add: (p: Problem) => void,
+): void {
+  const here = { trackId: track.id, clipId: clip.id };
+  const { transitionIn: tin, transitionOut: tout } = clip;
+  if (tin === undefined && tout === undefined) return;
+  const source = findSource(model, clip.source);
+  if (source !== undefined && !TRANSITION_PICTURE_SOURCES.includes(source.kind)) {
+    add({
+      code: "transition-not-allowed",
+      severity: "error",
+      message: `${label} holds ${source.name}, which is sound only, so it cannot have a transition. Take the transition away.`,
+      ...here,
+    });
+    return;
+  }
+  const bad = (what: string, t: Transition): boolean => {
+    const known = TRANSITION_KINDS.includes(t.kind);
+    const fine = Number.isInteger(t.durationMs) && t.durationMs >= MIN_TRANSITION_MS && t.durationMs <= MAX_TRANSITION_MS;
+    if (!known || !fine) {
+      add({
+        code: "bad-transition",
+        severity: "error",
+        message: !known
+          ? `${label} has a ${what} transition this program does not know.`
+          : `${label} has a ${what} transition of ${describeTime(Math.max(0, t.durationMs))}. A transition lasts from ${describeTime(MIN_TRANSITION_MS)} to ${describeTime(MAX_TRANSITION_MS)}.`,
+        ...here,
+      });
+      return true;
+    }
+    return false;
+  };
+  const inBad = tin !== undefined && bad("starting", tin);
+  const outBad = tout !== undefined && bad("ending", tout);
+  if (tout !== undefined && !outBad && tout.kind !== "fade") {
+    add({
+      code: "bad-transition",
+      severity: "error",
+      message: `${label} leaves with a ${TRANSITION_NAMES[tout.kind].toLowerCase()}. Only a fade can be used on the way out.`,
+      ...here,
+    });
+  }
+  if (tin !== undefined && tout !== undefined && !inBad && !outBad && tin.durationMs + tout.durationMs > clipLengthMs(clip)) {
+    add({
+      code: "bad-transition",
+      severity: "error",
+      message: `${label} has transitions that last ${describeTime(tin.durationMs + tout.durationMs)} together, which does not fit in its ${describeTime(clipLengthMs(clip))}.`,
+      ...here,
+    });
+  } else if (tin !== undefined && !inBad && tin.durationMs > clipLengthMs(clip)) {
+    add({
+      code: "bad-transition",
+      severity: "error",
+      message: `${label} has a starting transition of ${describeTime(tin.durationMs)}, which does not fit in its ${describeTime(clipLengthMs(clip))}.`,
+      ...here,
+    });
+  }
+  if (tin !== undefined && !inBad && tin.kind !== "fade" && (previous === undefined || clipEndMs(previous) !== clip.startMs)) {
+    add({
+      code: "transition-no-neighbour",
+      severity: "warning",
+      message: `${label} starts with a ${TRANSITION_NAMES[tin.kind].toLowerCase()}, but no picture ends where it starts, so it comes in over black.`,
+      ...here,
+    });
+  }
+}
+
 /** Every problem in an edit, in the order tracks and clips appear. */
 export function validate(model: Model): Problem[] {
   const problems: Problem[] = [];
@@ -133,6 +216,8 @@ export function validate(model: Model): Problem[] {
       if (clip.placement !== undefined && !isRect(clip.placement)) {
         add({ code: "bad-rect", severity: "error", message: `${label} has a place on the picture that is not a rectangle inside it.`, ...here });
       }
+
+      checkTransitions(model, track, clip, previous, label, add);
 
       if (![clip.startMs, clip.sourceStartMs, clip.sourceEndMs, clip.fadeInMs, clip.fadeOutMs].every(isWhole)) {
         add({

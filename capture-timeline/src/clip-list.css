@@ -334,3 +334,8 @@
     margin-top: 0.5rem;
   }
 }
+
+/* A group of fields that is hidden must really go, whatever display the group has. */
+.os-cl-fields[hidden] {
+  display: none;
+}

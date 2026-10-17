@@ -448,3 +448,16 @@
     color: HighlightText;
   }
 }
+
+/* A transition's edge on a clip: a small corner wedge, drawn in the text colour so it shows on every track colour. */
+.os-tl-trans {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.75rem;
+  pointer-events: none;
+  background: linear-gradient(to right, var(--os-cl-fg), transparent);
+  opacity: 0.55;
+}
+.os-tl-trans-in { left: 0; }
+.os-tl-trans-out { right: 0; transform: scaleX(-1); }

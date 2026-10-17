@@ -220,7 +220,37 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     const slot = slotFor(clip.source, "video");
     const wanted = slot.el ?? placeholder(clip, slot);
     if (box.firstChild !== wanted) box.replaceChildren(wanted);
+    applyTransition(box, clip);
     return box;
+  }
+
+  /** Draw a transition on a picture box: how much of it shows, by fading, wiping or sliding. With none, put it back to normal. */
+  function applyTransition(box: HTMLElement, clip: PlayingClip): void {
+    const t = clip.transition;
+    let opacity = "";
+    let clipPath = "";
+    let transform = "";
+    if (t !== undefined) {
+      const visible = t.phase === "out" ? 1 - t.progress : t.progress;
+      const pct = (1 - visible) * 100;
+      if (t.phase === "under") {
+        if (t.kind === "slide") transform = `translateX(${-t.progress * 100}%)`;
+      } else if (t.kind === "fade" || t.kind === "cross-fade") {
+        opacity = String(visible);
+      } else if (t.kind === "wipe-right") {
+        clipPath = `inset(0 ${pct}% 0 0)`;
+      } else if (t.kind === "wipe-down") {
+        clipPath = `inset(0 0 ${pct}% 0)`;
+      } else {
+        transform = `translateX(${pct}%)`;
+      }
+      box.dataset["transition"] = `${t.kind} ${t.phase}`;
+    } else {
+      delete box.dataset["transition"];
+    }
+    box.style.opacity = opacity;
+    box.style.clipPath = clipPath;
+    box.style.transform = transform;
   }
 
   function overlayElement(item: Item): HTMLElement | undefined {
@@ -367,7 +397,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     for (const clip of moment.pictures) {
       const slot = slotFor(clip.source, "video");
       active.add(slot.key);
-      keep(slot, clip.sourceMs, playing);
+      keep(slot, clip.sourceMs, playing && clip.held !== true);
     }
     for (const clip of moment.sounds) {
       const slot = slotFor(clip.source, "audio");

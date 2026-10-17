@@ -17,6 +17,14 @@
 
 import {
   ALLOWED_ITEMS,
+  DEFAULT_TRANSITION_MS,
+  TRANSITION_KINDS,
+  TRANSITION_NAMES,
+  hasNeighbour,
+  setTransition,
+  type Clip,
+  type Transition,
+  type TransitionKind,
   ALLOWED_SOURCES,
   MAX_VOLUME_DB,
   MIN_VOLUME_DB,
@@ -132,6 +140,10 @@ export interface Details {
   readonly volumeDb: number;
   readonly fadeInMs: number;
   readonly fadeOutMs: number;
+  /** A clip with a picture can have transitions; a sound cannot. */
+  readonly hasPicture: boolean;
+  readonly transitionIn?: Transition;
+  readonly transitionOut?: Transition;
 }
 
 /** A track the primary row could be moved to, or is on now. */
@@ -296,6 +308,9 @@ export class EditSession {
       volumeDb: found?.clip.volumeDb ?? 0,
       fadeInMs: found?.clip.fadeInMs ?? 0,
       fadeOutMs: found?.clip.fadeOutMs ?? 0,
+      hasPicture: found !== undefined && !["microphone", "system-audio", "audio"].includes(findSource(this.#history.model, found.clip.source)?.kind ?? "audio"),
+      ...(found?.clip.transitionIn === undefined ? {} : { transitionIn: found.clip.transitionIn }),
+      ...(found?.clip.transitionOut === undefined ? {} : { transitionOut: found.clip.transitionOut }),
     };
   }
 
@@ -1078,6 +1093,50 @@ export class EditSession {
     if (!parsed.ok) return no(parsed.message);
     const { fadeInMs, fadeOutMs } = found.clip;
     return this.#run((m) => setFades(m, row.clipId, which === "in" ? parsed.ms : fadeInMs, which === "out" ? parsed.ms : fadeOutMs));
+  }
+
+  // ---- transitions ----
+
+  /** The chosen clip, for a transition command, or a sentence saying why not. */
+  #transitionClip(): { clipId: string; clip: Clip } | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only clips have transitions.");
+    return { clipId: row.clipId, clip: found.clip };
+  }
+
+  /** The button on a cut: give the chosen clip a transition where it arrives (a cross-fade if a picture comes before it, otherwise a fade). */
+  addTransitionHere(): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    if (c.clip.transitionIn !== undefined) {
+      return no(`${quote(c.clip.name)} already arrives with a ${TRANSITION_NAMES[c.clip.transitionIn.kind].toLowerCase()}. Change or remove it with the Arrives with box in the form.`);
+    }
+    const kind: TransitionKind = hasNeighbour(this.#history.model, c.clipId) ? "cross-fade" : "fade";
+    return this.#run((m) => setTransition(m, c.clipId, "in", kind));
+  }
+
+  /** Choose how the chosen clip arrives or leaves: a transition's name, or "none" to take it away. */
+  setTransitionKind(which: "in" | "out", value: string): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    if (value === "none") return this.#run((m) => setTransition(m, c.clipId, which, null));
+    const kind = TRANSITION_KINDS.find((k) => k === value);
+    if (kind === undefined) return no("That is not one of the transitions.");
+    const had = which === "in" ? c.clip.transitionIn : c.clip.transitionOut;
+    return this.#run((m) => setTransition(m, c.clipId, which, kind, had?.durationMs ?? DEFAULT_TRANSITION_MS));
+  }
+
+  /** Set how long a transition lasts, from what the author typed (seconds, like the fades). */
+  setTransitionLengthText(which: "in" | "out", text: string): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    const had = which === "in" ? c.clip.transitionIn : c.clip.transitionOut;
+    if (had === undefined) return no(`Choose a transition for when ${quote(c.clip.name)} ${which === "in" ? "arrives" : "leaves"} first, then set how long it lasts.`);
+    const parsed = parseTime(text);
+    if (!parsed.ok) return no(parsed.message);
+    return this.#run((m) => setTransition(m, c.clipId, which, had.kind, parsed.ms));
   }
 
   // ---- drags ----

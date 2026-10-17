@@ -5,6 +5,7 @@
  * moment (story C4), so the result can be checked without seeing it.
  */
 
+import { describeTransitions } from "./transitions.ts";
 import {
   clipEndMs,
   clipLengthMs,
@@ -139,6 +140,8 @@ function clipSentence(model: Model, track: Track, clip: Clip, state: string | un
   if (clip.volumeDb !== 0) parts.push(`${Math.abs(clip.volumeDb)} decibels ${clip.volumeDb < 0 ? "quieter" : "louder"}`);
   if (clip.fadeInMs > 0) parts.push(`fades in over ${describeLength(clip.fadeInMs)}`);
   if (clip.fadeOutMs > 0) parts.push(`fades out over ${describeLength(clip.fadeOutMs)}`);
+  const moves = describeTransitions(clip);
+  if (moves !== "") parts.push(moves);
   if (state !== undefined && state !== "ready" && state !== "muted") parts.push(state);
   return parts.join(", ") + ".";
 }

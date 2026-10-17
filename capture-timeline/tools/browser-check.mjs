@@ -1405,6 +1405,50 @@ await check("Zoom on a part works without a mouse, and a second overlapping zoom
   assertMatch(await t.said(), /Zoom 2 track/, "a second track was made for the overlap");
 }, BIG);
 
+await check("a transition is added with T, changed in the form, drawn in the preview, marked on the clip, and a sound clip has none", async (page, t) => {
+  const arrives = page.getByLabel("Arrives with", { exact: true });
+  const arrival = page.getByLabel("Arrival length", { exact: true });
+  const playhead = page.getByLabel("Playhead time", { exact: true });
+  await t.focusRow("Add an assignment");
+  await t.key("Space");
+  await t.key("t");
+  assertMatch(await t.said(), /now arrives with a cross-fade of 0\.5 seconds/, "T said what it did");
+  assertEqual(await arrives.inputValue(), "cross-fade", "the form shows it");
+  assertEqual(await arrival.inputValue(), "0:00.5", "its length");
+  await t.key("t");
+  assertMatch(await t.said(), /already arrives with a cross-fade/, "a second T explains instead of doing it again");
+  await arrives.selectOption("wipe-down");
+  assertMatch(await t.said(), /arrives with a wipe, top to bottom/i, "changed in the form");
+  await arrival.fill("2");
+  await arrival.press("Enter");
+  assertMatch(await t.said(), /2 seconds/, "length set");
+  assertEqual(await t.clip("Add an assignment").locator(".os-tl-trans-in").count(), 1, "mark on the clip");
+  assertEqual(await t.clip("Add an assignment").locator(".os-tl-trans-in").getAttribute("aria-hidden"), "true", "mark is decoration");
+  await playhead.fill("31");
+  await playhead.press("Enter");
+  assertEqual(await page.locator(".os-pv-box[data-transition]").count(), 0, "parts of one recording carry on, so the preview shows a cut");
+  await arrives.selectOption("none");
+  await t.focusRow("Open the gradebook");
+  await t.key("Space");
+  await arrives.selectOption("fade");
+  await arrival.fill("2");
+  await arrival.press("Enter");
+  await playhead.fill("1");
+  await playhead.press("Enter");
+  const box = page.locator(".os-pv-box[data-transition]").first();
+  assertMatch((await box.getAttribute("data-transition")) ?? "", /fade in/, "the preview draws the fade");
+  const opacity = Number(await box.evaluate((el) => el.style.opacity));
+  assertEqual(opacity > 0 && opacity < 1, true, `half way, not ${opacity}`);
+  await playhead.fill("3");
+  await playhead.press("Enter");
+  assertEqual(await page.locator(".os-pv-box[data-transition]").count(), 0, "gone when it is over");
+  await t.focusRow("Voice, part 2");
+  await t.key("Space");
+  assertEqual(await arrives.isVisible(), false, "no transitions for sound");
+  await t.key("t");
+  assertMatch(await t.said(), /sound only/, "T explains");
+});
+
 await check("every control of the overlay form has a name, and the form is in the page only for a chosen overlay or zoom", async (page) => {
   assertEqual(await page.locator(".os-if").isVisible(), false, "hidden for a clip");
   await page.getByRole("button", { name: "Title" }).click();

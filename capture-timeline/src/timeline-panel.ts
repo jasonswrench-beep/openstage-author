@@ -331,6 +331,9 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       el.prepend(strip);
       el.classList.add("os-tl-hasstrip");
       strips.set(row.clipId, { el: strip, row, clip, shown: "" });
+      // A mark on the edge where a transition is, for the eye; the sentence tells everyone else.
+      if (clip.transitionIn !== undefined) el.append(h("span", { class: "os-tl-trans os-tl-trans-in", "aria-hidden": "true" }));
+      if (clip.transitionOut !== undefined) el.append(h("span", { class: "os-tl-trans os-tl-trans-out", "aria-hidden": "true" }));
     }
     place(el, row);
     return el;

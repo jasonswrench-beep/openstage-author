@@ -12,7 +12,7 @@
  */
 
 export const EDIT_FORMAT = "openstage-capture-edit";
-export const EDIT_SCHEMA_VERSION = "0.3.0";
+export const EDIT_SCHEMA_VERSION = "0.4.0";
 
 /** The shortest a clip may be, in milliseconds. */
 export const MIN_CLIP_MS = 100;
@@ -69,10 +69,40 @@ export interface Clip {
    * when there is no other picture). Only clips that have a picture can have one.
    */
   readonly placement?: Rect;
+  /** How the picture arrives, over the clip's first `durationMs` (new in 0.4). Only clips that have a picture can have one. */
+  readonly transitionIn?: Transition;
+  /** How the picture leaves, over the clip's last `durationMs` (new in 0.4). Only a fade is allowed on the way out. */
+  readonly transitionOut?: Transition;
   /** For an image: what it shows, in words, or `decorative` instead. */
   readonly altText?: string;
   readonly decorative?: boolean;
 }
+
+/** The ways a picture can arrive or leave. */
+export type TransitionKind = "fade" | "cross-fade" | "wipe-right" | "wipe-down" | "slide";
+
+export const TRANSITION_KINDS: readonly TransitionKind[] = ["fade", "cross-fade", "wipe-right", "wipe-down", "slide"];
+
+/** A transition at the start or end of a clip, lasting `durationMs` inside the clip (so it never changes the clip's length). */
+export interface Transition {
+  readonly kind: TransitionKind;
+  readonly durationMs: number;
+}
+
+/** The shortest and longest a transition may be. */
+export const MIN_TRANSITION_MS = 100;
+export const MAX_TRANSITION_MS = 5000;
+/** How long a new transition lasts when nothing else is said. */
+export const DEFAULT_TRANSITION_MS = 500;
+
+/** Transitions as a person is told about them: a name, and what it does. */
+export const TRANSITION_NAMES: Readonly<Record<TransitionKind, string>> = {
+  fade: "Fade",
+  "cross-fade": "Cross-fade",
+  "wipe-right": "Wipe, left to right",
+  "wipe-down": "Wipe, top to bottom",
+  slide: "Slide",
+};
 
 /** The whole width or height of the picture, in the units rectangles are measured in: ten-thousandths. */
 export const FULL = 10_000;
