@@ -23,8 +23,19 @@ export interface ItemFormPanel {
   destroy(): void;
 }
 
+/** A description worked out for a shape or arrow that the author has not approved: what it says, and what it was worked out from. */
+export interface AltSuggestionText {
+  text: string;
+  basis: string;
+}
+
 export interface ItemFormOptions {
   announcer: Announcer;
+  /**
+   * Something that can suggest alt text for a shape or arrow (for example from the name of what was clicked at that moment in the recording). The form shows the answer beside the
+   * alt text box with the button that uses it. It is only a suggestion: nothing is put in the edit until the author presses the button. May answer later; null means no suggestion.
+   */
+  suggestAlt?: (item: Item) => Promise<AltSuggestionText | null> | AltSuggestionText | null;
   /** Where focus goes when Escape is pressed in an unchanged box: back to the list of rows. */
   leave?: () => void;
 }
@@ -249,6 +260,53 @@ export function mountItemForm(container: HTMLElement, session: EditSession, opti
     return out;
   }
 
+  /** The suggested description, with what it came from and a button to use it. It is hidden when there is none, or when the shape has alt text or is only decoration. */
+  function suggestionControl(): Control {
+    const words = h("p", { class: "os-if-suggest-text" });
+    const basis = h("p", { class: "os-cl-hint" });
+    const use = h("button", { type: "button", class: "os-cl-button" }, "Use this description");
+    const box = h("div", { class: "os-cl-field os-if-suggest", role: "group" }, h("p", { class: "os-if-suggest-title" }, "A description has been suggested, and not checked yet"), words, basis, use);
+    box.hidden = true;
+    let ticket = 0;
+    let current: AltSuggestionText | null = null;
+    const show = (s: AltSuggestionText | null): void => {
+      current = s;
+      box.hidden = s === null;
+      if (s !== null) {
+        words.textContent = s.text;
+        basis.textContent = `Worked out from: ${s.basis} It is only a suggestion: nothing is changed until you press the button. Read it against the picture first.`;
+      }
+    };
+    use.addEventListener("click", () => {
+      if (current === null) return;
+      // Focus is on this button (a click does that in most browsers, a key press always), so the alt text box is not "being typed in" and takes the new words.
+      use.focus();
+      const outcome = session.setItemAlt({ altText: current.text, decorative: false });
+      say(outcome, use);
+      show(null);
+      // The boxes are brought up to date before focus moves into one: a box the author is in is left as it is, so it would keep showing nothing.
+      const now = session.item;
+      if (now !== undefined) for (const c of controls) c.sync(now);
+      controls.find((c) => (c.element.querySelector("label")?.textContent ?? "").startsWith("What it points out"))?.input.focus();
+    });
+    return {
+      element: box,
+      input: use,
+      sync(item) {
+        const mine = ++ticket;
+        const needs = (item.kind === "shape" || item.kind === "arrow") && item.decorative !== true && (item.altText ?? "").trim() === "";
+        if (!needs || options.suggestAlt === undefined) {
+          show(null);
+          return;
+        }
+        Promise.resolve(options.suggestAlt(item)).then(
+          (s) => { if (mine === ticket) show(s); },
+          () => { if (mine === ticket) show(null); },
+        );
+      },
+    };
+  }
+
   function altControls(): Control[] {
     return [
       textBox(
@@ -257,6 +315,7 @@ export function mountItemForm(container: HTMLElement, session: EditSession, opti
         (text) => session.setItemAlt({ altText: text }),
         { hint: "Said to someone who cannot see the picture, such as: The Save button. Needed unless this is only decoration." },
       ),
+      suggestionControl(),
       checkBox("Only decoration (nothing to say about it)", (i) => (i.kind === "shape" || i.kind === "arrow" ? i.decorative === true : false), (checked) => session.setItemAlt({ decorative: checked })),
     ];
   }

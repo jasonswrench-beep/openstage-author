@@ -35,14 +35,17 @@ values within range, ids well-formed.
 Required on every object: `id`, `type`, `geometry`, `accessibility`.
 Required inside `accessibility`: `altText`, `role`, `tabOrder`, `decorative`.
 
+A suggested description is checked for shape: `altSuggestion` has a non-empty `text` (at most 1000 characters) and a non-empty `basis` (at most 300), and nothing else.
+
 ## Semantic rules
 
 ### Accessibility — all errors
 
 | Rule | Message |
 | --- | --- |
-| An object with `decorative: false` has an empty `altText` | Object needs alt text, or must be marked decorative |
+| An object with `decorative: false` has an empty `altText` | Object needs alt text, or must be marked decorative. When a suggested description is attached (`altSuggestion`, 0.28.0) the detail shows it: "A suggested description is waiting for you to check: ... Use it, or write your own." It is still an error: a suggestion is never used by the course |
 | An object with `decorative: true` has a non-empty `altText` | Decorative objects should not carry alt text |
+| An object has a suggested description (`altSuggestion`) and also has alt text of its own, or is decorative (`alt-suggestion-unused`, a warning, not an error) | A suggested description is still attached to an object that does not need one |
 | Two objects on the same layer share a `tabOrder` | Tab order must be unique within a layer |
 | An interactive object (`button`, `hotspot`, `quizQuestion`) has `tabOrder: 0` or null | Interactive objects must be reachable by keyboard |
 | An interactive object has a `click` trigger with no `keyActivate` equivalent | Interactive objects must be operable by keyboard |

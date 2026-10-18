@@ -4,7 +4,7 @@
 // memory. What it finds is turned into steps by steps.ts; this file only reads, and says in words what it found and what it could not use.
 
 import { readProject, takeFolder, type ProjectFolder } from "../../capture-timeline/src/project.ts";
-import { keepRangesOf, listFrom, parseLog, parseSteps, proposeFromLog, type StepList } from "./steps.ts";
+import { keepRangesOf, listFrom, parseLog, parseSteps, proposeFromLog, type LogEvent, type StepList } from "./steps.ts";
 
 export interface StepSource {
   /** The steps proposed from the logs, numbered, in the order of the takes. */
@@ -59,6 +59,17 @@ function readFacts(text: string, folderName: string): TakeFacts | null {
     }
   }
   return facts;
+}
+
+/** The names of the items that were clicked in each take of a recording (the `element` lines of its logs), by take number, for suggesting what a box or arrow is about. A take with no log has none. */
+export async function readClickLogs(folder: ProjectFolder): Promise<Map<number, LogEvent[]>> {
+  const out = new Map<number, LogEvent[]>();
+  for (const name of (await folder.listFolders("takes")).filter((n) => /^take-\d+$/.test(n)).sort()) {
+    const text = await folder.readText(`takes/${name}/events.jsonl`);
+    if (text === undefined) continue;
+    out.set(Number(name.slice("take-".length)), parseLog(text).events.filter((e) => e.type === "element"));
+  }
+  return out;
 }
 
 /** Read everything steps can come from. A take that cannot be used is left out and said, never guessed at. */

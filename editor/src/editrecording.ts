@@ -11,6 +11,9 @@
 import { describeLength, listCaption, modelLengthMs, serialize } from "../../capture-edit/src/index.ts";
 import { mountEditor } from "../../capture-timeline/src/editor.ts";
 import { backupName, libraryOf, readProject } from "../../capture-timeline/src/project.ts";
+import { suggestCalloutAlt } from "./calloutalt.ts";
+import { readClickLogs } from "./stepsource.ts";
+import type { LogEvent } from "./steps.ts";
 import { EditSession } from "../../capture-timeline/src/session.ts";
 import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
@@ -103,6 +106,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const folder = recordingFolder(b, opts.dir, opts.name);
     let session: EditSession | undefined;
     let editor: ReturnType<typeof mountEditor> | undefined;
+    let clickLogs: Promise<Map<number, LogEvent[]>> | undefined;
     /** The saved edit that a new edit of the newest take replaces, until it has been copied aside. */
     let toKeep: { text: string; name: string } | undefined;
 
@@ -265,13 +269,19 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       const { project } = result;
       heading.textContent = `Edit the recording: ${project.title}`;
       if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
-      session = new EditSession(project.model);
-      editor = mountEditor(host, session, {
+      const live = new EditSession(project.model);
+      session = live;
+      editor = mountEditor(host, live, {
         // A picture is read into the page; a video or a sound is played from disk (reading a whole video into the page would be slow and would not play).
         library: libraryOf(project.folder, (asset) => (/\.(mp4|m4v|wav)$/i.test(asset) ? b.mediaUrl(opts.dir, `assets/${asset}`) : b.assetUrl(opts.dir, `assets/${asset}`))),
         addMedia: (kind) => chooseMedia(b, opts.dir, kind, measureInBrowser),
+        // A box or an arrow put in where something named was clicked can be offered a description from the recording's log. The log is read the first time one is asked for.
+        suggestAlt: async (item) => {
+          clickLogs ??= readClickLogs(project.folder).catch(() => new Map<number, LogEvent[]>());
+          return suggestCalloutAlt(live.model, await clickLogs, item);
+        },
       });
-      session.subscribe((kind) => {
+      live.subscribe((kind) => {
         if (kind === "model" || kind === "saved") showState();
       });
       showState();

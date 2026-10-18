@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import type { Slide } from "../../player/src/types.ts";
 import { Model } from "./model.ts";
 import { addManual, editStep, knowPicture, listFrom, parseLog, proposeFromLog, type Step, type StepList } from "./steps.ts";
-import { buildStepSlide, fitPicture, shorten, type SlideOptions, type StepPicture } from "./stepslides.ts";
+import { buildStepSlide, fitPicture, shorten, SUGGESTION_BASIS, type SlideOptions, type StepPicture } from "./stepslides.ts";
 import { newProjectFiles } from "./template.ts";
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -69,9 +69,14 @@ test("a picture's description is used only once the step is checked, and the wor
   let list = stepsOf(CLICK, NAMED);
   const unchecked = buildStepSlide(list.steps[0]!, 0, PIC, options());
   assert.equal(unchecked.baseLayer.objects[2]!.accessibility.altText, "", "nothing the editor guessed is put in as the author's");
+  assert.deepEqual(unchecked.baseLayer.objects[2]!.accessibility.altSuggestion, { text: list.steps[0]!.alt, basis: SUGGESTION_BASIS }, "but it is offered, with what it was worked out from");
+  assert.match(list.steps[0]!.alt, /Save/, "the suggestion names what was clicked");
   list = editStep(list, "step-1", { text: "Press Save.", alt: "  The Save button in the toolbar.  ", reviewed: true });
   const checked = buildStepSlide(list.steps[0]!, 0, PIC, options());
   assert.equal(checked.baseLayer.objects[2]!.accessibility.altText, "The Save button in the toolbar.");
+  assert.equal("altSuggestion" in checked.baseLayer.objects[2]!.accessibility, false, "a checked step needs no suggestion");
+  const empty = editStep(list, "step-1", { alt: "" });
+  assert.equal("altSuggestion" in buildStepSlide(empty.steps[0]!, 0, PIC, options()).baseLayer.objects[2]!.accessibility, false, "nothing to suggest when nothing was proposed");
   assert.equal(checked.baseLayer.objects[1]!.content["html"], "<p>Press Save.</p>");
 });
 

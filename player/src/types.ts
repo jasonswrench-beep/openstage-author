@@ -444,6 +444,13 @@ export interface ObjectAnimation {
   exit: Effect;
 }
 
+/** A description the computer worked out that the author has not approved (format 0.28.0). The course never uses it; the editor offers it to the author. */
+export interface AltSuggestion {
+  text: string;
+  /** What it was worked out from, in words the author can read. */
+  basis: string;
+}
+
 export interface OSObject {
   id: string;
   type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon";
@@ -451,7 +458,7 @@ export interface OSObject {
   geometry: { x: number; y: number; width: number; height: number; rotation: number; z: number };
   content: Record<string, unknown>;
   style: Style;
-  accessibility: { altText: string; role: string; tabOrder: number | null; decorative: boolean };
+  accessibility: { altText: string; role: string; tabOrder: number | null; decorative: boolean; altSuggestion?: AltSuggestion };
   states: Record<string, ObjectState>;
   triggers: Trigger[];
   timing: Timing;

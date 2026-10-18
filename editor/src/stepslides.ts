@@ -14,6 +14,9 @@ import { box } from "./factory.ts";
 import type { Step } from "./steps.ts";
 
 /** A picture saved in the course: its path under assets/, and its size in pixels. */
+/** What a step picture's suggested description was worked out from, in words the author reads next to it. */
+export const SUGGESTION_BASIS = "What was recorded: the name of what was clicked, and the window it was in. It has not been checked against the picture.";
+
 export interface StepPicture {
   path: string;
   width: number;
@@ -98,7 +101,11 @@ export function buildStepSlide(step: Step, index: number, picture: StepPicture |
       content: { src: picture.path },
       style: {},
       // Only what the author checked is said: an unchecked step's picture has no description yet, and the validator asks for one.
-      accessibility: { altText: step.reviewed ? step.alt.trim() : "", role: "img", tabOrder: 3, decorative: false },
+      accessibility: {
+        altText: step.reviewed ? step.alt.trim() : "", role: "img", tabOrder: 3, decorative: false,
+        // The proposed description of an unchecked step is offered, never used: the picture has no description until the author uses it or writes their own (format 0.28.0).
+        ...(!step.reviewed && step.alt.trim() !== "" ? { altSuggestion: { text: step.alt.trim(), basis: SUGGESTION_BASIS } } : {}),
+      },
     };
     objects.push(image);
     if (step.box !== null) {

@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.27.0",
+  "schemaVersion": "0.28.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -233,6 +233,14 @@ validator error is the correct outcome for a missing one, not a warning.
 
 `decorative: true` is the honest way to say an object needs no alt text. It is not the
 same as an empty `altText`, and the validator treats them differently.
+
+#### A suggested description (0.28.0)
+
+`accessibility` may also hold `altSuggestion`: `{ "text": "...", "basis": "..." }`, a description the computer worked out that the author has not approved (for example, from the name of what was clicked in a recording: "A screenshot of Notepad,
+with the File menu item marked."). `text` is 1 to 1000 characters and `basis` (1 to 300) says what it was worked out from, in words the author can read.
+
+A suggestion is only ever a suggestion. **The course never uses it**: the player ignores it, the object still has no alt text, and a missing alt text is still an error (`alt-text-missing`; its detail now shows the suggestion that is waiting). It becomes the object's alt text only when the author
+uses it in the editor (it is copied into `altText` and removed) or writes their own (which removes it). A suggestion left on an object that has alt text of its own, or is decorative, is a warning (`alt-suggestion-unused`). The rule that alt text is never silently filled in therefore holds: the author's decision is what puts words in front of a learner.
 
 ### Object types in v0.1
 
@@ -1387,6 +1395,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.27.0 | 0.28.0 | Adds the optional `altSuggestion` to an object's `accessibility`: a description the computer worked out and the author has not approved (`text` and `basis`). The course never uses it, and alt text is still required. Nothing in an existing project changes: no object has one. |
 | 0.26.0 | 0.27.0 | Adds the optional `base` to a slide's Capture provenance: what the Capture module made for a step (the slide's name and picture, and for each part its id, layer and a fingerprint of each field), so a lesson can be brought up to date without losing what the author changed. Nothing in an existing project changes: no slide had one, and a slide without one is left as it is when a lesson is brought up to date. |
 | 0.25.0 | 0.26.0 | Adds the `generated` credit provider and its record (a picture or sound an AI service made, with the service, model, prompt and time), and lets a narration's `voice` name an engine other than the built-in one (`openai:alloy`). Nothing in an existing project changes: a voice with no engine in its name is still Kokoro's, and nothing was generated before. |
 | 0.24.0 | 0.25.0 | Adds what is needed to bring slides in from a PowerPoint deck and to bring them up to date: `project.sources` (the decks, and how each was laid on the stage), a slide's own import provenance, and in an object's import provenance the deck's slide number (`slideId`), a fingerprint of the shape (`sourceHash`) and the object as it was imported (`base`). Nothing in an existing project changes: nothing was imported before. |

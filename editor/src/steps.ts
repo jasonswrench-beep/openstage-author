@@ -194,11 +194,16 @@ export function clickWords(element: { name: string; role: string } | null, butto
   return `${verb} ${name}.`;
 }
 
+/** What a clicked item is called in a sentence, such as "the Save button", or null when the recording did not note a name for it. */
+export function elementPhrase(element: { name: string; role: string } | null): string | null {
+  return element !== null && tidy(element.name) !== "" ? `the ${tidy(element.name)} ${element.role.toLowerCase()}` : null;
+}
+
 /** What a step's picture shows, proposed from the log. It is proposed text: the author checks it. */
 export function altFor(kind: StepKind, element: { name: string; role: string } | null, window: { title: string; process: string } | null): string {
   const where = window !== null && tidy(window.title) !== "" ? `${tidy(window.title)}` : window !== null ? programName(window.process) : "the screen";
   if (kind === "click") {
-    const what = element !== null && tidy(element.name) !== "" ? `the ${tidy(element.name)} ${element.role.toLowerCase()}` : "the place to click";
+    const what = elementPhrase(element) ?? "the place to click";
     return `A screenshot of ${where}, with ${what} marked.`;
   }
   if (kind === "type") return `A screenshot of ${where}, before the words are typed.`;

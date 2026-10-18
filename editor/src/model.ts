@@ -36,7 +36,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.27.0";
+export const FORMAT_VERSION = "0.28.0";
 
 export interface OpenedProject {
   dir: string;
@@ -683,11 +683,39 @@ export class Model {
     if (!obj) return null;
     const next = { ...obj.accessibility, ...patch };
     if (next.tabOrder !== null && (!Number.isInteger(next.tabOrder) || next.tabOrder < 0)) return null;
+    // A suggested description is only waiting for the author to decide. Once they write their own, or say the object is decorative, it has done its job.
+    if (next.altSuggestion !== undefined && patch.altSuggestion === undefined && (next.decorative || next.altText.trim() !== "")) delete next.altSuggestion;
     if (JSON.stringify(next) === JSON.stringify(obj.accessibility)) return null;
     this.record(`a11y:${objectId}:${Object.keys(patch).join(",")}`);
     obj.accessibility = next;
     this.emit({ kind: "content", objectId });
     return `${obj.name} updated`;
+  }
+
+  /**
+   * Use the description that was suggested for an object (worked out from a recording, never approved) as its alt text. The suggestion is taken away, because it has been used.
+   * The sentence tells the author to read it against the picture: it is the author's only once they have.
+   */
+  useAltSuggestion(objectId: string): string | null {
+    const obj = this.find(objectId);
+    const suggestion = obj?.accessibility.altSuggestion;
+    if (!obj || !suggestion) return null;
+    this.record(`a11y:${objectId}:use-suggestion`);
+    const { altSuggestion: _used, ...rest } = obj.accessibility;
+    obj.accessibility = { ...rest, altText: suggestion.text, decorative: false };
+    this.emit({ kind: "content", objectId });
+    return `Used the suggested description for ${obj.name}. Read it against the picture and change it if it is wrong. Press Control Z to undo.`;
+  }
+
+  /** Throw away the suggested description of an object. Its alt text is as it was, which is still asked for if it is empty. */
+  dismissAltSuggestion(objectId: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || !obj.accessibility.altSuggestion) return null;
+    this.record(`a11y:${objectId}:dismiss-suggestion`);
+    const { altSuggestion: _gone, ...rest } = obj.accessibility;
+    obj.accessibility = rest;
+    this.emit({ kind: "content", objectId });
+    return `Threw away the suggested description for ${obj.name}.${obj.accessibility.altText.trim() === "" && !obj.accessibility.decorative ? " It still needs alt text, or to be marked decorative." : ""}`;
   }
 
   setName(objectId: string, name: string): string | null {
@@ -1339,6 +1367,7 @@ export class Model {
     this.emit({ kind: "selection" });
 
     const noDescription = slides.filter((sl) => sl.baseLayer.objects.some((o) => (o.type === "image" && o.accessibility.altText === "") || (o.type === "quizQuestion" && (o.content["image"] as { alt?: string } | undefined)?.alt === ""))).length;
+    const suggested = slides.filter((sl) => sl.baseLayer.objects.some((o) => o.type === "image" && o.accessibility.altText === "" && o.accessibility.altSuggestion !== undefined)).length;
     const where = work.existing === 0 ? "after the slide you were on" : "each in its place";
     const parts: string[] = [];
     if (slides.length > 0) {
@@ -1347,7 +1376,7 @@ export class Model {
       if (upToDate > 0 && updated === 0) parts.push(`${upToDate} ${upToDate === 1 ? "step already had a slide that is up to date" : "steps already had slides that are up to date"}.`);
     }
     parts.push(...this.lessonSentences({ ...work, remove: removing ? gone : work.remove }, removing ? "did" : "report"));
-    if (noDescription > 0) parts.push(`${noDescription} ${noDescription === 1 ? "picture has" : "pictures have"} no description yet, because ${noDescription === 1 ? "its step has" : "their steps have"} not been checked. The Problems panel asks for ${noDescription === 1 ? "it" : "them"}.`);
+    if (noDescription > 0) parts.push(`${noDescription} ${noDescription === 1 ? "picture has" : "pictures have"} no description yet, because ${noDescription === 1 ? "its step has" : "their steps have"} not been checked. ${suggested > 0 ? `${suggested === 1 ? "It has a suggestion" : `${suggested} have suggestions`} worked out from the recording, in the Properties panel under Alt text for you to use or change. ` : ""}The Problems panel asks for ${noDescription === 1 ? "it" : "them"}.`);
     if (lesson === "test" && slides.length > 0) parts.push("Add a results box after the last question to show the learner their score.");
     parts.push("Press Control Z to undo.");
     return { added: slides.length, skipped: work.existing, updated, removed: gone.length, message: parts.filter((x) => x !== "").join(" ") };

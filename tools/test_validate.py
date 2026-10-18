@@ -2574,5 +2574,55 @@ class DeckImportRules(unittest.TestCase):
             self.assertEqual(self.found(p), [])
 
 
+class AltSuggestionCases(unittest.TestCase):
+    """Format 0.28.0: a suggested description is only a suggestion. The course ignores it, a missing alt text is still an error (now with the suggestion in its detail), and a suggestion
+    left on an object that does not need one is a warning."""
+
+    def mark(self, p, **fields):
+        p.obj(0, lambda o: o["accessibility"].update(fields))
+
+    def first(self, p):
+        return next(f for f in p.run() if f.object_id == self.oid(p))
+
+    def oid(self, p):
+        return json.loads((p.root / "slides/slide-001.json").read_text(encoding="utf-8"))["baseLayer"]["objects"][0]["id"]
+
+    def test_a_missing_alt_text_with_a_suggestion_waiting_is_still_an_error_and_shows_it(self):
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=False, altSuggestion={"text": "A screenshot of Notepad, with the File menu marked.", "basis": "The name of what was clicked"})
+            hits = rules(p.run(), "alt-text-missing", self.oid(p), "error")
+            self.assertEqual(len(hits), 1)
+            self.assertIn("A screenshot of Notepad, with the File menu marked.", hits[0].detail)
+            self.assertIn("Use it, or write your own", hits[0].detail)
+
+    def test_a_missing_alt_text_with_no_suggestion_has_no_detail(self):
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=False)
+            hits = rules(p.run(), "alt-text-missing", self.oid(p), "error")
+            self.assertEqual([h.detail for h in hits], [""])
+
+    def test_a_suggestion_left_on_an_object_with_its_own_alt_text_or_a_decorative_one_is_a_warning(self):
+        s = {"text": "Something suggested.", "basis": "A guess"}
+        with MutatedProject() as p:
+            self.mark(p, altText="The author's own description.", decorative=False, altSuggestion=s)
+            self.assertEqual(len(rules(p.run(), "alt-suggestion-unused", self.oid(p), "warning")), 1)
+            self.assertEqual(rules(p.run(), "alt-text-missing", self.oid(p)), [])
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=True, altSuggestion=s)
+            self.assertEqual(len(rules(p.run(), "alt-suggestion-unused", self.oid(p), "warning")), 1)
+        with MutatedProject() as p:
+            self.assertEqual(rules(p.run(), "alt-suggestion-unused"), [], "an object with none is not told off")
+
+    def test_the_shape_of_a_suggestion_is_checked(self):
+        good = {"text": "A box around the Save button.", "basis": "The name of what was clicked"}
+        for bad in ({"text": "", "basis": "x"}, {"text": "x", "basis": ""}, {"text": "x"}, {"basis": "x"}, {**good, "extra": 1}, {"text": 5, "basis": "x"}, {"text": "x" * 1001, "basis": "x"}, "text", []):
+            with MutatedProject() as p:
+                self.mark(p, altText="", decorative=True, altSuggestion=bad)
+                self.assertTrue(rules(p.run(), "schema"), repr(bad)[:60])
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=True, altSuggestion=good)
+            self.assertEqual(rules(p.run(), "schema"), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

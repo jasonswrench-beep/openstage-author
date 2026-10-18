@@ -1949,7 +1949,7 @@ export class App {
       this.objectList.replaceChildren(
         ...m.objects.map((o) => {
           const t = o.accessibility.tabOrder ?? 0;
-          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${o.type === "video" && m.descriptionOf(o.id).length > 0 ? ", described" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""}${o.group ? `, in a group of ${m.groupSize(o.id)}` : ""})`;
+          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${o.accessibility.altSuggestion ? ", description suggested" : ""}${o.type === "video" && m.descriptionOf(o.id).length > 0 ? ", described" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""}${o.group ? `, in a group of ${m.groupSize(o.id)}` : ""})`;
           const li = this.item(`object:${o.id}`, label, o.id === m.sel.objectId, (e) => this.pickObject(o.id, e));
           if (several) li.querySelector("button")!.setAttribute("aria-pressed", String(picked.has(o.id)));
           return li;
@@ -2096,7 +2096,7 @@ export class App {
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -2350,6 +2350,31 @@ export class App {
   }
 
   /** Update the values of the open panel without rebuilding it. */
+  /**
+   * The description the computer suggested for the object (from a recording, say), shown beside the alt text it would fill: what it says, what it was worked out from, and
+   * two buttons. It is only a suggestion: the course does not use it, and the checker still asks for alt text, until the author uses it or writes their own.
+   */
+  private altSuggestionBlock(m: Model, o: OSObject): HTMLElement {
+    const s = o.accessibility.altSuggestion!;
+    const use = h("button", { type: "button", id: "alt-suggestion-use", text: "Use this description" });
+    const drop = h("button", { type: "button", id: "alt-suggestion-drop", text: "Throw the suggestion away" });
+    use.addEventListener("click", () => {
+      const said = m.useAltSuggestion(o.id);
+      if (said) this.announce(said);
+      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+    });
+    drop.addEventListener("click", () => {
+      const said = m.dismissAltSuggestion(o.id);
+      if (said) this.announce(said);
+      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+    });
+    return h("div", { id: "alt-suggestion", class: "alt-suggestion", role: "group", "aria-labelledby": "alt-suggestion-title" },
+      h("p", { id: "alt-suggestion-title", class: "alt-suggestion-title", text: "A description has been suggested, and not checked yet" }),
+      h("p", { id: "alt-suggestion-text", text: s.text }),
+      h("p", { class: "note", text: `Worked out from: ${s.basis} It is only a suggestion. The course does not use it, and the Problems panel still asks for alt text, until you use it or write your own. Read it against the picture first.` }),
+      h("div", { class: "btn-row" }, use, drop));
+  }
+
   private fillValues(o: OSObject): void {
     const set = (id: string, v: string | number | null) => {
       const input = this.propsBody.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#p-${id}`);
@@ -2566,6 +2591,7 @@ export class App {
           : o.type === "quizQuestion"
           ? "This is the name a screen reader gives the group of answers. The question itself is the heading before it, so keep that clear."
           : "Required unless the object is decorative. Decorative objects must have no alt text. A screen reader reads a text object's own words, so for text this is kept for tools and checks." }),
+        ...(a.altSuggestion ? [this.altSuggestionBlock(m, o)] : []),
         this.field("role", "Role", a.role, (v) => { m.setAccessibility(o.id, { role: v }); }),
         this.field("tab", "Tab order (blank for none)", a.tabOrder, (v) => {
           const n = v.trim() === "" ? null : Number(v);

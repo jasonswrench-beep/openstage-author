@@ -33,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 27, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 28, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -115,8 +115,12 @@ def _schema_findings(kind, rel, data):
         where = "/".join(str(p) for p in path) or "(top level)"
 
         if err.validator == "pattern" and tail == "altText":
+            waiting = ((obj or {}).get("accessibility") or {}).get("altSuggestion")
+            detail = ""
+            if isinstance(waiting, dict) and waiting.get("text"):
+                detail = f'A suggested description is waiting for you to check: "{str(waiting["text"])[:160]}". Use it, or write your own.'
             findings.append(Finding(ERROR, rel, oid, "alt-text-missing",
-                                    "Object needs alt text, or must be marked decorative"))
+                                    "Object needs alt text, or must be marked decorative", detail))
         elif err.validator == "maxLength" and tail == "altText":
             findings.append(Finding(ERROR, rel, oid, "alt-text-on-decorative",
                                     "Decorative objects should not carry alt text"))
@@ -435,6 +439,7 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
 
     for layer, obj in _objects(slide):
         oid = obj["id"]
+        _alt_suggestion(rel, obj, add)
         _hotspot(rel, obj, add)
         _click_needs_key(rel, obj, add)
         _contrast(rel, obj, add, theme, slide_bg)
@@ -452,6 +457,16 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _download(rel, obj, add)
         _description(rel, obj, add)
         _narration(rel, obj, add)
+
+
+def _alt_suggestion(rel, obj, add):
+    """A suggested description (format 0.28.0) is only ever a suggestion: the course ignores it, and a missing alt text is still an error. Once the object has its own
+    alt text, or is decorative, a suggestion that is still attached is left over, so it is reported to be tidied away."""
+    a = obj.get("accessibility") or {}
+    if a.get("altSuggestion") and (a.get("decorative") or (a.get("altText") or "").strip()):
+        add(WARNING, rel, obj["id"], "alt-suggestion-unused",
+            "A suggested description is still attached to an object that does not need one",
+            "Remove the suggestion, or clear the alt text if you would rather use it.")
 
 
 def _tab_order(rel, layer, add):

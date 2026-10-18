@@ -7,7 +7,7 @@
 import { Announcer } from "./announcer.ts";
 import { h } from "./dom.ts";
 import { mountCalloutBar, type AddMedia, type CalloutBar } from "./callout-panel.ts";
-import { mountItemForm, type ItemFormPanel } from "./item-form.ts";
+import { mountItemForm, type ItemFormOptions, type ItemFormPanel } from "./item-form.ts";
 import { mountClipList, type ClipListPanel } from "./panel.ts";
 import { EMPTY_LIBRARY, type MediaLibrary } from "./project.ts";
 import { mountPreview, type PreviewPanel } from "./preview-panel.ts";
@@ -25,6 +25,8 @@ export interface EditorOptions {
   listOpen?: boolean;
   /** How a picture, video or sound is chosen and brought into the course. Without it the buttons for files are left out. */
   addMedia?: AddMedia;
+  /** Suggests alt text for a shape or arrow, shown beside its alt text box for the author to use or ignore (story D6). Without it nothing is suggested. */
+  suggestAlt?: ItemFormOptions["suggestAlt"];
 }
 
 export interface Editor {
@@ -136,7 +138,7 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   // The form for a chosen overlay or zoom sits above the clip list in the same panel.
   const itemHost = h("div", { class: "os-ed-item" });
   listHost.append(itemHost);
-  const itemForm = mountItemForm(itemHost, session, { announcer, leave: () => timeline.focus() });
+  const itemForm = mountItemForm(itemHost, session, { announcer, leave: () => timeline.focus(), ...(options.suggestAlt === undefined ? {} : { suggestAlt: options.suggestAlt }) });
   const list = mountClipList(listHost, session, { announcer, playhead: false, ...(options.rows === undefined ? {} : { rows: options.rows }), title: "Clip list" });
   const timeline = mountTimeline(timelineHost, session, {
     announcer,
