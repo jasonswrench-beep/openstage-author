@@ -38,6 +38,8 @@ import {
   copyRows,
   deleteClip,
   deleteItem,
+  deleteRange,
+  deleteTrack,
   describeAt,
   describeCopied,
   describeChange,
@@ -48,6 +50,7 @@ import {
   findItem,
   findSource,
   History,
+  groupMoveLimits,
   joinWithNext,
   limitsOf,
   listCaption,
@@ -56,11 +59,13 @@ import {
   moveClipToTrack,
   moveItem,
   moveItemToTrack,
+  moveRowsBy,
   parseTime,
   pastedEndMs,
   pasteCopied,
   renameClip,
   renameItem,
+  renameTrack,
   reorderClip,
   setClipLength,
   setArrowEnds,
@@ -98,6 +103,7 @@ import {
   type StepKey,
   type TrackKind,
 } from "../../capture-edit/src/index.ts";
+import { snapTargets, snapTo } from "./snap.ts";
 
 /** What a command says back: a sentence for the author, and whether it worked. */
 export interface Outcome {
@@ -115,8 +121,9 @@ export interface Moved extends Outcome {
  * What changed, so a screen only redraws what it must. `drag` is the edit changing under a drag in progress: a
  * screen that is not showing the drag leaves it until the drag ends and `model` follows. `saved` is the edit being
  * marked as saved. `transport` is playing starting or stopping. `clipboard` is something being copied, so a Paste button can show it can be used.
+ * `tools` is the marks of a stretch to remove, or snapping, being changed: not the edit, so nothing is redrawn but those.
  */
-export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport" | "clipboard";
+export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport" | "clipboard" | "tools";
 
 export type Where = "previous" | "next" | "first" | "last";
 
@@ -173,6 +180,10 @@ export interface DragState {
   readonly range: Range;
   /** Where it is now. */
   readonly value: number;
+  /** Every row that moves with it: just itself, unless several were chosen and the whole of them is being moved. */
+  readonly ids: readonly string[];
+  /** The time it has snapped to, so a guide can be drawn there; undefined when it is not snapped to anything. */
+  readonly snappedTo: number | undefined;
 }
 
 /** A drag as the session keeps it: the same as `DragState`, with what it needs to finish or cancel. */
@@ -185,6 +196,14 @@ interface OpenDrag {
   readonly before: Model;
   readonly label: string;
   lastMessage: string;
+  /** Every row moving together (only more than one when a group of chosen rows is moved whole). */
+  readonly ids: readonly string[];
+  readonly group: boolean;
+  /** Where the dragged value was when the drag began: the group's total shift is `value - origin`. */
+  readonly origin: number;
+  /** The edges that can snap, counted from the dragged value (see `snapTo`). */
+  readonly edges: readonly number[];
+  snappedTo: number | undefined;
 }
 
 function quote(name: string): string {
@@ -234,6 +253,11 @@ export class EditSession {
   #playing = false;
   /** What was copied: kept inside the session, not on the computer's clipboard, so it is only ever this edit's own rows. */
   #clipboard: readonly Copied[] = [];
+  /** Whether a drag with the mouse jumps to times that matter when it comes close. On unless the author turns it off. */
+  #snapping = true;
+  /** The marks of a stretch of time to remove, put at the playhead. They are the author's view, not part of the edit, so they are not in the undo history. */
+  #stretchFrom: number | undefined;
+  #stretchTo: number | undefined;
 
   constructor(model: Model, limit?: number) {
     this.#history = new History(model, limit);
@@ -1082,6 +1106,106 @@ export class EditSession {
     return this.#run((m) => addTrack(m, kind));
   }
 
+  /** Give a track a new name. */
+  renameTrack(trackId: string, text: string): Outcome {
+    return this.#run((m) => renameTrack(m, trackId, text));
+  }
+
+  /**
+   * Delete a track. One with something on it is refused (and the sentence says what is on it) unless `withContents` says the author
+   * wants it gone together with that; the choice moves to a row that is left.
+   */
+  deleteTrack(trackId: string, withContents: boolean): Outcome {
+    return this.#run((m) => deleteTrack(m, trackId, withContents));
+  }
+
+  // ---- a stretch of time to remove ----
+
+  /** The marks of the stretch to remove, as set so far: either may be missing. */
+  get stretch(): { readonly fromMs: number | undefined; readonly toMs: number | undefined } {
+    return { fromMs: this.#stretchFrom, toMs: this.#stretchTo };
+  }
+
+  /** Whether both ends are marked, so the stretch can be removed. */
+  get stretchReady(): boolean {
+    return this.#stretchFrom !== undefined && this.#stretchTo !== undefined && this.#stretchTo > this.#stretchFrom;
+  }
+
+  #stretchSentence(): string {
+    const from = this.#stretchFrom;
+    const to = this.#stretchTo;
+    if (from !== undefined && to !== undefined) {
+      return ` The stretch to remove runs from ${describeTime(from)} to ${describeTime(to)}, ${describeLength(to - from)}. X removes it and leaves a gap; Shift+X removes it and closes the gap; Alt+X clears the marks.`;
+    }
+    return from !== undefined ? " Now move the playhead to where the stretch ends and press O." : to !== undefined ? " Now move the playhead to where the stretch starts and press I." : "";
+  }
+
+  /** Mark the start of the stretch at the playhead. */
+  markStretchStart(): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    const at = this.#playheadMs;
+    let said = `The start of the stretch is marked at ${describeTime(at)}.`;
+    this.#stretchFrom = at;
+    if (this.#stretchTo !== undefined && this.#stretchTo <= at) {
+      this.#stretchTo = undefined;
+      said += " The end mark was not after it, so it was cleared.";
+    }
+    this.#emit("tools");
+    return ok(said + this.#stretchSentence());
+  }
+
+  /** Mark the end of the stretch at the playhead. */
+  markStretchEnd(): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    const at = this.#playheadMs;
+    if (this.#stretchFrom !== undefined && at <= this.#stretchFrom) {
+      return no(`The end of the stretch has to be after its start, ${describeTime(this.#stretchFrom)}. Move the playhead later and press O again.`);
+    }
+    this.#stretchTo = at;
+    this.#emit("tools");
+    return ok(`The end of the stretch is marked at ${describeTime(at)}.` + this.#stretchSentence());
+  }
+
+  /** Forget the marks. */
+  clearStretch(): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    if (this.#stretchFrom === undefined && this.#stretchTo === undefined) return ok("No stretch is marked.");
+    this.#stretchFrom = undefined;
+    this.#stretchTo = undefined;
+    this.#emit("tools");
+    return ok("The marks were cleared. Nothing in the edit was changed.");
+  }
+
+  /**
+   * Take the marked stretch out of every track, picture and sound together. The author chooses whether the gap is left or closed
+   * (the edit model gives no default). It is one undo step; the marks are cleared and the playhead goes to the cut.
+   */
+  removeStretch(closeGap: boolean): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    const from = this.#stretchFrom;
+    const to = this.#stretchTo;
+    if (from === undefined || to === undefined) {
+      return no(
+        from === undefined && to === undefined
+          ? "No stretch is marked. Move the playhead to where it starts and press I, then to where it ends and press O."
+          : from === undefined
+            ? "The start of the stretch is not marked. Move the playhead to where it starts and press I."
+            : "The end of the stretch is not marked. Move the playhead to where it ends and press O.",
+      );
+    }
+    const outcome = this.#run((m) => deleteRange(m, from, to, closeGap));
+    if (!outcome.ok) return outcome;
+    this.#stretchFrom = undefined;
+    this.#stretchTo = undefined;
+    this.#movePlayhead(Math.min(from, this.lengthMs));
+    this.#emit("tools");
+    return ok(`${outcome.message} The marks were cleared and the playhead is at the cut, ${describeTime(this.#playheadMs)}.`);
+  }
+
   // ---- the form: exact values ----
 
   /** Give the chosen row a new name. */
@@ -1205,33 +1329,91 @@ export class EditSession {
   /** The drag in progress, for the screen that shows it. */
   get drag(): DragState | undefined {
     const d = this.#drag;
-    return d === undefined ? undefined : { id: d.id, kind: d.kind, via: d.via, range: d.range, value: d.value };
+    return d === undefined ? undefined : { id: d.id, kind: d.kind, via: d.via, range: d.range, value: d.value, ids: d.ids, snappedTo: d.snappedTo };
   }
 
   /**
    * Start a drag of a whole clip, overlay or zoom (`move`) or of one of its grips (`start`, `end`). Everything done
    * until `endDrag` is one undo step; `cancelDrag` puts it all back. The grips stop at the limits the edit allows.
+   * A `move` of one of several chosen rows moves all of them together, by the same amount, and stops where the first of them would be refused.
    */
   beginDrag(kind: DragKind, id: string, via: "pointer" | "keys" = "pointer"): Outcome {
     this.#settle();
     if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
     const row = this.rows.find((r) => r.clipId === id);
-    const limits = limitsOf(this.#history.model, id);
+    const model = this.#history.model;
+    const limits = limitsOf(model, id);
     if (row === undefined || limits === undefined) return no(`There is no row with the id ${id}.`);
-    const range = kind === "move" ? limits.move : kind === "start" ? limits.trimStart : limits.trimEnd;
-    const label = limits.kind === "clip" ? (kind === "move" ? "move clip" : kind === "start" ? "trim clip start" : "trim clip end") : kind === "move" ? "move" : kind === "start" ? "trim start" : "trim end";
+    const together = kind === "move" && this.#chosen.size > 1 && this.#chosen.has(id);
+    const ids = together ? this.selectedRows.map((r) => r.clipId) : [id];
+    let range: Range = kind === "move" ? limits.move : kind === "start" ? limits.trimStart : limits.trimEnd;
+    let edges: number[] = kind === "move" ? [0, row.endMs - row.startMs] : [0];
+    if (together) {
+      const shift = groupMoveLimits(model, ids);
+      if (shift === undefined) return no(`There is no row with the id ${id}.`);
+      range = { min: row.startMs + shift.min, max: row.startMs + shift.max };
+      edges = this.selectedRows.flatMap((r) => [r.startMs - row.startMs, r.endMs - row.startMs]);
+    }
+    const label = together
+      ? "move together"
+      : limits.kind === "clip"
+        ? kind === "move"
+          ? "move clip"
+          : kind === "start"
+            ? "trim clip start"
+            : "trim clip end"
+        : kind === "move"
+          ? "move"
+          : kind === "start"
+            ? "trim start"
+            : "trim end";
     const started = this.#history.beginGroup(label);
     if (!started.ok) return no(started.message);
-    this.#drag = { id, kind, via, range, value: kind === "end" ? row.endMs : row.startMs, before: this.#history.model, label, lastMessage: "" };
+    const origin = kind === "end" ? row.endMs : row.startMs;
+    this.#drag = { id, kind, via, range, value: origin, before: model, label, lastMessage: "", ids, group: together, origin, edges, snappedTo: undefined };
     return ok("");
   }
 
-  /** Take the dragged thing to a time, kept inside what the edit allows. Returns where it ended up. */
-  dragTo(ms: number): number | undefined {
+  /** Whether dragging with the mouse jumps to times that matter. */
+  get snapping(): boolean {
+    return this.#snapping;
+  }
+
+  /** Turn snapping on or off, and say what it does. */
+  toggleSnapping(): Outcome {
+    this.#snapping = !this.#snapping;
+    this.#emit("tools");
+    return ok(
+      this.#snapping
+        ? "Snapping is on. Dragging a clip, an overlay or a grip with the mouse jumps to the playhead, to the start or end of other clips and to the ends of the edit when it comes close. The keys are not affected."
+        : "Snapping is off. A drag with the mouse goes exactly where the pointer is.",
+    );
+  }
+
+  /**
+   * Take the dragged thing to a time, kept inside what the edit allows. Returns where it ended up. With `snapWithinMs` (how many
+   * milliseconds a few pixels come to at the zoom the screen has) and snapping on, a mouse drag jumps to a time that matters when an edge comes that close.
+   */
+  dragTo(ms: number, options: { readonly snapWithinMs?: number } = {}): number | undefined {
     const drag = this.#drag;
     if (drag === undefined) return undefined;
-    const to = Math.min(Math.max(Math.round(ms), drag.range.min), drag.range.max);
+    let wanted = Math.round(ms);
+    let snapped: number | undefined;
+    if (this.#snapping && drag.via === "pointer" && (options.snapWithinMs ?? 0) > 0) {
+      const found = snapTo({
+        ms: wanted,
+        edges: drag.edges,
+        targets: snapTargets(this.rows, new Set(drag.ids), [this.#playheadMs, 0, this.lengthMs, this.#stretchFrom, this.#stretchTo]),
+        withinMs: options.snapWithinMs ?? 0,
+      });
+      wanted = found.ms;
+      snapped = found.target;
+    }
+    const to = Math.min(Math.max(wanted, drag.range.min), drag.range.max);
+    // Pushed back by a limit, it is not at the time it snapped to.
+    const guide = to === wanted ? snapped : undefined;
     const act = (m: Model): Result => {
+      if (drag.group) return moveRowsBy(m, drag.ids, to - drag.value);
       const clip = findClip(m, drag.id) !== undefined;
       switch (drag.kind) {
         case "move":
@@ -1243,14 +1425,17 @@ export class EditSession {
       }
     };
     const before = this.#history.model;
+    const guideChanged = guide !== drag.snappedTo;
+    drag.snappedTo = guide;
     const result = this.#history.run(act);
     if (!result.ok) {
       drag.lastMessage = result.message;
+      if (guideChanged) this.#emit("drag");
       return drag.value;
     }
     drag.value = to;
     drag.lastMessage = result.message;
-    if (this.#history.model !== before) this.#emit("drag");
+    if (this.#history.model !== before || guideChanged) this.#emit("drag");
     return to;
   }
 
@@ -1280,12 +1465,18 @@ export class EditSession {
     const index = this.rows.findIndex((r) => r.clipId === this.#primaryId);
     const beforeDrop = this.#history.model;
     const sentences: string[] = [];
-    const sideways = describeChange(drag.before, beforeDrop);
-    if (sideways !== undefined) sentences.push(sideways);
-    else if (beforeDrop !== drag.before && drag.lastMessage !== "") sentences.push(drag.lastMessage);
+    if (drag.group) {
+      // Many small shifts: the sentence is for the whole of it, from where it began to where it ended.
+      const whole = moveRowsBy(drag.before, drag.ids, drag.value - drag.origin);
+      if (whole.ok && beforeDrop !== drag.before) sentences.push(whole.message);
+    } else {
+      const sideways = describeChange(drag.before, beforeDrop);
+      if (sideways !== undefined) sentences.push(sideways);
+      else if (beforeDrop !== drag.before && drag.lastMessage !== "") sentences.push(drag.lastMessage);
+    }
     let failed = false;
     const here = this.rows.find((r) => r.clipId === drag.id);
-    if (options.dropTrackId !== undefined && here !== undefined && options.dropTrackId !== here.trackId) {
+    if (!drag.group && options.dropTrackId !== undefined && here !== undefined && options.dropTrackId !== here.trackId) {
       const result = this.#history.run((m) =>
         findClip(m, drag.id) !== undefined ? moveClipToTrack(m, drag.id, options.dropTrackId ?? "") : moveItemToTrack(m, drag.id, options.dropTrackId ?? ""),
       );

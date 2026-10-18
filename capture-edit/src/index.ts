@@ -12,6 +12,7 @@ export * from "./preview.ts";
 export * from "./limits.ts";
 export * from "./fromTakes.ts";
 export * from "./playback.ts";
+export * from "./group.ts";
 export * from "./paste.ts";
 export * from "./callouts.ts";
 export * from "./transitions.ts";

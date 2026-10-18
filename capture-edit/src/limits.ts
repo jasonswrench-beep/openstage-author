@@ -12,6 +12,7 @@
 
 import { findClip, findItem, modelLengthMs, MIN_CLIP_MS, clipEndMs, itemEndMs, type Model } from "./model.ts";
 import { moveItem, trimItemEnd, trimItemStart } from "./items.ts";
+import { moveRowsBy, rowsOf } from "./group.ts";
 import { setClipStart, trimEnd, trimStart, type Result } from "./ops.ts";
 
 /** How far past the end of the edit something may be moved or made longer, when nothing else stops it: 10 minutes. */
@@ -46,6 +47,22 @@ function farthest(accepted: number, bound: number, works: (ms: number) => boolea
 }
 
 const fine = (result: Result): boolean => result.ok;
+
+/**
+ * How far several chosen clips, overlays and zooms can be moved together: the least and the most the whole group
+ * can shift by (the least is zero or below, the most zero or above). Found by asking `moveRowsBy`, like the single limits,
+ * so a drag of the group stops where the edit model would refuse. Undefined when nothing chosen is there.
+ */
+export function groupMoveLimits(model: Model, ids: readonly string[]): Range | undefined {
+  const rows = rowsOf(model, ids);
+  if (rows.length === 0) return undefined;
+  const earliest = Math.min(...rows.map((r) => r.startMs));
+  const latestStart = Math.max(...rows.map((r) => r.startMs));
+  const top = Math.max(modelLengthMs(model), ...rows.map((r) => r.endMs)) + ROOM_PAST_END_MS;
+  const moves = (delta: number) => fine(moveRowsBy(model, ids, delta));
+  const lowest = earliest === 0 ? 0 : -earliest;
+  return { min: farthest(0, lowest, moves), max: farthest(0, top - latestStart, moves) };
+}
 
 /** The limits of a clip, overlay or zoom by its id, or undefined if there is none. */
 export function limitsOf(model: Model, id: string): Limits | undefined {

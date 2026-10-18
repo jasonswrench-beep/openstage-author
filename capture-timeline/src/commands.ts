@@ -22,6 +22,8 @@ export interface Command {
 const isKey = (e: KeyboardEvent, key: string, shift = false): boolean =>
   e.key.toLowerCase() === key && e.shiftKey === shift && !e.ctrlKey && !e.metaKey && !e.altKey;
 
+const withAlt = (e: KeyboardEvent, key: string): boolean => e.key.toLowerCase() === key && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey;
+
 const plainDelete = (e: KeyboardEvent): boolean =>
   (e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey && !e.altKey;
 
@@ -32,6 +34,12 @@ export const COMMANDS: readonly Command[] = [
   { id: "trim-end", label: "Trim end to playhead", key: "E", aria: "E", match: (e) => isKey(e, "e"), run: (s) => s.trimEndToPlayhead() },
   { id: "delete-gap", label: "Delete, leave a gap", key: "Delete", aria: "Delete", match: (e) => plainDelete(e) && !e.shiftKey, run: (s) => s.deleteSelected(false) },
   { id: "delete-close", label: "Delete, close the gap", key: "Shift+Delete", aria: "Shift+Delete", match: (e) => plainDelete(e) && e.shiftKey, run: (s) => s.deleteSelected(true) },
+  { id: "mark-start", label: "Mark the start of a stretch to remove", key: "I", aria: "I", match: (e) => isKey(e, "i"), run: (s) => s.markStretchStart() },
+  { id: "mark-end", label: "Mark the end of the stretch", key: "O", aria: "O", match: (e) => isKey(e, "o"), run: (s) => s.markStretchEnd() },
+  { id: "remove-gap", label: "Remove the marked stretch, leave a gap", key: "X", aria: "X", match: (e) => isKey(e, "x"), run: (s) => s.removeStretch(false) },
+  { id: "remove-close", label: "Remove the marked stretch, close the gap", key: "Shift+X", aria: "Shift+X", match: (e) => isKey(e, "x", true), run: (s) => s.removeStretch(true) },
+  { id: "clear-stretch", label: "Clear the stretch marks", key: "Alt+X", aria: "Alt+X", match: (e) => withAlt(e, "x"), run: (s) => s.clearStretch() },
+  { id: "snap", label: "Snapping on or off", key: "N", aria: "N", match: (e) => isKey(e, "n"), run: (s) => s.toggleSnapping() },
   { id: "join", label: "Join with next clip", key: "J", aria: "J", match: (e) => isKey(e, "j"), run: (s) => s.joinSelectedWithNext() },
   {
     id: "earlier",

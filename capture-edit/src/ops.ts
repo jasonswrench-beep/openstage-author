@@ -23,6 +23,7 @@ import {
   findClip,
   findSource,
   findTrack,
+  itemEndMs,
   MAX_IMPORTED_VIDEO_MS,
   MAX_VOLUME_DB,
   MIN_CLIP_MS,
@@ -30,11 +31,13 @@ import {
   MIN_VOLUME_DB,
   sameSource,
   sortClips,
+  sortItems,
   takeId,
   trackKindName,
   withClip,
   withTrack,
   type Clip,
+  type Item,
   type Model,
   type Rect,
   type SourceInfo,
@@ -133,6 +136,28 @@ export function renameTrack(model: Model, trackId: string, name: string): Result
   if (next === "") return refuse("A track needs a name.");
   if (next === track.name) return unchanged(model, `The track is already called ${quote(next)}.`);
   return done(withTrack(model, { ...track, name: next }), "rename track", `The track ${quote(track.name)} is now called ${quote(next)}.`, [trackId]);
+}
+
+/**
+ * Delete a track. A track that has clips, overlays or zooms on it is not deleted unless the author says so (`withContents`): they would go with it, and that is said
+ * first. Deleting an empty track needs no more than the track's id.
+ */
+export function deleteTrack(model: Model, trackId: string, withContents: boolean): Result {
+  const track = findTrack(model, trackId);
+  if (track === undefined) return refuse(`There is no track with the id ${trackId}.`);
+  const things = track.clips.length + track.items.length;
+  if (things > 0 && !withContents) {
+    const what = track.clips.length > 0 ? `${track.clips.length} ${track.clips.length === 1 ? "clip" : "clips"}` : `${track.items.length} ${track.items.length === 1 ? "overlay or zoom" : "overlays and zooms"}`;
+    return refuse(`The track ${quote(track.name)} has ${what} on it. Delete ${track.clips.length + track.items.length === 1 ? "it" : "them"} first, or delete the track together with what is on it.`);
+  }
+  const next: Model = { ...model, tracks: model.tracks.filter((t) => t.id !== trackId) };
+  const had = new Set(validate(model).filter((p) => p.severity === "error").map((p) => p.message));
+  const broken = validate(next).find((p) => p.severity === "error" && !had.has(p.message));
+  if (broken !== undefined) return refuse(`Cannot delete the track ${quote(track.name)}: ${broken.message}`);
+  const message = things === 0
+    ? `Deleted the empty track ${quote(track.name)}.`
+    : `Deleted the track ${quote(track.name)} and the ${things === 1 ? "one thing" : `${things} things`} on it.`;
+  return done(next, "delete track", message, []);
 }
 
 // ---- adding clips ----
@@ -425,8 +450,13 @@ export function deleteClip(model: Model, clipId: string, closeGap: boolean): Res
 /**
  * Remove a stretch of time, from `fromMs` to `toMs`, from every track (or the tracks named), so a
  * mistake is cut out of the picture and the sound together. Clips that cross an edge are cut there.
- * `closeGap` is the author's choice, so it has no default: true moves everything after the stretch
- * earlier; false leaves it empty.
+ * Overlays and zooms go the same way: one wholly inside the stretch is removed; one that crosses an
+ * edge is shortened to the edge; one that spans the whole stretch is made shorter (when the gap is
+ * closed) or cut in two (when it is left), so what was on screen over the part that stays is still
+ * there. A piece of an overlay or zoom that would be shorter than the shortest clip is dropped, and
+ * the sentence says how many were. `closeGap` is the author's choice, so it has no default: true moves
+ * everything after the stretch earlier, overlays and zooms included, so they stay with the picture
+ * they were on; false leaves it empty.
  */
 export function deleteRange(model: Model, fromMs: number, toMs: number, closeGap: boolean, trackIds?: readonly string[]): Result {
   const from = wholeMs(fromMs);
@@ -438,6 +468,9 @@ export function deleteRange(model: Model, fromMs: number, toMs: number, closeGap
 
   let next = model;
   let touched = 0;
+  let itemsInside = 0;
+  let itemsLost = 0;
+  let itemsChanged = 0;
   const touchedTracks = new Set<string>();
   for (const track of targets) {
     const pieces: Clip[] = [];
@@ -479,15 +512,68 @@ export function deleteRange(model: Model, fromMs: number, toMs: number, closeGap
       }
     }
     const shifted = closeGap ? pieces.map((c) => (c.startMs >= to ? { ...c, startMs: c.startMs - removed } : c)) : pieces;
-    next = withTrack(next, { ...(findTrack(next, track.id) ?? track), clips: sortClips(shifted) });
+
+    // Overlays and zooms on the track.
+    const kept: Item[] = [];
+    for (const item of track.items) {
+      const end = itemEndMs(item);
+      if (end <= from || item.startMs >= to) {
+        kept.push(item);
+        continue;
+      }
+      touchedTracks.add(track.id);
+      const keepsLeft = item.startMs < from;
+      const keepsRight = end > to;
+      const leftLength = from - item.startMs;
+      const rightLength = end - to;
+      if (!keepsLeft && !keepsRight) {
+        itemsInside += 1;
+        continue;
+      }
+      if (keepsLeft && keepsRight && closeGap) {
+        // It spans the stretch, so it simply gets shorter.
+        kept.push({ ...item, durationMs: item.durationMs - removed });
+        itemsChanged += 1;
+        continue;
+      }
+      let pieces = 0;
+      if (keepsLeft && leftLength >= MIN_CLIP_MS) {
+        kept.push({ ...item, durationMs: leftLength });
+        pieces += 1;
+      }
+      if (keepsRight && rightLength >= MIN_CLIP_MS) {
+        if (keepsLeft && leftLength >= MIN_CLIP_MS) {
+          const taken = takeId(next, "item");
+          next = taken.model;
+          kept.push({ ...item, id: taken.id, startMs: to, durationMs: rightLength });
+        } else kept.push({ ...item, startMs: to, durationMs: rightLength });
+        pieces += 1;
+      }
+      if (pieces === 0) itemsLost += 1;
+      else itemsChanged += 1;
+    }
+    const items = closeGap ? kept.map((i) => (i.startMs >= to ? { ...i, startMs: i.startMs - removed } : i)) : kept;
+    next = withTrack(next, { ...(findTrack(next, track.id) ?? track), clips: sortClips(shifted), items: sortItems(items) });
   }
-  if (touched === 0) return refuse(`Nothing to remove between ${describeTime(from)} and ${describeTime(to)}: no clip is there.`);
+  const itemsTouched = itemsInside + itemsLost + itemsChanged;
+  if (touched === 0 && itemsTouched === 0) return refuse(`Nothing to remove between ${describeTime(from)} and ${describeTime(to)}: no clip, overlay or zoom is there.`);
+  if (touched === 0 && !closeGap) return refuse(`Nothing to remove between ${describeTime(from)} and ${describeTime(to)}: no clip is there, and leaving the gap would change nothing but the overlays.`);
+  // Taking time out must not make an edit that is no longer sound (a zoom's own limits, say).
+  const had = new Set(validate(model).filter((p) => p.severity === "error").map((p) => p.message));
+  const broken = validate(next).find((p) => p.severity === "error" && !had.has(p.message));
+  if (broken !== undefined) return refuse(`Cannot remove from ${describeTime(from)} to ${describeTime(to)}: ${broken.message}`);
   const trackWords = touchedTracks.size === 1 ? "1 track" : `${touchedTracks.size} tracks`;
+  const parts: string[] = [];
+  if (itemsInside > 0) parts.push(`${itemsInside} removed because ${itemsInside === 1 ? "it was" : "they were"} inside the stretch`);
+  if (itemsLost > 0) parts.push(`${itemsLost} dropped because less than ${describeLength(MIN_CLIP_MS)} of ${itemsLost === 1 ? "it" : "them"} was left`);
+  if (itemsChanged > 0) parts.push(`${itemsChanged} shortened or cut in two`);
+  const extras = parts.length === 0 ? "" : ` Overlays and zooms: ${parts.join("; ")}.`;
   return done(
     next,
     "remove time",
     `Removed ${describeLength(removed)} from ${describeTime(from)} to ${describeTime(to)} on ${trackWords}` +
-      (closeGap ? ", and moved everything after it earlier to close the gap." : ", leaving a gap."),
+      (closeGap ? ", and moved everything after it earlier to close the gap." : ", leaving a gap.") +
+      extras,
     [...touchedTracks],
   );
 }

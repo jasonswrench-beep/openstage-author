@@ -273,6 +273,85 @@
   pointer-events: none;
 }
 
+/* The marked stretch: a shaded band over every track, edged with dashed lines (so it is not told apart by colour alone), and the
+   line a drag has jumped to. They sit over the lanes and never take the pointer. */
+.os-tl-band {
+  position: absolute;
+  top: var(--os-tl-ruler-h);
+  bottom: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--os-cl-attention, #b00020) 22%, transparent);
+  border-left: 2px dashed var(--os-cl-attention, #b00020);
+  border-right: 2px dashed var(--os-cl-attention, #b00020);
+  pointer-events: none;
+}
+
+.os-tl-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 0;
+  border-left: 2px dashed var(--os-cl-attention, #b00020);
+  pointer-events: none;
+}
+
+.os-tl-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 0;
+  border-left: 2px solid var(--os-cl-accent);
+  pointer-events: none;
+}
+
+.os-tl-stretchline {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+.os-tl-trackform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--os-cl-line);
+  border-radius: 0.25rem;
+}
+
+.os-tl-trackform[hidden] {
+  display: none;
+}
+
+.os-tl-trackform-title {
+  margin: 0;
+  flex: 1 1 100%;
+}
+
+.os-tl-tool[aria-pressed="true"] {
+  background: var(--os-cl-selected-bg);
+  border-color: var(--os-cl-fg);
+}
+
+@media (forced-colors: active) {
+  .os-tl-band,
+  .os-tl-mark {
+    border-color: Highlight;
+    background: transparent;
+  }
+  .os-tl-guide {
+    border-color: Highlight;
+  }
+  .os-tl-tool[aria-pressed="true"] {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
+}
+
 @media (max-width: 40rem) {
   :root {
     --os-tl-gutter: 5rem;

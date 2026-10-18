@@ -13,7 +13,11 @@
  *    move a tenth of a second, with Shift a second, Page Up and Page Down five seconds, Home and End go to the ends of what
  *    the edit allows. A key held down is one undo step; Escape puts it back.
  *  - A mouse drag moves a clip (and, downwards or upwards onto another track that takes it, moves it to that track) or a
- *    grip. The whole drag is one undo step and Escape cancels it.
+ *    grip. The whole drag is one undo step and Escape cancels it. Dragging one of several chosen clips moves them all
+ *    together. A drag jumps to the playhead, to the edges of other clips and to the ends of the edit when it comes close
+ *    (snapping, which can be turned off, or held off with Alt for one drag); a line shows where it has jumped to.
+ *  - A stretch of time is marked with I (start) and O (end) at the playhead, and shown as a shaded band across every track;
+ *    X removes it and leaves a gap, Shift+X removes it and closes the gap.
  *  - Zoom has buttons and keys; only the marks in view are drawn, so an hour-long edit stays quick.
  *
  * Not yet checked with NVDA, Narrator or VoiceOver. Whether a listbox of clips, grouped by track, reads well, and whether
@@ -92,6 +96,9 @@ const PLAYHEAD_FROM_CLIPS: Readonly<Record<string, readonly [StepKey, boolean]>>
 
 const KEY_DRAG_IDLE_MS = 500;
 
+/** How close, in pixels on the screen, an edge has to come to a time that matters before a drag jumps to it. */
+const SNAP_PX = 8;
+
 const TRACK_KINDS: readonly TrackKind[] = ["screen", "webcam", "audio", "media", "overlay", "zoom"];
 
 export function mountTimeline(container: HTMLElement, session: EditSession, options: TimelineOptions = {}): TimelinePanel {
@@ -114,7 +121,13 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   const lanesEl = h("div", { class: "os-tl-lanes", role: "listbox", "aria-label": "Clips on the timeline", "aria-multiselectable": "true", "aria-describedby": `${id}-lanes-hint` });
   const gripsEl = h("div", { class: "os-tl-grips" });
   const playline = h("div", { class: "os-tl-playline", "aria-hidden": "true" });
-  const canvas = h("div", { class: "os-tl-canvas" }, h("div", { class: "os-tl-rulerrow" }, corner, ruler), lanesEl, gripsEl, playline);
+  // The marked stretch is a shaded band over every track, with a mark at each end that is also drawn when only one end is set. Its words are in the announcements and in the Marked stretch line.
+  const band = h("div", { class: "os-tl-band", "aria-hidden": "true", hidden: true });
+  const markFrom = h("div", { class: "os-tl-mark os-tl-mark-from", "aria-hidden": "true", hidden: true });
+  const markTo = h("div", { class: "os-tl-mark os-tl-mark-to", "aria-hidden": "true", hidden: true });
+  // While a drag has jumped to something, a line shows what.
+  const guide = h("div", { class: "os-tl-guide", "aria-hidden": "true", hidden: true });
+  const canvas = h("div", { class: "os-tl-canvas" }, h("div", { class: "os-tl-rulerrow" }, corner, ruler), lanesEl, band, markFrom, markTo, gripsEl, guide, playline);
   const scroller = h("div", { class: "os-tl-scroll" }, canvas);
   const empty = h("p", { class: "os-cl-empty", tabindex: -1 }, "There are no clips yet. Record something, or add a clip, to start editing.");
 
@@ -127,6 +140,8 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   const timeInput = h("input", { id: `${id}-time`, type: "text", class: "os-cl-input", autocomplete: "off", spellcheck: "false", "aria-describedby": `${id}-time-hint` });
   const error = h("p", { class: "os-cl-error", id: `${id}-error` });
   const readout = h("p", { class: "os-cl-readout" });
+  // The marked stretch written out, for anyone who cannot see the band.
+  const stretchLine = h("p", { class: "os-tl-stretchline", hidden: true });
 
 
   // ---- the tool bar: the things done most, one press each. They are the same commands as the keys and the clip list. ----
@@ -160,6 +175,14 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     tool("split", "Split", icon("M12 2v20", "M4 7h16v10H4z")),
     tool("delete-gap", "Delete", icon("M4 7h16", "M9 7V4h6v3", "M6 7l1 13h10l1-13", "M10 11v6", "M14 11v6")),
     tool("delete-close", "Delete, close gap", icon("M3 12h6", "M21 12h-6", "M6 9l3 3-3 3", "M18 9l-3 3 3 3")),
+    separator(),
+    tool("mark-start", "Mark start", icon("M7 3v18", "M7 5h10l-3 4 3 4H7")),
+    tool("mark-end", "Mark end", icon("M17 3v18", "M17 5H7l3 4-3 4h10")),
+    tool("remove-gap", "Remove stretch", icon("M4 8h5", "M15 8h5", "M9 5v6", "M15 5v6", "M4 16h16")),
+    tool("remove-close", "Remove, close gap", icon("M3 8h6", "M21 8h-6", "M9 5v6", "M15 5v6", "M6 16l3 3-3 3", "M18 16l-3 3 3 3")),
+    tool("clear-stretch", "Clear marks", icon("M5 5l14 14", "M19 5 5 19")),
+    separator(),
+    tool("snap", "Snap", icon("M6 4v8a6 6 0 0 0 12 0V4", "M6 8h4", "M14 8h4")),
     separator(),
   );
 
@@ -223,7 +246,152 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     const to = e.relatedTarget as Node | null;
     if (to === null || !menuHolder.contains(to)) closeTrackMenu(false);
   });
-  const toolList = [...toolButtons.values(), addTrackButton];
+
+  // Tracks: a second menu, for the tracks that are already there: change a name, or delete one (an empty one at once;
+  // one with something on it only after it is said that it goes together with that).
+  const tracksButton = h(
+    "button",
+    { type: "button", class: "os-tl-tool", tabindex: -1, id: `${id}-tracks`, "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": `${id}-tracksmenu`, title: "Rename or delete a track" },
+    icon("M4 6h16", "M4 12h16", "M4 18h16", "M17 9l3 3-3 3"),
+    h("span", { class: "os-tl-tool-label" }, "Tracks"),
+  );
+  const tracksMenu = h("div", { class: "os-tl-menu os-tl-tracksmenu", role: "menu", id: `${id}-tracksmenu`, "aria-label": "Rename or delete a track", hidden: true });
+  const tracksHolder = h("span", { class: "os-tl-menuholder" }, tracksButton, tracksMenu);
+  toolbar.append(tracksHolder);
+  const trackActions = (): HTMLButtonElement[] => [...tracksMenu.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')];
+  function closeTracksMenu(refocus: boolean): void {
+    if (tracksMenu.hidden) return;
+    tracksMenu.hidden = true;
+    tracksButton.setAttribute("aria-expanded", "false");
+    if (refocus) tracksButton.focus();
+  }
+  /** What the menu offers is made each time it opens, from the tracks as they are now. */
+  function openTracksMenu(): void {
+    const tracks = session.model.tracks;
+    if (tracks.length === 0) {
+      say("There are no tracks yet. Add one first.");
+      return;
+    }
+    const items: HTMLElement[] = [];
+    for (const t of tracks) {
+      const count = t.clips.length + t.items.length;
+      const rename = h("button", { type: "button", role: "menuitem", class: "os-tl-menuitem", tabindex: -1 }, `Rename ${t.name}...`);
+      rename.addEventListener("click", () => {
+        closeTracksMenu(false);
+        askTrackName(t.id, t.name);
+      });
+      const remove = h("button", { type: "button", role: "menuitem", class: "os-tl-menuitem", tabindex: -1 }, count === 0 ? `Delete ${t.name} (empty)` : `Delete ${t.name} and its ${count === 1 ? "one thing" : `${count} things`}...`);
+      remove.addEventListener("click", () => {
+        closeTracksMenu(false);
+        if (count === 0) {
+          run(session.deleteTrack(t.id, false));
+          tracksButton.focus();
+          return;
+        }
+        askDeleteTrack(t.id, t.name, count);
+      });
+      items.push(rename, remove);
+    }
+    tracksMenu.replaceChildren(...items);
+    tracksMenu.hidden = false;
+    tracksButton.setAttribute("aria-expanded", "true");
+    trackActions()[0]?.focus();
+  }
+  tracksButton.addEventListener("click", () => (tracksMenu.hidden ? openTracksMenu() : closeTracksMenu(true)));
+  tracksButton.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      openTracksMenu();
+      if (e.key === "ArrowUp") trackActions().at(-1)?.focus();
+    }
+  });
+  tracksMenu.addEventListener("keydown", (e) => {
+    const list = trackActions();
+    const at = list.indexOf(document.activeElement as HTMLButtonElement);
+    const move = (to: number): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      list[(to + list.length) % list.length]?.focus();
+    };
+    if (e.key === "ArrowDown") move(at + 1);
+    else if (e.key === "ArrowUp") move(at - 1);
+    else if (e.key === "Home") move(0);
+    else if (e.key === "End") move(list.length - 1);
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTracksMenu(true);
+    } else if (e.key === "Tab") closeTracksMenu(false);
+  });
+  tracksMenu.addEventListener("focusout", (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (to === null || !tracksHolder.contains(to)) closeTracksMenu(false);
+  });
+
+  // A small form for a track's name, and a plain question before a track with things on it is deleted. They are part of the
+  // panel (not a browser prompt), so a screen reader finds them where the focus goes, and Escape closes them.
+  const trackForm = h("form", { class: "os-tl-trackform", role: "group", hidden: true, "aria-labelledby": `${id}-trackform-title` });
+  const trackFormTitle = h("p", { class: "os-tl-trackform-title", id: `${id}-trackform-title` });
+  const trackFormInput = h("input", { type: "text", class: "os-cl-input", id: `${id}-trackform-name`, autocomplete: "off", "aria-labelledby": `${id}-trackform-title` });
+  const trackFormOk = h("button", { type: "submit", class: "os-cl-button" }, "Rename");
+  const trackFormCancel = h("button", { type: "button", class: "os-cl-button" }, "Cancel");
+  trackForm.append(trackFormTitle, trackFormInput, trackFormOk, trackFormCancel);
+  let trackFormDo: (() => void) | undefined;
+  function openTrackForm(title: string, okLabel: string, withInput: boolean, then: () => void): void {
+    trackFormTitle.textContent = title;
+    trackFormOk.textContent = okLabel;
+    trackFormInput.hidden = !withInput;
+    trackFormDo = then;
+    trackForm.hidden = false;
+    (withInput ? trackFormInput : trackFormCancel).focus();
+    if (withInput) trackFormInput.select();
+  }
+  function closeTrackForm(): void {
+    trackForm.hidden = true;
+    trackFormDo = undefined;
+    tracksButton.focus();
+  }
+  function askTrackName(trackId: string, current: string): void {
+    trackFormInput.value = current;
+    openTrackForm(`New name for the track ${current}`, "Rename", true, () => {
+      const outcome = session.renameTrack(trackId, trackFormInput.value);
+      say(outcome.message);
+      if (outcome.ok) closeTrackForm();
+      else trackFormInput.focus();
+    });
+  }
+  function askDeleteTrack(trackId: string, name: string, count: number): void {
+    openTrackForm(
+      `The track ${name} has ${count === 1 ? "one thing" : `${count} things`} on it. Deleting the track deletes ${count === 1 ? "it" : "them"} too. Undo brings the track back.`,
+      "Delete the track and what is on it",
+      false,
+      () => {
+        run(session.deleteTrack(trackId, true));
+        trackForm.hidden = true;
+        trackFormDo = undefined;
+        tracksButton.focus();
+      },
+    );
+  }
+  trackForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    trackFormDo?.();
+  });
+  trackFormCancel.addEventListener("click", () => {
+    closeTrackForm();
+    say("Nothing was changed.");
+  });
+  trackForm.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTrackForm();
+      say("Nothing was changed.");
+    }
+  });
+
+  const toolList = [...toolButtons.values(), addTrackButton, tracksButton];
   let toolStop = 0;
   const showToolStop = (index: number): void => {
     toolStop = index;
@@ -256,6 +424,14 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     off("undo", !session.canUndo, session.undoLabel === undefined ? "Undo (Ctrl+Z)" : `Undo ${session.undoLabel} (Ctrl+Z)`);
     off("redo", !session.canRedo, session.redoLabel === undefined ? "Redo (Ctrl+Y)" : `Redo ${session.redoLabel} (Ctrl+Y)`);
     off("paste", !session.canPaste);
+    off("remove-gap", !session.stretchReady);
+    off("remove-close", !session.stretchReady);
+    off("clear-stretch", session.stretch.fromMs === undefined && session.stretch.toMs === undefined);
+    const snap = toolButtons.get("snap");
+    if (snap !== undefined) {
+      snap.setAttribute("aria-pressed", session.snapping ? "true" : "false");
+      snap.title = `Snapping is ${session.snapping ? "on" : "off"} (N)`;
+    }
   }
 
   // ---- zoom: a slider and the buttons ----
@@ -283,7 +459,8 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     ["On a start or end grip", "Left and Right move it 0.1 second, with Shift 1 second, Page Up and Page Down 5 seconds, Home and End to the ends of what is allowed. Escape puts it back."],
     ["On the playhead", "The same keys move the playhead. Home and End go to the start and end of the edit."],
     ...COMMANDS.map((c) => [c.key, c.label] as const),
-    ["Mouse", "Drag a clip to move it, or onto another track that takes it to move it there. Drag a start or end grip to trim. Click the ruler or an empty part of a track to put the playhead there. Escape cancels a drag; one drag is one undo step."],
+    ["Mouse", "Drag a clip to move it, or onto another track that takes it to move it there. With several chosen, dragging one moves them all together. A drag jumps to the playhead and to the edges of other clips when it comes close (the Snap button, or N, turns that off; holding Alt turns it off for one drag). Drag a start or end grip to trim. Click the ruler or an empty part of a track to put the playhead there. Escape cancels a drag; one drag is one undo step."],
+    ["Removing a stretch", "Put the playhead where the stretch starts and press I, then where it ends and press O. A shaded band shows it. X removes it from every track and leaves a gap; Shift+X removes it and moves everything after it earlier. Alt+X clears the marks. One undo puts it all back."],
   ] as const;
   const help = h(
     "details",
@@ -301,11 +478,13 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     h("h2", { id: `${id}-title`, class: "os-cl-title" }, options.title ?? "Timeline"),
     ownAnnouncer ? announcer.element : "",
     h("div", { class: "os-tl-bar" }, toolbar, timeField, zoomGroup),
+    trackForm,
     h("p", { class: "os-cl-hint", id: `${id}-time-hint` }, "Type a time such as 72.4 (seconds), 1:12.4 (minutes and seconds) or 1m12.4s, then press Enter."),
     error,
     h("p", { class: "os-cl-hint", id: `${id}-ruler-hint` }, "The ruler is the playhead: Left and Right move it, Home and End go to the start and end."),
     h("p", { class: "os-cl-hint", id: `${id}-lanes-hint` }, "Left and Right choose the clip before or after, Up and Down the track above or below. The keys are listed under Keyboard shortcuts."),
     h("div", { class: "os-tl-frame" }, scroller, empty),
+    stretchLine,
     readout,
     help,
   );
@@ -474,6 +653,37 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     positionGrip(grips.end, row.endMs, lane);
   }
 
+  /** The band and its two marks, and the line of words under the timeline. */
+  function renderStretch(): void {
+    const { fromMs, toMs } = session.stretch;
+    const putAt = (el: HTMLElement, ms: number | undefined): void => {
+      el.hidden = ms === undefined;
+      if (ms !== undefined) el.style.left = `calc(var(--os-tl-gutter) + ${ms * scale}px)`;
+    };
+    putAt(markFrom, fromMs);
+    putAt(markTo, toMs);
+    const both = fromMs !== undefined && toMs !== undefined;
+    band.hidden = !both;
+    if (both) {
+      band.style.left = `calc(var(--os-tl-gutter) + ${fromMs * scale}px)`;
+      band.style.width = `${Math.max(2, (toMs - fromMs) * scale)}px`;
+    }
+    stretchLine.hidden = fromMs === undefined && toMs === undefined;
+    stretchLine.textContent = both
+      ? `Marked stretch: ${describeTime(fromMs)} to ${describeTime(toMs)}, ${describeLength(toMs - fromMs)}. X removes it and leaves a gap; Shift+X removes it and closes the gap.`
+      : fromMs !== undefined
+        ? `Marked stretch: starts at ${describeTime(fromMs)}. Move the playhead to where it ends and press O.`
+        : toMs !== undefined
+          ? `Marked stretch: ends at ${describeTime(toMs)}. Move the playhead to where it starts and press I.`
+          : "";
+  }
+
+  function renderGuide(): void {
+    const at = session.drag?.snappedTo;
+    guide.hidden = at === undefined;
+    if (at !== undefined) guide.style.left = `calc(var(--os-tl-gutter) + ${at * scale}px)`;
+  }
+
   function syncPlayhead(): void {
     const at = session.playheadMs;
     playline.style.left = `calc(var(--os-tl-gutter) + ${at * scale}px)`;
@@ -563,6 +773,8 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     renderLanes();
     renderTicks();
     renderGrips();
+    renderStretch();
+    renderGuide(); // the edit is redrawn when a drag ends, which is when the line goes
     syncPlayhead();
     syncZoom();
     syncTools();
@@ -590,14 +802,21 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     if (kind === "model") layout();
     else if (kind === "selection") renderSelection();
     else if (kind === "clipboard") syncTools();
-    else if (kind === "playhead" || kind === "transport") syncPlayhead();
+    else if (kind === "tools") {
+      renderStretch();
+      syncTools();
+    } else if (kind === "playhead" || kind === "transport") syncPlayhead();
     else if (kind === "drag") {
       const drag = session.drag;
       const row = drag === undefined ? undefined : session.rows.find((r) => r.clipId === drag.id);
       if (drag === undefined || row === undefined) return;
-      const el = optionEls.get(drag.id);
-      if (el !== undefined) place(el, row); // its sentence is made again when the drag ends
+      for (const moving of drag.ids) {
+        const movingRow = session.rows.find((r) => r.clipId === moving);
+        const el = optionEls.get(moving);
+        if (el !== undefined && movingRow !== undefined) place(el, movingRow); // its sentence is made again when the drag ends
+      }
       updateGripValues(row);
+      renderGuide();
     }
   });
 
@@ -881,6 +1100,8 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     let drop: string | undefined;
     let lane: HTMLElement | undefined;
     const el = optionEls.get(rowId);
+    // Dragging one of several chosen clips moves them all, so it cannot be dropped on another track and the choice is kept.
+    const together = kind === "move" && session.selectionCount > 1 && session.isSelected(rowId);
 
     const showDrop = (target: HTMLElement | undefined): void => {
       if (lane !== undefined && lane !== target) lane.classList.remove("os-tl-drop-ok", "os-tl-drop-no");
@@ -895,7 +1116,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       (ev) => {
         if (!began) {
           if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < (kind === "move" ? 4 : 2)) return;
-          if (session.selectionCount > 1) session.select(rowId);
+          if (session.selectionCount > 1 && !together) session.select(rowId);
           const result = session.beginDrag(kind, rowId);
           if (!result.ok) {
             say(result.message);
@@ -905,9 +1126,9 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
           el?.classList.add("os-tl-dragging");
         }
         const ms = msAtX(ev.clientX, originX(), scale);
-        session.dragTo(tidy(kind === "move" ? ms - grab : ms));
+        session.dragTo(tidy(kind === "move" ? ms - grab : ms), { snapWithinMs: ev.altKey ? 0 : SNAP_PX / scale });
         autoscroll(ev.clientX);
-        if (kind === "move") {
+        if (kind === "move" && !together) {
           const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>(".os-tl-lane") ?? undefined;
           const trackId = under?.dataset["track"];
           drop = trackId !== undefined && trackId !== from ? trackId : undefined;
