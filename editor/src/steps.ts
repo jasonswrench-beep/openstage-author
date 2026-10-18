@@ -425,7 +425,7 @@ function replaceSteps(list: StepList, steps: Step[], nextId = list.nextId): Step
 }
 
 /** Change a step's words, picture description, picture moment or place. Whatever the author changes, the step is theirs to approve again only by their saying so. */
-export function editStep(list: StepList, id: string, patch: { text?: string; alt?: string; shotMs?: number; target?: { x: number; y: number } | null; reviewed?: boolean; box?: Box | null; picture?: { width: number; height: number } | null }): StepList {
+export function editStep(list: StepList, id: string, patch: { text?: string; alt?: string; shotMs?: number; target?: { x: number; y: number } | null; reviewed?: boolean; box?: Box | null; picture?: { width: number; height: number } | null; typed?: string | null }): StepList {
   const i = find(list, id);
   if (i < 0) return list;
   const s = list.steps[i]!;
@@ -437,6 +437,7 @@ export function editStep(list: StepList, id: string, patch: { text?: string; alt
   if (patch.reviewed !== undefined) next.reviewed = patch.reviewed;
   if (patch.box !== undefined) next.box = patch.box === null ? null : clampBox(patch.box);
   if (patch.picture !== undefined) next.picture = patch.picture;
+  if (patch.typed !== undefined) next.typed = patch.typed === null || patch.typed === "" ? null : patch.typed.slice(0, 200);
   return replaceSteps(list, list.steps.map((x, k) => (k === i ? next : x)));
 }
 

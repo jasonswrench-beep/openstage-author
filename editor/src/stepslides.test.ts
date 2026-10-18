@@ -146,7 +146,8 @@ test("pressing it again makes nothing twice, and says so; a step added later get
   assert.match(more.message, /1 step already had a slide, so it was left alone\./);
   assert.equal(m.slides.length, 3);
   assert.equal(m.makeStepSlides({ recording: "Other.capture", steps: list.steps, pictures: pictures(list) }).added, 2, "another recording's steps are not the same steps");
-  assert.equal(m.makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, "There are no steps to make slides from.");
+  assert.match(m.makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, /^There are no steps to make slides from\. 2 slides are for steps that are no longer in the list/);
+  assert.equal(fresh().makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, "There are no steps to make slides from.");
 });
 
 // ---- the course's own checker

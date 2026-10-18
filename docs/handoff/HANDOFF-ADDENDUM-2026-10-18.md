@@ -95,6 +95,21 @@ Built, tried in the real desktop editor (26 checks, then the saved course went t
   step id); a step that already has a slide is skipped. New shell command `save_step_picture` (a real PNG, a safe name, never overwrites). `Model.stepsWithSlides(recording)` reports which steps have slides.
 - Counts now: editor 961 (960 pass, 1 skip), editor Rust 91, `capture-timeline` 120; everything else as in the section above.
 
-**Next:** Stage 4, Practice, as in the ADR: for each step a slide with the picture, a `hotspot` object over the box (named by the step's words, reached by Tab, Enter or Space), a hint layer after a wrong try (a click elsewhere,
-or a second hotspot named "Anywhere else on the screen" so a keyboard user has the same choice), an attempts variable (`setVariable` with `operation: "add"`), and the target shown after three tries; typing steps as
-`shortAnswer` questions worth 0 points. Then Stage 5 (Assessment, scored quiz kinds, one try, no hints) and Stage 6 (bringing a lesson up to date). Not tried yet with a real recording's pictures or a screen reader.
+## Later still on 2026-10-18: Phase 7, Stages 4 to 6 (Practice, the Test, bringing a lesson up to date)
+
+Built, tried in the real desktop editor (all three lessons in one course; the saved course through `tools/validate.py`, which asked only for the unchecked pictures' descriptions) and, for what a learner can do, in the
+player's own runtime (`Runtime` from `player/src/runtime.ts`, used in `editor/src/steplessons.test.ts`):
+
+- **`editor/src/steplessons.ts`**: `buildPracticeSlide` (hotspot over the place, hotspot "Anywhere else on the screen", Show me, an invisible frame with a look `Shown`, layers `layer-hint`, `layer-shown`, `layer-right`; a
+  `practice tries` number variable reset by a `slideStart` rule; hint from the name of what was clicked; typing = short-answer worth 0 points), `buildTestSlide` (hotspot question, the place among up to four grid cells it does not touch,
+  one point, one try, no hints; typing = scored short answer), `lessonCapture` (`name.capture`, `name.capture#practice`, `name.capture#test`: each lesson its own `sourceCapture`, because two slides may not claim one step; written
+  into `docs/format-spec.md`, no schema change). Steps with nothing to press fall back to the Watch slide, named for the lesson.
+- **`Model.makeStepSlides({ recording, lesson, steps, pictures })`**: makes only the missing slides, each in its step's place among the lesson's slides; reports (never changes) slides for steps that are gone and slides whose words differ
+  from their step's now; creates the `practice tries` variable once, inside the same undo step. The dialog has a **Lesson** choice and a field for **What was typed** (the answer Practice and Test accept).
+- A fuller bringing up to date (rewrite a slide whose step changed, keeping the author's additions) would need a record of what was generated, which `provenance` cannot hold: it would be a **format change**; put it to Jason first.
+- Counts now: editor 979 (978 pass, 1 skip), editor Rust 91; the rest as above.
+- **Not tried:** a real recording's pictures; any lesson in a real LMS or with a screen reader; the real browser player (the logic is covered in the runtime; the DOM drawing is the shared renderer's).
+- **Traps found:** in the slide list each slide is `<li><button class="item">`: click the **button**, not the `li`, in a script; a screenshot taken straight after a click can show the previous frame, so wait before it.
+
+**What is left of Phase 7:** a real-world pass (Jason recording clicks with the mouse setting on, then Watch, Practice and Test, in Preview and in an LMS, with a screen reader), and the optional fuller update above. Other open items are unchanged:
+the Whisper trial, the learner accessibility panel, the AI help note, D6 alt-text suggestions.

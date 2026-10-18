@@ -49,6 +49,7 @@ import { RecorderController } from "./capturecontroller.ts";
 import { openRecordingEditor } from "./editrecording.ts";
 import { openCaptions } from "./captionsdialog.ts";
 import { openSteps } from "./stepsdialog.ts";
+import { lessonCapture } from "./steplessons.ts";
 import type { Extra } from "./captions.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
@@ -588,8 +589,8 @@ export class App {
         if (!m) return;
         const said = await openSteps({
           backend, dir: m.dir, name,
-          haveSlides: () => m.stepsWithSlides(name),
-          makeSlides: (steps, pictures) => m.makeStepSlides({ recording: name, steps, pictures, capturedAt: new Date().toISOString() }).message,
+          haveSlides: (lesson) => m.stepsWithSlides(lessonCapture(name, lesson)),
+          makeSlides: (lesson, steps, pictures) => m.makeStepSlides({ recording: name, lesson, steps, pictures, capturedAt: new Date().toISOString() }).message,
         });
         if (said !== "") this.announce(said);
       },

@@ -17,6 +17,7 @@ import {
 import { readStepSource, type StepSource } from "./stepsource.ts";
 import { PictureGrabber, pictureName, screenPath } from "./steppicture.ts";
 import type { StepPicture } from "./stepslides.ts";
+import { LESSON_WORDS, type Lesson } from "./steplessons.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -37,10 +38,10 @@ export interface StepsOptions {
   dir: string;
   /** The recording's folder name, such as `Week 3.capture`. */
   name: string;
-  /** The ids of the steps of this recording that already have a slide in the course. */
-  haveSlides: () => ReadonlySet<string>;
-  /** Make the slides for the steps, with the pictures (by step id) that were taken and saved. Returns what to tell the author. */
-  makeSlides: (steps: Step[], pictures: Map<string, StepPicture>) => string;
+  /** The ids of the steps of this recording that already have a slide in the course, in a lesson. */
+  haveSlides: (lesson: Lesson) => ReadonlySet<string>;
+  /** Make the slides of a lesson for the steps, with the pictures (by step id) that were taken and saved. Returns what to tell the author. */
+  makeSlides: (lesson: Lesson, steps: Step[], pictures: Map<string, StepPicture>) => string;
 }
 
 /** `1:05.3`: a moment in a take, for a sentence. */
@@ -91,7 +92,9 @@ export function openSteps(opts: StepsOptions): Promise<string> {
     const addBtn = h("button", { type: "button", id: "st-add", text: "Add a step by hand" });
     const undoBtn = h("button", { type: "button", id: "st-undo", text: "Undo the last change to the list" });
     const again = h("button", { type: "button", id: "st-again", text: "Start again from what I did while recording" });
-    const make = h("button", { type: "button", id: "st-make", text: "Make a Watch lesson: one slide for each step" });
+    const lessonSel = h("select", { id: "st-lesson" }, ...(["watch", "practice", "test"] as const).map((l) => h("option", { value: l, text: LESSON_WORDS[l].name })));
+    const lessonNote = h("p", { id: "st-lesson-note", class: "note" });
+    const make = h("button", { type: "button", id: "st-make", text: "Make the lesson: one slide for each step" });
     const save = h("button", { type: "button", id: "st-save", text: "Save the steps" });
     const close = h("button", { type: "button", id: "st-close", text: "Close" });
 
@@ -273,6 +276,9 @@ export function openSteps(opts: StepsOptions): Promise<string> {
           speak(reviewed.checked ? `Step ${i + 1} is checked.` : `Step ${i + 1} is not checked.`);
         });
         rows.push({ text, alt, shot, reviewed });
+        // For typing: what was typed is the answer that Practice and Test accept, so it can be corrected here, apart from the words the learner reads.
+        const typed = s.kind === "type" ? h("input", { type: "text", id: id("typed"), value: s.typed ?? "", maxlength: "200" }) : null;
+        typed?.addEventListener("change", () => { change(editStep(list, s.id, { typed: typed.value })); refresh(); });
         const button = (label: string, aria: string, part: "move-up" | "move-down" | "merge" | "split" | "delete", fn: () => void): HTMLButtonElement => {
           const btn = h("button", { type: "button", text: label, "aria-label": aria, "data-part": part });
           btn.addEventListener("click", fn);
@@ -300,6 +306,7 @@ export function openSteps(opts: StepsOptions): Promise<string> {
           h("legend", { text: `Step ${i + 1} of ${n}` }),
           h("p", { class: "note", text: whereWords(s) }),
           h("div", { class: "field" }, h("label", { for: id("text"), text: "Words the learner reads" }), text),
+          ...(typed === null ? [] : [h("div", { class: "field" }, h("label", { for: id("typed"), text: "What was typed (the answer Practice and Test accept)" }), typed)]),
           h("div", { class: "field" }, h("label", { for: id("alt"), text: "Description of the picture" }), alt),
           h("p", { id: id("altnote"), class: "note", text: "Said by a screen reader instead of the picture. It is used in the course only once you have checked the step." }),
           h("div", { class: "field" }, h("label", { for: id("shot"), text: "Picture taken at (seconds into the take)" }), shot),
@@ -376,7 +383,8 @@ export function openSteps(opts: StepsOptions): Promise<string> {
       busy = true;
       try {
         if (dirty && !(await persist())) return;
-        const have = opts.haveSlides();
+        const lesson = lessonSel.value as Lesson;
+        const have = opts.haveSlides(lesson);
         const todo = list.steps.filter((s) => !have.has(s.id));
         const pictures = new Map<string, StepPicture>();
         let n = 0;
@@ -390,7 +398,7 @@ export function openSteps(opts: StepsOptions): Promise<string> {
         }
         // Learning a picture's size can give a step its box, so what is kept matches what the slides were made from.
         if (!(await persist())) return;
-        madeWords = opts.makeSlides(list.steps, pictures);
+        madeWords = opts.makeSlides(lesson, list.steps, pictures);
         speak(madeWords);
       } catch (err) {
         speak(`The slides could not be made. ${errorText(err)}`);
@@ -408,6 +416,14 @@ export function openSteps(opts: StepsOptions): Promise<string> {
       }
     }
 
+    const LESSON_NOTES: Record<Lesson, string> = {
+      watch: "Watch: the learner sees each step. A slide has the step's number, its words (with a voice that says them), its picture, and a frame round the place to point at.",
+      practice: "Practice: the learner tries each step. For a click, they press the place in the picture, or Tab to it and press Enter or Space. Anywhere else counts a try and gives a hint; after three tries, or at once with Show me, the place is outlined. For typing, they type what you typed, in a question worth no points. A step with nothing to press (a key, a change of program, a marker, a click with no place marked) is shown as in Watch.",
+      test: "Test: the learner is scored. For a click, a question asks where to click, among some other areas of the picture, with one try and no hints. For typing, a short answer with one try. The score is the course's quiz score. Add a results box after the last question to show it. A step with nothing to test is shown as in Watch.",
+    };
+    const showLessonNote = (): void => { lessonNote.textContent = LESSON_NOTES[lessonSel.value as Lesson]; };
+    lessonSel.addEventListener("change", showLessonNote);
+    showLessonNote();
     save.addEventListener("click", () => void saveSteps());
     make.addEventListener("click", () => void makeSlides());
     close.addEventListener("click", () => void finish());
@@ -427,7 +443,9 @@ export function openSteps(opts: StepsOptions): Promise<string> {
       listEl,
       h("section", { "aria-labelledby": "st-make-title" },
         h("h3", { id: "st-make-title", text: "Make a lesson from the steps" }),
-        h("p", { class: "note", text: "Watch: one slide for each step, put after the slide you are on in the course. Each has the step's number, its words (with a voice that says them), its picture, and a frame round the place to point at. A picture's description is used only for a step you have checked; for the others the Problems panel will ask you for it. A step that already has a slide is left alone. Your steps are saved first. Close this window afterwards to see the slides." }),
+        h("div", { class: "field" }, h("label", { for: "st-lesson", text: "Lesson" }), lessonSel),
+        lessonNote,
+        h("p", { class: "note", text: "The slides are put after the slide you are on in the course. A picture's description is used only for a step you have checked; for the others the Problems panel will ask you for it. A step that already has a slide in this lesson is left alone. Your steps are saved first. Close this window afterwards to see the slides." }),
         h("div", { class: "dialog-actions" }, make)),
       h("div", { class: "dialog-actions" }, save, close),
     );

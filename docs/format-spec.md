@@ -1109,7 +1109,7 @@ forward without losing what the author added:
 `sourceCapture` and `stepId` are required and `capturedAt` is optional. A slide may carry this too, as an optional `provenance` field of its own
 (an imported slide does not; its shapes carry the deck). Several objects can come from one step, so only slides are checked for two claiming the same
 step (`provenance-duplicate`). A copy made in the editor (duplicate, paste, or duplicate slide) is the author's own, not the thing it was copied from, so it
-has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.)
+has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.) The Capture module makes up to three lessons from the same steps (Watch, Practice and Test), and two slides may not claim one step, so it names the lesson in `sourceCapture`: the recording's folder name for Watch (`Week 3.capture`), and `Week 3.capture#practice` and `Week 3.capture#test` for the others. The format does not look inside the name.
 
 ### PowerPoint import
 

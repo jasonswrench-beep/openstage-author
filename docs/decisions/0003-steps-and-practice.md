@@ -1,6 +1,6 @@
 # ADR 0003: Steps, and the Demo, Practice and Assessment lessons made from them
 
-Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review), Stage 2 (a picture for each step, with the place to point at) and Stage 3 (the Watch lesson: one slide for each step) are built. Practice, Assessment and bringing a lesson up to date are not.
+Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review), Stage 2 (a picture for each step, with the place to point at) and Stage 3 (the Watch lesson: one slide for each step), Stage 4 (Practice), Stage 5 (the Test) and a first Stage 6 (bringing a lesson up to date, without touching slides the author may have worked on) are built.
 Date: 2026-10-16
 Applies to: Capture's Phase 7 (stories E1 to E4), and what it unlocks: audio for step text (D7) and the provenance of generated slides.
 
@@ -85,10 +85,32 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
   All or nothing: a picture that cannot be taken stops it with the reason.
 - Tried in the real desktop editor with a made-up recording and log (26 checks), then the saved course was run through the real validator.
 
+## What is built (Stages 4, 5 and 6, 2026-10-18)
+
+- **Practice** (`editor/src/steplessons.ts`, `buildPracticeSlide`). For a click: the picture, a `hotspot` over the place (named by the step's words, at least 40 pixels each way), a second over the whole
+  picture named "Anywhere else on the screen" (so a keyboard user has the same two choices), a **Show me** button, and an invisible frame over the place that a rule gives its look (`Shown`, which
+  announces itself). Rules are written as the editor writes them (a click and a key press that do the same thing). The right place shows a layer ("That is right", with **Next step**). The other counts a
+  try (`setVariable` with `add` on one number variable, `practice tries`, reset by a `slideStart` rule on every Practice slide) and shows a hint layer ("Not quite. Look for the Save button. Then try again", from the
+  name of what was clicked), and on the third try outlines the place instead. For typing: a short-answer question worth no points, with what was typed as the answer (capitals count) and a right and a
+  wrong layer. Feedback text is a status, so it is announced. Nothing is timed.
+- **Test** (`buildTestSlide`). A click becomes a scored hotspot question (one point, one try): the place among up to four other cells of a three by three grid that the place does not touch, each with its own label
+  ("Top right of the picture") for the list a keyboard uses; typing becomes a scored short answer. Feedback says only "Correct" or "That is not correct": no hints. The score is the course's quiz score; the editor
+  says to add a results box after the last question.
+- **A step with nothing to point at or type** (a key, a change of program, a marker, a click with no place marked, a step with no picture) is shown in both lessons as in Watch, named for the lesson, so the story of
+  the procedure reads in order.
+- **Each lesson is its own capture** in `provenance` (`name.capture`, `name.capture#practice`, `name.capture#test`), because two slides may not claim one step. Recorded in `docs/format-spec.md`; no schema change.
+- **What was typed** can be corrected in the step's own field, apart from the words the learner reads, because it is the answer that Practice and Test accept.
+- **Bringing a lesson up to date** (a first, safe version). Pressing the button again makes only the slides that are missing, each in its own place among the lesson's slides (after the slide of the step before it,
+  or before the first step that has one). It reports, and never changes or deletes: slides for steps that are no longer in the list, and slides whose words differ from their step's now. To remake a slide, the
+  author deletes it and makes the lesson again. Headings such as "Step 3 of 8" are not renumbered when steps are added or moved: the author edits them.
+- Tried in the real desktop editor with a made-up recording (all three lessons in one course; the saved course through the real validator, which asks only for the unchecked pictures' descriptions), and, in the
+  player's own runtime, what a learner can do: wrong tries, the hint, the third try, Show me, the right place and Next step by mouse and by keyboard, typing, and the Test's scoring.
+
 ## Stages still to do
 
-1. **Practice (Stage 4)**, **Assessment (Stage 5)**, as in decision 7.
-2. **Bringing the lesson up to date** (Stage 6) when steps change, keeping the author's edits: the slides already carry the provenance for it.
+1. **A fuller bringing up to date**, if wanted: rewrite a slide whose step changed while keeping what the author added to it. That needs a record of what was generated (as the PowerPoint re-sync keeps), which the
+   provenance cannot hold today, so it would be a format change.
+2. **A real run:** a real recording's pictures, the lessons in a real LMS and with a screen reader.
 
 Not decided yet: how many tries before the target is shown in Practice (proposed 3), whether the picture of a step should be the edit's own picture
 (with its zooms) rather than the raw take's, and whether a step's marked target is a rectangle, an arrow or a choice.

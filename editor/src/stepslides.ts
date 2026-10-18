@@ -27,6 +27,8 @@ export interface SlideOptions {
   total: number;
   stage: { width: number; height: number };
   capturedAt?: string;
+  /** What a slide of this lesson is called in the outline before its number: "Step" for the Watch lesson. */
+  namePrefix?: string;
   newSlideId(): string;
   newObjectId(): string;
   /** What to put in an object's `narration` for these words (the model keeps one voice through the course). */
@@ -100,7 +102,7 @@ export function buildStepSlide(step: Step, index: number, picture: StepPicture |
 
   const provenance: Slide["provenance"] = { sourceCapture: o.recording, stepId: step.id, ...(o.capturedAt === undefined ? {} : { capturedAt: o.capturedAt }) };
   return {
-    id: o.newSlideId(), name: `Step ${index + 1}: ${shorten(words) || "no words yet"}`, provenance, duration: null, layout: null, background: null,
+    id: o.newSlideId(), name: `${o.namePrefix ?? "Step"} ${index + 1}: ${shorten(words) || "no words yet"}`, provenance, duration: null, layout: null, background: null,
     baseLayer: { id: "layer-base", name: "Base", objects }, layers: [],
   };
 }

@@ -298,6 +298,18 @@ test("steps are saved and read back the same, and a file that is not steps is re
   assert.equal(emptyList().steps.length, 0);
 });
 
+test("what was typed can be corrected, and is the answer a Practice or Test accepts", () => {
+  let list = stepsOf2();
+  list = editStep(list, "step-1", { typed: "report2" });
+  assert.equal(list.steps[0]!.typed, "report2");
+  assert.equal(editStep(list, "step-1", { typed: "" }).steps[0]!.typed, null, "nothing typed is no answer");
+  assert.equal(editStep(list, "step-1", { typed: "x".repeat(300) }).steps[0]!.typed!.length, 200);
+});
+
+function stepsOf2(): StepList {
+  return listFrom([proposeFromLog(parseLog(['{"t":1000,"type":"key","key":"r","modifiers":[]}', '{"t":1100,"type":"key","key":"e","modifiers":[]}'].join("\n")).events, { take: 1 })]).list;
+}
+
 test("a box is kept inside the picture and never smaller than it can be seen", () => {
   assert.deepEqual(clampBox({ x: -5, y: 120, width: 10, height: 10 }), { x: 0, y: 90, width: 10, height: 10 });
   assert.deepEqual(clampBox({ x: 95, y: 0, width: 20, height: 0 }), { x: 80, y: 0, width: 20, height: MIN_BOX });

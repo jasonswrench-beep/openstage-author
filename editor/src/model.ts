@@ -17,7 +17,8 @@ import type { Deck } from "./pptx/deck.ts";
 import type { Tones } from "./pptx/convert.ts";
 import type { Pkg } from "./pptx/package.ts";
 import { prepareImport, type PreparedImport } from "./pptx/import.ts";
-import { buildStepSlide, type StepPicture } from "./stepslides.ts";
+import { type StepPicture } from "./stepslides.ts";
+import { buildLessonSlide, lessonCapture, LESSON_WORDS, type Lesson } from "./steplessons.ts";
 import type { Step } from "./steps.ts";
 import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
@@ -103,6 +104,14 @@ export function canonical(value: unknown): string {
 const MAX_HISTORY = 200;
 /** The most audio descriptions one video can have (the format's limit). */
 export const DESCRIPTION_LIMIT = 60;
+
+/** What the words of a lesson slide say, from the text object named "... words" that the lesson makes, or null if the slide has none (the author took it away). */
+function wordsOnSlide(slide: Slide): string | null {
+  const text = slide.baseLayer.objects.find((o) => o.type === "text" && o.name.endsWith(" words"));
+  if (text === undefined) return null;
+  const html = String(text.content["html"] ?? "");
+  return html.replace(/<[^>]*>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+}
 
 /** A time in a video as people write it: 1:05. */
 export function clockText(ms: number): string {
@@ -1096,42 +1105,89 @@ export class Model {
     return new Set(this.slides.flatMap((s) => { const p = s.provenance; return p && "sourceCapture" in p && p.sourceCapture === recording ? [p.stepId] : []; }));
   }
 
+  /** The number variable that counts a learner's wrong tries in the Practice lesson: the one that is there, or a new one. */
+  private triesVariable(): string {
+    return this.project.variables.find((v) => v.type === "number" && v.name === "practice tries")?.id ?? this.makeVariable("number", "practice tries");
+  }
+
   /**
-   * Make a slide for each step (the Demo lesson), after the slide being edited, as one undo step, and select the first. A slide is a heading, the step's words (with
-   * narration made from them), the step's picture and a frame round the place to point at. A step that already has a slide in this course (the same recording and
-   * the same step) is skipped, so pressing this twice makes nothing twice. A picture's description is used only for a step the author has checked.
+   * Make a slide for each step of a lesson (Watch, Practice or Test), after the slide being edited, as one undo step, and select the first. The Watch slide is a heading, the
+   * step's words (with narration made from them), the step's picture and a frame round the place to point at; Practice and Test make the slides described in steplessons.ts.
+   * A step that already has a slide in this lesson (the same recording, the same lesson and the same step) is skipped, so pressing this twice makes nothing twice. A picture's
+   * description is used only for a step the author has checked.
    */
-  makeStepSlides(input: { recording: string; steps: readonly Step[]; pictures: ReadonlyMap<string, StepPicture>; capturedAt?: string }): { added: number; skipped: number; message: string } {
-    const have = this.stepsWithSlides(input.recording);
+  makeStepSlides(input: { recording: string; lesson?: Lesson; steps: readonly Step[]; pictures: ReadonlyMap<string, StepPicture>; capturedAt?: string }): { added: number; skipped: number; message: string } {
+    const lesson = input.lesson ?? "watch";
+    const capture = lessonCapture(input.recording, lesson);
+    const mine = this.slides.flatMap((slide) => { const p = slide.provenance; return p && "sourceCapture" in p && p.sourceCapture === capture ? [{ slide, stepId: p.stepId }] : []; });
+    const have = new Map(mine.map((m) => [m.stepId, m.slide.id]));
     const todo = input.steps.map((step, index) => ({ step, index })).filter(({ step }) => !have.has(step.id));
     const skipped = input.steps.length - todo.length;
-    if (todo.length === 0) return { added: 0, skipped, message: input.steps.length === 0 ? "There are no steps to make slides from." : "Every step already has a slide in this course." };
+    const lessonName = lesson === "watch" ? "this course" : `the ${LESSON_WORDS[lesson].short} lesson`;
+
+    // What the lesson's slides say that no longer matches the steps. Nothing is changed or deleted for the author: a slide they may have worked on is theirs.
+    const known = new Map(input.steps.map((st) => [st.id, st]));
+    const squash = (t: string): string => t.replace(/\s+/g, " ").trim();
+    const orphans = mine.filter((m) => !known.has(m.stepId)).map((m) => m.slide.name);
+    const stale = mine.filter((m) => { const st = known.get(m.stepId); const said = st === undefined ? null : wordsOnSlide(m.slide); return st !== undefined && said !== null && said !== squash(st.text); }).map((m) => m.slide.name);
+    const list = (names: string[]): string => `${names.slice(0, 3).map((n) => `"${n}"`).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
+    const notes = [
+      orphans.length > 0 ? `${orphans.length === 1 ? "A slide is" : `${orphans.length} slides are`} for ${orphans.length === 1 ? "a step" : "steps"} that ${orphans.length === 1 ? "is" : "are"} no longer in the list: ${list(orphans)}. Delete ${orphans.length === 1 ? "it" : "them"} if you do not want ${orphans.length === 1 ? "it" : "them"}.` : "",
+      stale.length > 0 ? `${stale.length === 1 ? "A slide says" : `${stale.length} slides say`} something different from ${stale.length === 1 ? "its step's" : "their steps'"} words now: ${list(stale)}. To remake one, delete the slide and make the lesson again: only missing slides are made, each in its place.` : "",
+    ];
+    if (todo.length === 0) {
+      const first = input.steps.length === 0 ? "There are no steps to make slides from." : `Every step already has a slide in ${lessonName}.`;
+      return { added: 0, skipped, message: [first, ...notes].filter((n) => n !== "").join(" ") };
+    }
     this.record("");
     const alloc = this.allocator();
     const newSlideId = this.slideIdMaker();
+    const newTriggerId = this.triggerAllocator();
+    const tries = lesson === "practice" ? this.triesVariable() : "";
     let like = this.narratedObjects().at(-1)?.narration;
-    const slides = todo.map(({ step, index }) => buildStepSlide(step, index, input.pictures.get(step.id) ?? null, {
-      recording: input.recording, total: input.steps.length, stage: this.project.stage, ...(input.capturedAt === undefined ? {} : { capturedAt: input.capturedAt }),
-      newSlideId, newObjectId: () => alloc.object(),
+    const slides = todo.map(({ step, index }) => buildLessonSlide(lesson, step, index, input.pictures.get(step.id) ?? null, {
+      recording: capture, total: input.steps.length, stage: this.project.stage, ...(input.capturedAt === undefined ? {} : { capturedAt: input.capturedAt }),
+      newSlideId, newObjectId: () => alloc.object(), newTriggerId, tries,
       narration: (script) => { like = newNarration(script, like); return like; },
     }));
-    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
-    const here = scene.slides.indexOf(this.sel.slideId);
-    let at = here === -1 ? scene.slides.length : here + 1;
-    for (const slide of slides) {
-      scene.slides.splice(at++, 0, slide.id);
+    // Each new slide goes in its step's place among the slides the lesson already has: after the slide of the step before it, or before the slide of the first step that has one.
+    // With none yet, they go after the slide being edited.
+    const madeFor = new Map(slides.map((sl) => [(sl.provenance as { stepId: string }).stepId, sl]));
+    const homeOf = (id: string) => this.project.scenes.find((sc) => sc.slides.includes(id));
+    const firstExisting = input.steps.map((st) => have.get(st.id)).find((id) => id !== undefined);
+    let lastId: string | null = null;
+    for (const step of input.steps) {
+      const existing = have.get(step.id);
+      if (existing !== undefined) { lastId = existing; continue; }
+      const slide = madeFor.get(step.id);
+      if (slide === undefined) continue;
+      if (lastId !== null) {
+        const sc = homeOf(lastId)!;
+        sc.slides.splice(sc.slides.indexOf(lastId) + 1, 0, slide.id);
+      } else if (firstExisting !== undefined) {
+        const sc = homeOf(firstExisting)!;
+        sc.slides.splice(sc.slides.indexOf(firstExisting), 0, slide.id);
+      } else {
+        const sc = homeOf(this.sel.slideId) ?? this.project.scenes[0]!;
+        const here = sc.slides.indexOf(this.sel.slideId);
+        sc.slides.splice(here === -1 ? sc.slides.length : here + 1, 0, slide.id);
+      }
       this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+      lastId = slide.id;
     }
     this.syncDocOrder();
     const first = slides[0]!;
     this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
-    const noDescription = slides.filter((s) => s.baseLayer.objects.some((o) => o.type === "image" && o.accessibility.altText === "")).length;
+    const noDescription = slides.filter((s) => s.baseLayer.objects.some((o) => (o.type === "image" && o.accessibility.altText === "") || (o.type === "quizQuestion" && (o.content["image"] as { alt?: string } | undefined)?.alt === ""))).length;
+    const where = mine.length === 0 ? "after the slide you were on" : "each in its place";
     const parts = [
-      `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} from the steps, after the slide you were on.`,
+      lesson === "watch" ? `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} from the steps, ${where}.` : `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} for the ${LESSON_WORDS[lesson].short} lesson, ${where}.`,
       skipped > 0 ? `${skipped} ${skipped === 1 ? "step already had" : "steps already had"} a slide, so ${skipped === 1 ? "it was" : "they were"} left alone.` : "",
       noDescription > 0 ? `${noDescription} ${noDescription === 1 ? "picture has" : "pictures have"} no description yet, because ${noDescription === 1 ? "its step has" : "their steps have"} not been checked. The Problems panel asks for ${noDescription === 1 ? "it" : "them"}.` : "",
+      ...notes,
+      lesson === "test" ? "Add a results box after the last question to show the learner their score." : "",
       "Press Control Z to undo.",
     ];
     return { added: slides.length, skipped, message: parts.filter((p) => p !== "").join(" ") };
