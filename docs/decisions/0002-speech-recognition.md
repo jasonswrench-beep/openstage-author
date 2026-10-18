@@ -1,7 +1,7 @@
 # ADR 0002: Speech recognition for captions from a recorded voice
 
-Status: Proposed. The licence audit is done. The quality audit is not, and nothing has been downloaded or installed for it.
-Date: 2026-10-16
+Status: Accepted for building. The licence audit (2026-10-16) and the quality audit (2026-10-18) are done: Whisper passes, with the conditions under "Revised decision for the build". The speech recognition itself is not built yet.
+Date: 2026-10-16 (quality audit added 2026-10-18)
 Applies to: Capture's story D3 (captions from a recorded voice), and the "Whisper for imported media" item on the roadmap.
 
 ## The question
@@ -70,9 +70,9 @@ These are the model card's limits, restated, and each one shapes the design belo
 6. **A script wins.** With a script, the captions are made from it, and the recogniser would be used only to place the sentences in time. That use
    is not built either, and a quiet-gap method (find the pauses in the audio and place sentences between them) may do the job with no model at all.
 
-## The quality audit that is still owed
+## The quality audit plan (it has now been run: see the results below)
 
-Nothing here has been run. To decide, the plan is a short trial, and I will not start it without Jason's say-so because it needs downloads:
+The plan was a short trial, which needed Jason's say-so because it downloads models. He gave it on 2026-10-18.
 
 - Download `ggml-base.en.bin` (148 MB) and `ggml-small.en.bin` (488 MB), and build `whisper-cli.exe` from source. CMake is not on this computer's
   path, so first check whether the Visual Studio that is installed brings its own.
@@ -84,9 +84,86 @@ Nothing here has been run. To decide, the plan is a short trial, and I will not 
   nothing invented in the silent stretch, and a two minute recording done in under four minutes on an ordinary computer. If `base.en` is too weak and `small.en` is too slow, the
   story waits for a better model, and the rest of the captions work is not held up.
 
+## The quality audit: what was run and what it found (2026-10-18)
+
+Jason said to go ahead. What was done, on this computer (a 13th-generation Intel Core i9, 24 cores, no graphics card used):
+
+- `whisper.cpp` v1.9.5 was fetched from GitHub (MIT) and built as `whisper-cli.exe` with the CMake and C++ compiler that come with Visual Studio 2026, for the processor only. The program imports only Windows
+  basics, the C++ runtime and OpenMP: **no network library at all**. The two models came from `huggingface.co/ggerganov/whisper.cpp` (tagged MIT) and their SHA-256 values match what Hugging Face publishes:
+  `ggml-base.en.bin` 147,964,211 bytes, `a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002`; `ggml-small.en.bin` 487,614,201 bytes,
+  `c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d`. Everything is in `D:\Whisper-Trial` (outside the repository; the models are never committed).
+- **Test audio.** (1) Jason's own narration, `Recordings/Voice Narrations/Narration 1.m4a`: 109 seconds, a clean studio recording. It has no script, so it is judged by how the two models agree and by whether
+  words start where the voice does after a pause. (2) A 176-second script with the words that matter here (Brightspace, SCORM, SUNY New Paltz, Wrench, alt text) read by Kokoro one sentence at a time, so the true
+  words and the true start and end of every sentence are known (the voice edges are read from the sound itself, and the word times inside a sentence are Kokoro's own, stretched to fit those edges, so they are only
+  as good as that). The same speech was also made **noisy** (room noise, a fan, keyboard clicks, like a laptop microphone) and **harsh** (the voice only about 4 dB above the noise, loud clicks). (3) Four 30-second
+  clips with no speech: perfect silence, room tone, keyboard clicks, held tones.
+- The scripts are in `tools/asr-trial/` so the trial can be run again when a better model appears (`tools/asr-trial/README.md`).
+
+### Results
+
+| Test | base.en (148 MB) | small.en (488 MB) |
+| --- | --- | --- |
+| Jason's narration: the words | 271 words, the same words as small.en | 271 words, the same words as base.en. Read through: whole sentences, nothing wrong that I could see |
+| Script, clean: words right | 99.8% (1 wrong: "Paltz") | 99.8% (1 wrong: "Paltz"); **100% with a list of the course's words given as a hint** |
+| Script, laptop noise: words right | 97.8% (missed "Brightspace" and "New Paltz") | 98.9% (missed "New Paltz" and "Wrench") |
+| Script, harsh noise: words right | 83.3% | 93.3% (93.7% with the hint) |
+| Time for Jason's 109 seconds, 4 threads | 7.8 s (0.07 times as long as the recording) | 20.8 s (0.19 times) |
+| The same, 2 threads (a slower computer) | 13.1 s (0.12) | 34.0 s (0.31) |
+| Memory in use | 410 MB | 880 MB |
+| Where captions start, built-in times: sentence starts within 0.5 s of the voice | 36% | 82% to 86% |
+| Where they start, alignment mode (`-dtw`): sentence starts within 0.5 s | **100%** (median 0.08 s) | **100%** (median 0.15 s) |
+| Alignment mode: every word's start within 0.5 s | 99.6% | 93.3% |
+| Alignment mode, Jason's narration: the word after each pause within 0.5 s of the voice | 96% (median 0.12 s) | 96% (median 0.20 s) |
+| 30 seconds of perfect silence | one word, "You" | `[BLANK_AUDIO]`, or "you" with the non-speech option on |
+| Room tone, keyboard, held tones | no words; notes such as `(keyboard clicking)`, `[BLANK_AUDIO]` | no words; notes such as `(keyboard clicking)`, `(gentle music)` |
+
+Other findings:
+
+- **The built-in times are not good enough, alignment mode is.** whisper.cpp's ordinary times come in segments that run one into the next, so a caption appears up to a whole pause early (base.en) or lingers
+  up to a pause too long (small.en: sentence ends a median 1.3 seconds late, and early by more than 0.3 seconds for 0 of 28 sentences on the clean script and 1 of 28 with noise). Alignment mode (`-dtw <model>` with `-nfa`, which costs about 20% more time) gives each word its own
+  time, and those were accurate. The caption's end still has to be set by the editor from the next word and the real sound, because the audio is in hand.
+- **The words that matter here need help.** "New Paltz" was heard as "pouts" or "pals" by both models, and "Brightspace" and "Wrench" fail under noise. Giving the recogniser the course's own words as a hint
+  (`--prompt`) fixed them for small.en on the clean recording, and not for base.en. Under harsh noise the hint was not enough ("SUNY", "Wrench"). Every result must be read before it is trusted.
+- **It never invented a sentence.** The only invented word anywhere was "You" on perfect silence. Perfect silence is exactly what an edit can contain (a cut, a gap), so the editor must drop any caption
+  that lies in silence, and any note in brackets, parentheses or music signs, before showing the result.
+- Numbers come out as digits ("2026", "800"), which is fine in a caption, and punctuation and capitals are added.
+
+### Against the passing marks proposed above
+
+| Mark | Result |
+| --- | --- |
+| At least 90% of words right on the narration | **Pass.** 99.8% on a clean known script and 97.8% to 98.9% with laptop noise; Jason's real narration agrees word for word between the two models. With harsh noise only small.en passes (93%) |
+| Most caption times within half a second | **Pass with alignment mode and the editor setting the ends.** Fails with the built-in times for base.en |
+| Nothing invented in the silent stretch | **Pass only with a filter** (drop captions lying in silence and bracketed notes). Raw, base.en writes "You" on perfect silence |
+| A two-minute recording in under four minutes on an ordinary computer | **Pass by a wide margin.** A two-minute recording takes about 9 seconds (base.en) or 25 seconds (small.en) here, and about 15 and 37 seconds on two threads. A computer five times slower than that would still finish with small.en in about three minutes |
+
+**Verdict: Whisper passes, so D3 stays in Release 1.** It passes as a way of making a first draft that the author checks, which is how the story is already worded ("auto-generated, unreviewed").
+
+### What the trial did not cover
+
+- **One real speaker** (Jason), one clean 109-second recording, and no script to count its errors against. Other voices, accents, a poor microphone, a recording over a call, and speech over music were not tested.
+  The model card warns that accuracy is uneven across speakers, and nothing here contradicts that.
+- The known-script tests use a computer voice. It is clean, so real people will do somewhat worse than the clean figures; the noisy and harsh clips are the guide to how much.
+- Recordings longer than a few minutes (whisper.cpp reads in 30-second windows and can repeat itself over long silences), non-English speech, a graphics card, and a computer with an ARM processor.
+- The program was built for this computer's processor. A program to give to other people needs a generic build, and the C++ and OpenMP runtimes it needs (`VCRUNTIME140`, `MSVCP140`, `VCOMP140`) have to be
+  bundled or linked in. That is a build task, not a quality question.
+- Word times inside a sentence were checked against Kokoro's own timing (stretched to fit the voice's real start and end), not against a person's careful marking.
+
+### Revised decision for the build
+
+The proposed decision above stands, with these changes after seeing the results:
+
+1. **The default model is `small.en` (488 MB)**, with `base.en` (148 MB) offered as a faster, less careful choice. The download button shows the size, the source and the SHA-256 written above, and checks it.
+2. **Use alignment mode for word times** (`-dtw small.en -nfa`). The contract's `segment` lines gain a `words` list (text, `startMs`), and the editor builds each caption's lines from it.
+3. **Pass the course's own words as a hint**: names and terms from slide headings, the narration scripts and the project's title, trimmed to a short list. Never anything else from the course.
+4. **Filter the result before the author sees it**: drop notes in brackets, parentheses or music signs, drop any caption in a stretch with no sound, and keep the "auto-generated, unreviewed" mark until the author
+   approves it. The audio-only export from Capture (item 3 above) is still needed so the recognised times match the finished video.
+5. **Build for other people**: a generic processor build, with the runtimes linked in or shipped, and `NOTICE` naming the licence of the exact files used (the original repository says MIT for the weights; the
+   Hugging Face card for `whisper-small` says Apache-2.0; both are permissive).
+
 ## What is built and what is not
 
 - Built (2026-10-16): D1 (captions from a script, estimated times marked and kept marked in the file), D2 (edit, WebVTT and SRT in and out, warnings),
   D4 (a transcript from the captions and from what is on the screen). See `docs/editor.md`.
-- Not built: D3 (this decision), and D6 and D7 (alt text help and audio for step text, which need the steps of Capture's Phase 7).
+- Not built: D3 (this decision; it is now cleared to be built), and D6 (alt text suggested from the steps; the audio for step text, D7, is built).
 - D5 (audio description) already exists in the course format and the player, and its authoring is in the video's Properties panel.

@@ -134,3 +134,18 @@ Jason: "I think a bring up to date would be important." Built, tested and pushed
   screen, steps review, pictures, three lessons, and the update (words, picture and place changed, a step deleted, own alt text kept, nothing to do on a second press), all PASS.
 - **Not tried:** a real recording; the update on a course that was taken to an LMS; a screen reader on the confirm and the report text. Slides made before 0.27.0 are left as they are (the dialog says so).
 - **Trap:** `-I` on `python -m unittest` hides the installed `jsonschema`; use plain `python` for the project's own tests.
+
+## Whisper quality trial (done 2026-10-18, after Jason said "do it")
+
+Result: **Whisper passes; D3 stays in Release 1.** Full numbers and caveats are in `docs/decisions/0002-speech-recognition.md`; the scripts are in `tools/asr-trial/`.
+
+- Built `whisper-cli.exe` (whisper.cpp v1.9.5, CPU only) with the CMake and C++ compiler that ship with Visual Studio 2026 Professional (no new tool was needed). Models downloaded and their SHA-256 matched
+  Hugging Face. Everything lives in `D:\Whisper-Trial` (source, build, models, audio, results), outside the repo; delete the folder to remove it (731 MB, of which 636 MB are the two models).
+- Accuracy: 99.8% on a known script, 97.8% to 98.9% with laptop noise, 83% (base.en) and 93% (small.en) with the voice only about 4 dB over the noise. Jason's real narration: both models gave the same 271 words, which read correctly.
+- The built-in caption times are poor; **alignment mode (`-dtw small.en -nfa`) is accurate** (every sentence start within 0.5 s). Captions must end by the next word and the real sound.
+- It never invented a sentence; it wrote "You" on perfect silence and notes like `[BLANK_AUDIO]` and `(keyboard clicking)`, so a filter is required. "New Paltz" needs a hint of the course's own words.
+- Speed: a 2-minute recording takes about 25 seconds with small.en (37 on two threads); memory 880 MB (410 MB for base.en).
+- **Decided for the build:** small.en default (base.en optional), alignment mode, a hint of the course's words, a filter, a generic build with the C++/OpenMP runtimes bundled, `NOTICE` naming the exact licences.
+- **Not tested:** other speakers or accents, a poor microphone, music, long recordings, other languages, ARM, a graphics card. The first real build should be tried on a recording of someone other than Jason.
+- Traps: `python -I` hides installed packages (`jsonschema`, `numpy`) so do not use it for the project's own tools; Kokoro's own word times run about 5% long and need stretching to the sound before they are used as truth;
+  the shell's `/tmp` is not Python's `/tmp`.
