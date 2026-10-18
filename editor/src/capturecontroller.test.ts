@@ -20,12 +20,15 @@ class Fake implements CaptureBackend {
   exitListeners = new Set<(e: StreamExit) => void>();
   keyListeners = new Set<(id: string) => void>();
   startError: Error | null = null;
+  /** How many times streamStart says another job is running before it works. */
+  busyTimes = 0;
   keyResults: HotkeyResult[] | null = null;
   keysError: Error | null = null;
   /** Runs inside streamStart, after the listeners are attached: a way to make the stand-in recorder say things. */
   onStart: ((args: string[], fake: Fake) => void) | null = null;
 
   async streamStart(args: string[]): Promise<void> {
+    if (this.busyTimes > 0) { this.busyTimes--; throw new Error("A recording is already in progress. Stop it first."); }
     if (this.startError) throw this.startError;
     this.starts.push(args);
     this.onStart?.(args, this);
@@ -273,6 +276,26 @@ test("a short job collects what the recorder prints and how it ended", async () 
   assert.deepEqual(heard, ["one", "two"]);
   assert.equal(job.exit?.code, 1);
   assert.equal(job.problem, "");
+  assert.equal(fake.listening, 0);
+});
+
+test("a short job waits for another short job that is still running, instead of saying a recording is going", async () => {
+  const fake = new Fake();
+  fake.busyTimes = 2;
+  fake.onStart = (_a, f) => { f.say("done"); f.end(exit()); };
+  const job = await runOneShot(fake, ["render"], undefined, 1000, 5000);
+  assert.deepEqual([job.problem, job.lines, fake.starts.length], ["", ["done"], 1]);
+  assert.equal(fake.listening, 0);
+});
+
+test("a short job that is still told the recorder is busy after waiting says so in plain words", async () => {
+  const fake = new Fake();
+  fake.busyTimes = 1000;
+  const job = await runOneShot(fake, ["render"], undefined, 1000, 600);
+  assert.equal(job.exit, null);
+  assert.match(job.problem, /^The recorder is busy with something else/);
+  assert.doesNotMatch(job.problem, /already in progress/);
+  assert.equal(fake.starts.length, 0);
   assert.equal(fake.listening, 0);
 });
 

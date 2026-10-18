@@ -30,8 +30,35 @@ export interface OneShot {
 /** How long a short job (a list, a check, a repair) may take before it is stopped. */
 export const ONE_SHOT_LIMIT_MS = 60_000;
 
+/**
+ * How long a short job waits for another one to finish before it gives up. The recorder dialog asks the recorder for its list of screens and sounds when it
+ * opens, which can take several seconds, and the shell runs one thing at a time, so a video made at once would otherwise be told "a recording is already in
+ * progress" when none was.
+ */
+export const BUSY_WAIT_MS = 20_000;
+const BUSY_RETRY_MS = 400;
+
+const isBusy = (err: unknown): boolean => /already in progress/i.test(why(err));
+
+const BUSY_WORDS = "The recorder is busy with something else, such as a recording that is still going or a list it is still making. Wait a moment, or stop the recording, and try again.";
+
+/** Start the recorder, waiting for a short job that is still running to finish. Any other failure is thrown at once. */
+async function startWhenFree(b: CaptureBackend, args: string[], waitMs: number): Promise<void> {
+  const began = Date.now();
+  for (;;) {
+    try {
+      await b.streamStart(args);
+      return;
+    } catch (err) {
+      if (!isBusy(err)) throw err;
+      if (Date.now() - began >= waitMs) throw new Error(BUSY_WORDS);
+      await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
+    }
+  }
+}
+
 /** Run the recorder for one short job and collect what it prints. It never throws: a failure is in `problem`. */
-export async function runOneShot(b: CaptureBackend, args: string[], onLine?: (line: string) => void, limitMs = ONE_SHOT_LIMIT_MS): Promise<OneShot> {
+export async function runOneShot(b: CaptureBackend, args: string[], onLine?: (line: string) => void, limitMs = ONE_SHOT_LIMIT_MS, busyWaitMs = BUSY_WAIT_MS): Promise<OneShot> {
   const lines: string[] = [];
   let ended: (exit: StreamExit) => void = () => {};
   const done = new Promise<StreamExit>((resolve) => { ended = resolve; });
@@ -41,7 +68,7 @@ export async function runOneShot(b: CaptureBackend, args: string[], onLine?: (li
   try {
     offLine = await b.onStreamLine((line) => { lines.push(line); onLine?.(line); });
     offExit = await b.onStreamExit((exit) => ended(exit));
-    await b.streamStart(args);
+    await startWhenFree(b, args, busyWaitMs);
     const timeout = new Promise<null>((resolve) => {
       timer = setTimeout(() => {
         void b.streamStop().catch(() => false);
