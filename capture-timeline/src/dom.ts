@@ -35,7 +35,8 @@ export function icon(...paths: string[]): SVGSVGElement {
   svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  svg.setAttribute("class", "os-icon");
+  // Not "os-icon": the course player has a class of that name that positions its icon objects absolutely, and it applies inside the editor.
+  svg.setAttribute("class", "os-tl-icon");
   for (const d of paths) {
     const path = document.createElementNS(ns, "path");
     path.setAttribute("d", d);

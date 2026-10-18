@@ -350,7 +350,8 @@
   opacity: 0.6;
 }
 
-.os-tl-tool .os-icon {
+.os-tl-tool .os-tl-icon {
+  display: block;
   flex: none;
 }
 

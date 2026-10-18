@@ -57,6 +57,20 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, calloutHost, timelineHost, split, listHost);
   container.append(root);
 
+  // The gallery wraps into columns when the row it sits in is short. How many columns it needs depends on the window and on what is above the
+  // editor, so it is measured, not guessed from the window's height: a column is added while the buttons run past the side and would be hidden.
+  const fitGallery = (): void => {
+    let cols = 1;
+    root.style.setProperty("--os-co-cols", "1");
+    while (cols < 4 && calloutHost.scrollWidth > calloutHost.clientWidth + 1) {
+      cols++;
+      root.style.setProperty("--os-co-cols", String(cols));
+    }
+  };
+  const galleryWatcher = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(fitGallery);
+  galleryWatcher?.observe(root);
+  fitGallery();
+
   /** Show or hide the clip list and its form. Whatever sends focus to the list opens it first, so focus is never sent to something hidden. */
   const setListOpen = (open: boolean): void => {
     listHost.hidden = !open;
@@ -171,6 +185,7 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
     focus: () => timeline.focus(),
     announce: (message) => announcer.say(message),
     destroy(): void {
+      galleryWatcher?.disconnect();
       preview.destroy();
       callouts.destroy();
       timeline.destroy();

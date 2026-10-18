@@ -97,6 +97,8 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .recording-editor .re-host { margin-top: 4px; flex: 1; min-height: 34rem; }
 .recording-editor .re-host .os-ed { --os-ed-height: 100%; height: 100%; }
 .recording-editor [hidden] { display: none !important; }
+/* The editor gives every dialog button a roomy padding and a plain font size; the editing screens tool bar is meant to be compact. */
+.recording-editor button.os-tl-tool { padding: 0.2rem 0.5rem; font-size: 0.875rem; }
 .recorder-dialog [hidden] { display: none !important; }
 .recorder-dialog fieldset { margin: 10px 0; border: 1px solid #cfd4db; padding: 6px 12px 10px; }
 .recorder-dialog legend { font-weight: 600; padding: 0 6px; }
