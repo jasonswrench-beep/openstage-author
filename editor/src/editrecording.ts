@@ -267,7 +267,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
       session = new EditSession(project.model);
       editor = mountEditor(host, session, {
-        library: libraryOf(project.folder, (asset) => b.assetUrl(opts.dir, `assets/${asset}`)),
+        // A picture is read into the page; a video or a sound is played from disk (reading a whole video into the page would be slow and would not play).
+        library: libraryOf(project.folder, (asset) => (/\.(mp4|m4v|wav)$/i.test(asset) ? b.mediaUrl(opts.dir, `assets/${asset}`) : b.assetUrl(opts.dir, `assets/${asset}`))),
         addMedia: (kind) => chooseMedia(b, opts.dir, kind, measureInBrowser),
       });
       session.subscribe((kind) => {

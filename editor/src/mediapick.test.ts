@@ -13,6 +13,7 @@ function backend(picked: string | null, imported = "assets/images/logo.png"): Pi
       return imported;
     },
     assetUrl: async (_dir, path) => `asset://${path}`,
+    mediaUrl: async (_dir, path) => `media://${path}`,
   };
 }
 
@@ -44,7 +45,7 @@ test("a file the video maker cannot use is refused before it is copied", async (
 });
 
 test("a video's length is measured, and one that cannot be read is not added", async () => {
-  const ok = await chooseMedia(backend("v.mp4", "assets/video/v.mp4"), "dir", "video", async (url, kind) => (url === "asset://assets/video/v.mp4" && kind === "video" ? 12_345 : null));
+  const ok = await chooseMedia(backend("v.mp4", "assets/video/v.mp4"), "dir", "video", async (url, kind) => (url === "media://assets/video/v.mp4" && kind === "video" ? 12_345 : null));
   assert.deepEqual(ok, { ok: true, file: { asset: "video/v.mp4", kind: "video", name: "V", durationMs: 12_345 } });
   const bad = await chooseMedia(backend("v.mp4", "assets/video/v.mp4"), "dir", "video", async () => null);
   assert.equal(bad.ok, false);

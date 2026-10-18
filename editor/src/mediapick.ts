@@ -13,6 +13,8 @@ export interface PickBackend {
   pickFile(kind: ImportedFile["kind"]): Promise<string | null>;
   importAsset(dir: string, source: string, kind: ImportedFile["kind"]): Promise<string>;
   assetUrl(dir: string, path: string): Promise<string>;
+  /** An address a video or sound element can play a file of the course from, straight from disk with seeking (assetUrl reads the whole file into the page, for pictures only). */
+  mediaUrl(dir: string, path: string): Promise<string>;
 }
 
 /** What the video maker can use, by kind, and how to say it. */
@@ -65,9 +67,9 @@ export async function chooseMedia(
   const asset = path.replace(/^assets\//, "");
   let durationMs: number | null = null;
   if (kind !== "image") {
-    durationMs = await measure(await b.assetUrl(dir, path), kind);
+    durationMs = await measure(await b.mediaUrl(dir, path), kind);
     if (durationMs === null) {
-      return { ok: false, message: `${fileNameOf(picked)} was copied into the course but could not be read as a ${kind}, so it was not added to the edit.` };
+      return { ok: false, message: `${fileNameOf(picked)} was copied into the course but could not be read as ${kind === "audio" ? "a sound file" : "a video"}, so it was not added to the edit.` };
     }
   }
   return { ok: true, file: { asset, kind, name: friendlyName(picked), durationMs } };
