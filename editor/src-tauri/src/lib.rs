@@ -14,6 +14,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
+mod speech;
 mod stream;
 
 /// Tests that use the one job slot, or the recorder slot, take turns, because both are shared by the whole program.
@@ -2248,12 +2249,264 @@ async fn stream_stop(stop_line: Option<String>) -> Result<bool, String> {
         .map_err(|e| e.to_string())?
 }
 
+// ---- speech recognition (story D3: captions from a recorded voice)
+//
+// The recogniser is a separate program, whisper.cpp's whisper-cli, that this starts and reads the answer of (see speech.rs). The page reads the sound of a video into a plain
+// WAV file and hands it over; the models are downloaded only when the author presses the button, from one address written in speech.rs, and checked.
+
+/// Where the recogniser is: OPENSTAGE_WHISPER if it is set, otherwise the `speech` folder beside the editor or in the repository, found the way the other helpers are.
+/// The Err is a message for the author.
+fn speech_program_in(setting: Option<&str>, starts: &[PathBuf]) -> Result<PathBuf, String> {
+    if let Some(p) = setting.map(str::trim).filter(|p| !p.is_empty()) {
+        let path = PathBuf::from(p);
+        return if path.is_file() {
+            Ok(path)
+        } else {
+            Err(format!("OPENSTAGE_WHISPER is set to {}, but there is no program there. Set it to the full path of whisper-cli.exe, or remove it so the editor looks in the speech folder.", path.display()))
+        };
+    }
+    let name = if cfg!(windows) { "whisper-cli.exe" } else { "whisper-cli" };
+    for rel in [format!("speech/{name}"), name.to_string()] {
+        if let Some(found) = find_in(starts, &rel) {
+            return Ok(plain_path(found));
+        }
+    }
+    Err(speech::NO_RECOGNISER.into())
+}
+
+fn speech_program() -> Result<PathBuf, String> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(repo) = std::env::var("OPENSTAGE_REPO") {
+        starts.push(PathBuf::from(repo));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        starts.push(exe);
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        starts.push(cwd);
+    }
+    speech_program_in(std::env::var("OPENSTAGE_WHISPER").ok().as_deref(), &starts)
+}
+
+/// Where the speech models are kept: the editor's own folder on this computer, never a course.
+fn speech_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("speech-models"))
+}
+
+/// The folder the sound being listened to is kept in for as long as it takes.
+fn speech_temp_dir() -> PathBuf {
+    std::env::temp_dir().join("openstage-speech")
+}
+
+static SPEECH_DOWNLOADING: AtomicBool = AtomicBool::new(false);
+static SPEECH_DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the recogniser is there and which models are downloaded, as JSON for the page.
+#[tauri::command]
+fn speech_status(app: tauri::AppHandle) -> Result<String, String> {
+    let folder = speech_models_dir(&app)?;
+    serde_json::to_string(&speech::status(speech_program(), &folder)).map_err(|e| e.to_string())
+}
+
+/// Download a model the author asked for. Progress reaches the page as `speech-download` events ({ id, done, total }). Only a model in the table in speech.rs can be asked for, and
+/// it is fetched from the address written there, not from anything the page says.
+#[tauri::command]
+async fn speech_download(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let spec = speech::model(&id).ok_or("That is not a speech model OpenStage knows.")?;
+    let folder = speech_models_dir(&app)?;
+    if SPEECH_DOWNLOADING.swap(true, Ordering::SeqCst) {
+        return Err("A model is already being downloaded.".into());
+    }
+    SPEECH_DOWNLOAD_CANCELLED.store(false, Ordering::SeqCst);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let model_id = spec.id;
+        speech::download(&folder, spec, spec.url, &SPEECH_DOWNLOAD_CANCELLED, &mut |done, total| {
+            let _ = app.emit("speech-download", serde_json::json!({ "id": model_id, "done": done, "total": total }));
+        })
+    })
+    .await
+    .map_err(|e| e.to_string());
+    SPEECH_DOWNLOADING.store(false, Ordering::SeqCst);
+    result?
+}
+
+/// Keep the sound the page made (a 16 kHz mono 16-bit WAV, sent as the raw body of the request, so a long clip is not turned into text on the way). Returns the name to listen to it by.
+#[tauri::command]
+fn speech_audio_put(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("The sound could not be passed to the recogniser: the window did not send it as bytes.".into());
+    };
+    speech::check_wav(bytes)?;
+    let dir = speech_temp_dir();
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not make a place to keep the sound: {e}"))?;
+    // Sounds left by a run that was cut short are cleared away after a day.
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|age| age > Duration::from_secs(24 * 3600)).unwrap_or(false);
+            if old {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let name = format!("speech-{}-{stamp}.wav", std::process::id());
+    fs::write(dir.join(&name), bytes).map_err(|e| format!("Could not keep the sound: {e}"))?;
+    Ok(name)
+}
+
+/// Let go of a sound that was kept.
+#[tauri::command]
+fn speech_drop(audio: String) {
+    if speech::audio_name_ok(&audio) {
+        let dir = speech_temp_dir();
+        let _ = fs::remove_file(dir.join(&audio));
+        let _ = fs::remove_file(dir.join(audio.trim_end_matches(".wav")).with_extension("json"));
+    }
+}
+
+/// Listen to a sound that was kept and return the recogniser's answer (its full JSON). Progress reaches the page as `speech-progress` events (a percent). It takes the one job
+/// slot, so it does not run beside a preview, a publish, or an unpaused recording, and Cancel stops it.
+#[tauri::command]
+async fn speech_listen(app: tauri::AppHandle, audio: String, model: String, hint: String) -> Result<String, String> {
+    if !speech::audio_name_ok(&audio) {
+        return Err("That is not a sound that was kept for listening.".into());
+    }
+    let spec = speech::model(&model).ok_or("That is not a speech model OpenStage knows.")?;
+    let program = speech_program()?;
+    let folder = speech_models_dir(&app)?;
+    if !speech::installed(&folder, spec) {
+        return Err(format!("The speech model {} is not downloaded yet.", spec.id));
+    }
+    let wav = speech_temp_dir().join(&audio);
+    if !wav.is_file() {
+        return Err("The sound to listen to is not there any more. Try again.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let _slot = JobSlot::take()?;
+        let out_base = speech_temp_dir().join(audio.trim_end_matches(".wav"));
+        let args = speech::listen_args(&speech::model_path(&folder, spec), &wav, &out_base, spec.id, &hint, speech::threads());
+        let mut cmd = Command::new(&program);
+        cmd.args(&args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+        if let Some(dir) = program.parent() {
+            cmd.current_dir(dir);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // no console window flashing up
+        }
+        let mut child = cmd.spawn().map_err(|e| format!("The speech recogniser could not be started: {e}"))?;
+        *job_pid() = Some(child.id());
+        if JOB_CANCELLED.load(Ordering::SeqCst) {
+            kill_tree(child.id()); // cancelled in the instant before it started
+        }
+        let stderr = child.stderr.take();
+        let events = app.clone();
+        let reader = std::thread::spawn(move || {
+            let mut tail: Vec<String> = Vec::new();
+            if let Some(mut s) = stderr {
+                let mut pending: Vec<u8> = Vec::new();
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = s.read(&mut buf) {
+                    if n == 0 {
+                        break;
+                    }
+                    for &b in &buf[..n] {
+                        if b == b'\n' || b == b'\r' {
+                            let line = String::from_utf8_lossy(&pending).trim().to_string();
+                            pending.clear();
+                            if line.is_empty() {
+                                continue;
+                            }
+                            if let Some(p) = speech::progress_of(&line) {
+                                let _ = events.emit("speech-progress", p);
+                            } else {
+                                tail.push(line);
+                                if tail.len() > 12 {
+                                    tail.remove(0);
+                                }
+                            }
+                        } else {
+                            pending.push(b);
+                        }
+                    }
+                }
+            }
+            tail
+        });
+        let status = child.wait().map_err(|e| e.to_string());
+        let tail = reader.join().unwrap_or_default();
+        *job_pid() = None;
+        let json_path = out_base.with_extension("json");
+        let finish = |outcome: Result<String, String>| {
+            let _ = fs::remove_file(&json_path);
+            outcome
+        };
+        if JOB_CANCELLED.swap(false, Ordering::SeqCst) {
+            return finish(Err("Listening was stopped.".into()));
+        }
+        let status = status?;
+        if !status.success() {
+            let said = tail.iter().rev().take(3).rev().cloned().collect::<Vec<_>>().join(" ");
+            return finish(Err(format!("The speech recogniser stopped with an error.{}", if said.is_empty() { String::new() } else { format!(" It said: {said}") })));
+        }
+        let text = match fs::metadata(&json_path) {
+            Ok(m) if m.len() <= 128 * 1024 * 1024 => fs::read_to_string(&json_path).map_err(|e| format!("Could not read what the recogniser heard: {e}")),
+            Ok(_) => Err("What the recogniser heard is too large to use.".to_string()),
+            Err(_) => Err("The speech recogniser finished but wrote nothing.".to_string()),
+        };
+        finish(text)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Stop a download or a listening that is going on. Returns whether there was one.
+#[tauri::command]
+fn speech_cancel() -> bool {
+    let downloading = SPEECH_DOWNLOADING.load(Ordering::SeqCst);
+    if downloading {
+        SPEECH_DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
+    }
+    cancel_job_now() || downloading
+}
+
+/// The bytes of a video or audio file in the course's assets, so the page can decode its sound. One plain file name directly in assets/video or assets/audio, of a kind a course
+/// holds, and no larger than the course would take. Sent back raw, not as text.
+fn read_media_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let parts: Vec<&str> = rel.split('/').collect();
+    let (kind, name) = match parts.as_slice() {
+        ["assets", "video", name] => ("video", *name),
+        ["assets", "audio", name] => ("audio", *name),
+        _ => return Err("That file is not a video or sound in the course's assets.".into()),
+    };
+    let k = asset_kind(kind)?;
+    let ext = name.rsplit('.').next().map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if name.starts_with('.') || name.contains(['\\', ':']) || name.contains("..") || !k.exts.contains(&ext.as_str()) {
+        return Err("That file is not a video or sound in the course's assets.".into());
+    }
+    let path = dir.join("assets").join(k.folder).join(name);
+    let size = fs::metadata(&path).map_err(|_| format!("{rel} is not in the course."))?.len();
+    if size > k.max + 100 * 1024 * 1024 {
+        return Err("That file is too large to listen to.".into());
+    }
+    fs::read(&path).map_err(|e| format!("Could not read {rel}: {e}"))
+}
+
+#[tauri::command]
+fn read_media_bytes(dir: String, path: String) -> Result<tauri::ipc::Response, String> {
+    read_media_at(Path::new(&dir), &path).map(tauri::ipc::Response::new)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3010,6 +3263,51 @@ mod tests {
         assert!(result.unwrap_err().contains("need Node.js"));
         assert!(count() <= before, "the temporary folder it made is gone again");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_speech_recogniser_is_found_by_the_setting_then_in_the_speech_folder_and_a_missing_one_says_what_to_do() {
+        let dir = std::env::temp_dir().join(format!("openstage-speechfind-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let name = if cfg!(windows) { "whisper-cli.exe" } else { "whisper-cli" };
+        fs::create_dir_all(dir.join("repo/speech")).unwrap();
+        fs::create_dir_all(dir.join("repo/editor/src-tauri/target/release")).unwrap();
+        let editor = dir.join("repo/editor/src-tauri/target/release/openstage-editor.exe");
+        // nothing built: the message says how to build it
+        let missing = speech_program_in(None, &[editor.clone()]).unwrap_err();
+        assert!(missing.contains("BUILD SPEECH RECOGNISER.bat") && missing.contains("OPENSTAGE_WHISPER"), "{missing}");
+        // built into the speech folder of the repository, found by looking upward from the editor
+        fs::write(dir.join("repo/speech").join(name), b"x").unwrap();
+        assert_eq!(speech_program_in(None, &[editor.clone()]), Ok(dir.join("repo/speech").join(name)));
+        // an empty setting is none; a setting wins wherever it points; one that points at nothing is an error that names it
+        assert_eq!(speech_program_in(Some(" "), &[editor.clone()]), Ok(dir.join("repo/speech").join(name)));
+        fs::write(dir.join("elsewhere.exe"), b"x").unwrap();
+        assert_eq!(speech_program_in(Some(dir.join("elsewhere.exe").to_str().unwrap()), &[editor.clone()]), Ok(dir.join("elsewhere.exe")));
+        let bad = speech_program_in(Some(dir.join("nope.exe").to_str().unwrap()), &[editor]).unwrap_err();
+        assert!(bad.starts_with("OPENSTAGE_WHISPER is set to") && bad.contains("nope.exe"), "{bad}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_a_video_or_a_sound_directly_in_the_courses_assets_can_be_read_for_listening() {
+        let dir = temp_project("listen-read");
+        fs::create_dir_all(dir.join("assets/video")).unwrap();
+        fs::create_dir_all(dir.join("assets/audio")).unwrap();
+        fs::create_dir_all(dir.join("assets/images")).unwrap();
+        fs::write(dir.join("assets/video/Lesson.MP4"), [1u8, 2, 3]).unwrap();
+        fs::write(dir.join("assets/audio/voice.wav"), [9u8]).unwrap();
+        fs::write(dir.join("assets/images/pic.png"), [5u8]).unwrap();
+        fs::write(dir.join("assets/video/notes.txt"), [5u8]).unwrap();
+        assert_eq!(read_media_at(&dir, "assets/video/Lesson.MP4").unwrap(), vec![1, 2, 3]);
+        assert_eq!(read_media_at(&dir, "assets/audio/voice.wav").unwrap(), vec![9]);
+        for bad in [
+            "assets/images/pic.png", "assets/video/notes.txt", "assets/video/../../project.json", "assets/video/sub/Lesson.MP4", "project.json", "../x.mp4",
+            "assets/video/..\\Lesson.MP4", "assets/video/C:Lesson.mp4", "assets/video/.hidden.mp4", "assets/video/missing.mp4", "assets\\video\\Lesson.MP4", "",
+        ] {
+            assert!(read_media_at(&dir, bad).is_err(), "{bad}");
+        }
+        assert!(read_media_at(&std::env::temp_dir(), "assets/video/Lesson.MP4").unwrap_err().contains("not an OpenStage project"));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -44,6 +44,13 @@ AI services and voice plugins (connected by the user; not included, bundled or h
   examples/plugins is part of OpenStage Author (Apache License 2.0). No component of these
   services is distributed with a course; a course credits the services that made its material.
 
+Speech recognition for captions (built or downloaded by the user; not included, bundled or hosted by OpenStage Author)
+  Captions from a recorded voice use whisper.cpp (https://github.com/ggml-org/whisper.cpp, MIT License, Copyright (c) 2023-2026 The ggml authors), which the user builds with
+  BUILD SPEECH RECOGNISER.bat and which the editor runs as a separate program, and a Whisper speech model that the user chooses to download from
+  https://huggingface.co/ggerganov/whisper.cpp (ggml-small.en.bin or ggml-base.en.bin; OpenAI's Whisper weights, which OpenAI's repository
+  https://github.com/openai/whisper licenses under the MIT License, Copyright (c) 2022 OpenAI; the Hugging Face card of the related whisper-small model says Apache License 2.0; both
+  are permissive). Neither is part of a course. The build copies whisper.cpp's licence into the speech folder as whisper.cpp-LICENSE.txt.
+
 OpenStage Capture (screen recording; the capture/, capture-edit/ and capture-timeline/ folders)
   The recorder is a Rust program built from the crates listed, each with its licence, in
   capture/THIRD-PARTY.md (every one MIT, Apache-2.0 or similarly permissive; the rule checker

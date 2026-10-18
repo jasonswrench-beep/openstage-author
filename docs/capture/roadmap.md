@@ -135,7 +135,7 @@
 | Transcripts and step text; alt text pre-filled from clicked elements, marked unreviewed | D4, D6 |
 | Audio for text the learner reads | D7 |
 | Audio description authoring (player side: OS-9) | D5 |
-| Speech recognition: audit Whisper's license and quality; plug in through the "captions from media" contract (**both audits passed, 2026-10-18**, see `docs/decisions/0002-speech-recognition.md`; the plug-in is not built) | D3 |
+| Speech recognition: audit Whisper's license and quality; plug in through the "captions from media" contract (**both audits passed and it is built, 2026-10-18**, see `docs/decisions/0002-speech-recognition.md` and `docs/speech-recognition.md`) | D3 |
 
 **Fallback rule.** If no speech recognition tool passes the audit, D3 leaves Release 1. The rest stays.
 

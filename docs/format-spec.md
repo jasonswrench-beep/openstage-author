@@ -305,6 +305,10 @@ needs captions, a narration script or a non-empty `transcript`, because a transc
 clip needs. The player draws captions as a real `<track kind="captions">`, and a `transcript`, if there is
 one, as a native "Transcript" disclosure under the player, closed until opened. Neither plays on its own.
 
+A captions file may carry a WebVTT `NOTE` block that says nobody has checked it yet: "Times estimated from a script and not yet checked.", "Words and times made by speech recognition and not yet checked.", or "Times set by listening to the
+voice with speech recognition and not yet checked." Players ignore `NOTE` blocks, so the captions play as usual; the editor reads the note back so the warning is still there when the captions are opened again, and removes it when the
+author says they have checked. It is not part of the project schema and the validator does not look at it.
+
 **Audio description.** A `video` can carry an audio description for a learner who cannot see its picture (WCAG 2.2, 1.2.5, level AA): `content.description`
 is `{ "cues": [...] }`, one to 60 cues, each with an `id` (unique on the video), a `time` (whole milliseconds into the video, 0 to 24 hours), `text` (what the
 picture shows at that moment, up to 2000 letters), `pause` (whether the video waits while it is spoken, which is what makes an extended description possible) and

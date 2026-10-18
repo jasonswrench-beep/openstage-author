@@ -33,3 +33,6 @@ rustc-ice-*.txt
 # Python bytecode
 __pycache__/
 *.pyc
+
+# The speech recogniser (whisper.cpp) built by BUILD SPEECH RECOGNISER.bat
+speech/

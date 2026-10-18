@@ -14,6 +14,7 @@ import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } fro
 import { parseSample, type SampleAnswer } from "./voicesample.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
 import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
+import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -162,6 +163,27 @@ export interface Backend {
   captionsRead(dir: string, path: string): Promise<string | undefined>;
   /** Save WebVTT captions in the course: in place of `existing` when that file is there, otherwise as a new file named from `nameHint`. Returns the path. */
   captionsWrite(dir: string, nameHint: string, existing: string | null, text: string): Promise<string>;
+
+  // ---- speech recognition: captions from a recorded voice. The recogniser is a separate program (docs/decisions/0002-speech-recognition.md); nothing is sent anywhere.
+
+  /** Whether the recogniser is installed, where its models are kept, and which are downloaded. */
+  speechStatus(): Promise<SpeechStatus>;
+  /** Download a model the author asked for (by its id, such as `small.en`). Resolves when it is there and its checksum is right. */
+  speechDownload(id: string): Promise<void>;
+  /** Told how much of a model has arrived. Returns a function that stops listening. */
+  onSpeechDownload(listener: (progress: { id: string; done: number; total: number }) => void): Promise<() => void>;
+  /** The bytes of a video or audio file in the course's assets, to read its sound. */
+  mediaBytes(dir: string, path: string): Promise<Uint8Array>;
+  /** Keep a sound (a 16 kHz mono 16-bit WAV) for the recogniser to listen to. Returns the name to listen to it by. */
+  speechAudioPut(wav: Uint8Array): Promise<string>;
+  /** Listen to a kept sound with a model, given a hint of the course's words, and return the recogniser's answer (its JSON). */
+  speechListen(audio: string, model: string, hint: string): Promise<string>;
+  /** Let go of a kept sound. */
+  speechDrop(audio: string): Promise<void>;
+  /** Told how far the listening has got, in percent. Returns a function that stops listening. */
+  onSpeechProgress(listener: (percent: number) => void): Promise<() => void>;
+  /** Stop a download or a listening that is going on. Returns whether there was one. */
+  speechCancel(): Promise<boolean>;
 
   // ---- the Capture recorder: a separate program the editor starts and talks to, one line of JSON at a time
 
@@ -332,6 +354,20 @@ const tauriBackend: Backend = {
     return (await invoke<string | null>("captions_read", { dir, rel: path })) ?? undefined;
   },
   captionsWrite: (dir, nameHint, existing, text) => invoke<string>("captions_write", { dir, nameHint, existing, text }),
+  async speechStatus() {
+    return parseSpeechStatus(await invoke<string>("speech_status"));
+  },
+  speechDownload: (id) => invoke<void>("speech_download", { id }),
+  onSpeechDownload: (listener) => listen<{ id: string; done: number; total: number }>("speech-download", (e) => listener(e.payload)),
+  async mediaBytes(dir, path) {
+    // Raw bytes come back as an ArrayBuffer, so a long video is not turned into text on the way.
+    return new Uint8Array(await invoke<ArrayBuffer>("read_media_bytes", { dir, path }));
+  },
+  speechAudioPut: (wav) => invoke<string>("speech_audio_put", wav),
+  speechListen: (audio, model, hint) => invoke<string>("speech_listen", { audio, model, hint }),
+  speechDrop: (audio) => invoke<void>("speech_drop", { audio }),
+  onSpeechProgress: (listener) => listen<number>("speech-progress", (e) => listener(e.payload)),
+  speechCancel: () => invoke<boolean>("speech_cancel"),
   async captureCheck() {
     try {
       return { ok: true, path: await invoke<string>("capture_check") };
@@ -509,6 +545,31 @@ const previewBackend: Backend = {
   },
   async captionsWrite() {
     throw new Error("Saving captions needs the desktop app.");
+  },
+  async speechStatus() {
+    return { ready: false, problem: "Listening to the voice needs the desktop app.", folder: "", models: [] };
+  },
+  async speechDownload() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async onSpeechDownload() {
+    return () => {};
+  },
+  async mediaBytes() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechAudioPut() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechListen() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechDrop() {},
+  async onSpeechProgress() {
+    return () => {};
+  },
+  async speechCancel() {
+    return false;
   },
   async captureCheck() {
     return { ok: false, message: "The recorder needs the desktop app." };

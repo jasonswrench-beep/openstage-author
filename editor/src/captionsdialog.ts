@@ -11,8 +11,10 @@
 import { errorText, type Backend } from "./backend.ts";
 import {
   breakLongLines, buildTranscript, cuesFromScript, cueWarnings, DEFAULT_LIMITS, formatSrt, formatVtt, inOrder, newCueAfter, ordered, parseCaptions, parseClock, savingProblem,
-  secondsField, trackWarnings, type Cue, type Extra,
+  secondsField, trackWarnings, type Cue, type Extra, type Heard,
 } from "./captions.ts";
+import { cuesFromWords, placeByVoice, wordEnds } from "./recognition.ts";
+import { mountSpeechPanel, type Listened } from "./speechpanel.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -42,6 +44,8 @@ export interface CaptionsOptions {
   extras: Extra[];
   /** How long the clip is, if something already knows. The clip itself is asked as well, and wins. */
   lengthMs: number | null;
+  /** The names and terms in the course, offered to the speech recogniser as words to listen for. */
+  hint?: string;
   /** Called when the captions are saved: the captions file's path in the course, and the new transcript if the author changed it (else null). */
   apply: (captionsPath: string, transcript: string | null) => void;
 }
@@ -67,6 +71,8 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
     let dirty = false;
     /** The times came from a script, not from the voice, and nobody has said they are right. */
     let estimated = false;
+    /** The computer listened to the voice to write these captions or to time them, and nobody has said they are right. */
+    let heard: Heard | null = null;
     const undo: Cue[][] = [];
     const startTranscript = opts.transcript;
 
@@ -97,8 +103,21 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
     const list = h("div", { id: "cap-list" });
     const summary = h("p", { id: "cap-summary", class: "note" });
     const checked = h("button", { type: "button", id: "cap-checked", text: "I have checked the times" });
-    const estimateNote = h("div", { id: "cap-estimated", class: "note cap-estimated", hidden: true },
-      h("p", { text: "These times are estimates, worked out from the script. Nothing has listened to the voice. Play the video, set each time so the caption matches what is said, then press the button." }), checked);
+    const reviewText = h("p", { id: "cap-review-text" });
+    const estimateNote = h("div", { id: "cap-estimated", class: "note cap-estimated", hidden: true }, reviewText, checked);
+    /** What the author is told about captions nobody has checked, and the button that says they have. */
+    const reviewWords = (): { text: string; button: string } | null => {
+      if (heard === "words") {
+        return { button: "I have checked the captions", text: `These captions were written by the computer listening to the voice. It makes mistakes, especially with names and when there is noise or music. Play the ${opts.kind}, read each caption against what you hear, change what is wrong, then press the button.` };
+      }
+      if (heard === "times") {
+        return { button: "I have checked the captions", text: `The times of these captions were set by the computer listening to the voice. Your words were not changed. Play the ${opts.kind} and check a few places, then press the button.` };
+      }
+      if (estimated) {
+        return { button: "I have checked the times", text: `These times are estimates, worked out from the script. Nothing has listened to the voice. Play the ${opts.kind}, set each time so the caption matches what is said, then press the button.` };
+      }
+      return null;
+    };
     const together = h("ul", { id: "cap-together", class: "rc-list", "aria-label": "About the captions together" });
     const addBtn = h("button", { type: "button", id: "cap-add", text: "Add a caption" });
     const orderBtn = h("button", { type: "button", id: "cap-order", text: "Put the captions in order of time" });
@@ -141,7 +160,13 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
       summary.textContent = cues.length === 0
         ? "There are no captions yet."
         : `${cues.length} ${cues.length === 1 ? "caption" : "captions"}. ${hard === 0 ? "None is hard to read." : `${hard} ${hard === 1 ? "has" : "have"} something that makes it hard to read; each says what, and you can still save.`}`;
-      estimateNote.hidden = !estimated;
+      const review = reviewWords();
+      estimateNote.hidden = review === null;
+      if (review !== null) {
+        reviewText.textContent = review.text;
+        checked.textContent = review.button;
+      }
+      speechPanel.update();
       orderBtn.toggleAttribute("disabled", inOrder(cues));
       undoBtn.toggleAttribute("disabled", undo.length === 0);
       syncPreview();
@@ -251,19 +276,22 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
     });
 
     checked.addEventListener("click", () => {
+      const wasHeard = heard !== null;
       estimated = false;
+      heard = null;
       dirty = true;
       refreshWarnings();
-      speak("The times are no longer marked as estimates.");
+      speak(wasHeard ? "The captions are no longer marked as unchecked." : "The times are no longer marked as estimates.");
       (rowEls[0]?.start ?? addBtn).focus();
     });
 
-    /** Replace the list, asking first when it would lose captions that are there. */
-    async function replaceCues(next: Cue[], told: string, fromScriptTimes = false): Promise<boolean> {
+    /** Replace the list, asking first when it would lose captions that are there. `mark` says what is not yet checked about the new captions. */
+    async function replaceCues(next: Cue[], told: string, mark: { estimated: boolean; heard: Heard | null } = { estimated: false, heard: null }): Promise<boolean> {
       if (cues.some((c) => c.text.trim() !== "") && !(await b.confirm(`This replaces the ${cues.length} ${cues.length === 1 ? "caption" : "captions"} you have now. You can undo it. Go on?`))) return false;
       remember();
       cues = next;
-      estimated = fromScriptTimes;
+      estimated = mark.estimated;
+      heard = mark.heard;
       draw();
       speak(told);
       return true;
@@ -276,9 +304,50 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
       void (async () => {
         const made = cuesFromScript(script.value, lengthMs);
         if (made.length === 0) { speak("Write or paste the words that are spoken first."); script.focus(); return; }
-        const done = await replaceCues(made, `Made ${made.length} captions from the script. Their times are only estimates, spread over the ${opts.kind} by the length of each caption. Play the ${opts.kind} and change the times so each caption matches the voice.`, true);
+        const done = await replaceCues(made, `Made ${made.length} captions from the script. Their times are only estimates, spread over the ${opts.kind} by the length of each caption. Play the ${opts.kind} and change the times so each caption matches the voice, or use the button below to set them by listening to the voice.`, { estimated: true, heard: null });
         if (done) (rowEls[0]?.start ?? fromScript).focus();
       })();
+    });
+
+    // ---- the voice
+    /** What the computer heard: captions from it, or the times of the captions that are there. */
+    async function applyHeard(l: Listened, mode: "write" | "place"): Promise<boolean> {
+      const taken = [
+        l.notes > 0 ? `${l.notes === 1 ? "A note about a sound was" : `${l.notes} notes about sounds were`} left out.` : "",
+        l.silent > 0 ? `${l.silent === 1 ? "A word" : `${l.silent} words`} heard where there is no sound ${l.silent === 1 ? "was" : "were"} left out.` : "",
+        ...l.problems,
+      ];
+      if (l.words.length === 0) {
+        speak(`Nothing that sounds like speech was heard in the ${opts.kind}, so nothing was changed.`, ...taken);
+        return false;
+      }
+      const ends = wordEnds(l.words, l.lengthMs, l.sound);
+      if (mode === "write") {
+        const made = cuesFromWords(l.words, ends, l.lengthMs);
+        const done = await replaceCues(made, `Made ${made.length} ${made.length === 1 ? "caption" : "captions"} from what the computer heard. ${taken.join(" ")} They are marked as unchecked: it makes mistakes, especially with names. Play the ${opts.kind}, read each caption against what you hear, and change what is wrong.`, { estimated: false, heard: "words" });
+        if (done) (rowEls[0]?.text ?? addBtn).focus();
+        return done;
+      }
+      const placed = placeByVoice(cues, l.words, ends, l.lengthMs);
+      if (typeof placed === "string") {
+        speak(placed);
+        return false;
+      }
+      remember();
+      cues = placed.cues;
+      estimated = false;
+      heard = "times";
+      draw();
+      speak(`Set the times of ${cues.length} ${cues.length === 1 ? "caption" : "captions"} by the voice. Your words were not changed: ${placed.matched} of ${placed.total} words were heard exactly. ${taken.join(" ")} The times are marked as unchecked. You can undo it.`);
+      (rowEls[0]?.start ?? addBtn).focus();
+      return true;
+    }
+
+    const speechPanel = mountSpeechPanel({
+      backend: b, dir: opts.dir, mediaPath: opts.mediaPath, kind: opts.kind, hint: opts.hint ?? "",
+      haveCaptions: () => cues.some((c) => c.text.trim() !== ""),
+      say: speak,
+      onHeard: applyHeard,
     });
 
     // ---- a file
@@ -339,6 +408,10 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
     const close = h("button", { type: "button", id: "cap-close", text: "Close without saving" });
 
     async function finish(): Promise<void> {
+      if (speechPanel.working()) {
+        if (!(await b.confirm("The computer is still listening to the voice or downloading a model. Stop it and close?"))) return;
+        await speechPanel.stop();
+      }
       if (dirty && !(await b.confirm("You have changes that are not saved. Close and lose them?"))) return;
       dialog.close();
       dialog.remove();
@@ -354,13 +427,13 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
       const hard = final.filter((c) => cueWarnings(c).length > 0).length;
       try {
         const existing = opts.captions !== null && COURSE_CAPTIONS.test(opts.captions) ? opts.captions : null;
-        const path = await b.captionsWrite(opts.dir, stemOf(opts.mediaPath), existing, formatVtt(final, { estimated }));
+        const path = await b.captionsWrite(opts.dir, stemOf(opts.mediaPath), existing, formatVtt(final, { estimated, heard }));
         const newTranscript = startTranscript !== null && transcript.value.trim() !== startTranscript.trim() ? transcript.value : null;
         opts.apply(path, newTranscript);
         dirty = false;
         dialog.close();
         dialog.remove();
-        resolve(`Saved ${words} ${words === 1 ? "caption" : "captions"} in ${fileOf(path)}, and the ${opts.kind} now uses them.${wasInOrder ? "" : " They were put in order of time."}${estimated ? " The times are still marked as estimates, so check them." : ""}${hard > 0 ? ` ${hard} ${hard === 1 ? "is" : "are"} hard to read; open the captions again to see which.` : ""}${newTranscript !== null ? " The transcript was changed too." : ""}`);
+        resolve(`Saved ${words} ${words === 1 ? "caption" : "captions"} in ${fileOf(path)}, and the ${opts.kind} now uses them.${wasInOrder ? "" : " They were put in order of time."}${estimated ? " The times are still marked as estimates, so check them." : ""}${heard !== null ? " The captions are still marked as made by listening to the voice and not checked, so check them." : ""}${hard > 0 ? ` ${hard} ${hard === 1 ? "is" : "are"} hard to read; open the captions again to see which.` : ""}${newTranscript !== null ? " The transcript was changed too." : ""}`);
       } catch (err) {
         speak(`The captions could not be saved. ${errorText(err)}`);
       }
@@ -378,13 +451,14 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
 
     dialog.append(
       h("h2", { id: "cap-title", text: `Write captions for ${fileOf(opts.mediaPath)}` }),
-      h("p", { class: "note", text: `Captions are the words that are spoken, shown in time with the ${opts.kind}, for anyone who cannot hear it or has the sound off. Type them, start from a script, or bring in a .vtt or .srt file. Nothing is saved until you press Save. When you save, the captions are written again as plain WebVTT, so styling or positions in an older file are not kept.` }),
+      h("p", { class: "note", text: `Captions are the words that are spoken, shown in time with the ${opts.kind}, for anyone who cannot hear it or has the sound off. Type them, start from a script, let the computer listen to the voice, or bring in a .vtt or .srt file. Nothing is saved until you press Save. When you save, the captions are written again as plain WebVTT, so styling or positions in an older file are not kept.` }),
       h("div", { class: "cap-player" }, player),
       lengthNote,
       h("fieldset", {}, h("legend", { text: "Start from a script" }),
         h("div", { class: "field" }, h("label", { for: "cap-script", text: "The words that are spoken" }), script),
         h("p", { class: "note", text: "Nothing here listens to the voice. The captions are cut at the ends of sentences and clauses so each is short enough to read, and their times are estimates for you to check." }),
         h("div", { class: "btn-row" }, fromScript)),
+      speechPanel.element,
       h("div", { class: "btn-row" }, importBtn, copyVtt, copySrt),
       h("h3", { text: "The captions" }),
       estimateNote, summary, together,
@@ -415,6 +489,7 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
             const parsed = parseCaptions(text);
             cues = parsed.cues;
             estimated = parsed.estimated;
+            heard = parsed.heard;
             speak(`Opened ${cues.length} ${cues.length === 1 ? "caption" : "captions"} from ${fileOf(opts.captions)}. ${parsed.problems.join(" ")}`);
           }
         } catch (err) {

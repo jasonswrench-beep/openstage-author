@@ -39,6 +39,16 @@ export const FALLBACK_CPS = 15;
  */
 export const ESTIMATE_NOTE = "Times estimated from a script and not yet checked.";
 
+/**
+ * Captions that speech recognition wrote ("words": the words and the times were both heard) or timed ("times": the author's words, with times set by listening to the voice) are
+ * marked the same way until the author has checked them: recognition makes mistakes, especially with names and in noise, so nobody should take the result as right.
+ */
+export const HEARD_WORDS_NOTE = "Words and times made by speech recognition and not yet checked.";
+export const HEARD_TIMES_NOTE = "Times set by listening to the voice with speech recognition and not yet checked.";
+
+/** What was heard by the computer in a set of captions, if anything: both the words and times, or only the times. */
+export type Heard = "words" | "times";
+
 // ---- times
 
 const pad = (n: number, width: number): string => String(n).padStart(width, "0");
@@ -88,6 +98,8 @@ export interface Parsed {
   cues: Cue[];
   /** Whether the file says its times are estimates that nobody has checked (WebVTT only). */
   estimated: boolean;
+  /** Whether the file says the computer listened to the voice to make its words and times, or its times, and nobody has checked (WebVTT only). */
+  heard: Heard | null;
   /** Things in the file that could not be used, in words. */
   problems: string[];
   format: "vtt" | "srt";
@@ -111,10 +123,11 @@ function cleanText(lines: readonly string[], srt: boolean): string {
 
 const TIMING = /^\s*(\S+)\s+-->\s+(\S+)/;
 
-function readBlocks(lines: readonly string[], srt: boolean): { cues: Cue[]; problems: string[]; estimated: boolean } {
+function readBlocks(lines: readonly string[], srt: boolean): { cues: Cue[]; problems: string[]; estimated: boolean; heard: Heard | null } {
   const cues: Cue[] = [];
   const problems: string[] = [];
   let estimated = false;
+  let heard: Heard | null = null;
   const blocks: string[][] = [];
   let current: string[] = [];
   for (const l of lines) {
@@ -129,7 +142,12 @@ function readBlocks(lines: readonly string[], srt: boolean): { cues: Cue[]; prob
   blocks.forEach((block) => {
     const head = block[0] ?? "";
     if (!srt && /^(NOTE|STYLE|REGION)(\s|$)/.test(head)) {
-      if (/^NOTE\s/.test(head) && block.join(" ").includes(ESTIMATE_NOTE)) estimated = true;
+      if (/^NOTE\s/.test(head)) {
+        const note = block.join(" ");
+        if (note.includes(ESTIMATE_NOTE)) estimated = true;
+        if (note.includes(HEARD_WORDS_NOTE)) heard = "words";
+        else if (note.includes(HEARD_TIMES_NOTE)) heard = heard ?? "times";
+      }
       return;
     }
     const at = block.findIndex((l) => l.includes("-->"));
@@ -145,7 +163,7 @@ function readBlocks(lines: readonly string[], srt: boolean): { cues: Cue[]; prob
     if (text === "") return;
     cues.push({ id: `c${cues.length + 1}`, startMs: start, endMs: end, text });
   });
-  return { cues, problems, estimated };
+  return { cues, problems, estimated, heard };
 }
 
 /** Read captions written as WebVTT or as SRT, whichever the text is. Anything that cannot be used is left out and said in words. */
@@ -153,15 +171,15 @@ export function parseCaptions(raw: string): Parsed {
   const text = raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
   const lines = text.split("\n");
   if (/^WEBVTT(?:[ \t].*)?$/.test(lines[0] ?? "")) {
-    const { cues, problems, estimated } = readBlocks(lines, false);
-    return { cues, problems, estimated, format: "vtt" };
+    const { cues, problems, estimated, heard } = readBlocks(lines, false);
+    return { cues, problems, estimated, heard, format: "vtt" };
   }
   if (/^\s*WEBVTT/.test(text)) {
-    const { cues, problems, estimated } = readBlocks(lines, false);
-    return { cues, problems: ["The first line of the file should say only WEBVTT, but the captions could still be read.", ...problems], estimated, format: "vtt" };
+    const { cues, problems, estimated, heard } = readBlocks(lines, false);
+    return { cues, problems: ["The first line of the file should say only WEBVTT, but the captions could still be read.", ...problems], estimated, heard, format: "vtt" };
   }
   const { cues, problems } = readBlocks(lines, true);
-  return { cues, problems, estimated: false, format: "srt" };
+  return { cues, problems, estimated: false, heard: null, format: "srt" };
 }
 
 // ---- writing
@@ -174,11 +192,17 @@ function fileText(text: string, vtt: boolean): string {
 
 const writable = (c: Cue): boolean => fileText(c.text, true) !== "" && c.endMs > c.startMs;
 
-/** Captions as a WebVTT file. A caption with no words, or that ends before it starts, is not written. With `estimated`, the file says its times are not checked. */
-export function formatVtt(cues: readonly Cue[], options: { estimated?: boolean } = {}): string {
+/**
+ * Captions as a WebVTT file. A caption with no words, or that ends before it starts, is not written. With `estimated`, the file says its times are not checked; with `heard`, that
+ * speech recognition made the words and times, or the times, and nobody has checked.
+ */
+export function formatVtt(cues: readonly Cue[], options: { estimated?: boolean; heard?: Heard | null } = {}): string {
   const body = cues.filter(writable).map((c, i) => `${i + 1}\n${formatVttTime(c.startMs)} --> ${formatVttTime(c.endMs)}\n${fileText(c.text, true)}\n`);
-  const note = options.estimated === true ? `NOTE ${ESTIMATE_NOTE}\n\n` : "";
-  return `WEBVTT\n\n${note}${body.join("\n")}`.replace(/\n*$/, "\n");
+  const notes = [
+    ...(options.estimated === true ? [ESTIMATE_NOTE] : []),
+    ...(options.heard === "words" ? [HEARD_WORDS_NOTE] : options.heard === "times" ? [HEARD_TIMES_NOTE] : []),
+  ].map((n) => `NOTE ${n}\n\n`).join("");
+  return `WEBVTT\n\n${notes}${body.join("\n")}`.replace(/\n*$/, "\n");
 }
 
 /** Captions as an SRT file. */

@@ -49,6 +49,11 @@ two example projects. The minimal one should report no errors and the broken one
 report many. It needs Python installed, and tells you where to get it if you do not have
 it. The first run installs one small Python package (`jsonschema`) for your user account.
 
+## Writing captions by listening to the voice
+
+The captions window (**Write captions...** on a video or audio clip) can listen to the voice and write the captions with their times. It needs a program that listens, built once by double-clicking
+`BUILD SPEECH RECOGNISER.bat`, and a speech model (148 MB or 488 MB) that the captions window downloads when you press its button and say yes. Everything runs on your computer. See `docs/speech-recognition.md`.
+
 ## Publishing a course
 
 Open a project in the editor (`OPEN EDITOR.bat`). **Preview** shows the course in your browser as it is now, even

@@ -269,8 +269,20 @@ that would replace captions that already have words asks first, and can be undon
 uses one) and points the clip at it; styling or positions in an older file are not kept. **Make a transcript from the captions** puts the spoken words, run into paragraphs, in the transcript box, with what is on the
 screen (from a recording: the words of text overlays, shapes and arrows that were given a description, and what each zoom shows) in square brackets where it happens; it is saved with the captions. A transcript with formatting
 the editor cannot edit is left as it is. The pure parts (reading and writing WebVTT and SRT, the warnings, the script cutting, the transcript) are `editor/src/captions.ts`, with tests. The shell commands are `captions_read`,
-`captions_write` and `caption_source_read` in `lib.rs` (only `assets/captions/<name>.vtt` is reachable, text only, 5 MB at most, replaced whole or not at all). Not built: captions from a recorded voice (speech
-recognition; see `docs/decisions/0002-speech-recognition.md`), marking which captions were edited by hand, and a languages choice for each caption track.
+`captions_write` and `caption_source_read` in `lib.rs` (only `assets/captions/<name>.vtt` is reachable, text only, 5 MB at most, replaced whole or not at all). Not built: marking which captions were edited by hand, and a languages choice for each caption track.
+
+  **Captions from the voice** (story D3; `editor/src/speechpanel.ts`, `recognition.ts`, `speechaudio.ts`, and `src-tauri/src/speech.rs`; see `docs/speech-recognition.md` and `docs/decisions/0002-speech-recognition.md`). In the captions dialog,
+  *Write the captions by listening to the voice* has a **Speech model** choice (small.en, 488 MB, careful and recommended; base.en, 148 MB, faster and less careful), **Words to listen for** (the course's names and terms, drawn from its
+  title, slide names, headings, text and narration scripts, and changeable), and three buttons. **Download the speech model (488 MB)...** asks first, in words (the size, that it comes from huggingface.co, where it is kept, and that nothing from the
+  course is sent), shows its progress, can be stopped, and keeps the file only when its size and SHA-256 are exactly what Hugging Face publishes. **Listen and write the captions** reads the clip's sound in the window (the window decodes it, so there is no
+  FFmpeg), saves it as a 16 kHz mono WAV in a temporary folder, runs the recogniser (`whisper-cli`, a separate program, processor only, with its alignment mode for accurate word times), and makes captions from the words:
+  a sentence that fits two lines of 42 characters is one caption, a longer one is cut near its middle (at a comma if one is there), a caption starts when its first word does and ends where the voice stops, and captions never overlap. The
+  recogniser's notes about sounds (`[BLANK_AUDIO]`, `(keyboard clicking)`, music signs) and any word "heard" where the clip is silent are left out, and the dialog says how many. **Set the times of my captions by the voice** keeps the words of the captions
+  the list already has (typed, from a script, or brought in) and gives them the voice's times, saying how many of their words were heard exactly; if the voice does not seem to say them it changes nothing. What the computer wrote or timed is
+  marked as unchecked, in the dialog and in the saved WebVTT file as a `NOTE` block, until **I have checked the captions** is pressed. A clip over 45 minutes is refused with a message. Stop ends a listening or a download; closing the dialog while one is going asks first.
+  The pure parts (reading the recogniser's JSON, the notes and silence filters, cutting words into captions, placing captions by the voice, the hint) are `editor/src/recognition.ts` with tests that use real recogniser output.
+  The shell commands are `speech_status`, `speech_download`, `speech_audio_put` (the sound as the raw body of the request), `speech_listen`, `speech_drop`, `speech_cancel` and `read_media_bytes`; the window's page may reach the shell by its fast channel because
+  the content security policy allows `ipc:` and `http://ipc.localhost` (without that, every command quietly used a slower text route that cannot carry raw sound).
 
 **Questions, inputs and surveys.** "Question, input or survey..." in the Add menu opens one picker with
 three groups: Quiz questions (multiple choice, true or false), Inputs that save a choice (checkboxes,

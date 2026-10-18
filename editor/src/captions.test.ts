@@ -284,3 +284,16 @@ test("a transcript with no captions still gives the on-screen events, and nothin
 test("the words of a caption are squeezed to one line in the transcript", () => {
   assert.equal(buildTranscript([cue(0, 1000, "Two\nlines   here")], []), "Two lines here");
 });
+
+test("captions that speech recognition wrote or timed are marked in the file until checked, and the mark is read back", () => {
+  const cues = [cue(0, 1500, "Hello there.")];
+  const words = formatVtt(cues, { heard: "words" });
+  assert.match(words, /^WEBVTT\n\nNOTE Words and times made by speech recognition and not yet checked\.\n\n1\n00:00:00\.000 --> 00:00:01\.500\nHello there\.\n$/);
+  const read = parseCaptions(words);
+  assert.deepEqual([read.heard, read.estimated, read.cues.length], ["words", false, 1]);
+  const times = parseCaptions(formatVtt(cues, { heard: "times" }));
+  assert.deepEqual([times.heard, times.estimated], ["times", false]);
+  const both = formatVtt(cues, { estimated: true, heard: "times" });
+  assert.deepEqual([parseCaptions(both).heard, parseCaptions(both).estimated], ["times", true]);
+  assert.deepEqual([parseCaptions(formatVtt(cues)).heard, parseCaptions(formatSrt(cues)).heard], [null, null]);
+});

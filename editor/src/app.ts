@@ -48,6 +48,7 @@ import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
 import { RecorderController } from "./capturecontroller.ts";
 import { openRecordingEditor } from "./editrecording.ts";
 import { openCaptions } from "./captionsdialog.ts";
+import { hintFor, hintSourcesOf } from "./recognition.ts";
 import { openSteps } from "./stepsdialog.ts";
 import type { Extra } from "./captions.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
@@ -630,6 +631,7 @@ export class App {
       backend, dir: m.dir, kind: o.type, mediaPath: src, captions,
       transcript: parseBody(String(o.content["transcript"] ?? "")),
       extras: facts?.extras ?? [], lengthMs: facts?.lengthMs ?? null,
+      hint: hintFor(hintSourcesOf(m.project, m.slides)),
       apply: (path, transcript) => {
         m.setMediaCaptions(o.id, path);
         if (transcript !== null) m.setMediaTranscript(o.id, transcript);

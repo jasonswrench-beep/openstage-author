@@ -43,10 +43,10 @@ echo === lms-test-lesson.osproj (should have no errors) ===
 python tools\validate.py examples\lms-test-lesson.osproj
 echo.
 echo === question-types.osproj (should have no errors) ===
-python toolsalidate.py examples\question-types.osproj
+python tools\validate.py examples\question-types.osproj
 echo.
 echo === scenario.osproj (should have no errors) ===
-python toolsalidate.py examples\scenario.osproj
+python tools\validate.py examples\scenario.osproj
 echo.
 echo === lesson-parts.osproj (should have no errors) ===
 python tools\validate.py examples\lesson-parts.osproj

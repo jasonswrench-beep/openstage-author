@@ -1,6 +1,6 @@
 # ADR 0002: Speech recognition for captions from a recorded voice
 
-Status: Accepted for building. The licence audit (2026-10-16) and the quality audit (2026-10-18) are done: Whisper passes, with the conditions under "Revised decision for the build". The speech recognition itself is not built yet.
+Status: Accepted and built (2026-10-18). The licence audit (2026-10-16) and the quality audit (2026-10-18) are done: Whisper passes, with the conditions under "Revised decision for the build", and the build follows them. See "What was built" below.
 Date: 2026-10-16 (quality audit added 2026-10-18)
 Applies to: Capture's story D3 (captions from a recorded voice), and the "Whisper for imported media" item on the roadmap.
 
@@ -165,5 +165,22 @@ The proposed decision above stands, with these changes after seeing the results:
 
 - Built (2026-10-16): D1 (captions from a script, estimated times marked and kept marked in the file), D2 (edit, WebVTT and SRT in and out, warnings),
   D4 (a transcript from the captions and from what is on the screen). See `docs/editor.md`.
-- Not built: D3 (this decision; it is now cleared to be built), and D6 (alt text suggested from the steps; the audio for step text, D7, is built).
+- Built (2026-10-18): D3, as described under "What was built". Not built: D6 (alt text suggested from the steps; the audio for step text, D7, is built).
+
+## What was built (2026-10-18)
+
+Follows the revised decision above, with these differences from the first plan:
+
+- **The sound is read from the finished clip in the editor's window, not from an audio-only export of Capture.** The window can decode what a course plays, so it decodes the clip that is on the slide (resampled to 16 kHz as it decodes), mixes it to one
+  channel and hands the shell a WAV. That is simpler than the export the ADR first planned, makes the recogniser's times match the finished video by construction, and works for any video or sound in the course (recordings, imported media), not
+  only recordings. A clip over 45 minutes is refused with a message (the whole sound is held in memory). Capture is unchanged.
+- **The "captions from media" contract** is the recogniser's own command line and JSON: the editor runs `whisper-cli` with `-m <model> -f <wav> -l en -ojf -of <out> -np -pp -ng -dtw <model id> -nfa [--prompt <hint>]` and reads the `-ojf` JSON. A different recogniser
+  can replace it by being a program, named in `OPENSTAGE_WHISPER`, that takes those options and writes the same JSON (`transcription[].tokens[]` with `text`, `offsets` and `t_dtw`). See `docs/speech-recognition.md`.
+- **The recogniser is built with `BUILD SPEECH RECOGNISER.bat`** into `speech/` (ignored by git): the source is fetched once from GitHub at tag v1.9.5 and checked against its commit (`d1be6fde11ac6e0407606b4e42fe72d34add8037`), and it is built with
+  Visual Studio's own CMake as a generic build (the processor-specific parts are separate DLLs chosen when it runs; the trial's native build and this one give identical text and the same speed), with the C++ runtime linked in so nothing else has to be installed.
+- **Models** are downloaded by the shell (`speech.rs`), only from the address in its table, only when the author presses the button after reading what it is, to `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, and kept only if the size and SHA-256 are exactly the published ones.
+- **The window's connection to the shell had been using a slow text route** for every command, because the content security policy did not allow Tauri's own channel (`ipc:` and `http://ipc.localhost`). Raw sound cannot go that way, so the policy now allows it. Every earlier real-app check was run again and passed.
+- Tried in the real desktop app with the trial's spoken script as the video's sound: 100% of its 462 words right with the course's words as a hint, 27 of 28 sentence starts within half a second of the voice, "SUNY New Paltz", "Brightspace", "SCORM" and "Wrench" right, the download of base.en
+  (checksum verified), Stop, closing mid-listen, saving and reading back the unchecked mark, and silence, keyboard noise and held tones giving no captions. Not tried: another person's voice, a poor microphone, music under speech, a clip near 45 minutes.
+- Not built: running the recogniser for other languages (the models are English only), a graphics-card build, choosing the number of threads, listening to part of a clip, and a "placing a script by the quiet gaps in the voice" method that needs no model.
 - D5 (audio description) already exists in the course format and the player, and its authoring is in the video's Properties panel.
