@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  addManual, altFor, charOf, clickWords, deleteStep, editStep, emptyList, keepRangesOf, keyWords, listFrom, MAX_STEPS, mergeWithNext, moveStep, parseLog, parseSteps,
-  programName, proposeFromLog, serializeSteps, splitStep, stepProblems, unreviewedCount, type LogEvent, type StepList,
+  addManual, altFor, charOf, clampBox, clickWords, deleteStep, editStep, emptyList, keepRangesOf, keyWords, knowPicture, listFrom, MAX_STEPS, mergeWithNext, MIN_BOX, moveStep, nudgeBox, parseLog, parseSteps,
+  programName, proposeFromLog, serializeSteps, splitStep, startBox, stepProblems, unreviewedCount, type LogEvent, type StepList,
 } from "./steps.ts";
 import { createModel, type Clip, type Model as EditModel, type Track } from "../../capture-edit/src/model.ts";
 
@@ -296,4 +296,53 @@ test("steps are saved and read back the same, and a file that is not steps is re
   const next = parseSteps('{"format":"openstage-capture-steps","schemaVersion":"0.1.0","nextId":1,"steps":[{"id":"step-7","kind":"manual","take":1,"atMs":0,"shotMs":0,"text":"a","alt":"b"}]}');
   assert.equal(next.ok && next.list.nextId, 8, "a next number that is too low is raised past the highest id");
   assert.equal(emptyList().steps.length, 0);
+});
+
+test("a box is kept inside the picture and never smaller than it can be seen", () => {
+  assert.deepEqual(clampBox({ x: -5, y: 120, width: 10, height: 10 }), { x: 0, y: 90, width: 10, height: 10 });
+  assert.deepEqual(clampBox({ x: 95, y: 0, width: 20, height: 0 }), { x: 80, y: 0, width: 20, height: MIN_BOX });
+  assert.deepEqual(clampBox({ x: Number.NaN, y: 1, width: 300, height: -4 }), { x: 0, y: 1, width: 100, height: MIN_BOX });
+  assert.deepEqual(clampBox({ x: 10.123456, y: 20, width: 5, height: 5 }), { x: 10.12, y: 20, width: 5, height: 5 });
+});
+
+test("the starting box is button-sized, centred on the click, and needs the picture's size", () => {
+  assert.equal(startBox({ x: 100, y: 100 }, null), null);
+  assert.equal(startBox(null, { width: 1000, height: 500 }), null);
+  const b = startBox({ x: 500, y: 250 }, { width: 1000, height: 500 })!;
+  assert.deepEqual(b, { x: 43, y: 44.4, width: 14, height: 11.2 });
+  const corner = startBox({ x: 5, y: 3 }, { width: 1000, height: 500 })!;
+  assert.deepEqual([corner.x, corner.y], [0, 0], "kept inside the picture");
+});
+
+test("a box can be moved and resized in small steps, and stays inside", () => {
+  const b = { x: 40, y: 40, width: 10, height: 10 };
+  assert.deepEqual(nudgeBox(b, 1, -1), { x: 41, y: 39, width: 10, height: 10 });
+  assert.deepEqual(nudgeBox(b, 5, 5, true), { x: 40, y: 40, width: 15, height: 15 });
+  assert.deepEqual(nudgeBox(b, -100, 0), { x: 0, y: 40, width: 10, height: 10 });
+  assert.deepEqual(nudgeBox(b, 500, 500, true), { x: 0, y: 0, width: 100, height: 100 });
+});
+
+test("once the picture's size is known a click step gets its box, and one the author moved is left where it is", () => {
+  let list = listOf(log('{"t":1000,"type":"click","x":640,"y":360,"button":"left"}', '{"t":3000,"type":"key","key":"enter","modifiers":[]}'));
+  assert.equal(list.steps[0]!.box, null, "the size of a whole screen is not in the log");
+  list = knowPicture(list, "step-1", { width: 1280, height: 720 });
+  assert.deepEqual(list.steps[0]!.picture, { width: 1280, height: 720 });
+  assert.deepEqual(list.steps[0]!.box, { x: 44.53, y: 46.11, width: 10.94, height: 7.78 });
+  list = editStep(list, "step-1", { box: { x: 10, y: 10, width: 20, height: 20 } });
+  list = knowPicture(list, "step-1", { width: 1280, height: 720 });
+  assert.deepEqual(list.steps[0]!.box, { x: 10, y: 10, width: 20, height: 20 });
+  list = knowPicture(list, "step-2", { width: 1280, height: 720 });
+  assert.equal(list.steps[1]!.box, null, "a key press has no place to point at");
+  assert.equal(knowPicture(list, "step-9", { width: 1, height: 1 }), list);
+});
+
+test("a recorded part of the screen gives its steps a box straight away, and the box is saved and read back", () => {
+  const s = steps(log('{"t":1000,"type":"click","x":340,"y":260,"button":"left"}'), { take: 1, region: { x: 100, y: 200, width: 1280, height: 720 } });
+  assert.deepEqual(s[0]!.box, { x: 13.28, y: 4.44, width: 10.94, height: 7.78 });
+  let list = listFrom([s]).list;
+  list = editStep(list, "step-1", { box: { x: 1, y: 2, width: 3, height: 4 } });
+  const back = parseSteps(serializeSteps(list));
+  assert.deepEqual(back.ok && back.list.steps[0]!.box, { x: 1, y: 2, width: 3, height: 4 });
+  const merged = mergeWithNext(listFrom([[...s, ...steps(log('{"t":2000,"type":"key","key":"enter","modifiers":[]}'))]]).list, "step-1");
+  assert.deepEqual(merged.steps[0]!.box, s[0]!.box, "a merged step keeps the first step's box");
 });

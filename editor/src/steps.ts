@@ -85,6 +85,9 @@ export function parseLog(text: string): { events: LogEvent[]; skipped: number } 
 
 export type StepKind = "click" | "type" | "key" | "window" | "marker" | "manual";
 
+/** A rectangle on a step's picture, in percent of the picture's width and height from its top left corner. */
+export interface Box { x: number; y: number; width: number; height: number }
+
 export interface Step {
   /** `step-1`, `step-2`: never reused in a recording, so a slide can say which step it came from for good. */
   id: string;
@@ -98,6 +101,8 @@ export interface Step {
   target: { x: number; y: number } | null;
   /** How big the picture is, when known (a recorded part of the screen says; for a whole screen the video says, later). */
   picture: { width: number; height: number } | null;
+  /** The place to point at on the picture, once the picture is known: starts as a box round the click, and the author moves and resizes it. Null for a step with no place. */
+  box: Box | null;
   /** The name and kind of what was clicked, from Windows, when it said. */
   element: { name: string; role: string } | null;
   /** The window in front. */
@@ -271,7 +276,7 @@ export function proposeFromLog(events: readonly LogEvent[], opts: ProposeOptions
     const text = typing.text;
     if (text.trim() !== "" && ok(typing.startMs)) {
       out.push({
-        kind: "type", take: opts.take, atMs: typing.startMs, shotMs: Math.max(0, typing.startMs - SHOT_BEFORE_TYPING_MS), target: null, picture,
+        kind: "type", take: opts.take, atMs: typing.startMs, shotMs: Math.max(0, typing.startMs - SHOT_BEFORE_TYPING_MS), target: null, picture, box: null,
         element: null, window, typed: text, text: `Type "${tidy(text, 120)}".`, alt: altFor("type", null, window), reviewed: false,
       });
     }
@@ -287,7 +292,7 @@ export function proposeFromLog(events: readonly LogEvent[], opts: ProposeOptions
       // A program that opens because of a click is that click's doing; one that comes to the front on its own is a step.
       if (changedProgram && e.t - lastClickAt > 1500 && ok(e.t)) {
         out.push({
-          kind: "window", take: opts.take, atMs: e.t, shotMs: e.t + SHOT_AFTER_WINDOW_MS, target: null, picture, element: null, window: next, typed: null,
+          kind: "window", take: opts.take, atMs: e.t, shotMs: e.t + SHOT_AFTER_WINDOW_MS, target: null, picture, box: null, element: null, window: next, typed: null,
           text: `Switch to ${programName(e.process)}.`, alt: altFor("window", null, next), reviewed: false,
         });
       }
@@ -297,7 +302,7 @@ export function proposeFromLog(events: readonly LogEvent[], opts: ProposeOptions
     if (e.type === "marker") {
       closeTyping();
       if (ok(e.t) && e.label.trim() !== "") {
-        out.push({ kind: "marker", take: opts.take, atMs: e.t, shotMs: e.t, target: null, picture, element: null, window, typed: null, text: tidy(e.label, 200), alt: altFor("marker", null, window), reviewed: false });
+        out.push({ kind: "marker", take: opts.take, atMs: e.t, shotMs: e.t, target: null, picture, box: null, element: null, window, typed: null, text: tidy(e.label, 200), alt: altFor("marker", null, window), reviewed: false });
       }
       continue;
     }
@@ -328,7 +333,7 @@ export function proposeFromLog(events: readonly LogEvent[], opts: ProposeOptions
       }
       if (!ok(e.t)) continue;
       out.push({
-        kind: "click", take: opts.take, atMs: e.t, shotMs: Math.max(0, e.t - SHOT_BEFORE_CLICK_MS), target: { x, y }, picture, element, window, typed: null,
+        kind: "click", take: opts.take, atMs: e.t, shotMs: Math.max(0, e.t - SHOT_BEFORE_CLICK_MS), target: { x, y }, picture, box: startBox({ x, y }, picture), element, window, typed: null,
         text: clickWords(element, button, false), alt: altFor("click", element, window), reviewed: false,
       });
       continue;
@@ -350,7 +355,7 @@ export function proposeFromLog(events: readonly LogEvent[], opts: ProposeOptions
       const words = keyWords(e.key, e.modifiers);
       if (words !== null) {
         closeTyping();
-        if (ok(e.t)) out.push({ kind: "key", take: opts.take, atMs: e.t, shotMs: Math.max(0, e.t - SHOT_BEFORE_CLICK_MS), target: null, picture, element: null, window, typed: null, text: words, alt: altFor("key", null, window), reviewed: false });
+        if (ok(e.t)) out.push({ kind: "key", take: opts.take, atMs: e.t, shotMs: Math.max(0, e.t - SHOT_BEFORE_CLICK_MS), target: null, picture, box: null, element: null, window, typed: null, text: words, alt: altFor("key", null, window), reviewed: false });
       }
     }
   }
@@ -372,6 +377,45 @@ export function listFrom(perTake: readonly (readonly Draft[])[], start: StepList
   return { list: { ...start, nextId: next, steps }, cut };
 }
 
+// ---- the place to point at on a step's picture
+
+/** The least a box may be, in percent of the picture: small enough to fit a button, big enough to be seen and pressed. */
+export const MIN_BOX = 2;
+
+/** The size of the starting box in picture pixels: about the size of a button. */
+const START_BOX_PX = { width: 140, height: 56 };
+
+/** A box with every part inside the picture and no smaller than `MIN_BOX`. */
+export function clampBox(b: Box): Box {
+  const width = Math.min(100, Math.max(MIN_BOX, Number.isFinite(b.width) ? b.width : MIN_BOX));
+  const height = Math.min(100, Math.max(MIN_BOX, Number.isFinite(b.height) ? b.height : MIN_BOX));
+  const x = Math.min(100 - width, Math.max(0, Number.isFinite(b.x) ? b.x : 0));
+  const y = Math.min(100 - height, Math.max(0, Number.isFinite(b.y) ? b.y : 0));
+  const r = (n: number): number => Math.round(n * 100) / 100;
+  return { x: r(x), y: r(y), width: r(width), height: r(height) };
+}
+
+/** The box a click starts with: button-sized, centred on the click, kept inside the picture. Null if the step has no place or the picture's size is not known. */
+export function startBox(target: { x: number; y: number } | null, picture: { width: number; height: number } | null): Box | null {
+  if (target === null || picture === null || picture.width <= 0 || picture.height <= 0) return null;
+  const width = (START_BOX_PX.width / picture.width) * 100;
+  const height = (START_BOX_PX.height / picture.height) * 100;
+  return clampBox({ x: (target.x / picture.width) * 100 - width / 2, y: (target.y / picture.height) * 100 - height / 2, width, height });
+}
+
+/** Learn the picture's size (from the video, once it is loaded) and give a step that has a place and no box its starting box. */
+export function knowPicture(list: StepList, id: string, picture: { width: number; height: number }): StepList {
+  const s = list.steps.find((x) => x.id === id);
+  if (s === undefined) return list;
+  const box = s.box ?? startBox(s.target, picture);
+  return editStep(list, id, { picture, box });
+}
+
+/** Move a box by `dx` and `dy` percent, or (with `resize`) make it wider or taller by that much. Stays inside the picture. */
+export function nudgeBox(b: Box, dx: number, dy: number, resize = false): Box {
+  return clampBox(resize ? { ...b, width: b.width + dx, height: b.height + dy } : { ...b, x: b.x + dx, y: b.y + dy });
+}
+
 // ---- what the author does with the list
 
 const find = (list: StepList, id: string): number => list.steps.findIndex((s) => s.id === id);
@@ -381,7 +425,7 @@ function replaceSteps(list: StepList, steps: Step[], nextId = list.nextId): Step
 }
 
 /** Change a step's words, picture description, picture moment or place. Whatever the author changes, the step is theirs to approve again only by their saying so. */
-export function editStep(list: StepList, id: string, patch: { text?: string; alt?: string; shotMs?: number; target?: { x: number; y: number } | null; reviewed?: boolean }): StepList {
+export function editStep(list: StepList, id: string, patch: { text?: string; alt?: string; shotMs?: number; target?: { x: number; y: number } | null; reviewed?: boolean; box?: Box | null; picture?: { width: number; height: number } | null }): StepList {
   const i = find(list, id);
   if (i < 0) return list;
   const s = list.steps[i]!;
@@ -391,6 +435,8 @@ export function editStep(list: StepList, id: string, patch: { text?: string; alt
   if (patch.shotMs !== undefined && Number.isFinite(patch.shotMs)) next.shotMs = Math.max(0, Math.round(patch.shotMs));
   if (patch.target !== undefined) next.target = patch.target;
   if (patch.reviewed !== undefined) next.reviewed = patch.reviewed;
+  if (patch.box !== undefined) next.box = patch.box === null ? null : clampBox(patch.box);
+  if (patch.picture !== undefined) next.picture = patch.picture;
   return replaceSteps(list, list.steps.map((x, k) => (k === i ? next : x)));
 }
 
@@ -452,7 +498,7 @@ export function splitStep(list: StepList, id: string): StepList {
 export function addManual(list: StepList, opts: { take: number; atMs: number; after?: string }): StepList {
   if (list.steps.length >= MAX_STEPS) return list;
   const step: Step = {
-    id: `step-${list.nextId}`, kind: "manual", take: opts.take, atMs: opts.atMs, shotMs: opts.atMs, target: null, picture: null, element: null, window: null, typed: null,
+    id: `step-${list.nextId}`, kind: "manual", take: opts.take, atMs: opts.atMs, shotMs: opts.atMs, target: null, picture: null, box: null, element: null, window: null, typed: null,
     text: "", alt: "", reviewed: false,
   };
   const at = opts.after === undefined ? list.steps.length : find(list, opts.after) + 1;
@@ -480,6 +526,12 @@ export function serializeSteps(list: StepList): string {
   return `${JSON.stringify(list, null, 2)}\n`;
 }
 
+function readBox(v: unknown): Box | null {
+  if (typeof v !== "object" || v === null) return null;
+  const o = v as Record<string, unknown>;
+  return isNum(o["x"]) && isNum(o["y"]) && isNum(o["width"]) && isNum(o["height"]) ? clampBox({ x: o["x"], y: o["y"], width: o["width"], height: o["height"] }) : null;
+}
+
 function readStep(v: unknown): Step | null {
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
@@ -492,7 +544,7 @@ function readStep(v: unknown): Step | null {
   const win = (p: unknown): { title: string; process: string } | null => (typeof p === "object" && p !== null && isStr((p as Record<string, unknown>)["title"]) && isStr((p as Record<string, unknown>)["process"]) ? { title: (p as { title: string }).title, process: (p as { process: string }).process } : null);
   const from = Array.isArray(o["from"]) ? o["from"].map(readStep).filter((s): s is Step => s !== null) : [];
   const step: Step = {
-    id: o["id"], kind: o["kind"] as StepKind, take: o["take"], atMs: o["atMs"], shotMs: o["shotMs"], target: point(o["target"]), picture: size(o["picture"]),
+    id: o["id"], kind: o["kind"] as StepKind, take: o["take"], atMs: o["atMs"], shotMs: o["shotMs"], target: point(o["target"]), picture: size(o["picture"]), box: readBox(o["box"]),
     element: el(o["element"]), window: win(o["window"]), typed: isStr(o["typed"]) ? o["typed"] : null, text: o["text"], alt: o["alt"], reviewed: o["reviewed"] === true,
   };
   return from.length >= 2 ? { ...step, from } : step;

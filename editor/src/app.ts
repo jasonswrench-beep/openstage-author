@@ -586,7 +586,11 @@ export class App {
       editRecording: async (name, newestTake) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, newestTake: newestTake === true, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
       makeSteps: async (name) => {
         if (!m) return;
-        const said = await openSteps({ backend, dir: m.dir, name });
+        const said = await openSteps({
+          backend, dir: m.dir, name,
+          haveSlides: () => m.stepsWithSlides(name),
+          makeSlides: (steps, pictures) => m.makeStepSlides({ recording: name, steps, pictures, capturedAt: new Date().toISOString() }).message,
+        });
         if (said !== "") this.announce(said);
       },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),

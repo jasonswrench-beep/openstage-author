@@ -17,6 +17,8 @@ import type { Deck } from "./pptx/deck.ts";
 import type { Tones } from "./pptx/convert.ts";
 import type { Pkg } from "./pptx/package.ts";
 import { prepareImport, type PreparedImport } from "./pptx/import.ts";
+import { buildStepSlide, type StepPicture } from "./stepslides.ts";
+import type { Step } from "./steps.ts";
 import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
 import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
@@ -1085,6 +1087,54 @@ export class Model {
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
     return `Brought in ${prepared.slides.length} ${prepared.slides.length === 1 ? "slide" : "slides"} from ${prepared.source.name}. Press Control Z to undo.`;
+  }
+
+  // ---- slides made from the steps of a recording
+
+  /** The ids of the steps of a recording (named by its folder) that already have a slide in this course. */
+  stepsWithSlides(recording: string): Set<string> {
+    return new Set(this.slides.flatMap((s) => { const p = s.provenance; return p && "sourceCapture" in p && p.sourceCapture === recording ? [p.stepId] : []; }));
+  }
+
+  /**
+   * Make a slide for each step (the Demo lesson), after the slide being edited, as one undo step, and select the first. A slide is a heading, the step's words (with
+   * narration made from them), the step's picture and a frame round the place to point at. A step that already has a slide in this course (the same recording and
+   * the same step) is skipped, so pressing this twice makes nothing twice. A picture's description is used only for a step the author has checked.
+   */
+  makeStepSlides(input: { recording: string; steps: readonly Step[]; pictures: ReadonlyMap<string, StepPicture>; capturedAt?: string }): { added: number; skipped: number; message: string } {
+    const have = this.stepsWithSlides(input.recording);
+    const todo = input.steps.map((step, index) => ({ step, index })).filter(({ step }) => !have.has(step.id));
+    const skipped = input.steps.length - todo.length;
+    if (todo.length === 0) return { added: 0, skipped, message: input.steps.length === 0 ? "There are no steps to make slides from." : "Every step already has a slide in this course." };
+    this.record("");
+    const alloc = this.allocator();
+    const newSlideId = this.slideIdMaker();
+    let like = this.narratedObjects().at(-1)?.narration;
+    const slides = todo.map(({ step, index }) => buildStepSlide(step, index, input.pictures.get(step.id) ?? null, {
+      recording: input.recording, total: input.steps.length, stage: this.project.stage, ...(input.capturedAt === undefined ? {} : { capturedAt: input.capturedAt }),
+      newSlideId, newObjectId: () => alloc.object(),
+      narration: (script) => { like = newNarration(script, like); return like; },
+    }));
+    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
+    const here = scene.slides.indexOf(this.sel.slideId);
+    let at = here === -1 ? scene.slides.length : here + 1;
+    for (const slide of slides) {
+      scene.slides.splice(at++, 0, slide.id);
+      this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    }
+    this.syncDocOrder();
+    const first = slides[0]!;
+    this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    const noDescription = slides.filter((s) => s.baseLayer.objects.some((o) => o.type === "image" && o.accessibility.altText === "")).length;
+    const parts = [
+      `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} from the steps, after the slide you were on.`,
+      skipped > 0 ? `${skipped} ${skipped === 1 ? "step already had" : "steps already had"} a slide, so ${skipped === 1 ? "it was" : "they were"} left alone.` : "",
+      noDescription > 0 ? `${noDescription} ${noDescription === 1 ? "picture has" : "pictures have"} no description yet, because ${noDescription === 1 ? "its step has" : "their steps have"} not been checked. The Problems panel asks for ${noDescription === 1 ? "it" : "them"}.` : "",
+      "Press Control Z to undo.",
+    ];
+    return { added: slides.length, skipped, message: parts.filter((p) => p !== "").join(" ") };
   }
 
   /** What a deck would change in the course, worked out without changing anything. Null if the deck is not one the project lists. */

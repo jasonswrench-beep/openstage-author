@@ -145,6 +145,8 @@ export interface Backend {
   recordingFolders(dir: string, name: string, rel: string): Promise<string[]>;
   /** Save the edit of a recording as its edit.json, whole or not at all. The only file ever written in a recording. */
   recordingWriteEdit(dir: string, name: string, text: string): Promise<void>;
+  /** Save a picture taken from a recording (the picture of a step) as a PNG in the course's images. Returns its path inside the course. */
+  saveStepPicture(dir: string, nameHint: string, bytes: Uint8Array): Promise<string>;
   /** Save the steps made from a recording as its steps.json, whole or not at all. With edit.json, the only file ever written in a recording. */
   recordingWriteSteps(dir: string, name: string, text: string): Promise<void>;
   /** An address a video or audio element can play a file of a take from, straight from disk with seeking. */
@@ -307,6 +309,7 @@ const tauriBackend: Backend = {
   recordingFolders: (dir, name, rel) => invoke<string[]>("recording_folders", { dir, name, rel }),
   recordingWriteEdit: (dir, name, text) => invoke<void>("recording_write_edit", { dir, name, text }),
   recordingWriteSteps: (dir, name, text) => invoke<void>("recording_write_steps", { dir, name, text }),
+  saveStepPicture: (dir, nameHint, bytes) => invoke<string>("save_step_picture", { dir, nameHint, data: bytesToBase64(bytes) }),
   async recordingMediaUrl(dir, name, rel) {
     // Only the media of a take can be played, and a path that climbs out of it is not a path.
     if (!/^takes\/take-\d+\/[^/\\]+$/.test(rel)) throw new Error("That file is not in a take of the recording.");
@@ -483,6 +486,9 @@ const previewBackend: Backend = {
     throw new Error("Editing a recording needs the desktop app.");
   },
   async recordingWriteSteps() {
+    throw new Error("Making steps from a recording needs the desktop app.");
+  },
+  async saveStepPicture() {
     throw new Error("Making steps from a recording needs the desktop app.");
   },
   async recordingMediaUrl() {

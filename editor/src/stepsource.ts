@@ -17,12 +17,15 @@ export interface StepSource {
   hasInteractions: boolean;
   /** The takes the steps may come from, as numbers. */
   takes: number[];
+  /** For each of those takes, the file of its screen video, such as `screen.mp4`, so a step's picture can be taken from it. */
+  screens: Record<number, string>;
 }
 
 interface TakeFacts {
   take: number;
   state: string;
   region: { x: number; y: number; width: number; height: number } | null;
+  screen: string | null;
   hasLog: boolean;
   keys: boolean | null;
 }
@@ -39,11 +42,12 @@ function readFacts(text: string, folderName: string): TakeFacts | null {
     return null;
   }
   if (!isObject(data) || typeof data["id"] !== "number") return null;
-  const facts: TakeFacts = { take: data["id"], state: typeof data["state"] === "string" ? data["state"] : "unknown", region: null, hasLog: false, keys: null };
+  const facts: TakeFacts = { take: data["id"], state: typeof data["state"] === "string" ? data["state"] : "unknown", region: null, screen: null, hasLog: false, keys: null };
   if (!/^take-\d+$/.test(folderName)) return null;
   if (Array.isArray(data["media"])) {
     for (const m of data["media"]) {
       if (!isObject(m)) continue;
+      if (m["kind"] === "screen" && typeof m["file"] === "string" && /^[^/\\]+$/.test(m["file"])) facts.screen = m["file"];
       if (m["kind"] === "screen" && isObject(m["region"])) {
         const r = m["region"];
         if (typeof r["x"] === "number" && typeof r["y"] === "number" && typeof r["width"] === "number" && typeof r["height"] === "number") facts.region = { x: r["x"], y: r["y"], width: r["width"], height: r["height"] };
@@ -65,6 +69,7 @@ export async function readStepSource(folder: ProjectFolder): Promise<{ ok: true;
   const notes: string[] = [];
   const perTake = [];
   const takes: number[] = [];
+  const screens: Record<number, string> = {};
   let hasInteractions = false;
   let skipped = 0;
   let keysLeftOut = false;
@@ -74,6 +79,7 @@ export async function readStepSource(folder: ProjectFolder): Promise<{ ok: true;
     if (facts === null) continue;
     if (facts.state === "setAside") { notes.push(`Take ${facts.take} was set aside when you started again, so it is not used.`); continue; }
     takes.push(facts.take);
+    if (facts.screen !== null) screens[facts.take] = facts.screen;
     const logText = await folder.readText(`takes/${takeFolder(facts.take)}/events.jsonl`);
     if (logText === undefined) continue;
     const { events, skipped: bad } = parseLog(logText);
@@ -101,5 +107,5 @@ export async function readStepSource(folder: ProjectFolder): Promise<{ ok: true;
     if (parsed.ok) saved = parsed.list;
     else notes.push(`The steps saved in this recording could not be used. ${parsed.message}`);
   }
-  return { ok: true, source: { proposed: list, saved, notes, hasInteractions, takes } };
+  return { ok: true, source: { proposed: list, saved, notes, hasInteractions, takes, screens } };
 }

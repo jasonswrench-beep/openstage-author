@@ -123,6 +123,11 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .steps-dialog legend { font-weight: 600; padding: 0 6px; }
 .steps-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
 .steps-dialog .rc-list { list-style: none; margin: 8px 0; padding: 0; }
+.steps-dialog .field.check { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.steps-dialog .step-frame { position: relative; display: inline-block; max-width: 100%; margin: 6px 0; border: 1px solid #5c6470; line-height: 0; touch-action: none; }
+.steps-dialog .step-picture { display: block; max-width: 100%; max-height: 50vh; height: auto; }
+.steps-dialog .step-box { position: absolute; box-sizing: border-box; border: 3px solid #d4002a; background: rgba(212, 0, 42, .12); cursor: move; }
+.steps-dialog .step-box:focus { outline: 3px solid #1d4ed8; outline-offset: 2px; }
 .steps-dialog #st-status { font-weight: 600; margin: 10px 0 4px; }
 .captions-dialog #cap-status { font-weight: 600; margin: 10px 0 4px; }
 .dialog button, .welcome button { font: inherit; padding: 6px 16px; cursor: pointer; }

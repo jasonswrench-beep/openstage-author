@@ -1,6 +1,6 @@
 # ADR 0003: Steps, and the Demo, Practice and Assessment lessons made from them
 
-Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review) is built. Pictures, slides and the three modes are not.
+Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review), Stage 2 (a picture for each step, with the place to point at) and Stage 3 (the Watch lesson: one slide for each step) are built. Practice, Assessment and bringing a lesson up to date are not.
 Date: 2026-10-16
 Applies to: Capture's Phase 7 (stories E1 to E4), and what it unlocks: audio for step text (D7) and the provenance of generated slides.
 
@@ -52,8 +52,8 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
      attempts variable; after a set number of tries the target is shown. A typing step uses a `shortAnswer` question with points 0 (practice).
    - **Assessment (test me):** the same steps as scored `quizQuestion`s: kind `hotspot` for a click (the target area plus the targets of the other steps
      as the other areas), `shortAnswer` for typing, points 1, one attempt, no hints. Completion and success stay separate states as the format already does.
-   The Practice design is a recommendation, and **the choice between hotspot objects and the quiz hotspot question for Practice is Jason's** (hotspot
-   objects feel like the real program; the quiz kind is scored by existing machinery). Assessment uses the quiz kinds because only they score.
+   **Decided (2026-10-18, Jason, on being asked which of the two to use for Practice, answered "Yes" to the recommendation):** Practice uses hotspot objects over the
+   picture, as above, and Assessment uses the quiz kinds because only they score. If Jason meant otherwise, Practice is the only part that changes, and it is not built yet.
 8. **Provenance on every slide made from a step** (`sourceCapture` is the recording's folder name; `stepId` the step's id), and a regenerated lesson keeps
    what the author changed, the way a PowerPoint re-sync does. Not built.
 9. **Typed words and window titles are private.** The recorder writes keys only when it is sure the field is an ordinary text field. The typed words
@@ -68,13 +68,27 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
   Tried in the real desktop editor with a made-up recording and log (20 checks).
 - The shell reads `takes/take-N/events.jsonl` (up to 32 MB) and writes `steps.json` (2 new Rust tests, 90 in all).
 
+## What is built (Stages 2 and 3, 2026-10-18)
+
+- **Pictures.** `editor/src/steppicture.ts`: the picture of a step is taken in the window from the take's own screen video (a video element with `crossOrigin = "anonymous"`,
+  moved to the step's moment, drawn on a canvas, saved as a PNG; wider than 1,920 pixels is scaled down). In the review dialog, **Show the picture** shows it, with a box round the
+  place to point at. The box is an element that can be reached with Tab, moved with the arrow keys (Shift makes it wider or taller, Control makes each press five times as big) and
+  dragged with the mouse; pressing elsewhere on the picture puts its middle there; four number fields (left, top, width, height in percent) do the same; **Mark a place to point at**
+  and **Take the mark off** work on any step. A run of small moves is one undo step. Steps keep the picture's size and the box in `steps.json` (the box is in percent, so it does not
+  depend on the picture's size).
+- **Slides.** `editor/src/stepslides.ts` builds the slide for a step from ordinary objects on the stage: a heading ("Step 3 of 8"), the step's words with narration made from them (the audio
+  route for step text, story D7), the picture, and a rounded frame round the place to point at (decorative, because the words already say what to do). The picture's description is the
+  author's, used only for a step they ticked as checked; otherwise it is left empty and the course's own checker asks for it (tried: the real validator reports exactly that, and nothing
+  else). A slide's `provenance` names the recording's folder and the step. `Model.makeStepSlides` puts the slides after the slide being edited as one undo step, selects the first,
+  and skips a step that already has a slide (the same recording and step), so pressing it twice makes nothing twice. **Make a Watch lesson: one slide for each step** in the review dialog
+  saves the steps, takes and saves a picture for each step that has no slide yet (a new shell command, `save_step_picture`: a real PNG, a safe name, never overwriting), then makes the slides.
+  All or nothing: a picture that cannot be taken stops it with the reason.
+- Tried in the real desktop editor with a made-up recording and log (26 checks), then the saved course was run through the real validator.
+
 ## Stages still to do
 
-1. **Pictures (Stage 2).** A picture beside each step in the dialog (grabbed as in decision 5), and the target drawn on it and movable by keyboard and mouse.
-2. **Demo slides (Stage 3).** Generate the slides: image saved in `assets/images` through a new shell command (PNG checked by its first bytes, a name made
-   from the recording and step), a marked target, text, narration scripts, alt text only from reviewed steps, provenance, position chosen by the author.
-3. **Practice (Stage 4)** and 4. **Assessment (Stage 5)**, as in decision 7.
-5. **Bringing the lesson up to date** when steps change, keeping the author's edits.
+1. **Practice (Stage 4)**, **Assessment (Stage 5)**, as in decision 7.
+2. **Bringing the lesson up to date** (Stage 6) when steps change, keeping the author's edits: the slides already carry the provenance for it.
 
 Not decided yet: how many tries before the target is shown in Practice (proposed 3), whether the picture of a step should be the edit's own picture
 (with its zooms) rather than the raw take's, and whether a step's marked target is a rectangle, an arrow or a choice.

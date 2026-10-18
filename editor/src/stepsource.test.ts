@@ -34,6 +34,7 @@ test("steps are proposed from the logs of the takes, in order, with the picture'
   assert.deepEqual(s[1]!.picture, { width: 1280, height: 720 });
   assert.equal(r.source.hasInteractions, true);
   assert.deepEqual(r.source.takes, [1, 2]);
+  assert.deepEqual(r.source.screens, { 1: "screen.mp4", 2: "screen.mp4" }, "where each take's picture is, to take a step's picture from");
   assert.equal(r.source.saved, null);
 });
 

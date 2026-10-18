@@ -260,6 +260,30 @@ fn save_deck_picture_at(dir: &Path, name: &str, bytes: &[u8]) -> Result<String, 
     Ok(format!("assets/images/{name}"))
 }
 
+/// Save a picture taken from a recording (the picture of a step) as a PNG in the project's images, and return its project-relative path. The bytes have to be a
+/// real PNG, and not enormous. The name is made safe from `name_hint`, and a file that is already there is never overwritten (a new name is made).
+fn save_step_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if bytes.len() > DECK_PICTURE_MAX {
+        return Err("That picture is bigger than it should be.".into());
+    }
+    if !picture_matches("png", bytes) {
+        return Err("That is not a PNG picture.".into());
+    }
+    let folder = dir.join("assets").join("images");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let name = unique_name(&folder, &safe_stem(name_hint, "step"), "png");
+    let temp = folder.join(format!("{name}.tmp"));
+    fs::write(&temp, bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
+    fs::rename(&temp, folder.join(&name)).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not save the picture: {e}")
+    })?;
+    Ok(format!("assets/images/{name}"))
+}
+
 /// Save a picture the editor drew itself (a person made in the avatar maker) as an SVG in the project's images, and return its
 /// project-relative path. Only a plain drawing is accepted: nothing that can run, load another page or file, or reach out. The name is
 /// made safe, and an existing file is never overwritten.
@@ -1487,6 +1511,14 @@ fn save_generated_image(dir: String, name: String, svg: String) -> Result<String
 }
 
 /// A picture from a PowerPoint deck. It arrives as base64 text, because raw bytes do not travel well through the page.
+/// The picture of a step, taken from a recording in the page. It arrives as base64 text, because raw bytes do not travel well through the page.
+#[tauri::command]
+fn save_step_picture(dir: String, name_hint: String, data: String) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| "That picture could not be read.".to_string())?;
+    save_step_picture_at(Path::new(&dir), &name_hint, &bytes)
+}
+
 #[tauri::command]
 fn save_deck_picture(dir: String, name: String, data: String) -> Result<String, String> {
     use base64::Engine;
@@ -2221,7 +2253,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, allow_recording_media, captions_read, captions_write, caption_source_read])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3548,6 +3580,27 @@ mod tests {
         assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/screen.mp4").is_err(), "a video is still not text");
         assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/other.jsonl").is_err(), "only the interaction log");
         assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/../take-001/events.jsonl").is_err(), "no climbing");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_picture_of_a_step_is_saved_as_a_real_png_under_a_safe_name_and_nothing_is_overwritten() {
+        let project = temp_project("step-picture");
+        let png: Vec<u8> = [&[0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][..], &[0u8; 40][..]].concat();
+        let first = save_step_picture_at(&project, "Sample lesson step-3!", &png).unwrap();
+        assert_eq!(first, "assets/images/Sample-lesson-step-3.png");
+        assert_eq!(fs::read(project.join(&first)).unwrap(), png);
+        let second = save_step_picture_at(&project, "Sample lesson step-3!", &png).unwrap();
+        assert_eq!(second, "assets/images/Sample-lesson-step-3-2.png", "a name that is taken is never overwritten");
+        assert_eq!(save_step_picture_at(&project, "///", &png).unwrap(), "assets/images/step.png", "a hint with nothing usable still gets a name");
+        let names: Vec<String> = fs::read_dir(project.join("assets").join("images")).unwrap().flatten().filter_map(|e| e.file_name().into_string().ok()).collect();
+        assert!(names.iter().all(|n| n.ends_with(".png")), "no half-written file is left: {names:?}");
+        for bad in [&b"GIF89a......"[..], &b"\x89PNG"[..], &b""[..], &[0xffu8, 0xd8, 0xff, 0xe0][..], &b"<svg></svg>"[..]] {
+            assert!(save_step_picture_at(&project, "x", bad).is_err(), "{bad:?}");
+        }
+        let huge = [&png[..8], &vec![0u8; DECK_PICTURE_MAX + 1][..]].concat();
+        assert!(save_step_picture_at(&project, "x", &huge).is_err(), "too large");
+        assert!(save_step_picture_at(&std::env::temp_dir(), "x", &png).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
     }
 

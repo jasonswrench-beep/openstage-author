@@ -79,3 +79,22 @@ no new handoff note, but there were two branches:
 
 Add the small real-app driver and the made-up-recording builder (the scripts used for the checks of 2026-10-16 to 2026-10-18 are in a session scratchpad, not in the repository) to a `tools/`
 folder, with a `.bat`, so that a future instance can repeat the checks in a minute. The checks that exist: captions (45), describe the screen (9), steps (21), files in the recording editor (5).
+
+## Later on 2026-10-18: Phase 7, Stages 2 and 3 (pictures, and the Watch lesson)
+
+Jason answered the Practice question ("hotspot objects or the quiz hotspot question?") with "Yes" to my recommendation, taken as: **Practice uses hotspot objects, Assessment uses the quiz kinds**
+(recorded in `docs/decisions/0003-steps-and-practice.md`; Practice is the only part that would change if that was not what was meant, and it is not built).
+
+Built, tried in the real desktop editor (26 checks, then the saved course went through `tools/validate.py`) and pushed:
+
+- **A picture for each step** (`editor/src/steppicture.ts`). Taken in the window from the take's own video (`crossOrigin = "anonymous"`, seek, canvas, PNG; scaled to at most 1,920 wide). A box marks the place
+  to point at: Tab to reach it, arrow keys to move (Shift resizes, Control is five times as big), mouse to drag or to press elsewhere, four percent fields as the keyboard-and-screen-reader equivalent. Steps
+  now keep `picture` and `box` (percent) in `steps.json` (`steps.ts`: `Box`, `startBox`, `knowPicture`, `nudgeBox`, `clampBox`).
+- **The Watch lesson** (`editor/src/stepslides.ts`, `Model.makeStepSlides`, the dialog's **Make a Watch lesson** button). One slide per step after the current slide, one undo step: heading, the step's words with narration
+  (D7 for step text), the picture, a decorative frame round the box. Picture descriptions only from steps ticked as checked; the validator then asks only for the rest. `provenance` on each slide (recording folder name,
+  step id); a step that already has a slide is skipped. New shell command `save_step_picture` (a real PNG, a safe name, never overwrites). `Model.stepsWithSlides(recording)` reports which steps have slides.
+- Counts now: editor 961 (960 pass, 1 skip), editor Rust 91, `capture-timeline` 120; everything else as in the section above.
+
+**Next:** Stage 4, Practice, as in the ADR: for each step a slide with the picture, a `hotspot` object over the box (named by the step's words, reached by Tab, Enter or Space), a hint layer after a wrong try (a click elsewhere,
+or a second hotspot named "Anywhere else on the screen" so a keyboard user has the same choice), an attempts variable (`setVariable` with `operation: "add"`), and the target shown after three tries; typing steps as
+`shortAnswer` questions worth 0 points. Then Stage 5 (Assessment, scored quiz kinds, one try, no hints) and Stage 6 (bringing a lesson up to date). Not tried yet with a real recording's pictures or a screen reader.
