@@ -885,7 +885,7 @@ if (haveFixture) {
     }
     // each recording is within half a second of the playhead (the playhead is the clock)
     const apart = await page.evaluate(() => {
-      const [m, s] = document.querySelector(".os-tl-controls input").value.split(":");
+      const [m, s] = document.querySelector(".os-tl-timefield input").value.split(":");
       const playhead = Number(m) * 60 + Number(s);
       return [...document.querySelectorAll("video, audio")].map((el) => Math.abs(el.currentTime - playhead));
     });
@@ -1118,18 +1118,18 @@ await check("the editor does not scroll the page: the picture takes what is left
 
 const tools = (page) => page.getByRole("toolbar", { name: "Editing tools" });
 
-await check("the tool bar is one Tab stop; the arrow keys, Home and End move along it; it has Undo, Redo, Copy, Paste, Split and two Deletes", async (page, t) => {
+await check("the tool bar is one Tab stop; the arrow keys, Home and End move along it; it has Undo, Redo, Copy, Paste, Split and two Deletes and the Add track menu", async (page, t) => {
   const bar = tools(page);
   const names = await bar.getByRole("button").evaluateAll((all) => all.map((b) => b.textContent.trim()));
-  assertEqual(names, ["Undo", "Redo", "Copy", "Paste", "Split", "Delete", "Delete, close gap"], "the tools");
+  assertEqual(names, ["Undo", "Redo", "Copy", "Paste", "Split", "Delete", "Delete, close gap", "Add track"], "the tools");
   assertEqual(await bar.locator('button[tabindex="0"]').count(), 1, "one Tab stop");
   await bar.getByRole("button", { name: "Undo" }).focus();
   await t.key("ArrowRight", "ArrowRight");
   assertEqual(await t.focusLabel(), "Copy", "two to the right");
   await t.key("End");
-  assertEqual(await t.focusLabel(), "Delete, close gap", "End");
+  assertEqual(await t.focusLabel(), "Add track", "End");
   await t.key("ArrowRight");
-  assertEqual(await t.focusLabel(), "Delete, close gap", "no wrapping past the end");
+  assertEqual(await t.focusLabel(), "Add track", "no wrapping past the end");
   await t.key("Home");
   assertEqual(await t.focusLabel(), "Undo", "Home");
   assertEqual(await bar.locator('button[tabindex="0"]').evaluate((b) => b.textContent.trim()), "Undo", "the Tab stop follows the focus");
@@ -1482,6 +1482,58 @@ await check("without the program that opens files, the buttons for files are not
   const bar = page.getByRole("toolbar", { name: "Add to the picture at the playhead" });
   assertEqual(await bar.getByRole("button", { name: "Picture from a file" }).count(), 0, "no buttons");
 });
+
+await check("Add track is a menu button in the toolbar: Enter opens it, a choice adds a track, Escape gives focus back", async (page, t) => {
+  const button = page.getByRole("button", { name: "Add track" });
+  assertEqual(await button.getAttribute("aria-expanded"), "false", "closed at first");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  assertEqual(await button.getAttribute("aria-expanded"), "true", "open");
+  assertEqual(await page.getByRole("menu", { name: "Kind of track to add" }).isVisible(), true, "menu shown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Escape");
+  assertEqual(await button.getAttribute("aria-expanded"), "false", "closed again");
+  assertEqual(await button.evaluate((el) => el === document.activeElement), true, "focus back on the button");
+  const before = await page.locator(".os-tl-lane").count();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem").first().click();
+  await page.waitForTimeout(150);
+  assertEqual(await page.locator(".os-tl-lane").count(), before + 1, "a track was added");
+  assertMatch(await t.said(), /Added the track/, "said");
+}, BIG);
+
+await check("the splitter changes the width of the Properties panel with the arrow keys and says the width", async (page, t) => {
+  await page.getByRole("button", { name: "Properties and clip list" }).click();
+  const split = page.getByRole("separator", { name: "Width of the Properties panel" });
+  await split.focus();
+  const width = () => page.locator(".os-ed-list").evaluate((el) => el.getBoundingClientRect().width);
+  const first = await width();
+  await page.keyboard.press("ArrowLeft");
+  const wider = await width();
+  assertEqual(wider > first, true, "Left widens");
+  assertMatch(await t.said(), /Properties panel is \d+ percent of the width/, "said");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  assertEqual((await width()) < wider, true, "Right narrows");
+  await page.keyboard.press("Home");
+  const small = await width();
+  await page.keyboard.press("End");
+  assertEqual((await width()) > small, true, "End is wider than Home");
+  assertEqual(Number(await split.getAttribute("aria-valuenow")) > 0, true, "a value is exposed");
+  await page.keyboard.press("Tab");
+  assertEqual(await split.evaluate((el) => el === document.activeElement), false, "Tab leaves the splitter");
+}, BIG);
+
+await check("in a short window the gallery wraps into columns and nothing in the editor is cut off", async (page) => {
+  await page.setViewportSize({ width: 1400, height: 640 });
+  await page.waitForTimeout(150);
+  const flags = await page.evaluate(() => {
+    const host = document.querySelector(".os-ed-callouts");
+    const ed = document.querySelector(".os-ed");
+    return { vscroll: host.scrollHeight > host.clientHeight + 1, hscroll: host.scrollWidth > host.clientWidth + 1, page: document.documentElement.scrollWidth > window.innerWidth, ed: ed.scrollWidth > ed.clientWidth + 1 };
+  });
+  assertEqual(flags, { vscroll: false, hscroll: false, page: false, ed: false }, "no scrolling or clipping");
+}, { search: "" });
 
 await check("every control of the overlay form has a name, and the form is in the page only for a chosen overlay or zoom", async (page) => {
   assertEqual(await page.locator(".os-if").isVisible(), false, "hidden for a clip");

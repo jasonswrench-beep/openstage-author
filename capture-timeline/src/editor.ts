@@ -48,16 +48,19 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
   const timelineHost = h("div", { class: "os-ed-timeline" });
   const listHost = h("div", { class: "os-ed-list" });
   const propertiesButton = h("button", { type: "button", class: "os-cl-button", "aria-expanded": "false", "aria-controls": "os-ed-list" }, "Properties and clip list");
+  const split = h("div", { class: "os-ed-split", role: "separator", "aria-orientation": "vertical", tabindex: 0, "aria-controls": "os-ed-list", "aria-label": "Width of the Properties panel", title: "Drag, or use the Left and Right arrow keys, to change the width of the Properties panel" });
   const bar = h("div", { class: "os-ed-bar", role: "group", "aria-label": "Editing screens" }, propertiesButton);
   listHost.id = "os-ed-list";
   listHost.hidden = !(options.listOpen ?? false);
+  split.hidden = listHost.hidden;
   propertiesButton.setAttribute("aria-expanded", listHost.hidden ? "false" : "true");
-  const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, calloutHost, timelineHost, listHost);
+  const root = h("div", { class: "os-ed" }, announcer.element, bar, previewHost, calloutHost, timelineHost, split, listHost);
   container.append(root);
 
   /** Show or hide the clip list and its form. Whatever sends focus to the list opens it first, so focus is never sent to something hidden. */
   const setListOpen = (open: boolean): void => {
     listHost.hidden = !open;
+    split.hidden = !open;
     propertiesButton.setAttribute("aria-expanded", open ? "true" : "false");
   };
   const openList = (): void => { if (listHost.hidden) setListOpen(true); };
@@ -66,6 +69,54 @@ export function mountEditor(container: HTMLElement, session: EditSession, option
     setListOpen(open);
     announcer.say(open ? "Properties and clip list opened." : "Properties and clip list closed.");
     if (open) list.focus();
+  });
+
+  // The splitter. The width is kept in pixels, between a quarter and two thirds of the editor, and reported to a screen reader
+  // as a percentage with the width in words. Left makes the panel wider, Right narrower (it is on the right), Shift takes bigger steps.
+  const widthLimits = (): { min: number; max: number } => {
+    const whole = root.getBoundingClientRect().width || 1000;
+    return { min: Math.min(320, whole * 0.25), max: Math.max(360, whole * 0.66) };
+  };
+  const setListWidth = (px: number, say: boolean): void => {
+    const { min, max } = widthLimits();
+    const width = Math.round(Math.min(max, Math.max(min, px)));
+    root.style.setProperty("--os-ed-list-width", `${width}px`);
+    const whole = root.getBoundingClientRect().width || 1;
+    split.setAttribute("aria-valuemin", String(Math.round((min / whole) * 100)));
+    split.setAttribute("aria-valuemax", String(Math.round((max / whole) * 100)));
+    const percent = Math.round((width / whole) * 100);
+    split.setAttribute("aria-valuenow", String(percent));
+    split.setAttribute("aria-valuetext", `Properties panel is ${percent} percent of the width`);
+    if (say) announcer.say(`Properties panel is ${percent} percent of the width.`);
+  };
+  const currentListWidth = (): number => listHost.getBoundingClientRect().width || 480;
+  split.addEventListener("focus", () => setListWidth(currentListWidth(), false));
+  split.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const step = e.shiftKey ? 120 : 32;
+    const { min, max } = widthLimits();
+    let next: number | undefined;
+    if (e.key === "ArrowLeft") next = currentListWidth() + step;
+    else if (e.key === "ArrowRight") next = currentListWidth() - step;
+    else if (e.key === "Home") next = min;
+    else if (e.key === "End") next = max;
+    if (next === undefined) return;
+    e.preventDefault();
+    setListWidth(next, true);
+  });
+  split.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    split.setPointerCapture(e.pointerId);
+    const move = (m: PointerEvent): void => setListWidth(root.getBoundingClientRect().right - m.clientX, false);
+    const stop = (): void => {
+      split.removeEventListener("pointermove", move);
+      split.removeEventListener("pointerup", stop);
+      split.removeEventListener("pointercancel", stop);
+      announcer.say(split.getAttribute("aria-valuetext") ?? "");
+    };
+    split.addEventListener("pointermove", move);
+    split.addEventListener("pointerup", stop);
+    split.addEventListener("pointercancel", stop);
   });
 
   // The form for a chosen overlay or zoom sits above the clip list in the same panel.

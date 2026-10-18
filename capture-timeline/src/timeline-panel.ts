@@ -126,16 +126,8 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
 
   const timeInput = h("input", { id: `${id}-time`, type: "text", class: "os-cl-input", autocomplete: "off", spellcheck: "false", "aria-describedby": `${id}-time-hint` });
   const error = h("p", { class: "os-cl-error", id: `${id}-error` });
-  const kindSelect = h("select", { id: `${id}-kind`, class: "os-cl-input" }, ...TRACK_KINDS.map((k) => h("option", { value: k }, trackKindName(k))));
   const readout = h("p", { class: "os-cl-readout" });
 
-  const button = (label: string, action: () => void, extra: string = ""): HTMLButtonElement => {
-    const b = h("button", { type: "button", class: "os-cl-button" }, label, extra === "" ? "" : h("kbd", { class: "os-cl-key", "aria-hidden": "true" }, extra));
-    b.addEventListener("click", action);
-    return b;
-  };
-  const describeButton = button("Describe what is at the playhead", () => run(session.describePlayhead(), true), "D");
-  const addTrackButton = button("Add track", () => run(session.addTrack(kindSelect.value as TrackKind)));
 
   // ---- the tool bar: the things done most, one press each. They are the same commands as the keys and the clip list. ----
 
@@ -168,8 +160,70 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     tool("split", "Split", icon("M12 2v20", "M4 7h16v10H4z")),
     tool("delete-gap", "Delete", icon("M4 7h16", "M9 7V4h6v3", "M6 7l1 13h10l1-13", "M10 11v6", "M14 11v6")),
     tool("delete-close", "Delete, close gap", icon("M3 12h6", "M21 12h-6", "M6 9l3 3-3 3", "M18 9l-3 3 3 3")),
+    separator(),
   );
-  const toolList = [...toolButtons.values()];
+
+  // Add track: a button that opens a short menu of the kinds of track. (A box and a button took a row of their own.)
+  const addTrackButton = h(
+    "button",
+    { type: "button", class: "os-tl-tool", tabindex: -1, id: `${id}-addtrack`, "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": `${id}-trackmenu`, title: "Add a track" },
+    icon("M4 7h16v4H4z", "M4 14h9", "M18 13v6", "M15 16h6"),
+    h("span", { class: "os-tl-tool-label" }, "Add track"),
+  );
+  const trackMenu = h("div", { class: "os-tl-menu", role: "menu", id: `${id}-trackmenu`, "aria-label": "Kind of track to add", hidden: true });
+  const trackItems = TRACK_KINDS.map((k) => {
+    const item = h("button", { type: "button", role: "menuitem", class: "os-tl-menuitem", tabindex: -1, "data-kind": k }, trackKindName(k));
+    item.addEventListener("click", () => {
+      closeTrackMenu(true);
+      run(session.addTrack(k));
+    });
+    return item;
+  });
+  trackMenu.append(...trackItems);
+  const menuHolder = h("span", { class: "os-tl-menuholder" }, addTrackButton, trackMenu);
+  toolbar.append(menuHolder);
+  function openTrackMenu(): void {
+    trackMenu.hidden = false;
+    addTrackButton.setAttribute("aria-expanded", "true");
+    trackItems[0]?.focus();
+  }
+  function closeTrackMenu(refocus: boolean): void {
+    if (trackMenu.hidden) return;
+    trackMenu.hidden = true;
+    addTrackButton.setAttribute("aria-expanded", "false");
+    if (refocus) addTrackButton.focus();
+  }
+  addTrackButton.addEventListener("click", () => (trackMenu.hidden ? openTrackMenu() : closeTrackMenu(true)));
+  addTrackButton.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      openTrackMenu();
+      if (e.key === "ArrowUp") trackItems[trackItems.length - 1]?.focus();
+    }
+  });
+  trackMenu.addEventListener("keydown", (e) => {
+    const at = trackItems.indexOf(document.activeElement as HTMLButtonElement);
+    const move = (to: number): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      trackItems[(to + trackItems.length) % trackItems.length]?.focus();
+    };
+    if (e.key === "ArrowDown") move(at + 1);
+    else if (e.key === "ArrowUp") move(at - 1);
+    else if (e.key === "Home") move(0);
+    else if (e.key === "End") move(trackItems.length - 1);
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTrackMenu(true);
+    } else if (e.key === "Tab") closeTrackMenu(false);
+  });
+  trackMenu.addEventListener("focusout", (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (to === null || !menuHolder.contains(to)) closeTrackMenu(false);
+  });
+  const toolList = [...toolButtons.values(), addTrackButton];
   let toolStop = 0;
   const showToolStop = (index: number): void => {
     toolStop = index;
@@ -239,21 +293,14 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     h("dl", {}, ...helpRows.flatMap(([keys, what]) => [h("dt", {}, keys), h("dd", {}, what)])),
   );
 
-  const controls = h(
-    "div",
-    { class: "os-tl-controls", role: "group", "aria-label": "Playhead and tracks" },
-    h("div", { class: "os-cl-field os-cl-field-inline" }, h("label", { for: `${id}-time` }, "Playhead time"), timeInput),
-    h("div", { class: "os-cl-row-buttons" }, describeButton),
-    h("div", { class: "os-tl-addtrack" }, h("div", { class: "os-cl-field" }, h("label", { for: `${id}-kind` }, "Kind of track to add"), kindSelect), addTrackButton),
-  );
+  const timeField = h("div", { class: "os-cl-field os-cl-field-inline os-tl-timefield" }, h("label", { for: `${id}-time` }, "Playhead time"), timeInput);
 
   const root = h(
     "section",
     { class: "os-cl os-tl", "aria-labelledby": `${id}-title` },
     h("h2", { id: `${id}-title`, class: "os-cl-title" }, options.title ?? "Timeline"),
     ownAnnouncer ? announcer.element : "",
-    h("div", { class: "os-tl-bar" }, toolbar, zoomGroup),
-    controls,
+    h("div", { class: "os-tl-bar" }, toolbar, timeField, zoomGroup),
     h("p", { class: "os-cl-hint", id: `${id}-time-hint` }, "Type a time such as 72.4 (seconds), 1:12.4 (minutes and seconds) or 1m12.4s, then press Enter."),
     error,
     h("p", { class: "os-cl-hint", id: `${id}-ruler-hint` }, "The ruler is the playhead: Left and Right move it, Home and End go to the start and end."),
@@ -998,12 +1045,6 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   });
   timeInput.addEventListener("input", () => {
     tried = undefined;
-  });
-  kindSelect.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      focusPrimary();
-    }
   });
 
   // ---- size ----
