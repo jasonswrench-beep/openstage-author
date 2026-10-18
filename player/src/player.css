@@ -445,3 +445,77 @@ a.os-download-link:hover { text-decoration: underline; }
 .os-q-area-list { display: flex; flex-wrap: wrap; gap: 4px 28px; }
 @media (forced-colors: active) { .os-q-input, .os-q-blank, .os-q-match, .os-chip, .os-q-seq-item, .os-q-move { border-color: ButtonText; } .os-q-area.is-chosen { border-color: Highlight; } }
 .os-results-partial { font-weight: 600; }
+
+/* ---- the learner's accessibility panel (a11ypanel.ts, a11y.ts). Everything here is the learner's choice, set by attributes the player puts on the page;
+   a course with none of them set looks exactly as its author made it. */
+
+/* The panel: beside the slide, not over it as a pop-up, so each change is seen as it is made. */
+.os-a11y-panel {
+  position: fixed; right: 12px; bottom: 12px; z-index: 1000; box-sizing: border-box;
+  width: min(430px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto;
+  padding: 14px 16px; border: 2px solid #1d3f8f; border-radius: 10px;
+  background: #fff; color: #1a1a1a; font-size: 16px; line-height: 1.4; box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+}
+.os-a11y-panel[hidden] { display: none; }
+.os-a11y-panel:focus { outline: none; }
+.os-a11y-title { margin: 0 0 6px; font-size: 22px; }
+.os-a11y-note { margin: 4px 0 8px; font-size: 14px; color: #3b3f46; }
+.os-a11y-group { margin: 10px 0; padding: 6px 12px 10px; border: 1px solid #6b7078; border-radius: 8px; min-width: 0; }
+.os-a11y-group > legend { padding: 0 6px; font-weight: 700; }
+.os-a11y-field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.os-a11y-select { font: inherit; min-height: 40px; padding: 6px 8px; border: 2px solid #1d3f8f; border-radius: 6px; background: #fff; color: #1a1a1a; }
+.os-a11y-check { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.os-a11y-check input { width: 22px; height: 22px; margin: 0; flex: none; }
+.os-a11y-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.os-a11y-group > .os-nav-btn { margin: 4px 8px 0 0; }
+.os-a11y-transcript { box-sizing: border-box; width: min(720px, 94vw); max-height: 88vh; padding: 16px 20px; border: 2px solid #1d3f8f; border-radius: 10px; background: #fff; color: #1a1a1a; font-size: 16px; line-height: 1.45; }
+.os-a11y-transcript::backdrop { background: rgba(0, 0, 0, .55); }
+.os-a11y-transcript h2 { margin: 0 0 8px; font-size: 22px; }
+.os-a11y-transcript h3 { margin: 18px 0 4px; font-size: 18px; }
+.os-a11y-transcript-body { max-height: 56vh; overflow: auto; padding-right: 8px; }
+.os-a11y-transcript-body p { margin: 0 0 8px; }
+.os-a11y-empty { font-style: italic; }
+@media (max-width: 520px) { .os-a11y-panel { right: 0; left: 0; bottom: 0; width: auto; max-height: 62vh; border-radius: 10px 10px 0 0; } }
+@media (forced-colors: active) { .os-a11y-panel, .os-a11y-transcript, .os-a11y-select { border-color: CanvasText; } .os-readline { background: Highlight; opacity: .3; border-color: CanvasText; } }
+
+/* The reading line: a band that follows the pointer, or the keyboard, to keep a place. It is only a tint and two lines, so the words under it stay readable. */
+.os-readline { position: fixed; left: 0; right: 0; top: 40%; height: 44px; z-index: 900; box-sizing: border-box; pointer-events: none; background: rgba(255, 214, 0, .26); border-top: 2px solid rgba(0, 0, 0, .55); border-bottom: 2px solid rgba(0, 0, 0, .55); }
+.os-readline[hidden] { display: none; }
+.os-player[data-os-scale] .os-readline { height: calc(44px * var(--os-a11y-scale, 1)); }
+
+/* Text size. The slide is in one column whenever the text is bigger (a11y.ts), so a box cannot cut it off. Pictures, shapes and media keep their size; the navigation and
+   narration controls grow with the text. `zoom` is what a browser does to a whole page when the learner zooms in, applied to the words. */
+.os-player[data-os-scale] :is(.os-nav, .os-narration, .os-timing) { zoom: var(--os-a11y-scale, 1); }
+.os-player[data-os-scale] .os-stage.os-reflow .os-layer > :not(img, svg, video, audio, .os-shape, .os-embed, .os-logo) { zoom: var(--os-a11y-scale, 1); }
+
+/* Spacing: the amounts WCAG 1.4.12 (Text Spacing) names, or more. */
+.os-player[data-os-lh] :is(.os-stage, .os-narration, .os-timing, .os-nav) * { line-height: var(--os-a11y-lh) !important; }
+.os-player[data-os-ls] :is(.os-stage, .os-narration, .os-timing, .os-nav) * { letter-spacing: var(--os-a11y-ls) !important; word-spacing: var(--os-a11y-ws) !important; }
+
+/* Colours. Dark, high contrast and yellow on black each set a few colours, and the course's own colour variables follow them, so everything built from those follows too.
+   What is drawn with a colour of its own (the words of an object, a shape's fill, a button) is set here with the same few colours. Pictures and video are left as they are. */
+:is(html, .os-player)[data-os-colors="dark"] { --os-c-bg: #1b1b1b; --os-c-text: #f1f1f1; --os-c-surface: #2b2b2b; --os-c-muted: #d0d0d0; --os-c-accent: #8ab4ff; --os-c-on-accent: #0b0b0b; }
+:is(html, .os-player)[data-os-colors="contrast"] { --os-c-bg: #000; --os-c-text: #fff; --os-c-surface: #000; --os-c-muted: #fff; --os-c-accent: #fff; --os-c-on-accent: #000; }
+:is(html, .os-player)[data-os-colors="yellow"] { --os-c-bg: #000; --os-c-text: #ff0; --os-c-surface: #000; --os-c-muted: #ff0; --os-c-accent: #ff0; --os-c-on-accent: #000; }
+html[data-os-colors], html[data-os-colors] body { background: var(--os-c-bg); }
+.os-player[data-os-colors] { background: var(--os-c-bg); color: var(--os-c-text); --os-bg: var(--os-c-bg); --os-text: var(--os-c-text); --os-surface: var(--os-c-surface); --os-muted: var(--os-c-muted); --os-accent-strong: var(--os-c-accent); --os-on-accent-strong: var(--os-c-on-accent); }
+.os-player[data-os-colors] .os-slide { --os-bg: var(--os-c-bg) !important; --os-text: var(--os-c-text) !important; --os-surface: var(--os-c-surface) !important; --os-muted: var(--os-c-muted) !important; --os-line: var(--os-c-text) !important; --os-dark: var(--os-c-bg) !important; --os-on-dark: var(--os-c-text) !important; --os-accent-strong: var(--os-c-accent) !important; --os-on-accent-strong: var(--os-c-on-accent) !important; }
+.os-player[data-os-colors] :is(.os-viewport, .os-stage, .os-slide) { background: var(--os-c-bg) !important; }
+.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-interaction, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario, .os-embed-placeholder, .os-mediabox, .os-transcript) { color: var(--os-c-text) !important; background-color: var(--os-c-bg) !important; border-color: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario) *:not(a, button, svg, svg *, input, select, textarea) { color: inherit !important; }
+.os-player[data-os-colors] .os-stage a, .os-player[data-os-colors] .os-credits a { color: var(--os-c-accent) !important; text-decoration: underline; }
+.os-player[data-os-colors] .os-stage :is(.os-button, .os-quiz-check, .os-ix-turn, .os-ix-nav, .os-ix-listen, .os-download-link) { background: var(--os-c-accent) !important; color: var(--os-c-on-accent) !important; border-color: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage .os-shape :is(path, rect, ellipse, polygon, circle, line, polyline) { fill: var(--os-c-surface) !important; stroke: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage .os-icon { color: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-nav-btn { background: var(--os-c-bg); color: var(--os-c-text); border-color: var(--os-c-text); }
+.os-player[data-os-colors] .os-nav-btn[aria-pressed="true"] { background: var(--os-c-accent); color: var(--os-c-on-accent); }
+.os-player[data-os-colors] .os-nav-btn:disabled { color: var(--os-c-muted); border-color: var(--os-c-muted); opacity: .6; }
+.os-player[data-os-colors] .os-nav-label { color: var(--os-c-text); }
+.os-player[data-os-colors] .os-caption { background: var(--os-c-bg); color: var(--os-c-text); border: 2px solid var(--os-c-text); }
+.os-player[data-os-colors] .os-narration .os-transcript { background: var(--os-c-bg); color: var(--os-c-text); border-color: var(--os-c-text); }
+.os-player[data-os-colors] :focus-visible { outline-color: var(--os-c-accent); box-shadow: 0 0 0 2px var(--os-c-bg); }
+.os-player[data-os-colors] :is(.os-a11y-panel, .os-a11y-transcript, .os-credits, .os-ad-dialog) { background: var(--os-c-bg); color: var(--os-c-text); border-color: var(--os-c-accent); }
+.os-player[data-os-colors] :is(.os-a11y-select, .os-cert-input) { background: var(--os-c-bg); color: var(--os-c-text); border-color: var(--os-c-text); }
+.os-player[data-os-colors] .os-a11y-note { color: var(--os-c-muted); }
+.os-player[data-os-colors] .os-a11y-group { border-color: var(--os-c-text); }
+.os-player[data-os-colors] .os-readline { background: color-mix(in srgb, var(--os-c-accent) 24%, transparent); border-color: var(--os-c-accent); }

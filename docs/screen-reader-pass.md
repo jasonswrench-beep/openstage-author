@@ -225,6 +225,42 @@ Use `examples/powerpoint/Introduction to Communication.pptx` and then `Introduct
 | NVDA | | | |
 | Narrator | | | |
 
+### 12. The learner accessibility panel in the published course
+
+This is about the course a learner opens. Publish `examples/lms-test-lesson.osproj` (or open the preview) and use only the screen reader and the keyboard. See `docs/learner-accessibility.md`.
+
+**What to do.**
+1. Tab to the **Accessibility** button (after Credits). Press Enter. Listen to what is said about the panel.
+2. Tab through it. Change **Text size** to 150%, then **Colours** to Dark, then turn on **Reading line**. Listen to what is announced each time.
+3. Go to the Your results slide (slide 19), pause the narration, and press **Read aloud**. Then press Escape, or Stop reading.
+4. Press **Show the transcript**. Read a few slides. Close it, and see where focus goes.
+5. Press **Put everything back**. Then press Escape to close the panel, and see where focus goes.
+
+**A good result.** The button is read as "Accessibility, button, collapsed" and then "expanded" once open; the panel is read as a region named "Accessibility" with groups named Text, Colours, Reading, Read aloud and Transcript; each control is read with its label and its value ("Text size, 100%, combo box"). Each change is announced in words. Read aloud does not talk over the screen reader's own speech by starting by itself.
+The transcript window is read as a dialog titled with the course, with a heading for each slide. Escape closes the panel and focus is on the Accessibility button.
+
+| Screen reader | What it said | Verdict | Notes |
+| --- | --- | --- | --- |
+| NVDA | | | |
+| Narrator | | | |
+
+### 13. Captions from the voice, in the captions window
+
+This is about the editor. Select a video on a slide, press **Write captions...**, and find *Write the captions by listening to the voice*. See `docs/speech-recognition.md`.
+
+**What to do.**
+1. Move through the section with the screen reader: the line that says whether the recogniser and the model are ready, **Speech model**, **Words to listen for**, and the buttons.
+2. Press **Listen and write the captions** on a short video with a voice. Listen to what is said while it works, when it finishes, and where focus is.
+3. Press **Stop** during a second listening. Listen to what is said and where focus is.
+4. Read the "unchecked" note and press its button.
+
+**A good result.** Each field is read with its label and its description ("Words to listen for, edit, multi-line... Names and terms from your course..."). The progress bar is read as a progress bar named "How far this has got". The start and the end are announced in the status line; the percentage is not announced every few seconds. After a finished listening, focus is on the first caption's words; after Stop, on the button that was pressed.
+
+| Screen reader | What it said | Verdict | Notes |
+| --- | --- | --- | --- |
+| NVDA | | | |
+| Narrator | | | |
+
 ## Problems found
 
 | # | Pattern | Screen reader and version | What was said | What should have been said | How bad |
