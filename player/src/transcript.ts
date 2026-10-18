@@ -22,7 +22,7 @@ export interface Transcript {
   sections: TranscriptSection[];
 }
 
-const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…" };
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "\u2013", mdash: "\u2014", hellip: "\u2026" };
 
 /** The words of a piece of the course's HTML: blocks and line breaks become separate lines, a list item starts with a dash, tags go, and entities are written out. */
 export function htmlToText(html: string): string {
