@@ -156,6 +156,9 @@ its list, is a schema error. A `nextSlide`, `previousSlide` or `replaySlide` tri
 A deck's entry in `project.sources`, a slide's import provenance and an object's (`slideId`, `sourceHash`, `base`) are schema rules. Everything else about an imported slide is checked like any other slide:
 alt text, contrast (against the slide's background colour, which for a slide with a background picture is the picture's average colour), tab order and the rest.
 
+A slide made from a recorded step may carry `provenance.base` (0.27.0): the record of what was made, used only to bring the lesson up to date. Its shape is a schema rule (a name, a picture or `null`, and
+for each part an `id`, a `layer` and a fingerprint for each field); the validator looks no further into it.
+
 ### Looks (object states)
 
 | Rule | Severity | Message |

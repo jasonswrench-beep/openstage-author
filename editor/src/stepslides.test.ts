@@ -125,7 +125,10 @@ test("slides for every step are put after the current slide, as one undo step, w
   const said = second.baseLayer.objects[1]!.narration as { script: string; voice: string } | null;
   assert.equal(said?.script, "Press Enter.");
   assert.ok(typeof said?.voice === "string" && said.voice !== "");
-  assert.deepEqual(second.provenance, { sourceCapture: "Demo.capture", stepId: "step-2", capturedAt: "2026-10-18T10:00:00Z" });
+  const prov = second.provenance as { sourceCapture: string; stepId: string; capturedAt: string; base: { name: string; picture: { src: string }; objects: Record<string, { id: string }> } };
+  assert.deepEqual([prov.sourceCapture, prov.stepId, prov.capturedAt], ["Demo.capture", "step-2", "2026-10-18T10:00:00Z"]);
+  assert.equal(prov.base.name, second.name, "the slide records what was made, so it can be brought up to date");
+  assert.deepEqual(Object.keys(prov.base.objects).sort(), ["heading", "picture", "words"]);
   m.undo();
   assert.equal(m.slides.length, 1, "one undo takes every slide away");
 });
@@ -143,10 +146,10 @@ test("pressing it again makes nothing twice, and says so; a step added later get
   list = editStep(list, list.steps[1]!.id, { text: "Close the window." });
   const more = m.makeStepSlides(input());
   assert.deepEqual([more.added, more.skipped], [1, 1]);
-  assert.match(more.message, /1 step already had a slide, so it was left alone\./);
+  assert.match(more.message, /Brought 1 slide up to date \(the heading on 1\)\./, "the first slide's heading said Step 1 of 1, and the lesson has two steps now");
   assert.equal(m.slides.length, 3);
   assert.equal(m.makeStepSlides({ recording: "Other.capture", steps: list.steps, pictures: pictures(list) }).added, 2, "another recording's steps are not the same steps");
-  assert.match(m.makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, /^There are no steps to make slides from\. 2 slides are for steps that are no longer in the list/);
+  assert.match(m.makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, /^There are no steps to make slides from\. 2 slides are for steps that are gone, and you have not changed them: .*They are taken away when you ask\./);
   assert.equal(fresh().makeStepSlides({ recording: "Demo.capture", steps: [], pictures: new Map() }).message, "There are no steps to make slides from.");
 });
 

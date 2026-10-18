@@ -22,16 +22,25 @@ class Fake implements CaptureBackend {
   startError: Error | null = null;
   /** How many times streamStart says another job is running before it works. */
   busyTimes = 0;
+  /** Runs each time streamStart says another job is running: what that other job is saying and doing meanwhile. */
+  onBusy: ((fake: Fake) => void) | null = null;
+  /** How many times streamState says another job is running before it says the recorder is free, and what happens at each of those times. */
+  runningPolls = 0;
+  onPoll: ((fake: Fake) => void) | null = null;
   keyResults: HotkeyResult[] | null = null;
   keysError: Error | null = null;
   /** Runs inside streamStart, after the listeners are attached: a way to make the stand-in recorder say things. */
   onStart: ((args: string[], fake: Fake) => void) | null = null;
 
   async streamStart(args: string[]): Promise<void> {
-    if (this.busyTimes > 0) { this.busyTimes--; throw new Error("A recording is already in progress. Stop it first."); }
+    if (this.busyTimes > 0) { this.busyTimes--; this.onBusy?.(this); throw new Error("A recording is already in progress. Stop it first."); }
     if (this.startError) throw this.startError;
     this.starts.push(args);
     this.onStart?.(args, this);
+  }
+  async streamState(): Promise<{ running: boolean; paused: boolean }> {
+    if (this.runningPolls > 0) { this.runningPolls--; this.onPoll?.(this); return { running: true, paused: false }; }
+    return { running: false, paused: false };
   }
   async streamSend(l: string): Promise<void> { this.sent.push(l); }
   async streamStop(stopLine?: string): Promise<boolean> { this.stops.push(stopLine); return true; }
@@ -286,6 +295,37 @@ test("a short job waits for another short job that is still running, instead of 
   const job = await runOneShot(fake, ["render"], undefined, 1000, 5000);
   assert.deepEqual([job.problem, job.lines, fake.starts.length], ["", ["done"], 1]);
   assert.equal(fake.listening, 0);
+});
+
+test("while it waits, what the job before it prints and how that job ends are not taken for this job's", async () => {
+  const fake = new Fake();
+  fake.busyTimes = 3;
+  fake.onBusy = (f) => { f.say("a line of the other job"); f.end(exit({ code: 7 })); };
+  fake.onStart = (_a, f) => { f.say("mine"); f.end(exit({ code: 0 })); };
+  const heard: string[] = [];
+  const job = await runOneShot(fake, ["render"], (l) => heard.push(l), 1000, 5000);
+  assert.deepEqual([job.lines, heard, job.exit?.code, job.problem], [["mine"], ["mine"], 0, ""]);
+  assert.equal(fake.listening, 0);
+});
+
+test("it waits for the recorder to say it is free, and does not listen to the job that is still running", async () => {
+  const fake = new Fake();
+  fake.runningPolls = 3;
+  let listeningWhileWaiting = 0;
+  fake.onPoll = (f) => { listeningWhileWaiting += f.listening; f.say("a line of the other job"); f.end(exit({ code: 7 })); };
+  fake.onStart = (_a, f) => { f.say("mine"); f.end(exit({ code: 0 })); };
+  const heard: string[] = [];
+  const job = await runOneShot(fake, ["render"], (l) => heard.push(l), 1000, 5000);
+  assert.deepEqual([job.lines, heard, job.exit?.code, job.problem, listeningWhileWaiting], [["mine"], ["mine"], 0, "", 0]);
+  assert.equal(fake.listening, 0);
+});
+
+test("a recorder that stays busy for the whole wait is reported in plain words, and nothing is started", async () => {
+  const fake = new Fake();
+  fake.runningPolls = 1000;
+  const job = await runOneShot(fake, ["render"], undefined, 1000, 600);
+  assert.match(job.problem, /busy with something else/);
+  assert.deepEqual([fake.starts.length, fake.listening], [0, 0]);
 });
 
 test("a short job that is still told the recorder is busy after waiting says so in plain words", async () => {

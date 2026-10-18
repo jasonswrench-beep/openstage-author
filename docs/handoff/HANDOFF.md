@@ -23,7 +23,7 @@ voice; audio is a cache keyed by a content hash. Website planned: openstageautho
 - GitHub: `jasonswrench-beep/openstage-author`, **private**, branch `main`. `gh` is not installed. Git identity on Jason's PC is global
   (`jasonswrench-beep`).
 - On Jason's main PC the folder is `D:\Documents\OpenStage`.
-- Project format version is **0.26.0** (`SUPPORTED_SCHEMA_VERSION (0,26,0)`). Every schema change bumps `schemaVersion` and ships a migration in
+- Project format version is **0.27.0** (`SUPPORTED_SCHEMA_VERSION (0,27,0)`). Every schema change bumps `schemaVersion` and ships a migration in
   `tools/migrate.py`.
 
 ## Read these first

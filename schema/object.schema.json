@@ -944,7 +944,55 @@
       "properties": {
         "sourceCapture": { "type": "string", "minLength": 1 },
         "stepId": { "type": "string", "minLength": 1 },
-        "capturedAt": { "type": "string", "format": "date-time" }
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "base": {
+          "description": "Optional, on a slide. What the Capture module made for this step, so that when the steps change the slide can be brought up to date without losing what the author changed: the slide's name, the picture it was made with, and for each thing it made (by its part, such as 'words' or 'layer-hint/message') the object's id, its layer, and a fingerprint of each part of the object as made.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "picture", "objects"],
+          "properties": {
+            "name": { "type": "string" },
+            "picture": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["src", "width", "height", "take", "shotMs"],
+                  "properties": {
+                    "src": { "$ref": "#/$defs/assetPath" },
+                    "width": { "type": "integer", "minimum": 1 },
+                    "height": { "type": "integer", "minimum": 1 },
+                    "take": { "type": "integer", "minimum": 1 },
+                    "shotMs": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              ]
+            },
+            "objects": {
+              "type": "object",
+              "maxProperties": 60,
+              "propertyNames": { "pattern": "^[a-z][a-z0-9:/-]*$", "maxLength": 60 },
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "layer", "fields"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "layer": { "type": "string", "minLength": 1 },
+                  "fields": {
+                    "description": "A fingerprint of each part of the object as made (its name, geometry, content, style, accessibility, states, triggers, timing, animation and narration), so a change the author made to one part does not stop another part being brought up to date.",
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 20,
+                    "propertyNames": { "pattern": "^[a-z]+$", "maxLength": 20 },
+                    "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 40 }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
 

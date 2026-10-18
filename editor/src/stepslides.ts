@@ -31,8 +31,22 @@ export interface SlideOptions {
   namePrefix?: string;
   newSlideId(): string;
   newObjectId(): string;
+  /**
+   * When a slide is brought up to date: the ids the slide's parts already have, by part (`heading`, `words`, `picture`, `frame`, `layer-hint/message`, and so on),
+   * so a part that is made again keeps its id, and rules that name it still do.
+   */
+  existing?: Readonly<Record<string, string>>;
+  /** Filled in, as the slide is made, with every part and the id its object has: the record a slide is later brought up to date from. */
+  roles?: Record<string, string>;
   /** What to put in an object's `narration` for these words (the model keeps one voice through the course). */
   narration(script: string): unknown;
+}
+
+/** The id for a part of a slide: the one it already has when the slide is being brought up to date, else a new one. The part and its id are recorded in `o.roles`. */
+export function partId(o: SlideOptions, role: string): string {
+  const id = o.existing?.[role] ?? o.newObjectId();
+  if (o.roles !== undefined) o.roles[role] = id;
+  return id;
 }
 
 /** The size of the picture on the stage, and where: as large as fits under the words, centred, never more than 1.5 times its own size. */
@@ -62,13 +76,13 @@ export function buildStepSlide(step: Step, index: number, picture: StepPicture |
   const wordsHeight = px(36 * lines + 16);
 
   const heading: OSObject = {
-    ...box(o.newObjectId(), margin, px(20), wide, px(60), 10), type: "text", name: `Step ${index + 1} heading`,
+    ...box(partId(o, "heading"), margin, px(20), wide, px(60), 10), type: "text", name: `Step ${index + 1} heading`,
     content: { html: `<h1>Step ${index + 1} of ${o.total}</h1>` },
     style: { fontFamily: "theme:font.heading", fontSize: px(36), color: colorRef("text") },
     accessibility: { altText: `Step ${index + 1} of ${o.total}`, role: "heading", tabOrder: 1, decorative: false },
   };
   const text: OSObject = {
-    ...box(o.newObjectId(), margin, px(84), wide, wordsHeight, 20), type: "text", name: `Step ${index + 1} words`,
+    ...box(partId(o, "words"), margin, px(84), wide, wordsHeight, 20), type: "text", name: `Step ${index + 1} words`,
     content: { html: `<p>${escapeHtml(words)}</p>` },
     style: { fontFamily: "theme:font.body", fontSize: px(26), color: colorRef("text") },
     accessibility: { altText: words, role: "paragraph", tabOrder: 2, decorative: false },
@@ -80,7 +94,7 @@ export function buildStepSlide(step: Step, index: number, picture: StepPicture |
     const top = px(84) + wordsHeight + px(16);
     const placed = fitPicture({ x: margin, y: top, width: wide, height: o.stage.height - top - px(24) }, picture);
     const image: OSObject = {
-      ...box(o.newObjectId(), placed.x, placed.y, placed.width, placed.height, 30), type: "image", name: `Step ${index + 1} picture`,
+      ...box(partId(o, "picture"), placed.x, placed.y, placed.width, placed.height, 30), type: "image", name: `Step ${index + 1} picture`,
       content: { src: picture.path },
       style: {},
       // Only what the author checked is said: an unchecked step's picture has no description yet, and the validator asks for one.
@@ -90,7 +104,7 @@ export function buildStepSlide(step: Step, index: number, picture: StepPicture |
     if (step.box !== null) {
       const b = step.box;
       objects.push({
-        ...box(o.newObjectId(), Math.round(placed.x + (b.x / 100) * placed.width), Math.round(placed.y + (b.y / 100) * placed.height), Math.max(4, Math.round((b.width / 100) * placed.width)), Math.max(4, Math.round((b.height / 100) * placed.height)), 40),
+        ...box(partId(o, "frame"), Math.round(placed.x + (b.x / 100) * placed.width), Math.round(placed.y + (b.y / 100) * placed.height), Math.max(4, Math.round((b.width / 100) * placed.width)), Math.max(4, Math.round((b.height / 100) * placed.height)), 40),
         type: "shape", name: `Step ${index + 1} place to point at`,
         content: { shape: "rounded" },
         style: { stroke: colorRef("accentStrong"), strokeWidth: 4, radius: 8 },

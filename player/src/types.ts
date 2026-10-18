@@ -539,6 +539,15 @@ export interface CaptureProvenance {
   sourceCapture: string;
   stepId: string;
   capturedAt?: string;
+  /** On a slide: what the Capture module made, so a lesson can be brought up to date. The player ignores it. */
+  base?: CaptureBase;
+}
+
+/** What the Capture module made for a step's slide: its name, the picture, and an id, layer and a fingerprint of each field for each thing made, by its part. */
+export interface CaptureBase {
+  name: string;
+  picture: { src: string; width: number; height: number; take: number; shotMs: number } | null;
+  objects: Record<string, { id: string; layer: string; fields: Record<string, string> }>;
 }
 
 export interface Slide {

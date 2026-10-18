@@ -210,6 +210,10 @@ export function bytesToBase64(bytes: Uint8Array): string {
  */
 type PickKind = "open" | "new" | "publish" | "captionsource" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
+/** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
+const testConfirm = (message: string): boolean | undefined =>
+  (window as unknown as { __openstageTestConfirm?: (message: string) => boolean | undefined }).__openstageTestConfirm?.(message);
+
 const testPick = (kind: PickKind): string | null | undefined =>
   (window as unknown as { __openstageTestPick?: TestPick }).__openstageTestPick?.(kind);
 
@@ -345,7 +349,7 @@ const tauriBackend: Backend = {
   hotkeysSet: (bindings) => invoke<HotkeyResult[]>("hotkeys_set", { bindings }),
   hotkeysClear: () => invoke<void>("hotkeys_clear"),
   onHotkey: (listener) => listen<string>("hotkey", (e) => listener(e.payload)),
-  confirm: (message) => confirmDialog(message, { title: "OpenStage Author", kind: "warning" }),
+  confirm: async (message) => testConfirm(message) ?? confirmDialog(message, { title: "OpenStage Author", kind: "warning" }),
   setTitle: (title) => getCurrentWindow().setTitle(title),
   guardClose(hasUnsaved) {
     void getCurrentWindow().onCloseRequested(async (event) => {

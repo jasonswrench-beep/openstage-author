@@ -16,7 +16,7 @@ import { colorRef } from "../../player/src/theme.ts";
 import { writeRules, type Rule } from "./content.ts";
 import { box } from "./factory.ts";
 import type { Box, Step } from "./steps.ts";
-import { buildStepSlide, fitPicture, shorten, type SlideOptions, type StepPicture } from "./stepslides.ts";
+import { buildStepSlide, fitPicture, partId, shorten, type SlideOptions, type StepPicture } from "./stepslides.ts";
 
 export type Lesson = "watch" | "practice" | "test";
 
@@ -75,13 +75,13 @@ function frameOf(step: Step, o: SlideOptions): Frame {
 
 function headingAndWords(step: Step, index: number, o: SlideOptions, f: Frame, label: string, headingWidth: number, tab = 1): OSObject[] {
   const heading: OSObject = {
-    ...box(o.newObjectId(), f.margin, f.px(20), headingWidth, f.px(60), 10), type: "text", name: `${label} heading`,
+    ...box(partId(o, "heading"), f.margin, f.px(20), headingWidth, f.px(60), 10), type: "text", name: `Step ${index + 1} heading`,
     content: { html: `<h1>${escapeHtml(label)}</h1>` },
     style: { fontFamily: "theme:font.heading", fontSize: f.px(36), color: colorRef("text") },
     accessibility: { altText: label, role: "heading", tabOrder: tab, decorative: false },
   };
   const words: OSObject = {
-    ...box(o.newObjectId(), f.margin, f.px(84), f.wide, f.wordsHeight, 20), type: "text", name: `${label} words`,
+    ...box(partId(o, "words"), f.margin, f.px(84), f.wide, f.wordsHeight, 20), type: "text", name: `Step ${index + 1} words`,
     content: { html: `<p>${escapeHtml(f.words)}</p>` },
     style: { fontFamily: "theme:font.body", fontSize: f.px(26), color: colorRef("text") },
     accessibility: { altText: f.words, role: "paragraph", tabOrder: tab + 1, decorative: false },
@@ -92,7 +92,7 @@ function headingAndWords(step: Step, index: number, o: SlideOptions, f: Frame, l
 
 function pictureObject(step: Step, index: number, picture: StepPicture, o: SlideOptions, rect: { x: number; y: number; width: number; height: number }, tab: number): OSObject {
   return {
-    ...box(o.newObjectId(), rect.x, rect.y, rect.width, rect.height, 30), type: "image", name: `Step ${index + 1} picture`,
+    ...box(partId(o, "picture"), rect.x, rect.y, rect.width, rect.height, 30), type: "image", name: `Step ${index + 1} picture`,
     content: { src: picture.path }, style: {},
     // Only what the author checked is said: an unchecked step's picture has no description yet, and the validator asks for one.
     accessibility: { altText: step.reviewed ? step.alt.trim() : "", role: "img", tabOrder: tab, decorative: false },
@@ -101,9 +101,9 @@ function pictureObject(step: Step, index: number, picture: StepPicture, o: Slide
 
 const rule = (action: Rule["action"], target: string, extra: Partial<Rule> = {}): Rule => ({ event: "activate", action, target, conditions: [], ...extra });
 
-function button(o: SlideOptions & { newTriggerId(): string }, label: string, x: number, y: number, w: number, h: number, z: number, tab: number, rules: Rule[], f: Frame): OSObject {
+function button(o: SlideOptions & { newTriggerId(): string }, role: string, label: string, x: number, y: number, w: number, h: number, z: number, tab: number, rules: Rule[], f: Frame): OSObject {
   return {
-    ...box(o.newObjectId(), x, y, w, h, z), type: "button", name: label,
+    ...box(partId(o, role), x, y, w, h, z), type: "button", name: label,
     content: { label },
     style: { fontFamily: "theme:font.body", fontSize: f.px(20), color: colorRef("onAccentStrong"), fill: colorRef("accentStrong"), radius: 8 },
     accessibility: { altText: label, role: "button", tabOrder: tab, decorative: false },
@@ -114,20 +114,20 @@ function button(o: SlideOptions & { newTriggerId(): string }, label: string, x: 
 /** A panel over the top of the slide with a message that is announced when it appears, and buttons. It is a layer that a rule shows. */
 function bannerLayer(id: string, name: string, text: string, buttons: { label: string; rules: Rule[] }[], o: LessonOptions, f: Frame): Layer {
   const panel: OSObject = {
-    ...box(o.newObjectId(), f.margin - f.px(8), f.px(8), f.wide + f.px(16), f.px(150), 100), type: "shape", name: `${name} panel`,
+    ...box(partId(o, `${id}/panel`), f.margin - f.px(8), f.px(8), f.wide + f.px(16), f.px(150), 100), type: "shape", name: `${name} panel`,
     content: { shape: "rounded" },
     style: { fill: colorRef("surface"), stroke: colorRef("line"), strokeWidth: 2, radius: 12 },
     accessibility: { altText: "", role: "presentation", tabOrder: 0, decorative: true },
   };
   const message: OSObject = {
-    ...box(o.newObjectId(), f.margin, f.px(20), f.wide, f.px(76), 110), type: "text", name: `${name} message`,
+    ...box(partId(o, `${id}/message`), f.margin, f.px(20), f.wide, f.px(76), 110), type: "text", name: `${name} message`,
     content: { html: `<p>${escapeHtml(text)}</p>` },
     style: { fontFamily: "theme:font.body", fontSize: f.px(24), color: colorRef("text") },
     accessibility: { altText: text, role: "status", tabOrder: 1, decorative: false },
   };
   const gap = f.px(16);
   const w = f.px(190);
-  const made = buttons.map((b, i) => button(o, b.label, f.margin + i * (w + gap), f.px(104), w, f.px(48), 120, 2 + i, b.rules, f));
+  const made = buttons.map((b, i) => button(o, `${id}/button-${i + 1}`, b.label, f.margin + i * (w + gap), f.px(104), w, f.px(48), 120, 2 + i, b.rules, f));
   return { id, name, objects: [panel, message, ...made] };
 }
 
@@ -181,7 +181,7 @@ export function buildPracticeSlide(step: Step, index: number, picture: StepPictu
 
   // The frame that shows where to click: invisible until a rule gives it its look. It lies under the hotspots, which are transparent, so it never takes a click.
   const frame: OSObject = {
-    ...box(o.newObjectId(), Math.round(placed.x + (b.x / 100) * placed.width), Math.round(placed.y + (b.y / 100) * placed.height), Math.max(4, Math.round((b.width / 100) * placed.width)), Math.max(4, Math.round((b.height / 100) * placed.height)), 35),
+    ...box(partId(o, "frame"), Math.round(placed.x + (b.x / 100) * placed.width), Math.round(placed.y + (b.y / 100) * placed.height), Math.max(4, Math.round((b.width / 100) * placed.width)), Math.max(4, Math.round((b.height / 100) * placed.height)), 35),
     type: "shape", name: `Step ${index + 1} place to click`,
     content: { shape: "rounded" },
     style: { strokeWidth: 6, radius: 8 },
@@ -191,7 +191,7 @@ export function buildPracticeSlide(step: Step, index: number, picture: StepPictu
   const wrongTry = { variable: o.tries, operator: "lessThan" as const, value: TRIES_BEFORE_SHOWN };
   const tooMany = { variable: o.tries, operator: "greaterThanOrEqual" as const, value: TRIES_BEFORE_SHOWN };
   const target: OSObject = {
-    ...box(o.newObjectId(), hx.pos, hy.pos, hx.len, hy.len, 60), type: "hotspot", name: `Step ${index + 1} target`,
+    ...box(partId(o, "target"), hx.pos, hy.pos, hx.len, hy.len, 60), type: "hotspot", name: `Step ${index + 1} target`,
     content: {}, style: {},
     accessibility: { altText: hotspotName(step), role: "button", tabOrder: 4, decorative: false },
     triggers: writeRules([
@@ -201,7 +201,7 @@ export function buildPracticeSlide(step: Step, index: number, picture: StepPictu
     ], o.newTriggerId),
   };
   const elsewhere: OSObject = {
-    ...box(o.newObjectId(), placed.x, placed.y, placed.width, placed.height, 50), type: "hotspot", name: `Step ${index + 1} anywhere else`,
+    ...box(partId(o, "elsewhere"), placed.x, placed.y, placed.width, placed.height, 50), type: "hotspot", name: `Step ${index + 1} anywhere else`,
     content: {}, style: {},
     accessibility: { altText: "Anywhere else on the screen", role: "button", tabOrder: 5, decorative: false },
     triggers: writeRules([
@@ -211,7 +211,7 @@ export function buildPracticeSlide(step: Step, index: number, picture: StepPictu
       { kind: "rule", rule: rule("changeState", frame.id, { value: "Shown", conditions: [tooMany] }) },
     ], o.newTriggerId),
   };
-  const showMe = button(o, "Show me", o.stage.width - f.margin - f.px(170), f.px(24), f.px(170), f.px(52), 70, 6, [rule("changeState", frame.id, { value: "Shown" })], f);
+  const showMe = button(o, "showme", "Show me", o.stage.width - f.margin - f.px(170), f.px(24), f.px(170), f.px(52), 70, 6, [rule("changeState", frame.id, { value: "Shown" })], f);
   // Every time the slide opens the count of wrong tries starts again.
   words.triggers = writeRules([{ kind: "rule", rule: { event: "slideStart", action: "setVariable", target: o.tries, value: 0, conditions: [] } }], o.newTriggerId);
 
@@ -235,7 +235,7 @@ function typingSlide(step: Step, index: number, picture: StepPicture | null, o: 
   const rightId = "layer-right";
   const wrongId = "layer-wrong";
   const quiz: OSObject = {
-    ...box(o.newObjectId(), f.margin, o.stage.height - f.px(24) - f.px(140), Math.min(f.wide, f.px(760)), f.px(140), 40), type: "quizQuestion", name: `Step ${index + 1} answer`,
+    ...box(partId(o, "answer"), f.margin, o.stage.height - f.px(24) - f.px(140), Math.min(f.wide, f.px(760)), f.px(140), 40), type: "quizQuestion", name: `Step ${index + 1} answer`,
     content: {
       questionType: "shortAnswer", answers: [step.typed ?? ""], caseSensitive: true,
       scoring: practice ? { points: 0, attemptsAllowed: TRIES_BEFORE_SHOWN } : { points: 1, attemptsAllowed: 1 },
@@ -299,7 +299,7 @@ export function buildTestSlide(step: Step, index: number, picture: StepPicture |
   const right = { id: "r1", label: `${placeWords(step.box)} of the picture`, x: step.box.x, y: step.box.y, width: step.box.width, height: step.box.height, correct: true };
   const regions = [right, ...decoys.map((d, i) => ({ id: `r${i + 2}`, label: `${d.label} of the picture`, x: d.x, y: d.y, width: d.width, height: d.height, correct: false }))];
   const quiz: OSObject = {
-    ...box(o.newObjectId(), area.x, area.y, area.width, area.height, 40), type: "quizQuestion", name: `Step ${index + 1} question`,
+    ...box(partId(o, "question"), area.x, area.y, area.width, area.height, 40), type: "quizQuestion", name: `Step ${index + 1} question`,
     content: {
       questionType: "hotspot", image: { src: picture.path, alt: step.reviewed ? step.alt.trim() : "" }, regions,
       scoring: { points: 1, attemptsAllowed: 1 }, feedback: { correct: "layer-right", incorrect: "layer-wrong" },

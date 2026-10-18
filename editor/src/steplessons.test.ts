@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { Runtime, type Host } from "../../player/src/runtime.ts";
 import type { CoursePackage, OSObject, Project, Slide, Theme } from "../../player/src/types.ts";
 import { Model } from "./model.ts";
-import { editStep, knowPicture, listFrom, parseLog, proposeFromLog, type StepList } from "./steps.ts";
+import { addManual, deleteStep, editStep, knowPicture, listFrom, moveStep, parseLog, proposeFromLog, type StepList } from "./steps.ts";
 import { buildPracticeSlide, buildTestSlide, hintFor, lessonCapture, otherAreas, placeWords, TRIES_BEFORE_SHOWN, type LessonOptions } from "./steplessons.ts";
 import type { StepPicture } from "./stepslides.ts";
 import { newProjectFiles } from "./template.ts";
@@ -206,7 +206,6 @@ test("undoing the Practice lesson takes its counter away too", () => {
 
 // ---- bringing a lesson up to date
 
-import { addManual, deleteStep, moveStep } from "./steps.ts";
 
 const CLICK2 = '{"t":2500,"type":"click","x":300,"y":300,"button":"left"}';
 const ENTER6 = '{"t":6000,"type":"key","key":"enter","modifiers":[]}';
@@ -233,26 +232,136 @@ test("a step added later gets its slide in its own place among the lesson's slid
   assert.deepEqual(stepIdsOfSlides(noneYet), ["step-4", "step-1", "step-2", "step-3"], "a first making follows the order of the list too");
 });
 
-test("slides for steps that are gone, and slides that say something else than their step now, are reported and never changed", () => {
+const ownerSlide = (m: Model, stepId: string): Slide => m.slides.find((sl) => sl.provenance && "stepId" in sl.provenance && sl.provenance.stepId === stepId)!;
+const partsOf = (slide: Slide): OSObject[] => [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects);
+
+test("a step that changes brings its slide up to date with the same objects, and one undo puts it all back", () => {
   const m = fresh();
   let list = stepsOf(CLICK, NAMED, CLICK2, ENTER6);
   m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
-  const before = JSON.stringify(m.slides);
-  list = deleteStep(list, "step-3");
-  list = editStep(list, "step-1", { text: "Choose Save." });
-  const r = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
-  assert.equal(r.added, 0);
-  assert.match(r.message, /^Every step already has a slide in the Practice lesson\./);
-  assert.match(r.message, /A slide is for a step that is no longer in the list: "Practice 3: Press Enter\.". Delete it if you do not want it\./);
-  assert.match(r.message, /A slide says something different from its step's words now: "Practice 1: Click the Save button\.". To remake one, delete the slide and make the lesson again/);
-  assert.equal(JSON.stringify(m.slides), before, "nothing was changed");
-  // remaking: delete the slide, make again, and the new words are on a new slide in the same place
-  m.deleteSlide(m.slides.find((sl) => sl.name.startsWith("Practice 1:"))!.id);
-  const again = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
-  assert.equal(again.added, 1);
-  assert.deepEqual(stepIdsOfSlides(m), ["step-1", "step-2", "step-3"], "in its own place, first");
-  assert.equal(m.slides.find((sl) => sl.name === "Practice 1: Choose Save.") !== undefined, true);
-  assert.doesNotMatch(again.message, /something different/);
+  const before = ownerSlide(m, "step-1");
+  const ids = partsOf(before).map((o) => o.id).sort();
+  const variables = m.project.variables.length;
+  list = editStep(list, "step-1", { text: "Choose Save from the File menu.", box: { x: 10, y: 10, width: 20, height: 12 } });
+  const plan = m.planStepLesson({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.deepEqual([plan.make, plan.update, plan.remove, plan.needsConfirm, plan.needPictures], [0, 1, 0, true, []]);
+  assert.match(plan.summary, /^Bring 1 slide up to date \(the words on 1, the place to point at on 1\)\./);
+  assert.equal(JSON.stringify(ownerSlide(m, "step-1")), JSON.stringify(before), "a plan changes nothing");
+  const snapshot = JSON.stringify(m.slides);
+  const r = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.deepEqual([r.added, r.updated, r.removed], [0, 1, 0]);
+  assert.match(r.message, /^Brought 1 slide up to date \(the words on 1, the place to point at on 1\)\. Press Control Z to undo\.$/);
+  const after = ownerSlide(m, "step-1");
+  assert.deepEqual(partsOf(after).map((o) => o.id).sort(), ids, "the same objects, so rules that name them still do");
+  assert.equal(after.name, "Practice 1: Choose Save from the File menu.");
+  assert.equal(String(partsOf(after).find((o) => o.name.endsWith("words"))!.content["html"]).includes("Choose Save from the File menu."), true);
+  const target = partsOf(after).find((o) => o.name.endsWith("target"))!;
+  assert.equal(target.accessibility.altText, "Choose Save from the File menu", "the hotspot is named by the new words");
+  assert.equal(m.project.variables.length, variables, "no second counter");
+  const again = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.equal(again.message, "Every step already has a slide in the Practice lesson.", "up to date means nothing more to do");
+  m.undo();
+  assert.equal(JSON.stringify(m.slides), snapshot, "one undo puts every slide back as it was");
+});
+
+test("what the author changed on a slide stays, what they added stays, and what they deleted stays deleted, while the rest is brought up to date", () => {
+  const m = fresh();
+  let list = stepsOf(CLICK, NAMED, CLICK2, ENTER6);
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
+  const slide = ownerSlide(m, "step-2");
+  // the author works on the slide: their own description, a note of their own, no Show me button
+  const picture = partsOf(slide).find((o) => o.type === "image")!;
+  picture.accessibility = { ...picture.accessibility, altText: "My own description." };
+  slide.baseLayer.objects = slide.baseLayer.objects.filter((o) => o.type !== "button");
+  slide.baseLayer.objects.push({ ...structuredClone(picture), id: "obj-mine", type: "text", name: "My note", content: { html: "<p>My note</p>" }, accessibility: { altText: "My note", role: "paragraph", tabOrder: 9, decorative: false } });
+  list = editStep(list, "step-2", { text: "Click the other spot.", reviewed: true, alt: "The generated description." });
+  const r = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.equal(r.updated >= 1, true);
+  assert.match(r.message, /Your own changes were kept on 1 slide: "Practice 2: Click the highlighted spot\."\./, "named as it was, because the author changed it before the rename");
+  const parts = partsOf(ownerSlide(m, "step-2"));
+  assert.equal(parts.find((o) => o.type === "image")!.accessibility.altText, "My own description.", "their description, not the step's");
+  assert.equal(parts.some((o) => o.id === "obj-mine"), true, "their note");
+  assert.equal(parts.some((o) => o.type === "button" && o.name.endsWith("Show me")), false, "their deletion stays");
+  assert.equal(String(parts.find((o) => o.name.endsWith("words"))!.content["html"]).includes("Click the other spot."), true, "the words, which they did not touch, are the step's");
+  const again = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.equal(again.message, "Every step already has a slide in the Practice lesson.", "the step wants nothing more of their part, so there is nothing more to say");
+  assert.equal(again.updated, 0);
+  assert.equal(partsOf(ownerSlide(m, "step-2")).find((o) => o.type === "image")!.accessibility.altText, "My own description.", "and it is still theirs");
+  const wants = editStep(list, "step-2", { alt: "Another description from the step." });
+  const third = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: wants.steps, pictures: new Map() });
+  assert.match(third.message, /^Every step already has a slide in the Practice lesson\. Your own changes were kept on 1 slide/, "when the step wants to change it again, the author's stays and it is said");
+});
+
+test("a slide for a step that is gone is taken away only when the author said so, and only if they never changed it", () => {
+  const m = fresh();
+  let list = stepsOf(CLICK, NAMED, CLICK2, ENTER6);
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
+  ownerSlide(m, "step-2").baseLayer.objects.push({ ...structuredClone(partsOf(ownerSlide(m, "step-2"))[0]!), id: "obj-mine", name: "Mine" });
+  list = deleteStep(deleteStep(list, "step-2"), "step-3");
+  assert.deepEqual(list.steps.map((s) => s.id), ["step-1"]);
+  const plan = m.planStepLesson({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.deepEqual([plan.remove, plan.update, plan.needsConfirm], [1, 1, true], "one is untouched and goes; the one with the author's work in it stays; step 1's heading changes");
+  assert.match(plan.summary, /Take away 1 slide for a step that is gone, which you had not changed: "Practice 3: Press Enter\."/);
+  assert.match(plan.summary, /1 slide is for a step that is gone, but you changed it, so it stays: "Practice 2: Click the highlighted spot\."/);
+  const without = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  assert.deepEqual([without.removed, m.slides.length], [0, 1 + 3], "not unless asked");
+  assert.match(without.message, /1 slide is for a step that is gone, and you have not changed it: "Practice 3: Press Enter\."\. It is taken away when you ask\./);
+  const asked = m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map(), removeGone: true });
+  assert.equal(asked.removed, 1);
+  assert.deepEqual(m.slides.map((sl) => sl.name).filter((n) => n.startsWith("Practice")), ["Practice 1: Click the Save button.", "Practice 2: Click the highlighted spot."]);
+  m.undo();
+  assert.equal(m.slides.length, 1 + 3, "and one undo brings it back");
+});
+
+test("a step whose picture moment changed needs a new picture, and the slide takes it when it is given; without it the slide keeps the picture it has", () => {
+  const m = fresh();
+  let list = stepsOf(CLICK, NAMED, CLICK2, ENTER6);
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: pictures(list) });
+  list = editStep(list, "step-2", { shotMs: 4321 });
+  const plan = m.planStepLesson({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: new Map() });
+  assert.deepEqual(plan.needPictures, ["step-2"], "only the step whose moment changed");
+  const noPicture = m.makeStepSlides({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: new Map() });
+  assert.equal(noPicture.updated, 0);
+  assert.equal(partsOf(ownerSlide(m, "step-2")).find((o) => o.type === "image")!.content["src"], "assets/images/step-2.png", "no new picture, so the old one");
+  const given = new Map([["step-2", { path: "assets/images/step-2-b.png", width: 1280, height: 720 }]]);
+  const r = m.makeStepSlides({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: given });
+  assert.deepEqual([r.updated, r.message.startsWith("Brought 1 slide up to date (the picture on 1)")], [1, true]);
+  const image = partsOf(ownerSlide(m, "step-2")).find((o) => o.type === "image")!;
+  assert.equal(image.content["src"], "assets/images/step-2-b.png");
+  assert.ok(Math.abs(image.geometry.width / image.geometry.height - 1280 / 720) < 0.01, "sized for the new picture");
+  const base = (ownerSlide(m, "step-2").provenance as { base: { picture: { src: string; shotMs: number } } }).base;
+  assert.deepEqual([base.picture.src, base.picture.shotMs], ["assets/images/step-2-b.png", 4321]);
+  assert.deepEqual(m.planStepLesson({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: new Map() }).needPictures, [], "now the picture is the one for that moment");
+});
+
+test("a slide made before slides could be brought up to date is left alone and said", () => {
+  const m = fresh();
+  const list = stepsOf(CLICK, NAMED, CLICK2, ENTER6);
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "watch", steps: list.steps, pictures: pictures(list) });
+  delete (ownerSlide(m, "step-1").provenance as { base?: unknown }).base;
+  const changed = editStep(list, "step-1", { text: "Something else." });
+  const r = m.makeStepSlides({ recording: "Demo.capture", lesson: "watch", steps: changed.steps, pictures: new Map() });
+  assert.match(r.message, /1 slide was made before a lesson could be brought up to date, so it is left as it is: "Step 1: Click the Save button\."\. Delete one and make the lesson again/);
+  assert.equal(String(partsOf(ownerSlide(m, "step-1")).find((o) => o.name.endsWith("words"))!.content["html"]).includes("Click the Save button."), true, "its words are as they were");
+});
+
+test("after a lesson is brought up to date a learner can still do everything: the rules still name the objects they act on", () => {
+  const m = fresh();
+  let list = stepsOf(CLICK, NAMED, CLICK2);
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: pictures(list) });
+  list = editStep(list, "step-1", { text: "Choose Save from the File menu.", box: { x: 5, y: 5, width: 20, height: 12 } });
+  m.makeStepSlides({ recording: "Demo.capture", lesson: "practice", steps: list.steps, pictures: new Map() });
+  const { rt, log, pkg } = runtimeOf(m);
+  const first = pkg.slides.find((sl) => sl.name.startsWith("Practice 1"))!;
+  const tries = pkg.project.variables.find((v) => v.name === "practice tries")!.id;
+  rt.goTo(first.id);
+  const frame = named(first, "place to click").id;
+  for (let i = 0; i < 3; i++) rt.fire(named(first, "anywhere else").id, "click");
+  assert.equal(rt.variables.get(tries), 3);
+  assert.ok(log.includes(`state ${frame} Shown`), "the frame the rule names is the frame that is on the slide");
+  rt.fire(named(first, "target").id, "keyActivate");
+  assert.ok(rt.visibleLayers.has("layer-right"));
+  assert.equal(named(first, "target").accessibility.altText, "Choose Save from the File menu");
 });
 
 // ---- what a learner can do, in the player's own runtime

@@ -18,6 +18,7 @@ import { readStepSource, type StepSource } from "./stepsource.ts";
 import { PictureGrabber, pictureName, screenPath } from "./steppicture.ts";
 import type { StepPicture } from "./stepslides.ts";
 import { LESSON_WORDS, type Lesson } from "./steplessons.ts";
+import type { LessonPlan } from "./model.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -38,9 +39,9 @@ export interface StepsOptions {
   dir: string;
   /** The recording's folder name, such as `Week 3.capture`. */
   name: string;
-  /** The ids of the steps of this recording that already have a slide in the course, in a lesson. */
-  haveSlides: (lesson: Lesson) => ReadonlySet<string>;
-  /** Make the slides of a lesson for the steps, with the pictures (by step id) that were taken and saved. Returns what to tell the author. */
+  /** What making or bringing up to date a lesson would do, in numbers and words, and which steps need a new picture. Nothing is changed. */
+  planLesson: (lesson: Lesson, steps: Step[]) => LessonPlan;
+  /** Make the slides of a lesson that the steps have no slide for, bring up to date those the steps changed, and take away those of steps that are gone (when the author said yes), with the pictures (by step id) that were taken and saved. Returns what to tell the author. */
   makeSlides: (lesson: Lesson, steps: Step[], pictures: Map<string, StepPicture>) => string;
 }
 
@@ -94,7 +95,7 @@ export function openSteps(opts: StepsOptions): Promise<string> {
     const again = h("button", { type: "button", id: "st-again", text: "Start again from what I did while recording" });
     const lessonSel = h("select", { id: "st-lesson" }, ...(["watch", "practice", "test"] as const).map((l) => h("option", { value: l, text: LESSON_WORDS[l].name })));
     const lessonNote = h("p", { id: "st-lesson-note", class: "note" });
-    const make = h("button", { type: "button", id: "st-make", text: "Make the lesson: one slide for each step" });
+    const make = h("button", { type: "button", id: "st-make", text: "Make or update the lesson: one slide for each step" });
     const save = h("button", { type: "button", id: "st-save", text: "Save the steps" });
     const close = h("button", { type: "button", id: "st-close", text: "Close" });
 
@@ -384,8 +385,20 @@ export function openSteps(opts: StepsOptions): Promise<string> {
       try {
         if (dirty && !(await persist())) return;
         const lesson = lessonSel.value as Lesson;
-        const have = opts.haveSlides(lesson);
-        const todo = list.steps.filter((s) => !have.has(s.id));
+        const plan = opts.planLesson(lesson, list.steps);
+        // Nothing to make, change or take away: only what there is to say.
+        if (plan.make === 0 && plan.update === 0 && plan.remove === 0) {
+          madeWords = opts.makeSlides(lesson, list.steps, new Map());
+          speak(madeWords);
+          return;
+        }
+        // Changing slides that exist, or taking some away, asks first; making slides that are missing does not.
+        if (plan.needsConfirm && !(await b.confirm(`${plan.summary} You can undo it with Control Z. Go on?`))) {
+          speak("Nothing was changed.");
+          return;
+        }
+        const need = new Set(plan.needPictures);
+        const todo = list.steps.filter((s) => need.has(s.id));
         const pictures = new Map<string, StepPicture>();
         let n = 0;
         for (const s of todo) {
@@ -445,7 +458,7 @@ export function openSteps(opts: StepsOptions): Promise<string> {
         h("h3", { id: "st-make-title", text: "Make a lesson from the steps" }),
         h("div", { class: "field" }, h("label", { for: "st-lesson", text: "Lesson" }), lessonSel),
         lessonNote,
-        h("p", { class: "note", text: "The slides are put after the slide you are on in the course. A picture's description is used only for a step you have checked; for the others the Problems panel will ask you for it. A step that already has a slide in this lesson is left alone. Your steps are saved first. Close this window afterwards to see the slides." }),
+        h("p", { class: "note", text: "The slides are put after the slide you are on in the course. A picture's description is used only for a step you have checked; for the others the Problems panel will ask you for it. A step that already has a slide in this lesson is checked: if the step changed, its slide is brought up to date, except for anything you changed on the slide, which stays as you left it, and what you added or deleted stays too. A slide for a step that is gone is taken away only if you never changed it, and only after you say yes. Your steps are saved first. Close this window afterwards to see the slides." }),
         h("div", { class: "dialog-actions" }, make)),
       h("div", { class: "dialog-actions" }, save, close),
     );

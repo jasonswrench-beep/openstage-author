@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.26.0",
+  "schemaVersion": "0.27.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -1111,6 +1111,43 @@ forward without losing what the author added:
 step (`provenance-duplicate`). A copy made in the editor (duplicate, paste, or duplicate slide) is the author's own, not the thing it was copied from, so it
 has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.) The Capture module makes up to three lessons from the same steps (Watch, Practice and Test), and two slides may not claim one step, so it names the lesson in `sourceCapture`: the recording's folder name for Watch (`Week 3.capture`), and `Week 3.capture#practice` and `Week 3.capture#test` for the others. The format does not look inside the name.
 
+#### What the Capture module remembers about a slide it made (0.27.0)
+
+So that a lesson can be brought up to date when its steps change, without losing anything the author did, a slide made from a step may carry one more thing in its `provenance`: `base`, the record of what
+was made.
+
+```json
+"provenance": {
+  "sourceCapture": "Week 3.capture#practice",
+  "stepId": "step-3",
+  "capturedAt": "2026-10-18T09:30:00Z",
+  "base": {
+    "name": "Practice 3: Choose Save from the menu.",
+    "picture": { "src": "assets/images/week-3-step-3.png", "width": 1280, "height": 720, "take": 1, "shotMs": 4200 },
+    "objects": {
+      "heading": { "id": "obj-0201", "layer": "layer-base",
+                   "fields": { "name": "0a1b2c3d4e5f6a", "geometry": "1b2c3d4e5f6a7b", "content": "2c3d4e5f6a7b8c", "style": "3d4e5f6a7b8c9d", "...": "one for each field" } },
+      "layer-hint/message": { "id": "obj-0207", "layer": "layer-hint", "fields": { "name": "4e5f6a7b8c9d0e", "...": "..." } }
+    }
+  }
+}
+```
+
+`name` is the slide's name as made. `picture` is the picture the slide was made with (the file, its size, the take it came from and the moment in it, in milliseconds), or `null` for a slide with no
+picture. `objects` has one entry for each thing that was made, under the name of its part (`heading`, `words`, `picture`, `frame`, `target`, `elsewhere`, `showme`, `question`, `answer`, and the parts of a
+layer such as `layer-hint/message`): the object's `id`, the `layer` it was made on, and `fields`, a short fingerprint of each field of the object as it was made (`name`, `geometry`, `content`, `style`,
+`accessibility`, `states`, `triggers`, `timing`, `animation` and `narration`). Fingerprints are of the design only: an object's `locked` and `group`, the ids of its rules and everything of a narration
+but its words (so choosing another voice is not changing the words) are left out. The fingerprints are not secret or checked: the editor compares them with the slide as it is now and with the slide as
+the step would make it now, one field at a time.
+
+- A field the step would not change is left alone, whether or not the author changed it.
+- A field the step would change, and the author has not, is made again from the step. (So a new picture is used even when the author has written their own description of it.)
+- A field the step would change, and the author has changed, stays as the author left it, and the author is told.
+- A part the author deleted stays deleted. A part the author added is not in `base` and is never touched. A part the step no longer makes is taken away only if the author never changed it.
+- A slide for a step that is gone is taken away only if every part is still as it was made and nothing was added; otherwise it stays, and the author is told.
+
+A slide with no `base` (every one made before 0.27.0) is left as it is. The validator checks the shape of `base` and nothing more.
+
 ### PowerPoint import
 
 The editor reads a `.pptx` file (a zip file of XML parts) itself, with no library for the XML and no PowerPoint. Google Slides makes the same files. A deck is read into its slides and
@@ -1346,6 +1383,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.26.0 | 0.27.0 | Adds the optional `base` to a slide's Capture provenance: what the Capture module made for a step (the slide's name and picture, and for each part its id, layer and a fingerprint of each field), so a lesson can be brought up to date without losing what the author changed. Nothing in an existing project changes: no slide had one, and a slide without one is left as it is when a lesson is brought up to date. |
 | 0.25.0 | 0.26.0 | Adds the `generated` credit provider and its record (a picture or sound an AI service made, with the service, model, prompt and time), and lets a narration's `voice` name an engine other than the built-in one (`openai:alloy`). Nothing in an existing project changes: a voice with no engine in its name is still Kokoro's, and nothing was generated before. |
 | 0.24.0 | 0.25.0 | Adds what is needed to bring slides in from a PowerPoint deck and to bring them up to date: `project.sources` (the decks, and how each was laid on the stage), a slide's own import provenance, and in an object's import provenance the deck's slide number (`slideId`), a fingerprint of the shape (`sourceHash`) and the object as it was imported (`base`). Nothing in an existing project changes: nothing was imported before. |
 | 0.23.0 | 0.24.0 | Adds `announce` to a look (an object state): the words a screen reader says when a rule applies the look. Nothing in an existing project changes: no look has one. A look's name now has limits (1 to 40 characters, no space at either end). |

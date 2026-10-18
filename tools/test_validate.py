@@ -1427,6 +1427,49 @@ class CaptureProvenance(unittest.TestCase):
             p.slide1(lambda d: d.__setitem__("provenance", {"stepId": "step-1"}))
             self.assertTrue([f for f in p.run() if f.severity == "error"])
 
+    BASE = {
+        "name": "Step 1: Click the Save button.",
+        "picture": {"src": "assets/images/lesson-step-1.png", "width": 1920, "height": 1080, "take": 1, "shotMs": 950},
+        "objects": {
+            "heading": {"id": "obj-0101", "layer": "layer-base", "fields": {"name": "0123456789abcd", "geometry": "fedcba98765432", "content": "0011223344556a"}},
+            "layer-hint/message": {"id": "obj-0102", "layer": "layer-hint", "fields": {"name": "fedcba98765432"}},
+        },
+    }
+
+    def test_a_slide_can_record_what_the_capture_module_made_for_it(self):
+        with MutatedProject() as p:
+            p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=json.loads(json.dumps(self.BASE)))))
+            self.assertEqual([f for f in p.run() if f.severity == "error" and f.rule == "schema"], [])
+        with MutatedProject() as p:
+            base = json.loads(json.dumps(self.BASE))
+            base["picture"] = None
+            p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=base)))
+            self.assertEqual(rules(p.run(), "schema"), [], "a slide made with no picture has none")
+
+    def test_a_malformed_base_is_an_error(self):
+        broken = {
+            "no name": lambda b: b.pop("name"),
+            "no picture entry": lambda b: b.pop("picture"),
+            "no objects": lambda b: b.pop("objects"),
+            "a part with no fingerprints": lambda b: b["objects"]["heading"].pop("fields"),
+            "a part with an empty set of fingerprints": lambda b: b["objects"]["heading"].__setitem__("fields", {}),
+            "a fingerprint field named in capitals": lambda b: b["objects"]["heading"]["fields"].__setitem__("Name", "abc"),
+            "a fingerprint that is not text": lambda b: b["objects"]["heading"]["fields"].__setitem__("name", 5),
+            "a part with no layer": lambda b: b["objects"]["heading"].pop("layer"),
+            "a part with an empty id": lambda b: b["objects"]["heading"].__setitem__("id", ""),
+            "a part named in capitals": lambda b: b["objects"].__setitem__("Heading", {"id": "x", "layer": "l", "fields": {"name": "h"}}),
+            "a picture outside the assets": lambda b: b["picture"].__setitem__("src", "elsewhere/x.png"),
+            "a picture with no size": lambda b: b["picture"].pop("width"),
+            "a picture of take zero": lambda b: b["picture"].__setitem__("take", 0),
+            "something else in it": lambda b: b.__setitem__("extra", 1),
+        }
+        for what, change in broken.items():
+            with MutatedProject() as p:
+                base = json.loads(json.dumps(self.BASE))
+                change(base)
+                p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=base)))
+                self.assertTrue(rules(p.run(), "schema"), what)
+
     def test_a_slide_does_not_take_deck_provenance(self):
         with MutatedProject() as p:
             p.slide1(lambda d: d.__setitem__("provenance", {"sourceDeck": "d", "slideIndex": 1, "shapeId": "S1", "importedAt": "2026-10-10T00:00:00Z"}))

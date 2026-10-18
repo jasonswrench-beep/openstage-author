@@ -1,6 +1,6 @@
 # ADR 0003: Steps, and the Demo, Practice and Assessment lessons made from them
 
-Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review), Stage 2 (a picture for each step, with the place to point at) and Stage 3 (the Watch lesson: one slide for each step), Stage 4 (Practice), Stage 5 (the Test) and a first Stage 6 (bringing a lesson up to date, without touching slides the author may have worked on) are built.
+Status: Accepted as a plan. Stage 1 (steps from the recording's log, and their review), Stage 2 (a picture for each step, with the place to point at) and Stage 3 (the Watch lesson: one slide for each step), Stage 4 (Practice), Stage 5 (the Test) and Stage 6 (bringing a lesson up to date, field by field, without losing what the author changed; course format 0.27.0) are built.
 Date: 2026-10-16
 Applies to: Capture's Phase 7 (stories E1 to E4), and what it unlocks: audio for step text (D7) and the provenance of generated slides.
 
@@ -100,17 +100,25 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
   the procedure reads in order.
 - **Each lesson is its own capture** in `provenance` (`name.capture`, `name.capture#practice`, `name.capture#test`), because two slides may not claim one step. Recorded in `docs/format-spec.md`; no schema change.
 - **What was typed** can be corrected in the step's own field, apart from the words the learner reads, because it is the answer that Practice and Test accept.
-- **Bringing a lesson up to date** (a first, safe version). Pressing the button again makes only the slides that are missing, each in its own place among the lesson's slides (after the slide of the step before it,
-  or before the first step that has one). It reports, and never changes or deletes: slides for steps that are no longer in the list, and slides whose words differ from their step's now. To remake a slide, the
-  author deletes it and makes the lesson again. Headings such as "Step 3 of 8" are not renumbered when steps are added or moved: the author edits them.
+- **Bringing a lesson up to date** (built in two steps on 2026-10-18; the second needed format 0.27.0, at Jason's request). Pressing the button again makes the slides that are missing, each in its own place among
+  the lesson's slides (after the slide of the step before it, or before the first step that has one), and brings the others up to date. A slide made from a step records what was made in `provenance.base`: its name,
+  the picture's take and moment, and for each part (its role, such as `words` or `layer-hint/message`) the object's id, layer and a fingerprint of each field. Bringing up to date makes the slide again in memory
+  from the new step, with the same ids for the same parts (so rules still name the right objects), and compares each field three ways, as the PowerPoint re-sync does for a deck: the field as it was made (`base`), as it is
+  now, and as it would be made now. A field the step does not change is left alone; one the step changes and the author did not is replaced; one both changed stays the author's and is reported; a part the author
+  deleted stays deleted; a part the author added is never touched; a part the step no longer makes goes only if the author never changed it. A slide for a step that is gone is removed only if it is exactly as made
+  (nothing changed, nothing added), and only after the dialog has said so and been told to go on. The editor does this in `editor/src/stepbase.ts`, called by `Model.planStepLesson` (what would change, in words,
+  without changing anything) and `Model.makeStepSlides` (one undo step).
+- **Why a fingerprint for each field and not for each object.** The first version recorded one fingerprint for a whole object. Then an author who had only written their own description of a picture could not have
+  a new picture, because the object as a whole "had been changed". Comparing field by field lets the new picture come forward and keeps the description. For a narration only its words are compared, so choosing
+  another voice, speed or language is not "changing the words". The editor's own `locked` and `group` and the ids of rules are not part of an object's design here either.
+- **Slides made before 0.27.0** have no `base`, so there is nothing to compare with; they are left as they are and the dialog says which. Delete one and make the lesson again to bring its step in.
+- **Pictures.** A picture is taken again only when the step's take or moment changed. Until the new one is taken and saved, a slide keeps the picture it has.
 - Tried in the real desktop editor with a made-up recording (all three lessons in one course; the saved course through the real validator, which asks only for the unchecked pictures' descriptions), and, in the
   player's own runtime, what a learner can do: wrong tries, the hint, the third try, Show me, the right place and Next step by mouse and by keyboard, typing, and the Test's scoring.
 
 ## Stages still to do
 
-1. **A fuller bringing up to date**, if wanted: rewrite a slide whose step changed while keeping what the author added to it. That needs a record of what was generated (as the PowerPoint re-sync keeps), which the
-   provenance cannot hold today, so it would be a format change.
-2. **A real run:** a real recording's pictures, the lessons in a real LMS and with a screen reader.
+1. **A real run:** a real recording's pictures, the lessons in a real LMS and with a screen reader.
 
 Not decided yet: how many tries before the target is shown in Practice (proposed 3), whether the picture of a step should be the edit's own picture
 (with its zooms) rather than the raw take's, and whether a step's marked target is a rectangle, an arrow or a choice.

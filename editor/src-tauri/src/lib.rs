@@ -2581,9 +2581,9 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.26.0");
+        assert_eq!(report["to"], "0.27.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.26.0\""));
+        assert!(opened.project.contains("\"0.27.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.

@@ -106,10 +106,31 @@ player's own runtime (`Runtime` from `player/src/runtime.ts`, used in `editor/sr
   into `docs/format-spec.md`, no schema change). Steps with nothing to press fall back to the Watch slide, named for the lesson.
 - **`Model.makeStepSlides({ recording, lesson, steps, pictures })`**: makes only the missing slides, each in its step's place among the lesson's slides; reports (never changes) slides for steps that are gone and slides whose words differ
   from their step's now; creates the `practice tries` variable once, inside the same undo step. The dialog has a **Lesson** choice and a field for **What was typed** (the answer Practice and Test accept).
-- A fuller bringing up to date (rewrite a slide whose step changed, keeping the author's additions) would need a record of what was generated, which `provenance` cannot hold: it would be a **format change**; put it to Jason first.
+- A fuller bringing up to date (rewrite a slide whose step changed, keeping the author's additions) needed a record of what was generated, which `provenance` could not hold: a **format change**. Jason asked for it, and it is built: see the last section.
 - Counts now: editor 979 (978 pass, 1 skip), editor Rust 91; the rest as above.
 - **Not tried:** a real recording's pictures; any lesson in a real LMS or with a screen reader; the real browser player (the logic is covered in the runtime; the DOM drawing is the shared renderer's).
 - **Traps found:** in the slide list each slide is `<li><button class="item">`: click the **button**, not the `li`, in a script; a screenshot taken straight after a click can show the previous frame, so wait before it.
 
 **What is left of Phase 7:** a real-world pass (Jason recording clicks with the mouse setting on, then Watch, Practice and Test, in Preview and in an LMS, with a screen reader), and the optional fuller update above. Other open items are unchanged:
 the Whisper trial, the learner accessibility panel, the AI help note, D6 alt-text suggestions.
+
+## Last on 2026-10-18: bringing a lesson up to date, fully (course format 0.27.0)
+
+Jason: "I think a bring up to date would be important." Built, tested and pushed.
+
+- **Format 0.27.0.** A slide made from a step may carry `provenance.base` (the slide's name, the picture's take and moment, and for each part: its id, layer, and a fingerprint of **each field**). Schema, `player/src/types.ts`,
+  `tools/migrate.py` (0.26.0 to 0.27.0; nothing in an existing project changes), `tools/validate.py` (`SUPPORTED_SCHEMA_VERSION`), the editor's `FORMAT_VERSION`, the examples, the template, the Rust test asserts and `docs/format-spec.md` all say 0.27.0.
+- **`editor/src/stepbase.ts`** (new, with `stepbase.test.ts`): `baseOf`, `baseFrom`, `fieldHashes`, `untouched`, `mergeSlide`. The slide is made again in memory from the step with the same ids (`partId`, `existing`,
+  `roles` in `SlideOptions`), then each field of each part is compared three ways (as made, now, would be made now). Taken if only the step changed it; kept (and reported) if the author changed it; deleted parts stay
+  deleted; added parts untouched; removed from the step = removed only if the author never changed it. Narration compares by script only (voice, speed and language stay). `locked`, `group` and rule ids are ignored.
+- **`Model.planStepLesson`** says in words what pressing the button would do without changing anything; **`Model.makeStepSlides`** does it as one undo step (`removeGone` only when told, which the dialog does after a
+  confirm). A picture is taken again only when the step's take or moment changed. The dialog button is now **Make or update the lesson: one slide for each step**.
+- **Per-field, not per-object.** The first design fingerprinted a whole object, which stopped a new picture being used when the author had only written its alt text. Per-field fixed it; an object's name no longer
+  carries "of M", so headings renumber for free.
+- **Also fixed on the way.** `runOneShot` (the recorder's short jobs) had a race: a job that waited for another to finish heard that job's lines and exit as its own, so "Describe what is on the screen" and captions
+  failed with "The video could not be made." It now waits until the recorder reports it is free (`streamState`) and listens only after that; anything heard while a start was being answered is passed on only if the
+  start was accepted. New tests for both. `stepbase.test.ts` was missing from `npm test`; it is in now.
+- Counts: editor 996 (995 pass with `OPENSTAGE_PYTHON=python`, 1 expected skip; without it the 45 "real validator" tests skip), player 279, Python 439, editor Rust 91. Real-editor passes (made-up recording): captions, describe on
+  screen, steps review, pictures, three lessons, and the update (words, picture and place changed, a step deleted, own alt text kept, nothing to do on a second press), all PASS.
+- **Not tried:** a real recording; the update on a course that was taken to an LMS; a screen reader on the confirm and the report text. Slides made before 0.27.0 are left as they are (the dialog says so).
+- **Trap:** `-I` on `python -m unittest` hides the installed `jsonschema`; use plain `python` for the project's own tests.

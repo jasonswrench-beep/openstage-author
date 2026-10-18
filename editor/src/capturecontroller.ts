@@ -13,7 +13,7 @@ import {
 
 export type CaptureBackend = Pick<
   Backend,
-  "streamStart" | "streamSend" | "streamStop" | "streamSetPaused" | "onStreamLine" | "onStreamExit" | "hotkeysSet" | "hotkeysClear" | "onHotkey"
+  "streamStart" | "streamSend" | "streamStop" | "streamSetPaused" | "streamState" | "onStreamLine" | "onStreamExit" | "hotkeysSet" | "hotkeysClear" | "onHotkey"
 >;
 
 const why = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -42,33 +42,58 @@ const isBusy = (err: unknown): boolean => /already in progress/i.test(why(err));
 
 const BUSY_WORDS = "The recorder is busy with something else, such as a recording that is still going or a list it is still making. Wait a moment, or stop the recording, and try again.";
 
-/** Start the recorder, waiting for a short job that is still running to finish. Any other failure is thrown at once. */
-async function startWhenFree(b: CaptureBackend, args: string[], waitMs: number): Promise<void> {
-  const began = Date.now();
-  for (;;) {
-    try {
-      await b.streamStart(args);
-      return;
-    } catch (err) {
-      if (!isBusy(err)) throw err;
-      if (Date.now() - began >= waitMs) throw new Error(BUSY_WORDS);
-      await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
-    }
-  }
-}
-
-/** Run the recorder for one short job and collect what it prints. It never throws: a failure is in `problem`. */
+/**
+ * Run the recorder for one short job and collect what it prints. It never throws: a failure is in `problem`.
+ *
+ * The shell runs one job at a time, and tells the page that a job has ended before it lets the next one begin. So if another short job is still running (the list of windows,
+ * a check), this waits until the recorder says it is free (up to `busyWaitMs`) and only then starts listening: what the job before it printed, and how it ended, are never
+ * taken for this job's. If someone else takes the slot in the moment between, whatever was heard is thrown away and it waits again.
+ */
 export async function runOneShot(b: CaptureBackend, args: string[], onLine?: (line: string) => void, limitMs = ONE_SHOT_LIMIT_MS, busyWaitMs = BUSY_WAIT_MS): Promise<OneShot> {
   const lines: string[] = [];
-  let ended: (exit: StreamExit) => void = () => {};
-  const done = new Promise<StreamExit>((resolve) => { ended = resolve; });
+  let done: Promise<StreamExit> = new Promise<StreamExit>(() => {});
   let offLine: (() => void) | undefined;
   let offExit: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const detach = (): void => {
+    offLine?.();
+    offExit?.();
+    offLine = undefined;
+    offExit = undefined;
+  };
+  const pause = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
   try {
-    offLine = await b.onStreamLine((line) => { lines.push(line); onLine?.(line); });
-    offExit = await b.onStreamExit((exit) => ended(exit));
-    await startWhenFree(b, args, busyWaitMs);
+    const began = Date.now();
+    for (;;) {
+      while ((await b.streamState().catch(() => ({ running: false, paused: false }))).running) {
+        if (Date.now() - began >= busyWaitMs) throw new Error(BUSY_WORDS);
+        await pause();
+      }
+      let ended: (exit: StreamExit) => void = () => {};
+      done = new Promise<StreamExit>((resolve) => { ended = resolve; });
+      lines.length = 0;
+      const heard: string[] = [];
+      let early: StreamExit | null = null;
+      let live = false;
+      offLine = await b.onStreamLine((line) => { if (live) { lines.push(line); onLine?.(line); } else heard.push(line); });
+      offExit = await b.onStreamExit((exit) => { if (live) ended(exit); else early = exit; });
+      try {
+        // What comes while the start is being answered is this job's only if the start works (if it was refused it belongs to whoever holds the slot), so it is kept back
+        // and passed on, in order, once the start has been accepted.
+        await b.streamStart(args);
+        for (const line of heard) { lines.push(line); onLine?.(line); }
+        live = true;
+        if (early !== null) ended(early);
+        break;
+      } catch (err) {
+        live = false;
+        detach();
+        lines.length = 0;
+        if (!isBusy(err)) throw err;
+        if (Date.now() - began >= busyWaitMs) throw new Error(BUSY_WORDS);
+        await pause();
+      }
+    }
     const timeout = new Promise<null>((resolve) => {
       timer = setTimeout(() => {
         void b.streamStop().catch(() => false);
@@ -82,8 +107,7 @@ export async function runOneShot(b: CaptureBackend, args: string[], onLine?: (li
     return { lines, exit: null, problem: why(err) };
   } finally {
     clearTimeout(timer);
-    offLine?.();
-    offExit?.();
+    detach();
   }
 }
 
