@@ -1,8 +1,8 @@
 # OpenStage Capture: Edit Format and Edit Model
 
-**Status:** v0.3 (matches the code in `capture-edit/` and `capture/crates/openstage-capture-project/src/edit.rs`)
+**Status:** v0.4 (matches the code in `capture-edit/` and `capture/crates/openstage-capture-project/src/edit.rs`). The Rust reader, planner and picture drawing for 0.4 were written on 2026-10-17 without a Rust compiler to hand: they have not yet been built or run, and the fixtures `valid-transition`, `transition-on-sound`, `bad-transition` and `transition-no-neighbour` are how both readers are held to the same answers.
 **Format name:** `openstage-capture-edit`
-**Schema version:** `0.3.0` (files at `0.1.x` and `0.2.x` still open and are brought up to date: see section 7)
+**Schema version:** `0.4.0` (files at `0.1.x` to `0.3.x` still open and are brought up to date: see section 7. An edit with no transition is still written as `0.3.0`, so an older reader can open it.)
 
 This is the file that records what the author has done to a recording: which parts of the recording
 are kept, where they sit on a timeline, and how loud they are. It is called an *edit decision list*. The
@@ -47,7 +47,7 @@ indents and a closing new line, so saving the same edit twice gives the same byt
 
 | Field | Meaning |
 |---|---|
-| `format`, `schemaVersion` | A reader refuses a file whose `format` is not this one, and one whose version does not start with `0.1.` or `0.2.`. The message says so in words. |
+| `format`, `schemaVersion` | A reader refuses a file whose `format` is not this one, and one whose version does not start with `0.1.` to `0.4.`. The message says so in words. |
 | `nextId` | The number the next track or clip id is made from (`track-4`, `clip-9`). Ids are never reused. |
 | `sources` | Every file the clips may use, with what it is and how long it is. `ref` is either a file of a recording (`take` and `media`, as listed in that take's `take.json`) or a file from the course's assets (`asset`). `kind` is `screen`, `webcam`, `microphone`, `system-audio`, `image`, `audio` or `video`. `durationMs` is its natural length, or `null` for a still image, which can be shown for any length. `hasTextAlternative` (imported video and sound only) says whether it has captions, a narration script or a transcript. |
 | `tracks` | In the order shown. `kind` is `screen`, `webcam`, `audio` or `media` (imported images, sound and short video), which hold `clips`; or `overlay` or `zoom`, which hold `items` (new in 0.2: see section 3). A clip track takes only some kinds of source: screen takes `screen`; webcam takes `webcam`; audio takes `microphone`, `system-audio` and `audio`; media takes `image`, `video` and `audio`. |
@@ -55,6 +55,7 @@ indents and a closing new line, so saving the same edit twice gives the same byt
 | clip `startMs` | Where on the timeline the clip begins. It ends `sourceEndMs - sourceStartMs` later. A track's clips are in order of start and never overlap. |
 | clip `muted`, `volumeDb`, `fadeInMs`, `fadeOutMs` | Basic sound settings (story C9): off, louder or quieter in whole decibels from -40 to 20 (about 6 decibels is double or half), and fades. The fades together cannot be longer than the clip. |
 | clip `placement` | New in 0.3. Where the picture sits in the finished video: a rectangle on the frame, in the same units as an overlay's (ten-thousandths of the frame's width and height from its top left corner). Optional. Without it a screen, image or video fills the frame and a webcam is a small picture in the bottom right corner (or fills the frame when there is no other picture at that moment). A picture is never stretched: it is made as large as fits the rectangle and centred in it. Only a clip that has a picture can have one: a place on sound is an error (`placement-not-allowed`), and a place that is not a rectangle inside the picture is `bad-rect`. |
+| clip `transitionIn`, `transitionOut` | New in 0.4. How the picture arrives or leaves, optional: `{ "kind", "durationMs" }`. `kind` is `fade`, `cross-fade`, `wipe-right` (left to right), `wipe-down` (top to bottom) or `slide`; only `fade` may be used on `transitionOut`. `durationMs` is a whole number from 100 to 5000, and the two together must fit in the clip. They change the picture only; the sound is not touched (use the fades for that). A clip that holds only sound cannot have one (`transition-not-allowed`). |
 | clip `altText`, `decorative` | For an image: what it shows, or that it is decorative. One of them is required (story C10). |
 
 ### Overlays and zooms (new in 0.2)
@@ -91,6 +92,9 @@ still missing; the author is asked for it, and export refuses to finish until it
 | `fade-too-long` | error | The fades together are longer than the clip. |
 | `volume-range` | error | The volume change is not a whole number from -40 to 20. |
 | `imported-video-too-long` | error | An imported video clip is over 30 seconds (story C10). |
+| `transition-not-allowed` | error | A clip that holds only sound has a transition. |
+| `bad-transition` | error | A transition is not one of the five kinds, is not 100 ms to 5 s long, is a kind other than `fade` on `transitionOut`, or the transitions together are longer than the clip. |
+| `transition-no-neighbour` | warning | A cross-fade, wipe or slide at the start of a clip with no picture ending where it starts: it comes in over black. |
 | `needs-alt-text` | needs-attention | An image has no alt text and is not marked decorative. |
 | `needs-text-alternative` | needs-attention | An imported video or sound has no captions, script or transcript. |
 | `item-wrong-track` | error | An overlay or zoom is on the wrong kind of track. |
@@ -161,6 +165,14 @@ End and State, a caption ("Tracks and clips: 3 clips on 3 tracks, 1 minute long.
 clip. **The described preview** (story C4) says what is on screen and in the sound at a moment, using what
 the rest of the editor knows (the window in front, what the cursor is over, overlays, caption, zoom).
 
+### Transitions (new in 0.4)
+
+**Set a transition** (`setTransition`) sets, changes or takes away a clip's `transitionIn` or `transitionOut`; half a second if no length is given. It refuses sound, a kind that cannot be used on the way out, a length out of range, and lengths that do not fit. When nothing ends where the clip starts it still does the job and adds a warning to the sentence. **Split** gives the starting transition to the first piece and the ending one to the second. **Delete a range** keeps a transition only on the outer edges that remain. **Join** keeps the first clip's starting transition and the second's ending one. **Trim, move and paste** shrink a transition that no longer fits (never below 0.1 seconds) and drop it when its clip becomes a sound-only one.
+
+### Imported pictures, video and sound
+
+**Add an imported file** (`addImportedFile`) is given what the program that can open files found out about a file it has copied into the course (where it is inside the course's `assets` folder, what kind it is, a name, how long it is) and a time. It makes the file one of the edit's sources if it is not already, finds a track with room for it (a picture or video on an Imported media track, a sound on an Audio track; a track is added if none has room) and puts a clip there. A still image is shown for 5 seconds; a video uses at most its first 30 seconds, and the sentence says when it was shortened; a video's own sound is not used in the finished video (add the sound as a sound file). It then says what is still needed: alt text or "decorative" for an image, and captions, a script or a transcript for a video or sound. **Set text for media** (`setHasTextAlternative`) records that an imported video or sound has captions, a script or a transcript. The video maker can use PNG, JPEG and GIF pictures, MP4 video and WAV sound; the editor refuses other files before copying them. No version change: imported files were already part of the format (0.1).
+
 ## 5. Choices that could have gone the other way
 
 Made on the owner's delegation; each can be changed.
@@ -176,6 +188,8 @@ Made on the owner's delegation; each can be changed.
 9. **Positions are fractions of the picture, not pixels**, so an edit does not depend on the video's size. The cost is that a pixel position typed by an author is rounded to the nearest ten-thousandth (about 0.2 of a pixel at 1080p).
 10. **Overlays may overlap in time; zooms may not**, and no more than 3 zooms may start within one second. This is a safe-motion limit chosen to match the requirement that animations never flash more than three times a second. Zooms are also not allowed to be shorter than their own moves.
 11. **Contrast is checked against the overlay's own background only**, and the thresholds for large and very small text assume a picture 1080 pixels high.
+13. **A transition changes the picture only**, and the sound is left as it is (the owner's choice, 2026-10-17). It is added per cut, with a button on the clip, not as a default for every cut. There are five: fade, cross-fade, wipe left to right, wipe top to bottom and slide. A fade is from or to black.
+14. **A preview shows a transition only between two different recordings.** Two parts of one recording touching each other would need one video to show two places at once, so the preview shows a cut there; the finished video draws it. The preview holds the last picture of the clip before still while the next one arrives. With reduced motion every transition is a cut.
 12. **Blur and redaction need no alt text**; shapes and arrows do (or must be marked decorative). A text overlay's own text serves as its text equivalent.
 
 ## 5b. What the renderer does with it
@@ -189,6 +203,8 @@ The renderer (`capture/crates/openstage-capture-render` plans and draws; `captur
 3. **The webcam** (a clip on a `webcam` track): in the bottom right corner at about 22 percent of the frame's width by default, or where its `placement` says; not zoomed; above shapes and arrows. When no other picture is showing at that moment, a webcam with no `placement` fills the frame.
 4. **Text**, above everything and **not zoomed**, so titles and labels stay the same size and in the same place while the picture moves. The text is drawn by Windows' own text drawing, so it has the fonts and language rules of the computer. It is laid out in its box with a little room round it (a third of a line's height), broken into lines at spaces, and cut off where it does not fit; the export then says that the text overlay does not fit its box, because words that are cut off cannot be read.
 
+**Transitions (0.4):** a picture that arrives with a cross-fade, wipe or slide is drawn over the last picture of the clip before it (taken 0.04 seconds before that clip ends, held still); a fade is from or to black. Each moves along a smooth curve over its length: a wipe uncovers the picture from the left or the top, and a slide brings it in from the right while the old picture is pushed off to the left. With **reduced motion** every transition is a cut. A transition is drawn inside the picture's own box, and the sound is not touched.
+
 A zoom moves in over `transitionMs` along a smooth curve (slow at the start and end), holds, and moves out the same way; when the author asks for **reduced motion**, it cuts straight to the part and straight back with no movement. A zoom rectangle that is not the shape of the frame stretches the picture (the `zoom-aspect` warning says so). The video is the size of the first picture on the screen track unless another size is asked for.
 
 Drawing uses only whole numbers and the arithmetic every computer does the same way, so a frame drawn twice from the same pictures is the same bytes.
@@ -201,4 +217,4 @@ Cursor effects (C6, which come from the recorded events at render time), suggest
 
 ## 7. Versions
 
-`0.1.0` was the first version. `0.2.0` adds the `overlay` and `zoom` track kinds and their `items` (a track now always has an `items` list, empty for clip tracks). The migration from `0.1` is to give every track an empty `items` list, which the reader does when it opens an old file; saving then writes `0.2.0`. A reader refuses any other version with a plain message. `0.3.0` adds an optional `placement` to a clip (where its picture sits in the finished video). A file without one is drawn as before, so the migration from `0.1` or `0.2` is to change nothing but the version, which the reader does when it opens an old file; saving then writes `0.3.0`. Any change to the format bumps the version and ships a migration.
+`0.1.0` was the first version. `0.2.0` adds the `overlay` and `zoom` track kinds and their `items` (a track now always has an `items` list, empty for clip tracks). The migration from `0.1` is to give every track an empty `items` list, which the reader does when it opens an old file; saving then writes `0.2.0`. A reader refuses any other version with a plain message. `0.4.0` adds optional `transitionIn` and `transitionOut` to a clip. A file without them is drawn as before, so the migration from any older version changes nothing but the version, which the reader does on opening; saving writes the lowest version that can hold what the edit uses (`0.4.0` only when a clip has a transition, otherwise `0.3.0`). `0.3.0` adds an optional `placement` to a clip (where its picture sits in the finished video). A file without one is drawn as before, so the migration from `0.1` or `0.2` is to change nothing but the version, which the reader does when it opens an old file; saving then writes `0.3.0`. Any change to the format bumps the version and ships a migration.

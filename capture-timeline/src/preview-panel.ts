@@ -31,6 +31,7 @@ import {
 } from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { h, nextId } from "./dom.ts";
+import { attachPictureEditing, type PictureEditing } from "./picture-edit.ts";
 import type { MediaLibrary } from "./project.ts";
 import type { EditSession, Outcome } from "./session.ts";
 
@@ -38,6 +39,8 @@ export interface PreviewOptions {
   /** Where messages are said. Without it the panel makes its own line at the top. */
   announcer?: Announcer;
   title?: string;
+  /** Called when drawing on the picture added something (a zoom), so its form can be shown. */
+  onAdded?: () => void;
 }
 
 export interface PreviewPanel {
@@ -47,6 +50,10 @@ export interface PreviewPanel {
   toggle(): Outcome;
   /** Put keyboard focus on the Play button. */
   focus(): void;
+  /** Start or stop drawing a zoom with the pointer. */
+  toggleDrawZoom(): { ok: boolean; message: string; drawing: boolean };
+  /** Be told when drawing a zoom starts or stops. */
+  onDrawingChange(listener: (drawing: boolean) => void): void;
   /** Use another set of recordings (after opening a recording). */
   setLibrary(library: MediaLibrary): void;
   destroy(): void;
@@ -58,8 +65,10 @@ const DRIFT_S = 0.3;
 interface Slot {
   readonly key: string;
   readonly ref: SourceRef;
-  readonly kind: "video" | "audio";
+  readonly kind: "video" | "audio" | "image";
   el: HTMLVideoElement | HTMLAudioElement | undefined;
+  /** A still picture (an imported image) is shown with an image, which has no time to keep. */
+  img: HTMLImageElement | undefined;
   /** `loading` until the library has answered; `missing` if it has nothing for this recording. */
   state: "loading" | "ready" | "missing";
   gain: GainNode | undefined;
@@ -96,7 +105,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
   const describeButton = h("button", { type: "button", class: "os-cl-button", "aria-keyshortcuts": "D" }, "Describe what is showing", h("kbd", { class: "os-cl-key", "aria-hidden": "true" }, "D"));
   const reduce = h("input", { id: `${id}-reduce`, type: "checkbox" });
   reduce.checked = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const reduceLabel = h("label", { class: "os-cl-check", for: `${id}-reduce` }, reduce, " Cut zooms instead of moving (reduced motion)");
+  const reduceLabel = h("label", { class: "os-cl-check", for: `${id}-reduce` }, reduce, " Cut zooms (reduced motion)");
   const readout = h("p", { class: "os-cl-readout" });
   // The sound has no picture. Its players are kept here, out of sight and out of the way of a screen reader.
   const soundHost = h("div", { hidden: true, "aria-hidden": "true" });
@@ -112,22 +121,36 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
   );
   container.append(root);
 
+  const editing: PictureEditing = attachPictureEditing({
+    figure: root.querySelector<HTMLElement>(".os-pv-figure") ?? root,
+    stage,
+    session,
+    announcer,
+    leave: () => playButton.focus(),
+    onAdded: () => options.onAdded?.(),
+  });
+
   // ---- the recordings ----
 
   const slots = new Map<string, Slot>();
   let audio: AudioContext | undefined;
 
-  function slotFor(ref: SourceRef, kind: "video" | "audio"): Slot {
+  function slotFor(ref: SourceRef, kind: "video" | "audio" | "image"): Slot {
     const key = keyOf(ref);
     let slot = slots.get(key);
     if (slot !== undefined) return slot;
-    slot = { key, ref, kind, el: undefined, state: "loading", gain: undefined };
+    slot = { key, ref, kind, el: undefined, img: undefined, state: "loading", gain: undefined };
     slots.set(key, slot);
     const made = slot;
     void library.url(ref).then((url) => {
       if (slots.get(key) !== made) return; // the library was changed meanwhile
       if (url === undefined) {
         made.state = "missing";
+      } else if (kind === "image") {
+        const img = h("img", { class: "os-pv-media", alt: "", draggable: "false" });
+        img.src = url;
+        made.img = img;
+        made.state = "ready";
       } else {
         const el = kind === "video" ? h("video", { class: "os-pv-media", playsinline: true, preload: "auto" }) : h("audio", { preload: "auto" });
         if (el instanceof HTMLVideoElement) el.muted = true; // the exporter does not use a screen recording's own sound
@@ -164,6 +187,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       slot.el?.pause();
       slot.el?.removeAttribute("src");
       slot.el?.load();
+      slot.img?.removeAttribute("src");
     }
     slots.clear();
   }
@@ -201,10 +225,40 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       box.classList.remove("os-pv-corner");
       place(box, clip.placement ?? { x: 0, y: 0, width: FULL, height: FULL });
     }
-    const slot = slotFor(clip.source, "video");
-    const wanted = slot.el ?? placeholder(clip, slot);
+    const slot = slotFor(clip.source, clip.kind === "image" ? "image" : "video");
+    const wanted = slot.img ?? slot.el ?? placeholder(clip, slot);
     if (box.firstChild !== wanted) box.replaceChildren(wanted);
+    applyTransition(box, clip);
     return box;
+  }
+
+  /** Draw a transition on a picture box: how much of it shows, by fading, wiping or sliding. With none, put it back to normal. */
+  function applyTransition(box: HTMLElement, clip: PlayingClip): void {
+    const t = clip.transition;
+    let opacity = "";
+    let clipPath = "";
+    let transform = "";
+    if (t !== undefined) {
+      const visible = t.phase === "out" ? 1 - t.progress : t.progress;
+      const pct = (1 - visible) * 100;
+      if (t.phase === "under") {
+        if (t.kind === "slide") transform = `translateX(${-t.progress * 100}%)`;
+      } else if (t.kind === "fade" || t.kind === "cross-fade") {
+        opacity = String(visible);
+      } else if (t.kind === "wipe-right") {
+        clipPath = `inset(0 ${pct}% 0 0)`;
+      } else if (t.kind === "wipe-down") {
+        clipPath = `inset(0 0 ${pct}% 0)`;
+      } else {
+        transform = `translateX(${pct}%)`;
+      }
+      box.dataset["transition"] = `${t.kind} ${t.phase}`;
+    } else {
+      delete box.dataset["transition"];
+    }
+    box.style.opacity = opacity;
+    box.style.clipPath = clipPath;
+    box.style.transform = transform;
   }
 
   function overlayElement(item: Item): HTMLElement | undefined {
@@ -279,6 +333,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
 
   function showZoom(moment: Moment): void {
     const r = moment.zoom.rect;
+    editing.setZoom(r);
     if (r.width >= FULL && r.height >= FULL) {
       pictureLayer.style.transform = "";
       return;
@@ -336,6 +391,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     arrange(fixedLayer, corner);
     showOverlays(moment);
     showZoom(moment);
+    editing.update();
     const total = session.lengthMs;
     timeText.textContent = `${formatTimecode(moment.timeMs)} of ${formatTimecode(total)}`;
     const label = `Preview of the edit at ${describeTime(moment.timeMs)}. Use the Describe button for what is showing.`;
@@ -347,9 +403,9 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     // The recordings.
     const active = new Set<string>();
     for (const clip of moment.pictures) {
-      const slot = slotFor(clip.source, "video");
+      const slot = slotFor(clip.source, clip.kind === "image" ? "image" : "video");
       active.add(slot.key);
-      keep(slot, clip.sourceMs, playing);
+      keep(slot, clip.sourceMs, playing && clip.held !== true);
     }
     for (const clip of moment.sounds) {
       const slot = slotFor(clip.source, "audio");
@@ -441,6 +497,8 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       } else show(session.playheadMs);
     } else if (kind === "model" && !playing) {
       show(session.playheadMs);
+    } else if (kind === "selection" || kind === "model") {
+      editing.update();
     }
   });
 
@@ -453,6 +511,8 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       return playing;
     },
     toggle,
+    toggleDrawZoom: () => editing.toggleDrawZoom(),
+    onDrawingChange: (fn) => editing.onDrawingChange(fn),
     focus: () => playButton.focus(),
     setLibrary(next) {
       if (playing) stopPlaying();
@@ -464,6 +524,7 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
     },
     destroy(): void {
       stop();
+      editing.destroy();
       if (playing) stopPlaying();
       discard();
       session.setTransport(undefined);

@@ -17,13 +17,29 @@
 
 import {
   ALLOWED_ITEMS,
+  DEFAULT_TRANSITION_MS,
+  TRANSITION_KINDS,
+  TRANSITION_NAMES,
+  hasNeighbour,
+  setTransition,
+  type Clip,
+  type Transition,
+  type TransitionKind,
   ALLOWED_SOURCES,
   MAX_VOLUME_DB,
   MIN_VOLUME_DB,
+  addCallout,
+  addImportedFile,
+  setHasTextAlternative,
+  setImageText,
+  type ImportedFile,
   addTrack,
+  addZoomRegion,
+  copyRows,
   deleteClip,
   deleteItem,
   describeAt,
+  describeCopied,
   describeChange,
   describeLength,
   describeRows,
@@ -41,12 +57,23 @@ import {
   moveItem,
   moveItemToTrack,
   parseTime,
+  pastedEndMs,
+  pasteCopied,
   renameClip,
   renameItem,
   reorderClip,
   setClipLength,
+  setArrowEnds,
+  setArrowStyle,
   setClipStart,
+  setCoverColor,
   setFades,
+  setItemAltText,
+  setItemRect,
+  setShapeStyle,
+  setText,
+  setTextStyle,
+  setZoom,
   setMuted,
   setVolume,
   splitAt,
@@ -55,7 +82,16 @@ import {
   trimItemEnd,
   trimItemStart,
   trimStart,
+  type ArrowStyle,
+  type CalloutKind,
+  type Copied,
+  type Item,
   type Model,
+  type Point,
+  type Rect,
+  type ShapeStyle,
+  type TextStyle,
+  type ZoomSettings,
   type Range,
   type Result,
   type Row,
@@ -78,9 +114,9 @@ export interface Moved extends Outcome {
 /**
  * What changed, so a screen only redraws what it must. `drag` is the edit changing under a drag in progress: a
  * screen that is not showing the drag leaves it until the drag ends and `model` follows. `saved` is the edit being
- * marked as saved. `transport` is playing starting or stopping.
+ * marked as saved. `transport` is playing starting or stopping. `clipboard` is something being copied, so a Paste button can show it can be used.
  */
-export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport";
+export type ChangeKind = "model" | "selection" | "playhead" | "drag" | "saved" | "transport" | "clipboard";
 
 export type Where = "previous" | "next" | "first" | "last";
 
@@ -108,6 +144,17 @@ export interface Details {
   readonly volumeDb: number;
   readonly fadeInMs: number;
   readonly fadeOutMs: number;
+  /** A clip with a picture can have transitions; a sound cannot. */
+  readonly hasPicture: boolean;
+  /** An image: it needs alt text, or to be marked decorative. */
+  readonly isImage: boolean;
+  readonly altText: string;
+  readonly decorative: boolean;
+  /** An imported video or sound: it needs captions, a script or a transcript. */
+  readonly isImportedMedia: boolean;
+  readonly hasTextAlternative: boolean;
+  readonly transitionIn?: Transition;
+  readonly transitionOut?: Transition;
 }
 
 /** A track the primary row could be moved to, or is on now. */
@@ -185,6 +232,8 @@ export class EditSession {
   #drag: OpenDrag | undefined;
   #transport: Transport | undefined;
   #playing = false;
+  /** What was copied: kept inside the session, not on the computer's clipboard, so it is only ever this edit's own rows. */
+  #clipboard: readonly Copied[] = [];
 
   constructor(model: Model, limit?: number) {
     this.#history = new History(model, limit);
@@ -256,6 +305,7 @@ export class EditSession {
     const row = this.selectedRow;
     if (row === undefined) return undefined;
     const found = findClip(this.#history.model, row.clipId);
+    const sourceKind = found === undefined ? undefined : findSource(this.#history.model, found.clip.source)?.kind;
     return {
       id: row.clipId,
       name: row.name,
@@ -270,6 +320,14 @@ export class EditSession {
       volumeDb: found?.clip.volumeDb ?? 0,
       fadeInMs: found?.clip.fadeInMs ?? 0,
       fadeOutMs: found?.clip.fadeOutMs ?? 0,
+      isImage: sourceKind === "image",
+      altText: found?.clip.altText ?? "",
+      decorative: found?.clip.decorative === true,
+      isImportedMedia: found !== undefined && found.clip.source.kind === "asset" && (sourceKind === "video" || sourceKind === "audio"),
+      hasTextAlternative: found === undefined ? false : findSource(this.#history.model, found.clip.source)?.hasTextAlternative === true,
+      hasPicture: found !== undefined && !["microphone", "system-audio", "audio"].includes(findSource(this.#history.model, found.clip.source)?.kind ?? "audio"),
+      ...(found?.clip.transitionIn === undefined ? {} : { transitionIn: found.clip.transitionIn }),
+      ...(found?.clip.transitionOut === undefined ? {} : { transitionOut: found.clip.transitionOut }),
     };
   }
 
@@ -433,6 +491,37 @@ export class EditSession {
     const from = Math.max(0, rows.findIndex((r) => r.clipId === (this.#anchorId ?? this.#primaryId)));
     const [low, high] = from <= to ? [from, to] : [to, from];
     const next = new Set(rows.slice(low, high + 1).map((r) => r.clipId));
+    const changed = this.#primaryId !== id || next.size !== this.#chosen.size || [...next].some((x) => !this.#chosen.has(x));
+    this.#chosen = next;
+    this.#primaryId = id;
+    if (changed) this.#emit("selection");
+    return { ok: true, message: this.#choiceSentence(), changed };
+  }
+
+  /**
+   * Choose a block of the timeline: every clip on the tracks from the one where the choice started to this one (in the order the
+   * tracks are shown) that is showing at some time between the two clips. Shift and click on a clip in another track chooses what
+   * is showing across all the tracks in between at that time, which is what cutting one moment out of a recording needs.
+   */
+  selectBlock(id: string): Moved {
+    this.#settle();
+    const rows = this.rows;
+    const target = rows.find((r) => r.clipId === id);
+    if (target === undefined) return { ok: false, message: `There is no row with the id ${id}.`, changed: false };
+    const start = rows.find((r) => r.clipId === (this.#anchorId ?? this.#primaryId)) ?? target;
+    const order = this.model.tracks.map((t) => t.id);
+    const a = order.indexOf(start.trackId);
+    const b = order.indexOf(target.trackId);
+    const [lowTrack, highTrack] = a <= b ? [a, b] : [b, a];
+    const from = Math.min(start.startMs, target.startMs);
+    const to = Math.max(start.endMs, target.endMs);
+    const next = new Set<string>([start.clipId, target.clipId]);
+    for (const r of rows) {
+      const t = order.indexOf(r.trackId);
+      if (t < lowTrack || t > highTrack) continue;
+      const showing = r.lengthMs === 0 ? r.startMs >= from && r.startMs <= to : r.startMs < to && r.endMs > from;
+      if (showing) next.add(r.clipId);
+    }
     const changed = this.#primaryId !== id || next.size !== this.#chosen.size || [...next].some((x) => !this.#chosen.has(x));
     this.#chosen = next;
     this.#primaryId = id;
@@ -741,6 +830,205 @@ export class EditSession {
     return this.#run((m) => joinWithNext(m, row.clipId));
   }
 
+  /** Copy the chosen rows (clips, overlays, zooms). Nothing in the edit changes. */
+  copySelected(): Outcome {
+    this.#settle();
+    const ids = this.selectedRows.map((r) => r.clipId);
+    if (ids.length === 0) return no(NOTHING_SELECTED);
+    const copied = copyRows(this.#history.model, ids);
+    if (copied.length === 0) return no("Nothing that can be copied is chosen.");
+    this.#clipboard = copied;
+    this.#emit("clipboard");
+    return ok(`${describeCopied(copied)} Move the playhead and paste to put ${copied.length === 1 ? "it" : "them"} there.`);
+  }
+
+  /** Is there anything copied to paste? */
+  get canPaste(): boolean {
+    return this.#clipboard.length > 0;
+  }
+
+  /**
+   * Paste what was copied so that it begins at the playhead. The pasted rows become the choice, and the playhead moves to
+   * where they end, so pasting again lays another copy right after.
+   */
+  paste(): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    if (this.#clipboard.length === 0) return no("Nothing has been copied yet. Choose a clip, copy it, then paste.");
+    const at = this.#playheadMs;
+    const before = this.#history.model;
+    const index = this.rows.findIndex((r) => r.clipId === this.#primaryId);
+    const copied = this.#clipboard;
+    const result = this.#history.run((m) => pasteCopied(m, copied, at));
+    if (!result.ok) return no(result.message);
+    if (this.#history.model === before) return ok(result.message);
+    const ids = result.focus ?? [];
+    const first = ids[0];
+    if (first !== undefined) {
+      // The choice moves to the pasted rows before the screens redraw, so focus goes to them and not to the old row.
+      this.#chosen = new Set(ids);
+      this.#primaryId = first;
+      this.#anchorId = first;
+    }
+    const extra = this.#afterChange(index);
+    const end = pastedEndMs(copied, at);
+    this.#movePlayhead(Math.min(end, this.lengthMs));
+    return ok(`${result.message} The playhead is now at ${describeTime(this.#playheadMs)}, where the pasted ${ids.length === 1 ? "row ends" : "rows end"}.${extra}`);
+  }
+
+  // ---- callouts, zooms and the look of an overlay ----
+
+  /** The overlay or zoom the form shows (the primary row), or undefined when a clip or nothing is chosen. */
+  get item(): Item | undefined {
+    const id = this.#primaryId;
+    return id === undefined ? undefined : findItem(this.#history.model, id)?.item;
+  }
+
+  /** Add a row made by `make`, and choose it, so the screens move focus to it. */
+  #addRow(make: (model: Model) => Result): Outcome {
+    this.#settle();
+    if (this.#drag !== undefined) return no(DRAG_IN_PROGRESS);
+    const before = this.#history.model;
+    const index = this.rows.findIndex((r) => r.clipId === this.#primaryId);
+    const result = this.#history.run(make);
+    if (!result.ok) return no(result.message);
+    if (this.#history.model === before) return ok(result.message);
+    const first = result.focus?.find((id) => findItem(this.#history.model, id) !== undefined || findClip(this.#history.model, id) !== undefined);
+    if (first !== undefined) {
+      this.#chosen = new Set([first]);
+      this.#primaryId = first;
+      this.#anchorId = first;
+    }
+    return ok(result.message + this.#afterChange(index));
+  }
+
+  /** Put a ready-made callout in at the playhead and choose it. */
+  addCalloutHere(kind: CalloutKind): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addCallout(m, kind, at));
+  }
+
+  /** Put a picture, video or sound from the course's files in at the playhead, and choose it. */
+  addMediaFile(file: ImportedFile): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addImportedFile(m, file, at));
+  }
+
+  /** The chosen image clip, or a sentence saying why not. */
+  #oneImage(): { clipId: string } | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only an image has alt text.");
+    if (findSource(this.#history.model, found.clip.source)?.kind !== "image") return no(`${quote(row.name)} is not an image, so it has no alt text.`);
+    return { clipId: row.clipId };
+  }
+
+  /** What the chosen image shows, in words. */
+  setImageAlt(text: string): Outcome {
+    const c = this.#oneImage();
+    if ("ok" in c) return c;
+    return this.#run((m) => setImageText(m, c.clipId, { altText: text }));
+  }
+
+  /** Mark the chosen image as decorative, or not. */
+  setImageDecorative(decorative: boolean): Outcome {
+    const c = this.#oneImage();
+    if ("ok" in c) return c;
+    return this.#run((m) => setImageText(m, c.clipId, { decorative }));
+  }
+
+  /** Say whether the imported video or sound the chosen clip uses has captions, a script or a transcript. */
+  setMediaHasText(has: boolean): Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only an imported video or sound has captions or a transcript.");
+    return this.#run((m) => setHasTextAlternative(m, found.clip.source, has));
+  }
+
+  /** Put a zoom in at the playhead, showing a rectangle of the picture, and choose it. */
+  addZoomHere(rect: Rect): Outcome {
+    const at = this.#playheadMs;
+    return this.#addRow((m) => addZoomRegion(m, rect, at));
+  }
+
+  /** The chosen overlay or zoom, or a sentence saying that it is not one. */
+  #oneItem(): Item | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const item = findItem(this.#history.model, row.clipId)?.item;
+    if (item === undefined) return this.#notAnItem(row);
+    return item;
+  }
+
+  #notAnItem(row: Row): Outcome {
+    return no(`${quote(row.name)} is a clip, not an overlay or zoom. This is for the things drawn on the picture.`);
+  }
+
+  /** Move or resize the chosen overlay or zoom: where on the picture it shows. */
+  setItemPlace(rect: Rect): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setItemRect(m, item.id, rect));
+  }
+
+  /** Change the ends of the chosen arrow. */
+  setArrowPlace(from: Point, to: Point): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setArrowEnds(m, item.id, from, to));
+  }
+
+  /** Change the words of the chosen text overlay. */
+  setItemWords(text: string): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setText(m, item.id, text));
+  }
+
+  /** Change the look of the chosen text overlay. */
+  setItemTextLook(style: TextStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setTextStyle(m, item.id, style));
+  }
+
+  /** Change the look of the chosen shape. */
+  setItemShapeLook(style: ShapeStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setShapeStyle(m, item.id, style));
+  }
+
+  /** Change the look of the chosen arrow. */
+  setItemArrowLook(style: ArrowStyle): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setArrowStyle(m, item.id, style));
+  }
+
+  /** Change the colour of the chosen cover. */
+  setItemCoverColor(color: string): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setCoverColor(m, item.id, color));
+  }
+
+  /** Change the description or the move time of the chosen zoom. */
+  setItemZoom(settings: ZoomSettings): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setZoom(m, item.id, settings));
+  }
+
+  /** Say what the chosen shape or arrow points out, or that it is only decoration. */
+  setItemAlt(text: { altText?: string; decorative?: boolean }): Outcome {
+    const item = this.#oneItem();
+    if ("ok" in item) return item;
+    return this.#run((m) => setItemAltText(m, item.id, text));
+  }
+
   /** Move the chosen clip one place earlier or later in the order of its track. */
   moveSelected(direction: "earlier" | "later"): Outcome {
     const row = this.#one();
@@ -861,6 +1149,50 @@ export class EditSession {
     if (!parsed.ok) return no(parsed.message);
     const { fadeInMs, fadeOutMs } = found.clip;
     return this.#run((m) => setFades(m, row.clipId, which === "in" ? parsed.ms : fadeInMs, which === "out" ? parsed.ms : fadeOutMs));
+  }
+
+  // ---- transitions ----
+
+  /** The chosen clip, for a transition command, or a sentence saying why not. */
+  #transitionClip(): { clipId: string; clip: Clip } | Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only clips have transitions.");
+    return { clipId: row.clipId, clip: found.clip };
+  }
+
+  /** The button on a cut: give the chosen clip a transition where it arrives (a cross-fade if a picture comes before it, otherwise a fade). */
+  addTransitionHere(): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    if (c.clip.transitionIn !== undefined) {
+      return no(`${quote(c.clip.name)} already arrives with a ${TRANSITION_NAMES[c.clip.transitionIn.kind].toLowerCase()}. Change or remove it with the Arrives with box in the form.`);
+    }
+    const kind: TransitionKind = hasNeighbour(this.#history.model, c.clipId) ? "cross-fade" : "fade";
+    return this.#run((m) => setTransition(m, c.clipId, "in", kind));
+  }
+
+  /** Choose how the chosen clip arrives or leaves: a transition's name, or "none" to take it away. */
+  setTransitionKind(which: "in" | "out", value: string): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    if (value === "none") return this.#run((m) => setTransition(m, c.clipId, which, null));
+    const kind = TRANSITION_KINDS.find((k) => k === value);
+    if (kind === undefined) return no("That is not one of the transitions.");
+    const had = which === "in" ? c.clip.transitionIn : c.clip.transitionOut;
+    return this.#run((m) => setTransition(m, c.clipId, which, kind, had?.durationMs ?? DEFAULT_TRANSITION_MS));
+  }
+
+  /** Set how long a transition lasts, from what the author typed (seconds, like the fades). */
+  setTransitionLengthText(which: "in" | "out", text: string): Outcome {
+    const c = this.#transitionClip();
+    if ("ok" in c) return c;
+    const had = which === "in" ? c.clip.transitionIn : c.clip.transitionOut;
+    if (had === undefined) return no(`Choose a transition for when ${quote(c.clip.name)} ${which === "in" ? "arrives" : "leaves"} first, then set how long it lasts.`);
+    const parsed = parseTime(text);
+    if (!parsed.ok) return no(parsed.message);
+    return this.#run((m) => setTransition(m, c.clipId, which, had.kind, parsed.ms));
   }
 
   // ---- drags ----

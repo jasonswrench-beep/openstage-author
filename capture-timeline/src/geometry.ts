@@ -30,6 +30,26 @@ export function zoomed(scale: number, fit: number, direction: "in" | "out"): num
   return Math.min(most, Math.max(fit, next));
 }
 
+/** The most zoomed in the timeline can be when the whole edit fits at `fit`. */
+export function mostScale(fit: number): number {
+  return Math.max(MAX_PX_PER_MS, fit);
+}
+
+/** Where a scale is on the zoom slider, 0 (the whole edit) to 100 (as far in as it goes). Each step is the same factor, so it feels even. */
+export function sliderOf(scale: number, fit: number): number {
+  const most = mostScale(fit);
+  if (most <= fit * 1.0001) return 0;
+  const at = (100 * Math.log(scale / fit)) / Math.log(most / fit);
+  return Math.min(100, Math.max(0, Math.round(at * 10) / 10));
+}
+
+/** The scale for a place on the zoom slider. */
+export function scaleAtSlider(position: number, fit: number): number {
+  const most = mostScale(fit);
+  const p = Math.min(100, Math.max(0, position));
+  return p === 0 ? fit : p === 100 ? most : fit * Math.pow(most / fit, p / 100);
+}
+
 /** How much time fits across a width at a scale. */
 export function visibleSpanMs(widthPx: number, scale: number): number {
   return Math.round(widthPx / scale);

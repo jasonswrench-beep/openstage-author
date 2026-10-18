@@ -23,9 +23,11 @@
 import {
   describeLength,
   describeTime,
+  findSource,
   formatTimecode,
   limitsOf,
   trackKindName,
+  type Clip,
   type Limits,
   type Row,
   type StepKey,
@@ -33,9 +35,11 @@ import {
 } from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { COMMANDS, commandFor, isTextField } from "./commands.ts";
-import { h, nextId } from "./dom.ts";
-import { contentMs, fitScale, msAtX, navigate, tickStepMs, ticksBetween, tidy, visibleSpanMs, zoomed, type Direction } from "./geometry.ts";
+import { h, icon, nextId } from "./dom.ts";
+import { contentMs, fitScale, mostScale, msAtX, navigate, scaleAtSlider, sliderOf, tickStepMs, ticksBetween, tidy, visibleSpanMs, zoomed, type Direction } from "./geometry.ts";
+import type { MediaLibrary } from "./project.ts";
 import type { DragKind, EditSession, Outcome } from "./session.ts";
+import { createThumbnails, momentFor, TILE_PX } from "./thumbnails.ts";
 
 export interface TimelineOptions {
   /** Where messages are said. Without it the panel makes its own line at the top. */
@@ -46,6 +50,8 @@ export interface TimelineOptions {
   title?: string;
   /** Called when the author asks to edit the chosen clip's details (Enter or F2). */
   onEdit?: () => void;
+  /** The recordings, so the clips of pictures can show small pictures along them. Without it the clips show only their names. */
+  library?: MediaLibrary;
 }
 
 export interface TimelinePanel {
@@ -120,23 +126,152 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
 
   const timeInput = h("input", { id: `${id}-time`, type: "text", class: "os-cl-input", autocomplete: "off", spellcheck: "false", "aria-describedby": `${id}-time-hint` });
   const error = h("p", { class: "os-cl-error", id: `${id}-error` });
-  const kindSelect = h("select", { id: `${id}-kind`, class: "os-cl-input" }, ...TRACK_KINDS.map((k) => h("option", { value: k }, trackKindName(k))));
   const readout = h("p", { class: "os-cl-readout" });
 
-  const button = (label: string, action: () => void, extra: string = ""): HTMLButtonElement => {
-    const b = h("button", { type: "button", class: "os-cl-button" }, label, extra === "" ? "" : h("kbd", { class: "os-cl-key", "aria-hidden": "true" }, extra));
-    b.addEventListener("click", action);
+
+  // ---- the tool bar: the things done most, one press each. They are the same commands as the keys and the clip list. ----
+
+  const commandOf = (commandId: string) => COMMANDS.find((c) => c.id === commandId);
+  const toolButtons = new Map<string, HTMLButtonElement>();
+  const tool = (commandId: string, label: string, drawing: SVGSVGElement): HTMLButtonElement => {
+    const command = commandOf(commandId);
+    const b = h(
+      "button",
+      { type: "button", class: "os-tl-tool", tabindex: -1, "data-command": commandId, title: `${command?.label ?? label} (${command?.key ?? ""})`, "aria-keyshortcuts": command?.aria },
+      drawing,
+      h("span", { class: "os-tl-tool-label" }, label),
+    );
+    b.addEventListener("click", () => {
+      if (command !== undefined) run(command.run(session), command.readout === true);
+    });
+    toolButtons.set(commandId, b);
     return b;
   };
-  const zoomInButton = button("Zoom in", () => zoomBy("in"), "+");
-  const zoomOutButton = button("Zoom out", () => zoomBy("out"), "-");
-  const fitButton = button("Show the whole edit", () => zoomFit(), "0");
-  const describeButton = button("Describe what is at the playhead", () => run(session.describePlayhead(), true), "D");
-  const addTrackButton = button("Add track", () => run(session.addTrack(kindSelect.value as TrackKind)));
+  const separator = (): HTMLElement => h("span", { class: "os-tl-sep", "aria-hidden": "true" });
+  const toolbar = h(
+    "div",
+    { class: "os-tl-tools", role: "toolbar", "aria-label": "Editing tools", "aria-orientation": "horizontal" },
+    tool("undo", "Undo", icon("M9 14 4 9l5-5", "M4 9h10.5a5.5 5.5 0 0 1 0 11H11")),
+    tool("redo", "Redo", icon("M15 14l5-5-5-5", "M20 9H9.5a5.5 5.5 0 0 0 0 11H13")),
+    separator(),
+    tool("copy", "Copy", icon("M9 9h11v11H9z", "M5 15H4V4h11v1")),
+    tool("paste", "Paste", icon("M9 4h6v3H9z", "M9 5.5H5V21h14v-3", "M12 12h8m-3-3 3 3-3 3")),
+    separator(),
+    tool("split", "Split", icon("M12 2v20", "M4 7h16v10H4z")),
+    tool("delete-gap", "Delete", icon("M4 7h16", "M9 7V4h6v3", "M6 7l1 13h10l1-13", "M10 11v6", "M14 11v6")),
+    tool("delete-close", "Delete, close gap", icon("M3 12h6", "M21 12h-6", "M6 9l3 3-3 3", "M18 9l-3 3 3 3")),
+    separator(),
+  );
+
+  // Add track: a button that opens a short menu of the kinds of track. (A box and a button took a row of their own.)
+  const addTrackButton = h(
+    "button",
+    { type: "button", class: "os-tl-tool", tabindex: -1, id: `${id}-addtrack`, "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": `${id}-trackmenu`, title: "Add a track" },
+    icon("M4 7h16v4H4z", "M4 14h9", "M18 13v6", "M15 16h6"),
+    h("span", { class: "os-tl-tool-label" }, "Add track"),
+  );
+  const trackMenu = h("div", { class: "os-tl-menu", role: "menu", id: `${id}-trackmenu`, "aria-label": "Kind of track to add", hidden: true });
+  const trackItems = TRACK_KINDS.map((k) => {
+    const item = h("button", { type: "button", role: "menuitem", class: "os-tl-menuitem", tabindex: -1, "data-kind": k }, trackKindName(k));
+    item.addEventListener("click", () => {
+      closeTrackMenu(true);
+      run(session.addTrack(k));
+    });
+    return item;
+  });
+  trackMenu.append(...trackItems);
+  const menuHolder = h("span", { class: "os-tl-menuholder" }, addTrackButton, trackMenu);
+  toolbar.append(menuHolder);
+  function openTrackMenu(): void {
+    trackMenu.hidden = false;
+    addTrackButton.setAttribute("aria-expanded", "true");
+    trackItems[0]?.focus();
+  }
+  function closeTrackMenu(refocus: boolean): void {
+    if (trackMenu.hidden) return;
+    trackMenu.hidden = true;
+    addTrackButton.setAttribute("aria-expanded", "false");
+    if (refocus) addTrackButton.focus();
+  }
+  addTrackButton.addEventListener("click", () => (trackMenu.hidden ? openTrackMenu() : closeTrackMenu(true)));
+  addTrackButton.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      openTrackMenu();
+      if (e.key === "ArrowUp") trackItems[trackItems.length - 1]?.focus();
+    }
+  });
+  trackMenu.addEventListener("keydown", (e) => {
+    const at = trackItems.indexOf(document.activeElement as HTMLButtonElement);
+    const move = (to: number): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      trackItems[(to + trackItems.length) % trackItems.length]?.focus();
+    };
+    if (e.key === "ArrowDown") move(at + 1);
+    else if (e.key === "ArrowUp") move(at - 1);
+    else if (e.key === "Home") move(0);
+    else if (e.key === "End") move(trackItems.length - 1);
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTrackMenu(true);
+    } else if (e.key === "Tab") closeTrackMenu(false);
+  });
+  trackMenu.addEventListener("focusout", (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (to === null || !menuHolder.contains(to)) closeTrackMenu(false);
+  });
+  const toolList = [...toolButtons.values(), addTrackButton];
+  let toolStop = 0;
+  const showToolStop = (index: number): void => {
+    toolStop = index;
+    toolList.forEach((b, i) => b.setAttribute("tabindex", i === index ? "0" : "-1"));
+  };
+  showToolStop(0);
+  toolbar.addEventListener("focusin", (e) => {
+    const at = toolList.indexOf(e.target as HTMLButtonElement);
+    if (at >= 0 && at !== toolStop) showToolStop(at);
+  });
+  // Left and Right move along the bar, Home and End go to the ends; Tab leaves it. The whole bar is one stop in the tab order.
+  toolbar.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    const to = e.key === "ArrowRight" ? toolStop + 1 : e.key === "ArrowLeft" ? toolStop - 1 : e.key === "Home" ? 0 : e.key === "End" ? toolList.length - 1 : undefined;
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = Math.min(toolList.length - 1, Math.max(0, to));
+    showToolStop(next);
+    toolList[next]?.focus();
+  });
+
+  /** Dim what cannot be done now. The buttons stay in the bar and can still be pressed: the answer says why not. */
+  function syncTools(): void {
+    const off = (commandId: string, value: boolean, title?: string): void => {
+      const b = toolButtons.get(commandId);
+      if (b === undefined) return;
+      b.setAttribute("aria-disabled", value ? "true" : "false");
+      if (title !== undefined) b.title = title;
+    };
+    off("undo", !session.canUndo, session.undoLabel === undefined ? "Undo (Ctrl+Z)" : `Undo ${session.undoLabel} (Ctrl+Z)`);
+    off("redo", !session.canRedo, session.redoLabel === undefined ? "Redo (Ctrl+Y)" : `Redo ${session.redoLabel} (Ctrl+Y)`);
+    off("paste", !session.canPaste);
+  }
+
+  // ---- zoom: a slider and the buttons ----
+
+  const zoomOutButton = h("button", { type: "button", class: "os-tl-tool os-tl-zoombutton", title: "Zoom out (-)", "aria-label": "Zoom out", "aria-keyshortcuts": "-" }, icon("M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z", "M15.5 16l5 5", "M7.5 10.5h6"));
+  const zoomInButton = h("button", { type: "button", class: "os-tl-tool os-tl-zoombutton", title: "Zoom in (+)", "aria-label": "Zoom in", "aria-keyshortcuts": "+" }, icon("M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z", "M15.5 16l5 5", "M7.5 10.5h6", "M10.5 7.5v6"));
+  const fitButton = h("button", { type: "button", class: "os-tl-tool os-tl-zoombutton", title: "Show the whole edit (0)", "aria-label": "Show the whole edit", "aria-keyshortcuts": "0" }, icon("M3 12h18", "M3 7v10", "M21 7v10", "M7 9l-4 3 4 3", "M17 9l4 3-4 3"));
+  const zoomSlider = h("input", { type: "range", class: "os-tl-zoomslider", id: `${id}-zoom`, min: 0, max: 100, step: 1, value: 0, "aria-label": "Zoom" });
+  zoomOutButton.addEventListener("click", () => zoomBy("out"));
+  zoomInButton.addEventListener("click", () => zoomBy("in"));
+  fitButton.addEventListener("click", () => zoomFit());
+  const zoomGroup = h("div", { class: "os-tl-zoom", role: "group", "aria-label": "Zoom" }, zoomOutButton, zoomSlider, zoomInButton, fitButton);
 
   const helpRows = [
     ["Left and Right arrows", "Choose the clip before or after, in the same track. With Shift, choose a range of clips."],
-    ["Up and Down arrows", "Choose the clip showing at the same time in the track above or below."],
+    ["Up and Down arrows", "Choose the clip showing at the same time in the track above or below. With Shift, add that track to the choice, so one moment across several tracks can be chosen and cut together."],
     ["Home and End", "Choose the first or last clip in the track."],
     ["Ctrl with the arrow keys", "Move without changing which clips are chosen. Then Ctrl+Space adds the clip you are on to the choice, or takes it out, so clips that are not next to each other can be chosen."],
     ["Ctrl+Space", "Add the clip you are on to the choice, or take it out."],
@@ -158,20 +293,14 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     h("dl", {}, ...helpRows.flatMap(([keys, what]) => [h("dt", {}, keys), h("dd", {}, what)])),
   );
 
-  const controls = h(
-    "div",
-    { class: "os-tl-controls", role: "group", "aria-label": "Playhead, zoom and tracks" },
-    h("div", { class: "os-cl-field os-cl-field-inline" }, h("label", { for: `${id}-time` }, "Playhead time"), timeInput),
-    h("div", { class: "os-cl-row-buttons" }, zoomInButton, zoomOutButton, fitButton, describeButton),
-    h("div", { class: "os-tl-addtrack" }, h("div", { class: "os-cl-field" }, h("label", { for: `${id}-kind` }, "Kind of track to add"), kindSelect), addTrackButton),
-  );
+  const timeField = h("div", { class: "os-cl-field os-cl-field-inline os-tl-timefield" }, h("label", { for: `${id}-time` }, "Playhead time"), timeInput);
 
   const root = h(
     "section",
     { class: "os-cl os-tl", "aria-labelledby": `${id}-title` },
     h("h2", { id: `${id}-title`, class: "os-cl-title" }, options.title ?? "Timeline"),
     ownAnnouncer ? announcer.element : "",
-    controls,
+    h("div", { class: "os-tl-bar" }, toolbar, timeField, zoomGroup),
     h("p", { class: "os-cl-hint", id: `${id}-time-hint` }, "Type a time such as 72.4 (seconds), 1:12.4 (minutes and seconds) or 1m12.4s, then press Enter."),
     error,
     h("p", { class: "os-cl-hint", id: `${id}-ruler-hint` }, "The ruler is the playhead: Left and Right move it, Home and End go to the start and end."),
@@ -185,6 +314,9 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   // ---- state and drawing ----
 
   const optionEls = new Map<string, HTMLElement>();
+  const thumbs = options.library === undefined ? undefined : createThumbnails(options.library);
+  /** The strips of pictures on the clips that have a picture to show: what each shows is worked out from what is in view. */
+  const strips = new Map<string, { readonly el: HTMLElement; readonly row: Row; readonly clip: Clip; shown: string }>();
   let scale = 0.05; // pixels for each millisecond
   let fitting = true; // following the whole edit, until the author zooms in
   let contentPx = 0;
@@ -221,7 +353,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     el.style.width = `${Math.max(4, row.lengthMs * scale)}px`;
   }
 
-  function buildOption(row: Row, index: number, count: number): HTMLElement {
+  function buildOption(row: Row, index: number, count: number, clip?: Clip): HTMLElement {
     const primary = row.clipId === session.selectedId;
     const sentence = session.describeRow(row.clipId);
     const el = h(
@@ -240,6 +372,16 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       h("span", { class: "os-tl-clip-name" }, row.name),
     );
     if (row.state !== "ready") el.append(h("span", { class: "os-tl-badge" }, row.state));
+    if (clip !== undefined) {
+      // The pictures are decoration: hidden from a screen reader, which has the clip's name and sentence.
+      const strip = h("span", { class: "os-tl-strip", "aria-hidden": "true" });
+      el.prepend(strip);
+      el.classList.add("os-tl-hasstrip");
+      strips.set(row.clipId, { el: strip, row, clip, shown: "" });
+      // A mark on the edge where a transition is, for the eye; the sentence tells everyone else.
+      if (clip.transitionIn !== undefined) el.append(h("span", { class: "os-tl-trans os-tl-trans-in", "aria-hidden": "true" }));
+      if (clip.transitionOut !== undefined) el.append(h("span", { class: "os-tl-trans os-tl-trans-out", "aria-hidden": "true" }));
+    }
     place(el, row);
     return el;
   }
@@ -248,19 +390,30 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     const hadFocus = lanesEl.contains(document.activeElement) || document.activeElement === empty;
     const rows = session.rows;
     optionEls.clear();
+    strips.clear();
+    // Which clips have a picture to show: those of a screen, a webcam or an imported video.
+    const pictured = new Map<string, Clip>();
+    if (thumbs !== undefined) {
+      for (const track of session.model.tracks) {
+        for (const clip of track.clips) {
+          const kind = findSource(session.model, clip.source)?.kind;
+          if (kind === "screen" || kind === "webcam" || kind === "video") pictured.set(clip.id, clip);
+        }
+      }
+    }
     const lanes = session.model.tracks.map((track) => {
       const mine = rows.filter((r) => r.trackId === track.id);
       const trackEl = h("div", { class: "os-tl-track", "data-track": track.id });
       trackEl.style.width = `${contentPx}px`;
       mine.forEach((row, i) => {
-        const el = buildOption(row, i, mine.length);
+        const el = buildOption(row, i, mine.length, pictured.get(row.clipId));
         optionEls.set(row.clipId, el);
         trackEl.append(el);
       });
       return h(
         "div",
         { class: "os-tl-lane", role: "group", "aria-label": `${track.name} track, ${mine.length === 0 ? "empty" : noun(track.kind, mine.length)}`, "data-track": track.id, "data-kind": track.kind },
-        h("span", { class: "os-tl-lane-name", "aria-hidden": "true" }, track.name, h("span", { class: "os-tl-lane-kind" }, trackKindName(track.kind))),
+        h("span", { class: "os-tl-lane-name", "aria-hidden": "true", title: track.name }, h("span", { class: "os-tl-lane-title" }, track.name), h("span", { class: "os-tl-lane-kind" }, trackKindName(track.kind))),
         trackEl,
       );
     });
@@ -324,10 +477,9 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   function syncPlayhead(): void {
     const at = session.playheadMs;
     playline.style.left = `calc(var(--os-tl-gutter) + ${at * scale}px)`;
-    const shown = formatTimecode(at);
-    const editing = document.activeElement === timeInput && timeInput.value !== (timeInput.dataset["shown"] ?? timeInput.value);
-    timeInput.dataset["shown"] = shown;
-    if (!editing) timeInput.value = shown;
+    // While the author is in the box it is left alone, even while playing: otherwise each frame would put the playing time
+    // back and a time could not be typed. It is brought up to date when they press Enter, or leave it.
+    if (document.activeElement !== timeInput) timeInput.value = formatTimecode(at);
     // While it plays, the slider's value is not changed sixty times a second for a screen reader to announce: it is told
     // where the playhead is when it stops.
     if (!session.playing) {
@@ -347,6 +499,62 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     else if (x > left + room) scroller.scrollLeft = session.playing ? x - room * 0.15 : x - room + 40; // turn the page while playing
   }
 
+  /**
+   * Draw the pictures along the clips that are in view, and only those: a long clip zoomed in would otherwise need hundreds.
+   * A picture that has been made before is put in at once; the others fill in as they are made, newest first.
+   */
+  function renderThumbs(): void {
+    if (thumbs === undefined) return;
+    const fromMs = Math.max(0, scroller.scrollLeft / scale - 1500);
+    const toMs = (scroller.scrollLeft + scroller.clientWidth) / scale + 1500;
+    const tileMs = TILE_PX / scale;
+    for (const entry of strips.values()) {
+      const { row, clip, el } = entry;
+      if (row.endMs < fromMs || row.startMs > toMs) {
+        if (entry.shown !== "") {
+          el.replaceChildren();
+          entry.shown = "";
+        }
+        continue;
+      }
+      if (!thumbs.usable(clip.source)) {
+        thumbs.prepare(clip.source, scheduleThumbs);
+        continue;
+      }
+      const first = Math.max(0, Math.floor((fromMs - row.startMs) / tileMs));
+      const last = Math.min(Math.ceil(row.lengthMs / tileMs) - 1, Math.floor((toMs - row.startMs) / tileMs));
+      const shown = `${scale.toPrecision(6)}:${first}-${last}`;
+      if (entry.shown === shown) continue;
+      entry.shown = shown;
+      const tiles: HTMLElement[] = [];
+      for (let i = first; i <= last; i++) {
+        const tile = h("span", { class: "os-tl-tile" });
+        tile.style.left = `${i * TILE_PX}px`;
+        const at = Math.min(row.lengthMs - 1, i * tileMs);
+        const moment = momentFor(clip.sourceStartMs + at, tileMs);
+        const ready = thumbs.peek(clip.source, moment);
+        if (ready !== undefined) tile.style.backgroundImage = `url("${ready}")`;
+        else {
+          void thumbs.frame(clip.source, moment, () => tile.isConnected).then((url) => {
+            if (url !== undefined && tile.isConnected) tile.style.backgroundImage = `url("${url}")`;
+          });
+        }
+        tiles.push(tile);
+      }
+      el.replaceChildren(...tiles);
+    }
+  }
+
+  let thumbsQueued = false;
+  function scheduleThumbs(): void {
+    if (thumbsQueued || thumbs === undefined) return;
+    thumbsQueued = true;
+    window.requestAnimationFrame(() => {
+      thumbsQueued = false;
+      renderThumbs();
+    });
+  }
+
   function layout(): void {
     if (fitting) scale = fit();
     contentPx = contentMs(session.lengthMs) * scale;
@@ -356,6 +564,9 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     renderTicks();
     renderGrips();
     syncPlayhead();
+    syncZoom();
+    syncTools();
+    renderThumbs();
   }
 
   function renderSelection(): void {
@@ -378,6 +589,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
   const stop = session.subscribe((kind) => {
     if (kind === "model") layout();
     else if (kind === "selection") renderSelection();
+    else if (kind === "clipboard") syncTools();
     else if (kind === "playhead" || kind === "transport") syncPlayhead();
     else if (kind === "drag") {
       const drag = session.drag;
@@ -426,6 +638,25 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     say(`Showing the whole edit, ${span()} across.`);
   }
 
+  /** The slider shows where the zoom is, and says it in words: how much time fits across the timeline. */
+  function syncZoom(): void {
+    const whole = fit();
+    // Not `disabled` (that would take it out of the Tab order): when there is nowhere to zoom to it is only marked.
+    zoomSlider.setAttribute("aria-disabled", mostScale(whole) <= whole * 1.0001 ? "true" : "false");
+    zoomSlider.value = String(sliderOf(scale, whole));
+    zoomSlider.setAttribute("aria-valuetext", fitting ? `The whole edit, ${span()} across` : `${span()} across`);
+  }
+
+  zoomSlider.addEventListener("input", () => {
+    setScale(scaleAtSlider(Number(zoomSlider.value), fit()));
+  });
+  zoomSlider.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      focusPrimary();
+    }
+  });
+
   // ---- keys ----
 
   function commandKey(e: KeyboardEvent): boolean {
@@ -453,7 +684,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       say(EDGE[direction]);
       return;
     }
-    const moved = extend && (direction === "left" || direction === "right") ? session.selectRange(target.clipId) : session.select(target.clipId);
+    const moved = !extend ? session.select(target.clipId) : direction === "left" || direction === "right" ? session.selectRange(target.clipId) : session.selectBlock(target.clipId);
     focusPrimary();
     if (extend && moved.changed) say(moved.message);
   }
@@ -594,11 +825,12 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     grip.addEventListener("blur", finishKeyDrag);
   }
 
-  // Undo and redo work from anywhere in the panel except a text box, where they undo the typing.
+  // Undo, redo, copy and paste work from anywhere in the panel (the tool bar, the zoom slider) except a text box, where
+  // they undo, copy and paste the typing.
   root.addEventListener("keydown", (e) => {
     if (e.defaultPrevented || isTextField(e.target)) return;
     const command = commandFor(e);
-    if (command !== undefined && (command.id === "undo" || command.id === "redo")) {
+    if (command !== undefined && ["undo", "redo", "copy", "paste"].includes(command.id)) {
       e.preventDefault();
       finishKeyDrag();
       run(command.run(session));
@@ -715,7 +947,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       return;
     }
     if (e.shiftKey) {
-      say(session.selectRange(rowId).message);
+      say(session.selectBlock(rowId).message);
       focusPrimary();
       return;
     }
@@ -756,14 +988,22 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
 
   scroller.addEventListener("scroll", () => {
     window.requestAnimationFrame(renderTicks);
+    scheduleThumbs();
   });
 
   // ---- the playhead time and the track kind ----
 
   let tried: string | undefined;
+  // What the box showed when the author came to it, or last held a time they entered. Text that is still that was not typed by
+  // them, so it is never entered: while it plays the playhead moves on from what the box shows, and leaving the box must not
+  // put the playhead back.
+  let baseline = timeInput.value;
+  timeInput.addEventListener("focus", () => {
+    baseline = timeInput.value;
+  });
   const commitTime = (): void => {
     const text = timeInput.value;
-    if (text === formatTimecode(session.playheadMs) || text === tried) return;
+    if (text === baseline || text === formatTimecode(session.playheadMs) || text === tried) return;
     const outcome = session.setPlayheadText(text);
     if (outcome.ok) {
       tried = undefined;
@@ -771,6 +1011,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       timeInput.removeAttribute("aria-errormessage");
       error.textContent = "";
       timeInput.value = formatTimecode(session.playheadMs);
+      baseline = timeInput.value;
     } else {
       tried = text;
       timeInput.setAttribute("aria-invalid", "true");
@@ -787,6 +1028,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
       e.preventDefault();
       if (timeInput.value !== formatTimecode(session.playheadMs)) {
         timeInput.value = formatTimecode(session.playheadMs);
+        baseline = timeInput.value;
         tried = undefined;
         timeInput.removeAttribute("aria-invalid");
         error.textContent = "";
@@ -797,21 +1039,23 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     }
   });
   timeInput.addEventListener("change", commitTime);
+  // Leaving the box brings it up to date with the playhead, unless it holds a time that was refused (kept so it can be fixed).
+  timeInput.addEventListener("blur", () => {
+    if (tried === undefined) timeInput.value = formatTimecode(session.playheadMs);
+  });
   timeInput.addEventListener("input", () => {
     tried = undefined;
-  });
-  kindSelect.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      focusPrimary();
-    }
   });
 
   // ---- size ----
 
   const observer = new ResizeObserver(() => {
     if (fitting) layout();
-    else renderTicks();
+    else {
+      renderTicks();
+      syncZoom();
+      scheduleThumbs();
+    }
   });
   observer.observe(scroller);
 
@@ -825,6 +1069,7 @@ export function mountTimeline(container: HTMLElement, session: EditSession, opti
     destroy(): void {
       stop();
       observer.disconnect();
+      thumbs?.destroy();
       if (keyDragTimer !== undefined) window.clearTimeout(keyDragTimer);
       if (ownAnnouncer) announcer.destroy();
       root.remove();

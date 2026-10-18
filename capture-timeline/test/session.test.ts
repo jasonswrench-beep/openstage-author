@@ -100,6 +100,12 @@ test("what the form shows: a clip can be muted, an overlay is not a clip", () =>
     volumeDb: 0,
     fadeInMs: 0,
     fadeOutMs: 0,
+    hasPicture: false,
+    isImage: false,
+    altText: "",
+    decorative: false,
+    isImportedMedia: false,
+    hasTextAlternative: false,
   });
   select(s, "Zoom on the totals");
   assert.equal(s.details?.isClip, false);
@@ -536,4 +542,59 @@ test("an hour-long recording cut into 720 clips stays quick", () => {
   for (const r of s.rows) s.describeRow(r.clipId);
   const took = performance.now() - started;
   assert.ok(took < 1000, `took ${Math.round(took)} ms, which is not under a second`);
+});
+
+// ---- transitions ----
+
+test("T gives the chosen picture a transition (a fade at the very start), changes it, sets its length, and sound has none", () => {
+  const s = open("Open the gradebook");
+  const first = s.addTransitionHere();
+  assert.equal(first.ok, true);
+  assert.match(first.message, /now arrives with a fade of 0\.5 seconds/);
+  assert.equal(s.details?.transitionIn?.kind, "fade");
+  assert.match(s.addTransitionHere().message, /already arrives with a fade/);
+  assert.equal(s.setTransitionKind("in", "cross-fade").ok, true);
+  assert.equal(s.setTransitionLengthText("in", "1.5").ok, true);
+  assert.equal(s.details?.transitionIn?.durationMs, 1500);
+  assert.equal(s.setTransitionKind("out", "wipe-right").ok, false, "only a fade can leave");
+  assert.equal(s.setTransitionKind("out", "fade").ok, true);
+  assert.equal(s.setTransitionLengthText("out", "9").ok, false, "too long");
+  assert.equal(s.setTransitionKind("in", "none").ok, true);
+  assert.equal(s.details?.transitionIn === undefined, true);
+  assert.match(s.setTransitionLengthText("in", "1").message, /Choose a transition/);
+  assert.equal(s.undo().ok, true, "one command is one undo step");
+  assert.equal((s.details as { transitionIn?: { kind: string } } | undefined)?.transitionIn?.kind, "cross-fade");
+});
+
+test("a sound clip, an overlay and several chosen rows get a sentence instead of a transition", () => {
+  const sound = open("Voice, part 1");
+  assert.match(sound.addTransitionHere().message, /sound only/);
+  const overlay = open();
+  select(overlay, "Zoom on the totals");
+  assert.match(overlay.addTransitionHere().message, /not a clip/);
+});
+
+// ---- imported files ----
+
+test("a file is added at the playhead and chosen; an image needs alt text and then has it; a sound needs its captions marked", () => {
+  const s = open();
+  s.setPlayheadText("10");
+  const added = s.addMediaFile({ asset: "images/logo.png", kind: "image", name: "Logo", durationMs: null });
+  assert.equal(added.ok, true);
+  assert.match(added.message, /Still needed: alt text/);
+  assert.equal(s.details?.name, "Logo");
+  assert.equal(s.details?.isImage, true);
+  assert.match(s.setImageAlt("A blue book").message, /now has alt text: A blue book/);
+  assert.equal(s.details?.altText, "A blue book");
+  assert.match(s.setImageDecorative(true).message, /decorative/);
+  assert.equal(s.details?.decorative, true);
+  const sound = s.addMediaFile({ asset: "audio/music.wav", kind: "audio", name: "Music", durationMs: 8000 });
+  assert.equal(sound.ok, true);
+  assert.equal(s.details?.isImportedMedia, true);
+  assert.equal(s.details?.hasTextAlternative, false);
+  assert.match(s.setMediaHasText(true).message, /having captions/);
+  assert.equal(s.details?.hasTextAlternative, true);
+  assert.match(s.setImageAlt("x").message, /not an image/);
+  assert.equal(s.undo().ok, true);
+  assert.equal(s.details?.hasTextAlternative, false, "marking captions was one undo step");
 });

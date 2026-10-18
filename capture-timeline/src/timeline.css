@@ -304,3 +304,217 @@
     color: CanvasText;
   }
 }
+
+/* ---- the tool bar and the zoom slider: one row above the tracks ---- */
+
+.os-tl-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.os-tl-tools,
+.os-tl-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex-wrap: wrap;
+}
+
+.os-tl-tool {
+  font: inherit;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--os-cl-fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  min-height: 2rem;
+  cursor: pointer;
+}
+
+.os-tl-tool:hover {
+  background: var(--os-cl-selected-bg);
+  border-color: var(--os-cl-line);
+}
+
+/* A tool that cannot do anything now is dimmed, and says why when it is pressed; it stays in the bar so the bar never changes shape. */
+.os-tl-tool[aria-disabled="true"] {
+  color: var(--os-cl-muted);
+  opacity: 0.6;
+}
+
+.os-tl-tool .os-icon {
+  flex: none;
+}
+
+.os-tl-sep {
+  align-self: stretch;
+  width: 1px;
+  margin: 0.25rem 0.375rem;
+  background: var(--os-cl-line);
+}
+
+.os-tl-zoomslider {
+  width: min(12rem, 30vw);
+  accent-color: var(--os-cl-accent);
+  margin: 0 0.25rem;
+}
+
+.os-tl-zoomslider[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+@media (forced-colors: active) {
+  .os-tl-tool {
+    border-color: ButtonText;
+  }
+  .os-tl-tool[aria-disabled="true"] {
+    color: GrayText;
+    border-color: GrayText;
+  }
+  .os-tl-sep {
+    background: ButtonText;
+  }
+}
+
+/* ---- pictures along the clips of a screen, a webcam or an imported video ---- */
+
+.os-tl-strip {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--os-cl-head-bg);
+}
+
+.os-tl-tile {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px; /* TILE_PX in thumbnails.ts */
+  background-size: cover;
+  background-position: center;
+  border-right: 1px solid var(--os-cl-line);
+  box-sizing: border-box;
+}
+
+/* With pictures behind it, the name sits on its own solid patch at the top left, so it can always be read. */
+.os-tl-hasstrip {
+  align-items: flex-start;
+  padding: 0;
+}
+
+.os-tl-hasstrip .os-tl-clip-name {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  padding: 0 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  background-color: var(--os-tl-screen);
+  color: var(--os-cl-fg);
+  border-radius: 0 0 0.25rem 0;
+}
+
+.os-tl-lane[data-kind="webcam"] .os-tl-hasstrip .os-tl-clip-name { background-color: var(--os-tl-webcam); }
+.os-tl-lane[data-kind="media"] .os-tl-hasstrip .os-tl-clip-name { background-color: var(--os-tl-media); }
+
+.os-tl-hasstrip .os-tl-badge {
+  position: relative;
+  z-index: 1;
+  background: var(--os-cl-bg);
+  margin: 0 0 0 0.25rem;
+}
+
+.os-tl-muted .os-tl-strip {
+  opacity: 0.45;
+}
+
+@media (forced-colors: active) {
+  .os-tl-hasstrip .os-tl-clip-name {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  .os-tl-clip[aria-selected="true"] .os-tl-clip-name {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+}
+
+/* A transition's edge on a clip: a small corner wedge, drawn in the text colour so it shows on every track colour. */
+.os-tl-trans {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.75rem;
+  pointer-events: none;
+  background: linear-gradient(to right, var(--os-cl-fg), transparent);
+  opacity: 0.55;
+}
+.os-tl-trans-in { left: 0; }
+.os-tl-trans-out { right: 0; transform: scaleX(-1); }
+
+/* ---- the playhead time sits in the bar, and Add track is a menu button at the end of the tool bar ---- */
+
+.os-tl-timefield {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+}
+
+.os-tl-menuholder {
+  position: relative;
+  display: inline-flex;
+}
+
+.os-tl-menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  border: 1px solid var(--os-cl-line);
+  border-radius: 0.25rem;
+  background: var(--os-cl-bg, Canvas);
+  color: var(--os-cl-fg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+}
+
+.os-tl-menu[hidden] {
+  display: none;
+}
+
+.os-tl-menuitem {
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  border: 0;
+  border-radius: 0.2rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.os-tl-menuitem:hover,
+.os-tl-menuitem:focus-visible {
+  background: var(--os-cl-hover, rgb(0 0 0 / 0.08));
+  outline: 2px solid var(--os-cl-focus, #1a56db);
+  outline-offset: -2px;
+}
+
+.os-tl-zoomslider {
+  width: 9rem;
+}

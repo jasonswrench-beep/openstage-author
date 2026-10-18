@@ -51,6 +51,12 @@ export interface OpenedProject {
   readonly notes: readonly string[];
   /** The checks of the edit that came from the file, in words (not for a new edit). */
   readonly problems: readonly Problem[];
+  /** When a new edit was made of the newest take in place of a saved one: the text of the saved edit, so it can be kept before it is replaced. */
+  readonly replacedEdit?: string;
+  /** The numbers of finished takes that the saved edit does not use, newest first (only for an edit opened from `edit.json`). */
+  readonly unusedTakes?: readonly number[];
+  /** The number of the take a new edit was made of, when only the newest take was asked for. */
+  readonly newestTake?: number;
 }
 
 export type ProjectResult = { readonly ok: true; readonly project: OpenedProject } | { readonly ok: false; readonly message: string };
@@ -92,7 +98,7 @@ function readTake(text: string, folderName: string): TakeInfo | string {
 }
 
 /** Read a recording folder: its title, its takes, and the edit (the saved one, or a new one made from the takes). */
-export async function readProject(folder: ProjectFolder): Promise<ProjectResult> {
+export async function readProject(folder: ProjectFolder, options: { readonly newestTakeOnly?: boolean } = {}): Promise<ProjectResult> {
   const manifestText = await folder.readText("capture.json");
   if (manifestText === undefined) {
     return { ok: false, message: `${folder.name} is not a recording made by OpenStage Capture: it has no capture.json. Choose the folder that ends in .capture.` };
@@ -125,16 +131,41 @@ export async function readProject(folder: ProjectFolder): Promise<ProjectResult>
   }
 
   const saved = await folder.readText("edit.json");
+  if (options.newestTakeOnly === true) {
+    const newest = takes.filter((t) => t.state !== "recording" && t.state !== "setAside").sort((a, b) => b.take - a.take)[0];
+    if (newest !== undefined) {
+      const fresh = editFromTakes([newest]);
+      const kept = saved === undefined ? "" : ` The edit saved before is kept: when you save this one, the old one is first copied to ${backupName(newest.take)}.`;
+      return {
+        ok: true,
+        project: { folder, title, model: fresh.model, fromEditFile: false, notes: [`Started a new edit from your newest recording, take ${newest.take}.${kept}`, ...fresh.notes], problems: [], newestTake: newest.take, ...(saved === undefined ? {} : { replacedEdit: saved }) },
+      };
+    }
+  }
   if (saved !== undefined) {
     const parsed = parse(saved);
     if (parsed.ok) {
       notes.push("Opened the edit that was saved in this recording.");
-      return { ok: true, project: { folder, title, model: parsed.model, fromEditFile: true, notes, problems: parsed.problems } };
+      const used = new Set<number>();
+      for (const source of parsed.model.sources) if (source.ref.kind === "take") used.add(source.ref.take);
+      const left = takes.filter((t) => !used.has(t.take) && t.state !== "recording" && t.state !== "setAside");
+      if (left.length > 0) {
+        const names = left.map((t) => `take ${t.take}${t.durationMs === null ? "" : ` (${Math.round(t.durationMs / 1000)} seconds)`}`);
+        const list = names.length === 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1] ?? ""}`;
+        notes.push(`This saved edit does not use ${list}, which ${left.length === 1 ? "was" : "were"} recorded after it was saved. What you see here is the older edit, not your newest recording.`);
+      }
+      const unusedTakes = left.map((t) => t.take).sort((a, b) => b - a);
+      return { ok: true, project: { folder, title, model: parsed.model, fromEditFile: true, notes, problems: parsed.problems, ...(unusedTakes.length > 0 ? { unusedTakes } : {}) } };
     }
     notes.push(`The saved edit could not be read (${parsed.message}), so a new edit was made from the takes.`);
   }
   const made = editFromTakes(takes);
   return { ok: true, project: { folder, title, model: made.model, fromEditFile: false, notes: [...notes, ...made.notes], problems: [] } };
+}
+
+/** The file the old edit is copied to before a new edit of the newest take replaces it. */
+export function backupName(take: number): string {
+  return `edit-before-take-${take}.json`;
 }
 
 /** The edit as the text to write into `edit.json`. */
@@ -297,11 +328,21 @@ export interface MediaLibrary {
 /** A library with nothing in it: every picture and sound is shown as a placeholder. */
 export const EMPTY_LIBRARY: MediaLibrary = { url: async () => undefined };
 
-/** The media of an open recording. */
-export function libraryOf(folder: ProjectFolder): MediaLibrary {
+/** The media of an open recording. `assetUrl` gives an address for a file from the course's files (`images/logo.png`), if the program can. */
+export function libraryOf(folder: ProjectFolder, assetUrl?: (asset: string) => Promise<string | undefined>): MediaLibrary {
   const cache = new Map<string, Promise<string | undefined>>();
   return {
     url(ref) {
+      if (ref.kind === "asset") {
+        if (assetUrl === undefined) return Promise.resolve(undefined);
+        const key = `asset:${ref.asset}`;
+        let made = cache.get(key);
+        if (made === undefined) {
+          made = assetUrl(ref.asset).catch(() => undefined);
+          cache.set(key, made);
+        }
+        return made;
+      }
       const path = mediaPath(ref);
       if (path === undefined) return Promise.resolve(undefined);
       let found = cache.get(path);

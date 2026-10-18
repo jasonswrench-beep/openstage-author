@@ -9,3 +9,6 @@ export * from "./timeline-panel.ts";
 export * from "./editor.ts";
 export * from "./project.ts";
 export * from "./preview-panel.ts";
+export * from "./callout-panel.ts";
+export * from "./item-form.ts";
+export * from "./picture-edit.ts";

@@ -49,6 +49,23 @@ export const COMMANDS: readonly Command[] = [
     match: (e) => e.key === "ArrowDown" && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey,
     run: (s) => s.moveSelected("later"),
   },
+  {
+    id: "copy",
+    label: "Copy",
+    key: "Ctrl+C",
+    aria: "Control+C",
+    match: (e) => (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "c",
+    run: (s) => s.copySelected(),
+  },
+  {
+    id: "paste",
+    label: "Paste at playhead",
+    key: "Ctrl+V",
+    aria: "Control+V",
+    match: (e) => (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "v",
+    run: (s) => s.paste(),
+  },
+  { id: "transition", label: "Add a transition to this cut", key: "T", aria: "T", match: (e) => isKey(e, "t"), run: (s) => s.addTransitionHere() },
   { id: "mute", label: "Mute or unmute clip", key: "M", aria: "M", match: (e) => isKey(e, "m"), run: (s) => s.toggleMute() },
   {
     id: "play",

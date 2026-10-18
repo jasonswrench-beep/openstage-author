@@ -41,6 +41,12 @@
       "readable": false,
       "problems": []
     },
+    "bad-transition.json": {
+      "readable": true,
+      "problems": [
+        "bad-transition:error"
+      ]
+    },
     "beyond-source.json": {
       "readable": true,
       "problems": [
@@ -135,6 +141,18 @@
         "too-short:error"
       ]
     },
+    "transition-no-neighbour.json": {
+      "readable": true,
+      "problems": [
+        "transition-no-neighbour:warning"
+      ]
+    },
+    "transition-on-sound.json": {
+      "readable": true,
+      "problems": [
+        "transition-not-allowed:error"
+      ]
+    },
     "transition-too-long.json": {
       "readable": true,
       "problems": [
@@ -168,6 +186,10 @@
       "problems": []
     },
     "valid-placement.json": {
+      "readable": true,
+      "problems": []
+    },
+    "valid-transition.json": {
       "readable": true,
       "problems": []
     },

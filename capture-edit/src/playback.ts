@@ -15,6 +15,7 @@ import {
   clipEndMs,
   findSource,
   itemEndMs,
+  sameSource,
   FULL,
   type Clip,
   type Item,
@@ -23,6 +24,7 @@ import {
   type SourceKind,
   type SourceRef,
   type TrackKind,
+  type TransitionKind,
 } from "./model.ts";
 import { wholeMs } from "./time.ts";
 
@@ -40,6 +42,20 @@ export interface PlayingClip {
   readonly placement: Rect | undefined;
   /** How much to multiply the sound by: 0 silence, 1 as recorded. Always 1 for a picture. */
   readonly gain: number;
+  /** A transition showing on this picture now (new in 0.4), if any. */
+  readonly transition?: PlayingTransition;
+  /** True for the last picture of the clip before, held still while the next one arrives (it is a picture only, never a sound). */
+  readonly held?: boolean;
+}
+
+/**
+ * A transition in progress. `progress` goes from 0 to 1 over its length, eased. For `in` the picture is visible by `progress`,
+ * for `out` by `1 - progress`, and the picture held beneath an arriving one is `under` (a slide pushes it away; the others leave it still).
+ */
+export interface PlayingTransition {
+  readonly kind: TransitionKind;
+  readonly phase: "in" | "out" | "under";
+  readonly progress: number;
 }
 
 export interface ZoomView {
@@ -88,6 +104,23 @@ export function gainAt(clip: Clip, timeMs: number): number {
   return gain;
 }
 
+/** How far back from the end of a clip its held last picture is taken, in the clip's own time (the very last moment of a video may be blank). */
+const HELD_BACK_MS = 40;
+
+/** The transition a clip is showing at a moment, or undefined. */
+function transitionAt(clip: Clip, at: number): PlayingTransition | undefined {
+  const tin = clip.transitionIn;
+  if (tin !== undefined && at < clip.startMs + tin.durationMs) {
+    return { kind: tin.kind, phase: "in", progress: smoothstep((at - clip.startMs) / tin.durationMs) };
+  }
+  const tout = clip.transitionOut;
+  const end = clipEndMs(clip);
+  if (tout !== undefined && at >= end - tout.durationMs) {
+    return { kind: tout.kind, phase: "out", progress: smoothstep((at - (end - tout.durationMs)) / tout.durationMs) };
+  }
+  return undefined;
+}
+
 /** What plays at a moment. With `reduceMotion` a zoom cuts straight in and out instead of moving. */
 export function momentAt(model: Model, timeMs: number, options: { readonly reduceMotion?: boolean } = {}): Moment {
   const at = wholeMs(timeMs);
@@ -113,7 +146,36 @@ export function momentAt(model: Model, timeMs: number, options: { readonly reduc
         placement: clip.placement,
         gain,
       });
-      if (PICTURE_TRACKS.includes(track.kind) && PICTURE_SOURCES.includes(source.kind)) pictures.push(playing(1));
+      if (PICTURE_TRACKS.includes(track.kind) && PICTURE_SOURCES.includes(source.kind)) {
+        const moving = options.reduceMotion === true ? undefined : transitionAt(clip, at);
+        if (moving !== undefined && moving.phase === "in" && moving.kind !== "fade") {
+          // The picture before it, held still underneath. Another part of the same recording cannot be shown twice at once, so it is a cut.
+          const before = track.clips.find((c) => clipEndMs(c) === clip.startMs && c.id !== clip.id);
+          const beforeSource = before === undefined ? undefined : findSource(model, before.source);
+          if (before !== undefined && beforeSource !== undefined && PICTURE_SOURCES.includes(beforeSource.kind) && !sameSource(before.source, clip.source)) {
+            pictures.push({
+              clipId: before.id,
+              trackId: track.id,
+              trackKind: track.kind,
+              name: before.name,
+              source: before.source,
+              kind: beforeSource.kind,
+              sourceMs: Math.max(before.sourceStartMs, before.sourceEndMs - HELD_BACK_MS),
+              placement: before.placement,
+              gain: 1,
+              held: true,
+              transition: { kind: moving.kind, phase: "under", progress: moving.progress },
+            });
+            pictures.push({ ...playing(1), transition: moving });
+          } else if (before === undefined || beforeSource === undefined || !PICTURE_SOURCES.includes(beforeSource.kind)) {
+            pictures.push({ ...playing(1), transition: moving }); // nothing before it: it comes in over black
+          } else {
+            pictures.push(playing(1));
+          }
+        } else {
+          pictures.push(moving === undefined ? playing(1) : { ...playing(1), transition: moving });
+        }
+      }
       if (SOUND_SOURCES.includes(source.kind)) {
         const gain = gainAt(clip, at);
         if (gain > 0) sounds.push(playing(gain));

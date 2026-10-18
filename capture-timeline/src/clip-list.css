@@ -144,13 +144,15 @@
   border-style: dashed;
 }
 
-.os-cl-error {
+.os-cl-error,
+.os-if-error {
   margin: 0.5rem 0 0;
   color: var(--os-cl-attention);
   font-weight: 600;
 }
 
-.os-cl-error:empty {
+.os-cl-error:empty,
+.os-if-error:empty {
   display: none;
 }
 
@@ -331,4 +333,9 @@
   .os-cl-help dt {
     margin-top: 0.5rem;
   }
+}
+
+/* A group of fields that is hidden must really go, whatever display the group has. */
+.os-cl-fields[hidden] {
+  display: none;
 }

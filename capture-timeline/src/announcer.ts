@@ -31,6 +31,7 @@ export class Announcer {
     this.element.textContent = "";
     this.#timer = window.setTimeout(() => {
       this.element.textContent = message;
+      this.element.title = message; // the whole sentence on hover, for where the line has to scroll
       this.#timer = undefined;
     }, 60);
     this.#also?.(message);

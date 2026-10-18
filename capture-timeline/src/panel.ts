@@ -24,7 +24,7 @@
  * each row (`aria-label`) or the cells read better, is what the first test with one has to settle.
  */
 
-import { COLUMNS, formatTimecode, type Row, type StepKey } from "../../capture-edit/src/index.ts";
+import { COLUMNS, IN_KINDS, OUT_KINDS, TRANSITION_NAMES, formatTimecode, type Row, type StepKey, type TransitionKind } from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { COMMANDS, commandFor, isTextField } from "./commands.ts";
 import { h, nextId, type Attrs } from "./dom.ts";
@@ -131,6 +131,37 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     fadeOut: h("input", { id: `${id}-fadeOut`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
   };
   const trackSelect = h("select", { id: `${id}-track`, class: "os-cl-input" });
+  // Words for people who cannot see the picture or hear the sound: required for an imported image, video or sound.
+  const altInput = h("input", { id: `${id}-alt`, type: "text", class: "os-cl-input", autocomplete: "off", "aria-describedby": `${id}-alt-hint` });
+  const decorative = h("input", { id: `${id}-decorative`, type: "checkbox" });
+  const decorativeLabel = h("label", { class: "os-cl-check", for: `${id}-decorative` }, decorative, " Decorative: it adds nothing that needs describing");
+  const hasText = h("input", { id: `${id}-hastext`, type: "checkbox", "aria-describedby": `${id}-hastext-hint` });
+  const hasTextLabel = h("label", { class: "os-cl-check", for: `${id}-hastext` }, hasText, " It has captions, a script or a transcript");
+  const altBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-alt", role: "group", "aria-label": "Words for people who cannot see this picture" },
+    h("div", { class: "os-cl-field" }, h("label", { for: `${id}-alt` }, "Alt text: what the picture shows"), altInput),
+    decorativeLabel,
+    h("p", { class: "os-cl-hint", id: `${id}-alt-hint` }, "Say what the picture shows or means in a few words, as you would to someone on the phone. Or mark it decorative if it is only for looks."),
+  );
+  const textBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-alt", role: "group", "aria-label": "Words for people who cannot see or hear this" },
+    hasTextLabel,
+    h("p", { class: "os-cl-hint", id: `${id}-hastext-hint` }, "An imported video or sound needs captions, a script or a transcript. Tick this when it has one. The video's own sound is not used in the finished video."),
+  );
+  const transitionFields = {
+    inKind: h("select", { id: `${id}-tin`, class: "os-cl-input" }),
+    inLength: h("input", { id: `${id}-tinLength`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
+    outKind: h("select", { id: `${id}-tout`, class: "os-cl-input" }),
+    outLength: h("input", { id: `${id}-toutLength`, type: "text", class: "os-cl-input os-cl-time", autocomplete: "off", spellcheck: "false", "aria-describedby": timeHint }),
+  };
+  const kindOptions = (kinds: readonly TransitionKind[]) => [
+    h("option", { value: "none" }, "None, a straight cut"),
+    ...kinds.map((k) => h("option", { value: k }, TRANSITION_NAMES[k])),
+  ];
+  transitionFields.inKind.replaceChildren(...kindOptions(IN_KINDS));
+  transitionFields.outKind.replaceChildren(...kindOptions(OUT_KINDS));
   const muted = h("input", { id: `${id}-muted`, type: "checkbox" });
   const mutedLabel = h("label", { class: "os-cl-check", for: `${id}-muted` }, muted, " Muted");
   const formError = h("p", { class: "os-cl-error", id: `${id}-error` });
@@ -143,6 +174,16 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     field("fadeOut", "Fade out"),
     h("p", { class: "os-cl-hint", id: `${id}-volume-hint` }, "Volume: a whole number from -40 to 20. 0 is as recorded; -6 is about half as loud."),
   );
+  const tfield = (key: keyof typeof transitionFields, suffix: string, label: string) =>
+    h("div", { class: "os-cl-field" }, h("label", { for: `${id}-${suffix}` }, label), transitionFields[key]);
+  const transitionBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-transitions", role: "group", "aria-label": "Transitions (the picture only; the sound is not changed)" },
+    tfield("inKind", "tin", "Arrives with"),
+    tfield("inLength", "tinLength", "Arrival length"),
+    tfield("outKind", "tout", "Leaves with"),
+    tfield("outLength", "toutLength", "Leave length"),
+  );
   const timeFields = h("div", { class: "os-cl-fields" }, field("name", "Name"), field("start", "Start"), field("length", "Length"), field("end", "End"));
   const trackField = h("div", { class: "os-cl-field" }, h("label", { for: `${id}-track` }, "Track"), trackSelect);
   const manyNote = h("p", { class: "os-cl-hint", id: `${id}-many` });
@@ -154,6 +195,9 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     timeFields,
     h("div", { class: "os-cl-fields" }, trackField),
     soundFields,
+    altBox,
+    textBox,
+    transitionBox,
     mutedLabel,
     formError,
   );
@@ -323,6 +367,9 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       timeFields.hidden = true;
       trackField.hidden = true;
       soundFields.hidden = true;
+      transitionBox.hidden = true;
+      altBox.hidden = true;
+      textBox.hidden = true;
       mutedLabel.hidden = true;
       return;
     }
@@ -336,6 +383,22 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     setField(fields.end, formatTimecode(details.endMs));
     soundFields.hidden = !details.isClip;
     mutedLabel.hidden = !details.isClip;
+    altBox.hidden = !details.isImage;
+    textBox.hidden = !details.isImportedMedia;
+    if (details.isImage) {
+      setField(altInput, details.altText);
+      decorative.checked = details.decorative;
+    }
+    hasText.checked = details.hasTextAlternative;
+    transitionBox.hidden = !details.hasPicture;
+    if (details.hasPicture) {
+      const ti = details.transitionIn;
+      const to = details.transitionOut;
+      if (document.activeElement !== transitionFields.inKind) transitionFields.inKind.value = ti?.kind ?? "none";
+      if (document.activeElement !== transitionFields.outKind) transitionFields.outKind.value = to?.kind ?? "none";
+      setField(transitionFields.inLength, ti === undefined ? "" : formatTimecode(ti.durationMs));
+      setField(transitionFields.outLength, to === undefined ? "" : formatTimecode(to.durationMs));
+    }
     setField(fields.volume, String(details.volumeDb));
     setField(fields.fadeIn, formatTimecode(details.fadeInMs));
     setField(fields.fadeOut, formatTimecode(details.fadeOutMs));
@@ -349,7 +412,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     }
     const current = choices.find((c) => c.current);
     if (current !== undefined) trackSelect.value = current.id;
-    if (!Object.values(fields).some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
+    if (![...Object.values(fields), transitionFields.inLength, transitionFields.outLength, altInput].some((f) => f.hasAttribute("aria-invalid"))) formError.textContent = "";
     const muteButton = buttons.get("mute");
     if (muteButton?.firstChild) muteButton.firstChild.textContent = details.isClip ? (details.muted ? "Unmute clip" : "Mute clip") : "Mute or unmute clip";
   }
@@ -363,7 +426,8 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       slider.setAttribute("aria-valuetext", session.playheadText);
     }
     sliderFill.style.width = length === 0 ? "0%" : `${(at / length) * 100}%`;
-    setField(timeInput, formatTimecode(at));
+    // While the author is in the box it is left alone, even while playing, or a time could not be typed.
+    if (document.activeElement !== timeInput) setField(timeInput, formatTimecode(at));
   }
 
   function focusSelected(): void {
@@ -516,9 +580,15 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   /** Wire a text box so Enter or leaving it applies what was typed, and Escape puts the old text back. */
   function commitOnLeave(input: HTMLInputElement, apply: (text: string) => Outcome, current: () => string): void {
     let tried: string | undefined;
+    // What the box showed when the author came to it, or last held a value they entered. Text that is still that was not
+    // typed by them, so it is not entered (the playhead box moves on while it plays, and leaving it must not undo that).
+    let baseline = input.value;
+    input.addEventListener("focus", () => {
+      baseline = input.value;
+    });
     const commit = (): void => {
       const text = input.value;
-      if (text === current() || text === tried) return;
+      if (text === baseline || text === current() || text === tried) return;
       const outcome = apply(text);
       if (outcome.ok) {
         tried = undefined;
@@ -527,6 +597,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
         input.removeAttribute("aria-errormessage");
         // The sentence is said once; the box shows the exact value now held.
         input.value = current();
+        baseline = input.value;
       } else {
         tried = text;
         input.setAttribute("aria-invalid", "true");
@@ -543,6 +614,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
         e.preventDefault();
         if (input.value !== current()) {
           input.value = current();
+          baseline = input.value;
           tried = undefined;
           input.removeAttribute("aria-invalid");
           formError.textContent = "";
@@ -565,7 +637,35 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   commitOnLeave(fields.volume, (t) => session.setVolumeText(t), () => String(session.details?.volumeDb ?? 0));
   commitOnLeave(fields.fadeIn, (t) => session.setFadeInText(t), () => formatTimecode(session.details?.fadeInMs ?? 0));
   commitOnLeave(fields.fadeOut, (t) => session.setFadeOutText(t), () => formatTimecode(session.details?.fadeOutMs ?? 0));
+  commitOnLeave(transitionFields.inLength, (t) => session.setTransitionLengthText("in", t), () => {
+    const d = session.details?.transitionIn;
+    return d === undefined ? "" : formatTimecode(d.durationMs);
+  });
+  commitOnLeave(transitionFields.outLength, (t) => session.setTransitionLengthText("out", t), () => {
+    const d = session.details?.transitionOut;
+    return d === undefined ? "" : formatTimecode(d.durationMs);
+  });
+  for (const [select, which] of [[transitionFields.inKind, "in"], [transitionFields.outKind, "out"]] as const) {
+    select.addEventListener("change", () => {
+      const outcome = session.setTransitionKind(which, select.value);
+      say(outcome.message);
+      if (!outcome.ok) syncForm();
+    });
+    select.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        focusSelected();
+      }
+    });
+  }
+  commitOnLeave(altInput, (t) => session.setImageAlt(t), () => session.details?.altText ?? "");
+  decorative.addEventListener("change", () => run(session.setImageDecorative(decorative.checked)));
+  hasText.addEventListener("change", () => run(session.setMediaHasText(hasText.checked)));
   commitOnLeave(timeInput, (t) => session.setPlayheadText(t), () => formatTimecode(session.playheadMs));
+  // Leaving the box brings it up to date with the playhead, unless it holds a time that was refused (kept so it can be fixed).
+  timeInput.addEventListener("blur", () => {
+    if (!timeInput.hasAttribute("aria-invalid")) setField(timeInput, formatTimecode(session.playheadMs));
+  });
   muted.addEventListener("change", () => run(session.setSelectedMuted(muted.checked)));
   trackSelect.addEventListener("change", () => {
     const outcome = session.moveSelectedToTrack(trackSelect.value);
@@ -583,6 +683,15 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   function focusDetails(): void {
     if (form.hidden || timeFields.hidden) {
       focusSelected();
+      return;
+    }
+    const d = session.details;
+    if (d !== undefined && d.isImage && !d.decorative && d.altText.trim() === "") {
+      altInput.focus(); // a new picture needs its alt text first
+      return;
+    }
+    if (d !== undefined && d.isImportedMedia && !d.hasTextAlternative) {
+      hasText.focus();
       return;
     }
     fields.name.focus();

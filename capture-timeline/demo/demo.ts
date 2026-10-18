@@ -2,7 +2,7 @@
 // The demo page: the preview, the timeline and the clip list on a made-up lesson, with opening and saving. Nothing here is
 // recorded, and nothing is saved unless you choose Save.
 
-import { addTrack, describeLength, listCaption, parse, serialize, modelLengthMs, type Model } from "../../capture-edit/src/index.ts";
+import { addTrack, describeLength, listCaption, parse, serialize, modelLengthMs, type ImportedFile, type Model } from "../../capture-edit/src/index.ts";
 import { mountEditor, type Editor } from "../src/editor.ts";
 import { EMPTY_LIBRARY, libraryOf, readProject, type ProjectFolder } from "../src/project.ts";
 import { longSampleModel, sampleModel } from "../src/sample.ts";
@@ -55,7 +55,20 @@ function load(model: Model, label: string, say: string, options: { folder?: Proj
     current.folder?.release();
   }
   const session = new EditSession(model);
-  const editor = mountEditor(host as HTMLElement, session, { rows, library: options.folder === undefined ? EMPTY_LIBRARY : libraryOf(options.folder) });
+  // ?files=fake stands in for the program that can open files: it "finds" a picture, a video and a sound, so the buttons can be tried.
+  const fakeFiles = new URLSearchParams(location.search).get("files") === "fake";
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const found: Record<string, ImportedFile> = {
+    image: { asset: "images/logo.png", kind: "image", name: "Logo", durationMs: null },
+    video: { asset: "video/tour.mp4", kind: "video", name: "Tour", durationMs: 45_000 },
+    audio: { asset: "audio/music.wav", kind: "audio", name: "Music", durationMs: 20_000 },
+  };
+  const editor = mountEditor(host as HTMLElement, session, {
+    rows,
+    listOpen: new URLSearchParams(location.search).get("list") !== "closed",
+    library: options.folder === undefined ? (fakeFiles ? libraryOf({ name: "demo", canWrite: false, readText: async () => undefined, listFolders: async () => [], mediaUrl: async () => undefined, writeText: async () => false, release: () => undefined }, async (asset) => (asset.startsWith("images/") ? pixel : undefined)) : EMPTY_LIBRARY) : libraryOf(options.folder),
+    ...(fakeFiles ? { addMedia: async (kind: ImportedFile["kind"]) => ({ ok: true as const, file: found[kind] as ImportedFile }) } : {}),
+  });
   current = { session, editor, label, folder: options.folder, handle: options.handle };
   session.subscribe((kind) => {
     if (kind === "model" || kind === "saved") showState();

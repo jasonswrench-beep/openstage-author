@@ -13,6 +13,7 @@ import {
   EDIT_SCHEMA_VERSION,
   sortClips,
   sortItems,
+  TRANSITION_KINDS,
   type Clip,
   type Item,
   type Model,
@@ -22,6 +23,8 @@ import {
   type SourceRef,
   type Track,
   type TrackKind,
+  type Transition,
+  type TransitionKind,
 } from "./model.ts";
 import { errorsOf, validate, type Problem } from "./validate.ts";
 
@@ -45,6 +48,8 @@ function clipJson(c: Clip): Record<string, unknown> {
     fadeOutMs: c.fadeOutMs,
   };
   if (c.placement !== undefined) out["placement"] = rectJson(c.placement);
+  if (c.transitionIn !== undefined) out["transitionIn"] = { kind: c.transitionIn.kind, durationMs: c.transitionIn.durationMs };
+  if (c.transitionOut !== undefined) out["transitionOut"] = { kind: c.transitionOut.kind, durationMs: c.transitionOut.durationMs };
   if (c.altText !== undefined) out["altText"] = c.altText;
   if (c.decorative !== undefined) out["decorative"] = c.decorative;
   return out;
@@ -103,11 +108,20 @@ function sourceJson(s: SourceInfo): Record<string, unknown> {
   return out;
 }
 
+/**
+ * The version an edit is written as: the lowest that can say everything in it. Version 0.4 is written only when the edit uses a
+ * transition, so a program that reads up to 0.3 (the video maker, until it learns to draw transitions) still opens every edit without one.
+ */
+export function versionFor(model: Model): string {
+  const uses = model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined));
+  return uses ? EDIT_SCHEMA_VERSION : "0.3.0";
+}
+
 /** The edit as the text of `edit.json`. */
 export function serialize(model: Model): string {
   const doc = {
     format: model.format,
-    schemaVersion: model.schemaVersion,
+    schemaVersion: versionFor(model),
     nextId: model.nextId,
     sources: model.sources.map(sourceJson),
     tracks: model.tracks.map((t) => ({
@@ -171,9 +185,19 @@ function readClip(v: unknown, where: string): Clip {
     ...base,
     // Version 0.3 added a place on the frame; an older file has none, which is how it was drawn before.
     ...(isObject(v["placement"]) ? { placement: readRect(v["placement"], w) } : {}),
+    // Version 0.4 added transitions; an older file has none.
+    ...(isObject(v["transitionIn"]) ? { transitionIn: readTransition(v["transitionIn"], w) } : {}),
+    ...(isObject(v["transitionOut"]) ? { transitionOut: readTransition(v["transitionOut"], w) } : {}),
     ...(typeof v["altText"] === "string" ? { altText: v["altText"] } : {}),
     ...(typeof v["decorative"] === "boolean" ? { decorative: v["decorative"] } : {}),
   };
+}
+
+function readTransition(v: unknown, what: string): Transition {
+  if (!isObject(v)) throw new Error(`${what} has a transition that is not an object.`);
+  const kind = v["kind"];
+  if (!TRANSITION_KINDS.includes(kind as TransitionKind)) throw new Error(`${what} has a transition this program does not know: ${String(kind)}.`);
+  return { kind: kind as TransitionKind, durationMs: num(v["durationMs"], `${what}: a transition's durationMs`) };
 }
 
 function readRect(v: unknown, what: string): Rect {
@@ -274,10 +298,10 @@ export function parse(text: string): ParseResult {
     return { ok: false, message: `This is not an OpenStage Capture edit file: its format should be "${EDIT_FORMAT}".` };
   }
   const version = doc["schemaVersion"];
-  if (typeof version !== "string" || !(version.startsWith("0.1.") || version.startsWith("0.2.") || version.startsWith("0.3."))) {
+  if (typeof version !== "string" || !(version.startsWith("0.1.") || version.startsWith("0.2.") || version.startsWith("0.3.") || version.startsWith("0.4."))) {
     return {
       ok: false,
-      message: `This edit file is version ${String(version)}, and this program reads versions 0.1, 0.2 and 0.3 (it writes ${EDIT_SCHEMA_VERSION}). It was probably made by a newer program.`,
+      message: `This edit file is version ${String(version)}, and this program reads versions 0.1 to 0.4 (it writes ${EDIT_SCHEMA_VERSION}). It was probably made by a newer program.`,
     };
   }
   try {

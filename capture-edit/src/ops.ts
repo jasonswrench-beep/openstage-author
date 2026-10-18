@@ -26,6 +26,7 @@ import {
   MAX_IMPORTED_VIDEO_MS,
   MAX_VOLUME_DB,
   MIN_CLIP_MS,
+  MIN_TRANSITION_MS,
   MIN_VOLUME_DB,
   sameSource,
   sortClips,
@@ -85,11 +86,31 @@ function locate(model: Model, clipId: string) {
   return found ?? refuse(`There is no clip with the id ${clipId}.`);
 }
 
+/** Keep a clip's fades and transitions inside it after it got shorter (the starting one first; one that no longer fits at all is dropped). */
 function clamp01(clip: Clip): Clip {
   const length = clipLengthMs(clip);
   const fadeIn = Math.min(clip.fadeInMs, length);
   const fadeOut = Math.min(clip.fadeOutMs, length - fadeIn);
-  return fadeIn === clip.fadeInMs && fadeOut === clip.fadeOutMs ? clip : { ...clip, fadeInMs: fadeIn, fadeOutMs: fadeOut };
+  const faded = fadeIn === clip.fadeInMs && fadeOut === clip.fadeOutMs ? clip : { ...clip, fadeInMs: fadeIn, fadeOutMs: fadeOut };
+  const { transitionIn: tin, transitionOut: tout, ...bare } = faded;
+  if (tin === undefined && tout === undefined) return faded;
+  const inMs = tin === undefined ? 0 : Math.min(tin.durationMs, length);
+  const outMs = tout === undefined ? 0 : Math.min(tout.durationMs, length - inMs);
+  const nextIn = tin !== undefined && inMs >= MIN_TRANSITION_MS ? { ...tin, durationMs: inMs } : undefined;
+  const nextOut = tout !== undefined && outMs >= MIN_TRANSITION_MS ? { ...tout, durationMs: outMs } : undefined;
+  if (JSON.stringify(nextIn) === JSON.stringify(tin) && JSON.stringify(nextOut) === JSON.stringify(tout)) return faded;
+  return { ...bare, ...(nextIn === undefined ? {} : { transitionIn: nextIn }), ...(nextOut === undefined ? {} : { transitionOut: nextOut }) };
+}
+
+/** A clip without its starting transition, or without its ending one (after a cut, which makes a new edge). */
+function withoutIn(clip: Clip): Clip {
+  const { transitionIn: _gone, ...rest } = clip;
+  return rest;
+}
+
+function withoutOut(clip: Clip): Clip {
+  const { transitionOut: _gone, ...rest } = clip;
+  return rest;
 }
 
 // ---- tracks ----
@@ -236,8 +257,8 @@ export function splitAt(model: Model, timeMs: number, trackId?: string): Result 
     }
     const taken = takeId(next, "clip");
     const sourceAt = clip.sourceStartMs + left;
-    const first = clamp01({ ...clip, sourceEndMs: sourceAt, fadeOutMs: 0 });
-    const second = clamp01({ ...clip, id: taken.id, sourceStartMs: sourceAt, startMs: at, fadeInMs: 0 });
+    const first = clamp01(withoutOut({ ...clip, sourceEndMs: sourceAt, fadeOutMs: 0 }));
+    const second = clamp01(withoutIn({ ...clip, id: taken.id, sourceStartMs: sourceAt, startMs: at, fadeInMs: 0 }));
     const live = findTrack(taken.model, track.id) ?? track;
     next = withTrack(taken.model, { ...live, clips: sortClips([...live.clips.filter((c) => c.id !== clip.id), first, second]) });
     focus.push(first.id, second.id);
@@ -438,7 +459,10 @@ export function deleteRange(model: Model, fromMs: number, toMs: number, closeGap
         );
       }
       if (keepsLeft) {
-        pieces.push(clamp01({ ...clip, sourceEndMs: clip.sourceStartMs + leftLength, ...(keepsRight ? { fadeOutMs: 0 } : {}) }));
+        {
+          const left: Clip = { ...clip, sourceEndMs: clip.sourceStartMs + leftLength, ...(keepsRight ? { fadeOutMs: 0 } : {}) };
+          pieces.push(clamp01(keepsRight ? withoutOut(left) : left));
+        }
       }
       if (keepsRight) {
         const taken = takeId(next, "clip");
@@ -451,7 +475,7 @@ export function deleteRange(model: Model, fromMs: number, toMs: number, closeGap
           startMs: to,
           ...(keepsLeft ? { fadeInMs: 0 } : {}),
         };
-        pieces.push(clamp01(right));
+        pieces.push(clamp01(keepsLeft ? withoutIn(right) : right));
       }
     }
     const shifted = closeGap ? pieces.map((c) => (c.startMs >= to ? { ...c, startMs: c.startMs - removed } : c)) : pieces;
@@ -493,9 +517,10 @@ export function joinWithNext(model: Model, clipId: string): Result {
     );
   }
   const joined: Clip = clamp01({
-    ...clip,
+    ...withoutOut(clip),
     sourceEndMs: still ? clip.sourceEndMs + clipLengthMs(second) : second.sourceEndMs,
     fadeOutMs: second.fadeOutMs,
+    ...(second.transitionOut === undefined ? {} : { transitionOut: second.transitionOut }),
   });
   const clips = sortClips([...track.clips.filter((c) => c.id !== clip.id && c.id !== second.id), joined]);
   return done(

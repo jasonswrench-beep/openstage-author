@@ -352,6 +352,9 @@ pub struct WindowsPictures {
     mode: PictureReader,
     videos: HashMap<EditSourceRef, VideoFile>,
     images: HashMap<EditSourceRef, Rc<Picture>>,
+    /// The picture held still under an arriving one (a transition), kept for the frames that need it so the reader does
+    /// not jump back for it every frame: the source, the moment, and the picture.
+    held: Option<(EditSourceRef, u64, Rc<Picture>)>,
 }
 
 impl WindowsPictures {
@@ -363,6 +366,7 @@ impl WindowsPictures {
             mode,
             videos: HashMap::new(),
             images: HashMap::new(),
+            held: None,
         })
     }
 }
@@ -378,10 +382,21 @@ impl PictureSource for WindowsPictures {
             self.images.insert(layer.source.clone(), Rc::clone(&picture));
             return Ok(picture);
         }
+        if layer.held {
+            if let Some((source, time, picture)) = &self.held {
+                if *source == layer.source && *time == layer.source_time_ms {
+                    return Ok(Rc::clone(picture));
+                }
+            }
+        }
         if !self.videos.contains_key(&layer.source) {
             let path = source_path(&self.project, self.assets.as_deref(), &layer.source)?;
             self.videos.insert(layer.source.clone(), VideoFile::open(&path, self.mode)?);
         }
-        self.videos.get_mut(&layer.source).expect("just opened").at(layer.source_time_ms)
+        let picture = self.videos.get_mut(&layer.source).expect("just opened").at(layer.source_time_ms)?;
+        if layer.held {
+            self.held = Some((layer.source.clone(), layer.source_time_ms, Rc::clone(&picture)));
+        }
+        Ok(picture)
     }
 }

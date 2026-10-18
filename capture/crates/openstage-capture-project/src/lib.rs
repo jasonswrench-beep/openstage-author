@@ -36,7 +36,8 @@ pub use edit::{
     describe_time, parse_edit, validate as validate_edit, Align as EditAlign, Clip as EditClip, Edit, Item as EditItem,
     ParsedEdit, Point as EditPoint, Problem as EditProblem, Rect as EditRect, Severity as EditSeverity,
     ShapeKind as EditShapeKind, SourceInfo as EditSourceInfo, SourceKind as EditSourceKind, SourceRef as EditSourceRef,
-    Track as EditTrack, TrackKind as EditTrackKind, EDIT_FORMAT, FULL as EDIT_FULL,
+    Track as EditTrack, TrackKind as EditTrackKind, Transition as EditTransition, TransitionKind as EditTransitionKind,
+    EDIT_FORMAT, FULL as EDIT_FULL, MAX_TRANSITION_MS, MIN_TRANSITION_MS,
 };
 pub use error::ProjectError;
 pub use events_log::{

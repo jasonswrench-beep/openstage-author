@@ -10,12 +10,13 @@
 
 import { describeLength, listCaption, modelLengthMs, serialize } from "../../capture-edit/src/index.ts";
 import { mountEditor } from "../../capture-timeline/src/editor.ts";
-import { libraryOf, readProject } from "../../capture-timeline/src/project.ts";
+import { backupName, libraryOf, readProject } from "../../capture-timeline/src/project.ts";
 import { EditSession } from "../../capture-timeline/src/session.ts";
 import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
 import { applyExportLine, exportPlan, initialExport, summariseExport, type ExportPlan, type ExportState } from "./captureexport.ts";
 import { extrasFromEdit, type Extra } from "./captions.ts";
+import { chooseMedia, measureInBrowser } from "./mediapick.ts";
 import { recordingFolder } from "./recordingfolder.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -37,6 +38,8 @@ export interface EditRecordingOptions {
   dir: string;
   /** The recording's folder name, such as `Week 3.capture`. */
   name: string;
+  /** Start a new edit of the newest take, not the edit saved before (the old one is kept as a copy when the new one is saved). */
+  newestTake?: boolean;
   /**
    * Put a video that is already in the course's assets on the slide the author is on. Returns what to tell them. `facts` is what the edit knows that
    * the editor needs to write the video's transcript: what is on the screen that the voice does not say, and how long the video is.
@@ -47,6 +50,9 @@ export interface EditRecordingOptions {
   /** Add what the recording shows on its screen to the video that was just put on the slide, as audio descriptions with a voice. Returns what to tell them. */
   describeScreen: (extras: Extra[]) => string;
 }
+
+/** Whether the Rust video maker reads edit format 0.4 and draws transitions. Written 2026-10-17 and not yet built or tried on a PC; set to false to refuse a video for an edit that has a transition. */
+export const VIDEO_MAKER_DRAWS_TRANSITIONS = true;
 
 /** The longest an export may run before it is stopped. A long recording takes a while; this is only a safety net. */
 export const EXPORT_LIMIT_MS = 4 * 60 * 60 * 1000;
@@ -97,6 +103,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const folder = recordingFolder(b, opts.dir, opts.name);
     let session: EditSession | undefined;
     let editor: ReturnType<typeof mountEditor> | undefined;
+    /** The saved edit that a new edit of the newest take replaces, until it has been copied aside. */
+    let toKeep: { text: string; name: string } | undefined;
 
     const showState = () => {
       if (session === undefined) return;
@@ -106,6 +114,13 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     async function saveEdit(): Promise<void> {
       if (session === undefined || editor === undefined) return;
       try {
+        if (toKeep !== undefined) {
+          if (!(await folder.writeText(toKeep.name, toKeep.text))) {
+            editor.announce(`The edit saved before could not be copied to ${toKeep.name}, so nothing was saved and nothing was changed on the disk.`);
+            return;
+          }
+          toKeep = undefined;
+        }
         const ok = await folder.writeText("edit.json", serialize(session.model));
         if (ok) {
           session.markSaved();
@@ -135,6 +150,11 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       if (session.dirty) {
         await saveEdit();
         if (session.dirty) { exportBox.hidden = false; exportSay.textContent = "The edit could not be saved, so no video was made."; return; }
+      }
+      if (!VIDEO_MAKER_DRAWS_TRANSITIONS && session.model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined))) {
+        exportBox.hidden = false;
+        exportSay.textContent = "No video was made. This edit has a transition, and the program that makes the video cannot draw transitions yet. Take the transitions off, or wait for the next update of the recorder. Nothing in the edit was changed.";
+        return;
       }
       exporting = true;
       made = false;
@@ -211,8 +231,30 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     });
     // Leaving with changes that are not saved is asked about by the Close button; the window closing is asked about by the editor.
 
+    /** Ask which edit to open, when takes were recorded after the saved edit. Resolves to true for a new edit of the newest take. */
+    function askWhich(newest: number, title: string): Promise<boolean> {
+      return new Promise((done) => {
+        const keep = h("button", { type: "button", text: "Open my saved edit" });
+        const fresh = h("button", { type: "button", text: `Start a new edit of the newest recording (take ${newest})` });
+        const box = h("section", { "aria-labelledby": "re-ask-title" },
+          h("h3", { id: "re-ask-title", tabindex: "-1", text: "Which edit do you want?" }),
+          h("p", { text: `${title} has a recording made after the edit you saved. Your saved edit is the older one. If you start a new edit of the newest recording, your saved edit is kept: it is copied to ${backupName(newest)} when you first save the new one.` }),
+          h("div", { class: "dialog-actions" }, keep, fresh));
+        host.replaceChildren(box);
+        state.textContent = "Choose which edit to open, or press Close to leave.";
+        keep.focus();
+        const finish = (value: boolean) => { box.remove(); done(value); };
+        keep.addEventListener("click", () => finish(false));
+        fresh.addEventListener("click", () => finish(true));
+      });
+    }
+
     void (async () => {
-      const result = await readProject(folder);
+      let result = await readProject(folder, opts.newestTake === true ? { newestTakeOnly: true } : {});
+      const unused = result.ok ? result.project.unusedTakes : undefined;
+      if (result.ok && unused !== undefined && unused[0] !== undefined) {
+        if (await askWhich(unused[0], result.project.title)) result = await readProject(folder, { newestTakeOnly: true });
+      }
       if (!result.ok) {
         state.textContent = result.message;
         save.hidden = true;
@@ -222,8 +264,12 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       }
       const { project } = result;
       heading.textContent = `Edit the recording: ${project.title}`;
+      if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
       session = new EditSession(project.model);
-      editor = mountEditor(host, session, { library: libraryOf(project.folder) });
+      editor = mountEditor(host, session, {
+        library: libraryOf(project.folder, (asset) => b.assetUrl(opts.dir, `assets/${asset}`)),
+        addMedia: (kind) => chooseMedia(b, opts.dir, kind, measureInBrowser),
+      });
       session.subscribe((kind) => {
         if (kind === "model" || kind === "saved") showState();
       });
