@@ -2539,7 +2539,27 @@ fn read_media_bytes(dir: String, path: String) -> Result<tauri::ipc::Response, S
     read_media_at(Path::new(&dir), &path).map(tauri::ipc::Response::new)
 }
 
+/// The file `file` in the folder `folder` beside the program, if it is there: where an installed OpenStage Author keeps the Python and Node that travel with it.
+fn bundled_helper_in(exe_dir: &Path, folder: &str, file: &str) -> Option<PathBuf> {
+    let path = exe_dir.join(folder).join(file);
+    path.is_file().then_some(path)
+}
+
+/// An installed OpenStage Author carries its own Python and Node (the `python` and `node` folders beside the program), so nothing has to be installed first. They are used
+/// unless the author has named others with OPENSTAGE_PYTHON or OPENSTAGE_NODE. Run from the repository there are no such folders, and the ones on the PATH are used as before.
+fn use_bundled_helpers() {
+    let Some(dir) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_path_buf)) else { return };
+    for (setting, folder, file) in [("OPENSTAGE_PYTHON", "python", "python.exe"), ("OPENSTAGE_NODE", "node", "node.exe")] {
+        if std::env::var_os(setting).is_none() {
+            if let Some(path) = bundled_helper_in(&dir, folder, file) {
+                std::env::set_var(setting, path);
+            }
+        }
+    }
+}
+
 pub fn run() {
+    use_bundled_helpers();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -3488,6 +3508,20 @@ mod tests {
         assert!(read_narration_audio_at(&project, &"e".repeat(64)).is_err(), "a key with no audio");
         assert!(read_narration_audio_at(&std::env::temp_dir(), &key).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn python_and_node_that_travel_with_the_program_are_found_beside_it() {
+        let dir = std::env::temp_dir().join(format!("openstage-bundled-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("python")).unwrap();
+        assert!(bundled_helper_in(&dir, "python", "python.exe").is_none(), "an empty folder holds nothing");
+        fs::write(dir.join("python").join("python.exe"), b"x").unwrap();
+        assert_eq!(bundled_helper_in(&dir, "python", "python.exe"), Some(dir.join("python").join("python.exe")));
+        assert!(bundled_helper_in(&dir, "node", "node.exe").is_none(), "no node folder");
+        fs::create_dir_all(dir.join("node").join("node.exe")).unwrap();
+        assert!(bundled_helper_in(&dir, "node", "node.exe").is_none(), "a folder is not a program");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

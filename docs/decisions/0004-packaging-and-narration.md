@@ -66,9 +66,15 @@ Python on the PATH; that the recorder and the speech recogniser start; that a pr
 
 ## 4. Signing, updates, data, uninstalling
 
-* **Signing.** An installer with no signature makes Windows show "Windows protected your PC" and a warning about an unknown publisher **(from general knowledge)**.
-  Signing needs a certificate or a signing service, which costs money every year; I have not looked at current prices. *Recommendation:* ship the first installers unsigned to
-  colleagues who are told to expect the warning and how to continue, and decide on signing before it goes to people who were not told.
+* **Signing.** An installer with no signature makes Windows show "Windows protected your PC" and a warning about an unknown publisher **(from general knowledge)**. What it costs, as
+  [Microsoft's own page of options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options) lists it (updated 2026-08-29, read 2026-10-19):
+  * **Azure Artifact Signing** (the new name of Trusted Signing): about $9.99 a month, so about $120 a year. Organizations in the USA, Canada, EU and UK, and individuals in the USA and Canada, can use it. Microsoft checks the identity first (a few business days). No hardware token.
+  * **A certificate from a certificate company (OV):** $150 to $300 a year, and the key has to live on a hardware token or a cloud signing service.
+  * **An EV certificate:** $400 or more a year. Since 2024 it no longer skips the warning, so it is no longer worth it for that.
+  * **SignPath Foundation:** free for open-source projects that qualify ([its terms](https://signpath.org/terms)): an OSI-approved licence for everything, builds from your own source on a build service they can check, two-factor sign-in for the team, a manual approval for each release, a public page with a code signing policy, and "a certain verifiable reputation" for a program (no minimum age or popularity is stated; they decide, with no appeal). Apache-2.0 qualifies on the licence; whether a new project has the reputation is the open question.
+  * **The Microsoft Store (MSIX):** free signing, and no warning, but it is a different kind of package, not a simple `.exe`.
+  * **Unsigned:** free, with the strongest warning, and some organizations block it altogether.
+  **None of the paid options removes the warning at once**: with any certificate, the warning fades as the program is downloaded and run by more people, and it helps to sign every release with the same identity. *Recommendation:* ship the first installers unsigned to colleagues who are told to expect the warning and how to continue; when the repository is public and has a release, apply to SignPath Foundation (free); if that is refused, Azure Artifact Signing at about $120 a year.
 * **Updates.** None to begin with: a newer installer replaces the older one. A project made by an older version is brought up to date by the program's own migration (that exists).
   A self-updating program is possible later and needs a signing key of its own.
 * **Where things live.** Settings (including service keys) are in the program's settings folder; speech models are in `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models` and can be
@@ -110,15 +116,40 @@ stays the free choice for the author who is willing to install it.
 **Recommendation:** A for the first installer, with E as the path with nothing to install, and with the setup script only if you want it. Treat B and C as a later trial if installing Kokoro
 turns out to be too hard for the people it is for. Nothing in `NOTICE` or `README.md` needs to change for A.
 
-## 6. What is needed from Jason
+## 6. Decisions
 
-1. **The GPL choice** (section 5): A (recommended), or ask for a trial of B or C, or something else.
-2. **Whether to write `SET UP NARRATION.bat`** (A only). It would download PyTorch and the voice, so each run needs a yes from whoever runs it.
-3. **Signing** (section 4): ship unsigned to colleagues first (recommended), or look at what signing costs now.
-4. **Per-user NSIS first** (recommended), or an `.msi` as well.
-5. **A yes to build a trial installer.** It downloads the bundler's tools (NSIS, and WiX if an `.msi` is wanted), the embeddable Python (about 10 MB) and Node (tens of MB). It would be tried
-   on this computer, with the program started in a folder that has no repository above it, which is the real test of section 1.
-6. **The name and the domain** (`openstageauthor.com` is not registered; only Jason can register it). The installer's publisher name and the program's identifier
-   (`com.openstageauthor.editor`) should be settled before the first installer, because the identifier names the folders in section 4.
+**Jason's answers, 2026-10-19:**
 
-Until then the repository is ready for people who build it from source. The things in `ROADMAP.md` "Before the repository goes public" that did not need a decision are done.
+1. **The GPL choice.** Jason trusts the recommendation (A, with online voices as the path with nothing to install) and added the aim: *the less people have to do extra things to get the tool to work, the better.*
+2. **A setup script: no. "Just install the narration engine."** Read as: the author should not have to run a separate script or a separate installer; the program installs the narration engine itself. That is
+   consistent with A, and it is how it is done without carrying any GPL file: the engine is fetched from its own publishers (PyPI, Hugging Face) onto the author's computer by a button in the editor, after a question
+   that says what it is, how big it is and that parts of it are GPL; OpenStage Author's installer and website carry none of it. See section 7.
+3. **Signing costs:** answered in section 4 (below), nothing decided.
+4. **A simple `.exe`:** an NSIS setup program, installing for the current user, no administrator password. No `.msi`.
+5. **A trial installer: yes.** Built (section 8).
+6. **The domain:** openstageauthor.com is already registered.
+
+## 7. The narration engine, installed by the program
+
+Not built yet. The plan: a button (in the Narration dialog, and where the editor says there is no engine) asks first (size, sources, the GPL note), then installs Python packages and the voice model into the
+program's own data folder, with progress and a Stop button, and the editor uses that engine without any setting. A setting (`OPENSTAGE_KOKORO_PYTHON`) still wins, so the author's own install keeps working.
+The first thing to settle is what a clean install actually needs and weighs; that needs a real download of about a gigabyte, which is not done without a yes.
+
+## 8. The trial installer (2026-10-19)
+
+See the end of this note for what was tried.
+
+### What was built and tried
+
+* `tools/build_installer.py` (run by `BUILD INSTALLER.bat`, or `BUILD INSTALLER.bat trial`) gathers the files into `dist/installer-staging/payload`, then has Tauri's bundler make one NSIS setup program,
+  `dist/installer/OpenStage Author_<version>_x64-setup.exe`, with its SHA-256 beside it. Settings for the installer are in `editor/src-tauri/tauri.installer.conf.json`; the normal development build is unchanged.
+  It downloads, checked: Python 3.11.9 (the embeddable zip, against the MD5 python.org lists), Node 24.21.0 (against nodejs.org's SHA-256 list), `jsonschema` 4.26.0 and what it needs (pip), and, the first time, the bundler's NSIS.
+* **Size:** 41 MB for the setup program; 141 MB once installed (Node is 90 of it). It installs for the current user, with no administrator password, and Windows' own uninstall list has it.
+* **The program uses the Python and Node that came with it** (`use_bundled_helpers` in `lib.rs`: a `python` and a `node` folder beside the program, unless `OPENSTAGE_PYTHON` or `OPENSTAGE_NODE` says otherwise). Run from the repository nothing changes.
+* **Tried with the trial copy** (named "OpenStage Author Trial", with its own identifier, so nothing of the real program's settings, models or shortcuts could be touched), installed silently into a scratch folder, and started with almost nothing on the PATH
+  and none of OpenStage's settings: it opened a course; checking the course worked (the Python that came with it); the recorder and the speech recogniser were found beside it; Preview worked (the Node that came with it); Publish made a SCORM package; uninstalling removed the folder,
+  the Start menu entry and the entry in the list of installed programs. The author's own settings and speech models were checked afterwards and were untouched.
+* **Found and fixed on the way:** a folder listed with a glob in the bundler's resource list loses its folders (everything lands in one folder); a folder named with a trailing slash and a target of "" keeps them.
+  The identifier is compiled into the program, so the trial and the real installer are separate compiles.
+* **Not tried:** a computer that is not this one (a clean Windows, a computer with no WebView2, SUNY's managed computers); the recorder recording; Windows warning about an unsigned installer (it is unsigned); upgrading over an earlier install; an install into a folder with an unusual path.
+  An uninstall while the program is running stops with an error (Tauri's own behaviour): close the program first.

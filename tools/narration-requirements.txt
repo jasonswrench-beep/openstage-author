@@ -1,0 +1,13 @@
+# What the narration voice (Kokoro) needs, pinned to the versions that work on the computer it was made on (Python 3.11).
+# The editor installs these into its own folder when the author asks for the narration voice (docs/narration-setup.md, docs/decisions/0004-packaging-and-narration.md).
+# Some of what misaki[en] brings (phonemizer-fork, espeakng-loader) is under the GNU General Public License: the editor says so before it installs, and none of it is part of OpenStage Author's own installer.
+kokoro==0.9.4
+misaki[en]==0.9.4
+torch==2.5.1
+transformers==4.57.1
+huggingface_hub==0.36.2
+numpy==2.2.6
+soundfile==0.14.0
+spacy==3.8.14
+# The English model that misaki asks spaCy for, from its publisher's release page (pip would otherwise be run again at the first narration to fetch it).
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
