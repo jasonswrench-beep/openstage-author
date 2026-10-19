@@ -14,6 +14,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
+mod engine;
 mod speech;
 mod stream;
 
@@ -762,6 +763,66 @@ fn cancel_job_now() -> bool {
     true
 }
 
+/// Run a command to the end, handing every line it prints to `on_line`, as it prints it. Both streams are read, and a carriage return ends a line as well as a new line,
+/// because progress bars rewrite one line with them. Cancelling the job stops it.
+fn run_streaming(mut cmd: Command, mut on_line: impl FnMut(&str)) -> Result<std::process::ExitStatus, JobError> {
+    cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window flashing up
+    }
+    let mut child = cmd.spawn().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound { JobError::Missing } else { JobError::Failed(e.to_string()) }
+    })?;
+    let pid = child.id();
+    *job_pid() = Some(pid);
+    if JOB_CANCELLED.load(Ordering::SeqCst) {
+        kill_tree(pid); // cancelled in the instant before it started
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    fn reader<R: Read + Send + 'static>(mut stream: R, tx: std::sync::mpsc::Sender<String>) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let mut pending: Vec<u8> = Vec::new();
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = stream.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+                for &b in &buf[..n] {
+                    if b == b'\n' || b == b'\r' {
+                        let line = String::from_utf8_lossy(&pending).trim().to_string();
+                        pending.clear();
+                        if !line.is_empty() && tx.send(line).is_err() {
+                            return;
+                        }
+                    } else {
+                        pending.push(b);
+                    }
+                }
+            }
+            let line = String::from_utf8_lossy(&pending).trim().to_string();
+            if !line.is_empty() {
+                let _ = tx.send(line);
+            }
+        })
+    }
+    let readers: Vec<_> = [child.stdout.take().map(|s| reader(s, tx.clone())), child.stderr.take().map(|s| reader(s, tx.clone()))].into_iter().flatten().collect();
+    drop(tx);
+    for line in rx {
+        on_line(&line);
+    }
+    for r in readers {
+        let _ = r.join();
+    }
+    let status = child.wait().map_err(|e| JobError::Failed(e.to_string()))?;
+    *job_pid() = None;
+    if JOB_CANCELLED.swap(false, Ordering::SeqCst) {
+        return Err(JobError::Cancelled);
+    }
+    Ok(status)
+}
+
 /// Without the \\?\ that Windows puts on a fully resolved path, which not every program understands.
 fn plain_path(p: PathBuf) -> PathBuf {
     match p.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
@@ -783,6 +844,11 @@ fn run_publish_tool(project: &Path, out: &Path, preview: bool) -> Result<String,
     let node = std::env::var("OPENSTAGE_NODE").unwrap_or_else(|_| "node".into());
     let mut cmd = Command::new(node);
     cmd.current_dir(player).arg(&script).arg(project).arg(out).arg("--json");
+    // Publishing makes missing narration audio with the speech engine, so it is told which one (the editor's own, if the author has not named another).
+    if let Some((python, _)) = managed_engine() {
+        cmd.env("OPENSTAGE_KOKORO_PYTHON", python);
+        apply_engine_env(&mut cmd);
+    }
     if preview {
         cmd.arg("--preview");
     }
@@ -952,11 +1018,51 @@ fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
 // The editor never makes audio itself. tools/narrate.py makes it, in the speech engine's own Python (the one named by
 // OPENSTAGE_KOKORO_PYTHON), and keeps it in the project's .cache/narration, each file named by a hash of what was said.
 
-const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. Narration needs the Kokoro speech engine, which is installed separately (docs/narration-setup.md). Write the Python that has it in a file called local-settings.bat, next to OPEN EDITOR.bat (local-settings.example.bat shows how), then open OpenStage Author again.";
+const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. Install the narration voice with the button in the Narration dialog, then try again. (If you set up Kokoro yourself, name its Python in a file called local-settings.bat next to OPEN EDITOR.bat: docs/narration-setup.md says how.)";
 
-/// The speech engine's Python, if one is set up.
-fn engine_path() -> Option<PathBuf> {
+/// The editor's own data folder on this computer (where the speech models and the narration engine are kept), as soon as the program has started.
+static DATA_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// The narration engine this editor installs, if there is a data folder to put it in.
+fn engine_layout() -> Option<engine::Layout> {
+    DATA_DIR.get().map(|dir| engine::Layout::in_data_dir(dir))
+}
+
+/// The Python that travels with an installed editor, if this is one.
+fn bundled_python() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    bundled_helper_in(exe.parent()?, "python", "python.exe")
+}
+
+/// The Python the author named for Kokoro (OPENSTAGE_KOKORO_PYTHON), if it is there. It wins over everything else.
+fn engine_setting() -> Option<PathBuf> {
     std::env::var("OPENSTAGE_KOKORO_PYTHON").ok().map(PathBuf::from).filter(|p| p.is_file())
+}
+
+/// The engine the editor installed itself: the Python that came with it, and where the packages and the model are. None if the author has named their own, or none is installed.
+fn managed_engine() -> Option<(PathBuf, engine::Layout)> {
+    if engine_setting().is_some() {
+        return None;
+    }
+    let layout = engine_layout()?;
+    if !engine::installed(&layout) {
+        return None;
+    }
+    Some((bundled_python()?, layout))
+}
+
+/// The speech engine's Python, if one is set up: the author's own (OPENSTAGE_KOKORO_PYTHON), or the one the editor installed.
+fn engine_path() -> Option<PathBuf> {
+    engine_setting().or_else(|| managed_engine().map(|(python, _)| python))
+}
+
+/// Give a command what the engine the editor installed needs to run (where its packages and its model are). Does nothing for an engine the author set up.
+fn apply_engine_env(cmd: &mut Command) {
+    if let Some((_, layout)) = managed_engine() {
+        for (name, value) in engine::environment(&layout, std::env::var("PYTHONPATH").ok().as_deref()) {
+            cmd.env(name, value);
+        }
+    }
 }
 
 /// A narration cache key: the 64 hex digits of a SHA-256. Anything else is refused before it can name a file.
@@ -1131,6 +1237,9 @@ fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[F
         cmd.arg(&tool).arg(&temp).arg("--json").arg("--cache-root").arg(dir);
         if !ids.is_empty() {
             cmd.arg("--only").arg(ids.join(","));
+        }
+        if kokoro_ready {
+            apply_engine_env(&mut cmd);
         }
         apply_ai(&mut cmd, ai, plugins);
         match run_job(cmd) {
@@ -1435,6 +1544,9 @@ fn voice_sample_blocking(engine: &Path, voice: &str, lang: &str, cache: &Path, a
     cmd.arg(&tool).arg("--cache-dir").arg(cache);
     apply_ai(&mut cmd, ai, plugins);
     let kokoro = !voice.contains(':');
+    if kokoro {
+        apply_engine_env(&mut cmd);
+    }
     let request = serde_json::json!({ "voice": voice, "lang": lang }).to_string().into_bytes();
     match run_job_input(cmd, Some(request)) {
         Ok(out) if out.status.success() => {
@@ -1692,6 +1804,162 @@ async fn make_narration(app: tauri::AppHandle, dir: String, files: Vec<FileText>
     tauri::async_runtime::spawn_blocking(move || make_narration_with(&engine, kokoro_ready, Path::new(&dir), &files, &ids, &ai, plugins.as_deref()))
         .await
         .map_err(|e| e.to_string())?
+}
+
+// ---- the narration engine, installed from a button
+//
+// The pure parts (where it lives, the environment, the commands) are in engine.rs. This runs them with progress and Stop, as one job.
+
+const NO_BUNDLED_PYTHON: &str = "This copy of OpenStage Author has no Python of its own to install the narration voice with (it is being run from the source folder). Set OPENSTAGE_KOKORO_PYTHON to a Python that has Kokoro installed, as docs/narration-setup.md says.";
+
+/// The time as ISO 8601 in UTC, from seconds since 1970, without a library for it.
+fn iso_utc(secs: u64) -> String {
+    let days = (secs / 86_400) as i64;
+    let rest = secs % 86_400;
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rest / 3600, rest % 3600 / 60, rest % 60)
+}
+
+/// What the page needs to know to offer the engine: whether there is one, whose it is, whether the editor can install one, and how much room it takes.
+#[derive(Serialize)]
+struct EngineStatus {
+    /// "setting" (the author named a Python), "installed" (the editor's own), or "none".
+    state: &'static str,
+    #[serde(rename = "canInstall")]
+    can_install: bool,
+    /// Why it cannot be installed here, when it cannot.
+    problem: String,
+    folder: String,
+    /// The bytes the installed engine takes (0 if none).
+    size: u64,
+}
+
+fn engine_install_problem() -> String {
+    let Some(python) = bundled_python() else { return NO_BUNDLED_PYTHON.to_string() };
+    let pip = python.parent().map(|p| p.join("Lib").join("site-packages").join("pip")).filter(|p| p.is_dir());
+    if pip.is_none() {
+        return "The Python that came with this copy has no pip, so the narration voice cannot be installed from here.".to_string();
+    }
+    if engine_layout().is_none() {
+        return "The editor has no data folder to install the narration voice into.".to_string();
+    }
+    if find_tool("narration-requirements.txt").is_none() {
+        return "The list of what the narration voice needs (tools/narration-requirements.txt) is missing from this copy.".to_string();
+    }
+    String::new()
+}
+
+#[tauri::command]
+fn engine_status() -> Result<String, String> {
+    let layout = engine_layout();
+    let problem = engine_install_problem();
+    let state = if engine_setting().is_some() { "setting" } else if managed_engine().is_some() { "installed" } else { "none" };
+    let size = layout.as_ref().map(|l| engine::folder_size(&l.root)).unwrap_or(0);
+    serde_json::to_string(&EngineStatus {
+        state,
+        can_install: problem.is_empty(),
+        problem,
+        folder: layout.map(|l| l.root.to_string_lossy().into_owned()).unwrap_or_default(),
+        size,
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Run the install steps one after another. `progress(step, steps, label, line)` hears what each prints (not more than a few times a second). Returns the lines of the last step on failure.
+fn engine_install_blocking(python: &Path, layout: &engine::Layout, requirements: &Path, mut progress: impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    fs::create_dir_all(&layout.site).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    fs::create_dir_all(&layout.home).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    let _ = fs::remove_dir_all(&layout.tmp);
+    fs::create_dir_all(&layout.tmp).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    let _ = fs::remove_file(layout.marker()); // until it has all gone well, it is not installed
+    let result = engine_install_steps(python, layout, requirements, &mut progress);
+    let _ = fs::remove_dir_all(&layout.tmp); // pip's workings, whether it finished, failed or was stopped
+    result
+}
+
+fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &Path, progress: &mut impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    let steps = engine::steps(layout, requirements);
+    for (i, step) in steps.iter().enumerate() {
+        progress(i + 1, steps.len(), &step.label, "");
+        let mut cmd = Command::new(python);
+        cmd.args(&step.args).current_dir(&layout.root);
+        for (name, value) in engine::install_environment(layout, std::env::var("PYTHONPATH").ok().as_deref()) {
+            cmd.env(name, value);
+        }
+        let mut tail: Vec<String> = Vec::new();
+        let mut last = std::time::Instant::now() - Duration::from_secs(1);
+        let outcome = run_streaming(cmd, |line| {
+            tail.push(line.to_string());
+            if tail.len() > 6 {
+                tail.remove(0);
+            }
+            if last.elapsed() >= Duration::from_millis(250) {
+                last = std::time::Instant::now();
+                progress(i + 1, steps.len(), &step.label, line);
+            }
+        });
+        match outcome {
+            Ok(status) if status.success() => {}
+            Ok(_) => return Err(format!("{} did not finish. It said: {}", step.label, tail.iter().rev().take(2).rev().cloned().collect::<Vec<_>>().join(" "))),
+            Err(JobError::Cancelled) => return Err("Installing the narration voice was stopped. Pressing the button again installs it from the start.".into()),
+            Err(JobError::Missing) => return Err("The Python that came with this copy could not be started.".into()),
+            Err(JobError::Failed(e)) => return Err(format!("Could not run {}: {e}", step.label)),
+        }
+    }
+    let when = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let list = fs::read_to_string(requirements).unwrap_or_default();
+    fs::write(layout.marker(), engine::marker_json(&iso_utc(when), &list)).map_err(|e| format!("Could not write down that the narration voice is installed: {e}"))?;
+    Ok(())
+}
+
+/// Install the narration engine into the editor's own folder: the packages from PyPI and the voice model from Hugging Face, with the Python that came with the editor. Progress
+/// reaches the page as `engine-progress` events ({ step, steps, label, line }). It takes the one job slot (it does not run beside a preview, a publish or a recording), and Cancel stops it.
+#[tauri::command]
+async fn engine_install(app: tauri::AppHandle) -> Result<(), String> {
+    if engine_setting().is_some() {
+        return Err("You have named your own narration engine (OPENSTAGE_KOKORO_PYTHON), so the editor leaves it alone and installs nothing.".into());
+    }
+    let problem = engine_install_problem();
+    if !problem.is_empty() {
+        return Err(problem);
+    }
+    let (python, layout, requirements) = (bundled_python().ok_or(NO_BUNDLED_PYTHON)?, engine_layout().ok_or("No data folder.")?, find_tool("narration-requirements.txt").ok_or("No list of packages.")?);
+    tauri::async_runtime::spawn_blocking(move || {
+        let _slot = JobSlot::take()?;
+        engine_install_blocking(&python, &layout, &requirements, |step, steps, label, line| {
+            let _ = app.emit("engine-progress", serde_json::json!({ "step": step, "steps": steps, "label": label, "line": line }));
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Take the editor's own narration engine away (and its model). Only that folder; never the author's own engine. Returns how many bytes it freed.
+#[tauri::command]
+async fn engine_remove() -> Result<u64, String> {
+    let layout = engine_layout().ok_or("No data folder.")?;
+    if !engine::is_engine_folder(&layout.root) {
+        return Err("That is not the narration engine's folder.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let _slot = JobSlot::take()?;
+        let size = engine::folder_size(&layout.root);
+        if layout.root.exists() {
+            engine::remove_tree(&layout.root).map_err(|e| format!("Could not remove all of the narration voice. {e} If something is using it, close that and try again."))?;
+        }
+        Ok(size)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Stop a running preview or publish. Returns whether there was one.
@@ -2561,10 +2829,16 @@ fn use_bundled_helpers() {
 pub fn run() {
     use_bundled_helpers();
     tauri::Builder::default()
+        .setup(|app| {
+            if let Ok(dir) = app.path().app_local_data_dir() {
+                let _ = DATA_DIR.set(dir);
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3508,6 +3782,48 @@ mod tests {
         assert!(read_narration_audio_at(&project, &"e".repeat(64)).is_err(), "a key with no audio");
         assert!(read_narration_audio_at(&std::env::temp_dir(), &key).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_time_is_written_as_iso_in_utc() {
+        assert_eq!(iso_utc(0), "1970-01-01T00:00:00Z");
+        assert_eq!(iso_utc(1_700_000_000), "2023-11-14T22:13:20Z");
+        assert_eq!(iso_utc(951_782_400), "2000-02-29T00:00:00Z", "a leap day");
+        assert_eq!(iso_utc(1_792_000_000), "2026-10-14T17:46:40Z");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_command_is_read_line_by_line_from_both_streams_and_a_failure_is_seen() {
+        let _guard = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let _slot = JobSlot::take().expect("a free slot");
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "echo one& echo two 1>&2& echo three& exit 3"]);
+        let mut lines = Vec::new();
+        let status = run_streaming(cmd, |l| lines.push(l.to_string())).ok().expect("it ran");
+        lines.sort();
+        assert_eq!(lines, vec!["one", "three", "two"]);
+        assert_eq!(status.code(), Some(3));
+        let missing = run_streaming(Command::new("openstage-no-such-program-xyz"), |_| {});
+        assert!(matches!(missing, Err(JobError::Missing)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn stopping_a_streamed_command_stops_it() {
+        let _guard = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let _slot = JobSlot::take().expect("a free slot");
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "ping -n 30 127.0.0.1"]);
+        let stopper = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(800));
+            cancel_job_now();
+        });
+        let started = std::time::Instant::now();
+        let outcome = run_streaming(cmd, |_| {});
+        stopper.join().unwrap();
+        assert!(matches!(outcome, Err(JobError::Cancelled)), "cancelled");
+        assert!(started.elapsed() < Duration::from_secs(15), "it did not run to the end");
     }
 
     #[test]

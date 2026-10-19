@@ -41,11 +41,11 @@ PYTHON_MD5 = "6d9aa08531d48fcc261ba667e2df17c4"  # as listed on https://www.pyth
 NODE_VERSION = "24.21.0"  # the version on the main computer
 NODE_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
 NODE_SUMS_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/SHASUMS256.txt"
-PIP_PACKAGES = ["jsonschema==4.26.0"]  # what tools/validate.py needs; pip adds attrs, referencing, rpds-py and jsonschema-specifications
+PIP_PACKAGES = ["jsonschema==4.26.0", "pip==26.2.1"]  # jsonschema is what tools/validate.py needs (pip adds attrs, referencing, rpds-py and jsonschema-specifications); pip is what installs the narration voice later
 
 # Only these example courses go in (the others are test material).
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj"]
-TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json"]
+TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenStage Author Trial"}
 
@@ -166,15 +166,8 @@ def stage():
             fail(f"the player's package {'/'.join(package)} is not installed. Run npm install in the player folder.")
         copy_tree(source, player / "node_modules" / Path(*package))
 
-    # Licences and the lists of what is inside.
     for name in ("LICENSE", "NOTICE"):
         shutil.copy2(ROOT / name, PAYLOAD / name)
-    say("  writing the licence texts")
-    done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_licences.py"), "--write", "--texts"], capture_output=True, text=True, encoding="utf-8")
-    if done.returncode != 0:
-        fail("the licence check failed:\n" + done.stdout + done.stderr)
-    shutil.copy2(EDITOR / "THIRD-PARTY.md", PAYLOAD / "THIRD-PARTY.md")
-    shutil.copy2(EDITOR / "THIRD-PARTY-LICENSES.txt", PAYLOAD / "THIRD-PARTY-LICENSES.txt")
 
     # Python, with jsonschema.
     say("  Python")
@@ -208,6 +201,16 @@ def stage():
                     shutil.copyfileobj(src, dst)
     if not (node / "node.exe").is_file():
         fail("node.exe was not found in the Node download.")
+
+    # Licences and the lists of what is inside, written last so they include the Python packages that were just put in.
+    say("  writing the licence texts")
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "check_licences.py"), "--write", "--texts", "--python", str(site), "--out", str(PAYLOAD)],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    if done.returncode != 0:
+        fail("the licence check failed:\n" + done.stdout + done.stderr)
+    say("  " + done.stdout.splitlines()[0])
 
     total = sum(f.stat().st_size for f in PAYLOAD.rglob("*") if f.is_file())
     say(f"  {sum(1 for f in PAYLOAD.rglob('*') if f.is_file())} files, {total // (1024 * 1024)} MB before compression")

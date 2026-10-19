@@ -131,9 +131,29 @@ turns out to be too hard for the people it is for. Nothing in `NOTICE` or `READM
 
 ## 7. The narration engine, installed by the program
 
-Not built yet. The plan: a button (in the Narration dialog, and where the editor says there is no engine) asks first (size, sources, the GPL note), then installs Python packages and the voice model into the
-program's own data folder, with progress and a Stop button, and the editor uses that engine without any setting. A setting (`OPENSTAGE_KOKORO_PYTHON`) still wins, so the author's own install keeps working.
-The first thing to settle is what a clean install actually needs and weighs; that needs a real download of about a gigabyte, which is not done without a yes.
+**Built and tried on 2026-10-19 (in the trial copy, on this computer; results at the end of this section).** A section in the Narration dialog, "Narration voice on this computer", has **Install the narration voice...** and, once installed, **Remove the narration voice...**.
+The question it asks says what is fetched and from where, how much, and that part of it is GPL. Then the shell runs three commands with the Python that travels with the editor: `pip install --target` of the pinned list
+`tools/narration-requirements.txt` (kokoro 0.9.4, misaki[en], torch 2.5.1 from PyPI, transformers, spaCy and its English model...), a download of the voice model from Hugging Face (`config.json`, `kokoro-v1_0.pth` and the voices),
+and a short check that it really speaks. They go into `%LOCALAPPDATA%\<identifier>\narration-engine` (packages, and the model in its own `HF_HOME`), so removing that folder removes everything. `engine.json` is written last; without it
+the engine counts as not installed. The author's own `OPENSTAGE_KOKORO_PYTHON` still wins and is never touched. `engine.rs` (where it is, the environment, the commands: tested), `lib.rs` (`engine_status`, `engine_install` with
+`engine-progress` events and Cancel through the job slot, `engine_remove`; `run_streaming` reads a command line by line), `engine.ts` (the words and the question: tested), the dialog.
+**Measured on 2026-10-19:** the 92 Python packages are 313 MB of files on PyPI (torch 2.5.1 alone 203 MB), the model files 355 MB on Hugging Face, so about 670 MB to download; the finished engine folder is 2.1 GB; and pip builds
+in a temporary folder first (1.4 GB seen there), so about 1.5 GB more has to be free while it runs; that folder is now inside the engine's own folder (`tmp`), on the same drive, and cleared after every install, so a stopped or failed install does not leave
+1.4 GB behind in the computer's temporary folder (it did on the first run, when the program was stopped). The question the author is asked says all of that.
+**First real run (trial copy, this computer, fast network): the packages took 2 minutes and the model 5 seconds; the check then failed:** spaCy needs `click`, and the newest `typer` no longer brings it in, so `import spacy` failed.
+With `click` added the engine imports and speaks ("Hello." made 1.35 seconds of sound, 13 s the first time). That is why `tools/narration-requirements.txt` is now a complete lock of all 92 packages at the versions that worked, not a short list.
+(`docopt`, only published as source, built without trouble in the bundled Python.) 
+
+**What was tried, in the trial copy (its own settings and folders, so nothing of the author's was touched), with Jason's yes to the download:**
+
+* **The whole thing from the button, from the lock:** the packages went in in about 2 minutes, the model in 5 seconds, the check that it speaks passed, the dialog then said it was installed (2.0 GB); the whole run took about 2 minutes 25 seconds on a fast network.
+* **Audio with it:** the editor's own "make audio" command, run with nothing set but the editor's own engine, made audio for all five narrations of the example (6 to 7 seconds each, with exact word timings): the installed engine is found and its packages and model are used.
+* **Cancel:** pressing Cancel 20 seconds in stopped it within a few seconds, said so, left nothing in the computer's temporary folder and no marker (so the engine counts as not installed), and the dialog offered to install again.
+* **Remove:** on a real 1.9 GB half-finished install it took 73 seconds and said it freed 1940.5 MB. The first attempt, with the plain removal, left 1.6 GB of packages behind (Windows held something); the removal now goes on past such files, clears a read-only mark and tries again, and says which file it could not remove.
+* **The question:** says what is fetched and from where, how much, where it goes, the GPL parts, and that nothing from the courses is sent; saying no changes nothing and makes no folder.
+* **One run ended early with "stopped" at the start of step 2** while the trial window was on the screen and nobody had sent Cancel from the script; most likely a key press or click on the visible window. Not reproduced.
+
+**Not tried:** a clean Windows (torch may need Microsoft's Visual C++ runtime, which such a computer may lack; neither the editor nor this was tried on a computer that has only had Windows installed), an install on a drive with little room (it needs about 2.1 GB plus 1.5 GB while it works, and the question says so), a slow or filtered network (a school network that blocks pypi.org or huggingface.co would stop it with pip's own message), Publish making audio with the installed engine (only the command the dialog uses was tried), and upgrading the engine later (the lock file changes, and installing again replaces it).
 
 ## 8. The trial installer (2026-10-19)
 

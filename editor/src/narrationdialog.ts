@@ -7,6 +7,7 @@
 import { audioPlan, availability, servicesToAsk, type AiSettings, type PluginInfo, type ServiceId } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
 import { clockText, type Model, type NarratedObject } from "./model.ts";
+import { NO_ENGINE_STATUS, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
 import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -53,15 +54,39 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     const dialog = h("dialog", { class: "dialog wide narration-dialog", "aria-labelledby": "nr-title" });
     const summary = h("p", { class: "nr-summary" });
     const plan = h("div", { class: "nr-plan" });
-    const context = () => ({ ai: opts.ai(), kokoro: opts.engine, plugins: opts.plugins() });
+    let engineReady = opts.engine;
+    let engineStatus: EngineStatus = NO_ENGINE_STATUS;
+    const context = () => ({ ai: opts.ai(), kokoro: engineReady, plugins: opts.plugins() });
     const list = h("div", { class: "nr-list" });
     const status = h("p", { class: "as-status", role: "status" });
     const failure = h("p", { class: "dialog-error", role: "alert" });
     const makeAll = h("button", { type: "button", text: "Make all missing audio" });
     const clearBtn = h("button", { type: "button", text: "Clear unused audio" });
     const closeBtn = h("button", { type: "button", text: "Close" });
+    // The narration voice on this computer: whether it is there, and a button to install it (or take it away). What it is doing is said in the live line a step at a time; the detail of each step is not a live region, so a screen reader is not read every line pip prints.
+    const engineText = h("p", { class: "note", id: "nr-engine-text" });
+    const installBtn = h("button", { type: "button", id: "nr-engine-install", text: "Install the narration voice..." });
+    const removeBtn = h("button", { type: "button", id: "nr-engine-remove", text: "Remove the narration voice..." });
+    const engineDetail = h("p", { class: "note", id: "nr-engine-detail" });
+    const engineBox = h("div", { class: "nr-engine", role: "group", "aria-labelledby": "nr-engine-title" }, h("h3", { id: "nr-engine-title", text: "Narration voice on this computer" }), engineText, h("div", { class: "btn-row" }, installBtn, removeBtn), engineDetail);
 
     const say = (text: string) => { status.textContent = text; };
+
+    const renderEngine = () => {
+      const line = engineLine(engineStatus);
+      engineText.textContent = line.text;
+      installBtn.hidden = !line.canInstall;
+      removeBtn.hidden = !line.canRemove;
+      for (const b2 of [installBtn, removeBtn]) {
+        if (running) b2.setAttribute("aria-disabled", "true");
+        else b2.removeAttribute("aria-disabled");
+      }
+    };
+    const refreshEngine = async () => {
+      engineStatus = await b.engineStatus().catch(() => NO_ENGINE_STATUS);
+      engineReady = await b.narrationEngine().catch(() => false);
+      renderEngine();
+    };
 
     const render = () => {
       const items = model.narratedObjects();
@@ -76,6 +101,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       clearBtn.textContent = unused.length > 0 ? `Clear unused audio (${unused.length})` : "Clear unused audio";
       if (unused.length > 0 && !running) clearBtn.removeAttribute("aria-disabled"); else clearBtn.setAttribute("aria-disabled", "true");
       closeBtn.textContent = running ? "Cancel" : "Close";
+      renderEngine();
 
       list.replaceChildren();
       let slideId = "";
@@ -167,6 +193,60 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       finish();
     };
 
+    const installEngine = async () => {
+      if (running || installBtn.getAttribute("aria-disabled") === "true") return;
+      failure.textContent = "";
+      if (!(await b.confirm(installQuestion()))) return;
+      running = true;
+      render();
+      engineDetail.textContent = "";
+      say("Installing the narration voice. This takes a few minutes, and you can cancel.");
+      let step = 0;
+      let off: () => void = () => undefined;
+      try {
+        off = await b.onEngineProgress((p) => {
+          if (p.step !== step) {
+            step = p.step;
+            say(stepText(p.step, p.steps, p.label));
+          }
+          if (p.line !== "") engineDetail.textContent = progressDetail(p.line);
+        });
+        await b.engineInstall();
+        await refreshEngine();
+        await opts.refresh();
+        say("The narration voice is installed. Choose Make all missing audio to use it.");
+        engineDetail.textContent = "";
+      } catch (err) {
+        say("");
+        engineDetail.textContent = "";
+        failure.textContent = errorText(err);
+        await refreshEngine();
+      } finally {
+        off();
+        running = false;
+        render();
+        (engineStatus.state === "installed" ? makeAll : installBtn.hidden ? makeAll : installBtn).focus();
+      }
+    };
+    installBtn.addEventListener("click", () => void installEngine());
+    removeBtn.addEventListener("click", async () => {
+      if (running || removeBtn.getAttribute("aria-disabled") === "true") return;
+      failure.textContent = "";
+      if (!(await b.confirm(removeQuestion(engineStatus.size)))) return;
+      try {
+        const freed = await b.engineRemove();
+        await refreshEngine();
+        await opts.refresh();
+        say(`The narration voice is removed${freed > 0 ? `, freeing ${formatBytes(freed)}` : ""}.`);
+      } catch (err) {
+        failure.textContent = errorText(err);
+        await refreshEngine();
+      } finally {
+        render();
+        (installBtn.hidden ? makeAll : installBtn).focus();
+      }
+    });
+
     makeAll.addEventListener("click", () => { if (makeAll.getAttribute("aria-disabled") !== "true") void run([]); });
     clearBtn.addEventListener("click", async () => {
       if (clearBtn.getAttribute("aria-disabled") === "true" || running) return;
@@ -199,12 +279,13 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     dialog.append(
       h("h2", { id: "nr-title", text: "Narration" }),
       h("p", { class: "note", text: "Narration belongs to an object and plays when its slide opens, in reading order. An item of an interaction, such as a glossary term or a flip card, has its own narration, which plays when the learner opens that item. The captions and the transcript come from the script, so they always match what is said. To change a word, change the script and make its audio again." }),
-      summary, plan, status, failure, list,
+      summary, plan, engineBox, status, failure, list,
       h("div", { class: "dialog-actions" }, makeAll, clearBtn, closeBtn),
     );
     document.body.appendChild(dialog);
     render();
     dialog.showModal();
     makeAll.focus();
+    void refreshEngine();
   });
 }

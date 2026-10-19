@@ -10,6 +10,8 @@ when something new appears that nobody has looked at. OpenStage Capture has its 
   python tools/check_licences.py --write      also write editor/THIRD-PARTY.md (the list that NOTICE points to)
   python tools/check_licences.py --texts      also write editor/THIRD-PARTY-LICENSES.txt: the licence texts of every crate and
                                               package, which an installer must carry (ignored by git: made when a package is built)
+  --python <site-packages>                    also check (and list) the Python packages in that folder, as the installer's own Python has them
+  --out <folder>                              write the list and the texts there instead of into editor/ (the installer build does, so what it carries includes the Python packages)
 
 The one licence on the list that is not simply permissive is MPL-2.0, which applies file by file. Five crates that come with Tauri's
 web view layer use it (see MPL_OK). They are used as published, unmodified. A sixth would fail the check until someone has looked.
@@ -38,6 +40,15 @@ ALLOWED = {
 # Weak, file-level copyleft that has been looked at. Each is used unmodified, so only its own files are covered; a licence text and
 # a pointer to the source (crates.io) go with a program that includes it. Adding a crate here is a decision for the owner.
 MPL_OK = {"cssparser", "cssparser-macros", "dtoa-short", "option-ext", "selectors"}
+
+# Python packages carry their licence in their metadata, either as an expression or as a classifier.
+CLASSIFIERS = {
+    "MIT License": "MIT", "Apache Software License": "Apache-2.0", "BSD License": "BSD-3-Clause", "ISC License (ISCL)": "ISC",
+    "Python Software Foundation License": "PSF-2.0", "The Unlicense (Unlicense)": "Unlicense", "Mozilla Public License 2.0 (MPL 2.0)": "MPL-2.0",
+}
+ALLOWED.add("PSF-2.0")
+# pip carries certifi (the list of trusted web sites' certificate makers, under MPL-2.0 file by file); it is not changed.
+PY_MPL_OK = {"certifi"}
 
 TARGET = "x86_64-pc-windows-msvc"
 
@@ -133,6 +144,23 @@ def rust_crates():
     return sorted(found, key=lambda c: (c["name"], c["version"]))
 
 
+def python_packages(site):
+    """The Python packages installed in a folder (from their *.dist-info), with their licence as the package says it."""
+    import email.parser
+    found = []
+    for info in sorted(Path(site).glob("*.dist-info")):
+        meta_file = info / "METADATA"
+        if not meta_file.is_file():
+            continue
+        meta = email.parser.Parser().parsestr(meta_file.read_text(encoding="utf-8", errors="replace"))
+        expression = (meta.get("License-Expression") or "").strip()
+        classifiers = [CLASSIFIERS[c.split("::")[-1].strip()] for c in meta.get_all("Classifier") or [] if c.startswith("License") and c.split("::")[-1].strip() in CLASSIFIERS]
+        short = (meta.get("License") or "").strip()
+        licence = expression or (" OR ".join(dict.fromkeys(classifiers)) if classifiers else (short if len(short) < 60 else ""))
+        found.append({"name": meta.get("Name", info.name), "version": meta.get("Version", ""), "license": licence, "dir": info, "what": "the installer's Python"})
+    return found
+
+
 def js_packages():
     found, missing = [], []
     for base, names, what in JS_ROOTS:
@@ -151,16 +179,18 @@ def js_packages():
 
 # ---- the checks and the output
 
-def check(rust, js):
+def check(rust, js, python=()):
     problems = []
-    for c in rust + js:
+    for c in list(rust) + list(js) + list(python):
+        if c in python and c["license"] == "MPL-2.0" and c["name"].lower() in PY_MPL_OK:
+            continue
         if not acceptable(c["license"], c["name"]):
             what = c["license"] or "no licence stated"
             problems.append(f"{c['name']} {c['version']}: {what}")
     return problems
 
 
-def write_list(rust, js):
+def write_list(rust, js, python=(), out=None):
     mpl = [c for c in rust if "MPL-2.0" in c["license"]]
     lines = [
         "# Third-party components of the editor program",
@@ -181,20 +211,29 @@ def write_list(rust, js):
     ]
     for c in js:
         lines.append(f"| {c['name']} | {c['version']} | {c['license']} | {c['what']} |")
+    if python:
+        lines += ["", "## Python packages (the Python that travels with the installer)", "", "| Package | Version | Licence |", "|---|---|---|"]
+        for c in python:
+            lines.append(f"| {c['name']} | {c['version']} | {c['license'] or 'see its licence file'} |")
+        lines += ["", "pip carries certifi, whose list of certificate makers is under MPL-2.0 (file by file; unchanged).", "Python itself is under the Python Software Foundation licence (python/LICENSE.txt); Node is under the MIT licence with the licences of what it contains (node/LICENSE)."]
     lines += ["", "## Rust crates", "", "| Crate | Version | Licence |", "|---|---|---|"]
     for c in rust:
         lines.append(f"| {c['name']} | {c['version']} | {c['license']} |")
-    OUT_LIST.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    print(f"Wrote {OUT_LIST.relative_to(ROOT)}")
+    target = (Path(out) / "THIRD-PARTY.md") if out else OUT_LIST
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    print(f"Wrote {target.relative_to(ROOT) if ROOT in target.parents else target}")
 
 
 LICENCE_FILE = re.compile(r"^(LICEN[CS]E|COPYING|UNLICENSE|NOTICE)", re.IGNORECASE)
 
 
-def write_texts(rust, js):
+def write_texts(rust, js, python=(), out=None):
     blocks = {}
-    for c in rust + js:
-        files = sorted(f for f in c["dir"].iterdir() if f.is_file() and LICENCE_FILE.match(f.name)) if c["dir"].is_dir() else []
+    for c in list(rust) + list(js) + list(python):
+        if c["dir"].is_dir() and c["dir"].name.endswith(".dist-info"):
+            files = sorted(f for f in c["dir"].rglob("*") if f.is_file() and LICENCE_FILE.match(f.name))
+        else:
+            files = sorted(f for f in c["dir"].iterdir() if f.is_file() and LICENCE_FILE.match(f.name)) if c["dir"].is_dir() else []
         if not files:
             blocks.setdefault(f"(no licence file was found in the package; its manifest says {c['license']})", []).append(f"{c['name']} {c['version']}")
             continue
@@ -204,15 +243,23 @@ def write_texts(rust, js):
     parts = ["Licences of the components of OpenStage Author's editor program and publishing tools.", "OpenStage Author itself is under the Apache License 2.0 (see LICENSE).", ""]
     for text, users in sorted(blocks.items(), key=lambda kv: kv[1][0]):
         parts += ["=" * 78, "Used by: " + ", ".join(sorted(set(users))), "=" * 78, text, ""]
-    OUT_TEXTS.write_text("\n".join(parts), encoding="utf-8", newline="\n")
-    print(f"Wrote {OUT_TEXTS.relative_to(ROOT)} ({OUT_TEXTS.stat().st_size // 1024} KB, {len(blocks)} different texts)")
+    target = (Path(out) / "THIRD-PARTY-LICENSES.txt") if out else OUT_TEXTS
+    target.write_text("\n".join(parts), encoding="utf-8", newline="\n")
+    print(f"Wrote {target.relative_to(ROOT) if ROOT in target.parents else target} ({target.stat().st_size // 1024} KB, {len(blocks)} different texts)")
+
+
+def option(name):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv and sys.argv.index(name) + 1 < len(sys.argv) else None
 
 
 def main():
     rust = rust_crates()
     js, missing = js_packages()
-    problems = check(rust, js)
-    print(f"{len(rust)} Rust crates and {len(js)} JavaScript packages checked.")
+    site = option("--python")
+    python = python_packages(site) if site else []
+    out = option("--out")
+    problems = check(rust, js, python)
+    print(f"{len(rust)} Rust crates, {len(js)} JavaScript packages" + (f" and {len(python)} Python packages" if site else "") + " checked.")
     for m in missing:
         print("Not installed, so not checked:", m)
     if problems:
@@ -224,9 +271,9 @@ def main():
         mpl = sorted({c["name"] for c in rust if "MPL-2.0" in c["license"]})
         print("All are permissive" + (f", except the MPL-2.0 crates that have been looked at: {', '.join(mpl)}." if mpl else "."))
     if "--write" in sys.argv:
-        write_list(rust, js)
+        write_list(rust, js, python, out)
     if "--texts" in sys.argv:
-        write_texts(rust, js)
+        write_texts(rust, js, python, out)
     return 1 if problems or missing else 0
 
 

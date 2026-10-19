@@ -29,11 +29,15 @@ Lucide icons (the Icons picker in the editor, and the icons a course holds)
   A course that uses an icon carries the notice: its credits page names Lucide, and the
   published package includes the licence text as licenses/lucide.txt.
 
-Speech engine (installed separately by the user; not included, bundled or hosted by OpenStage Author)
-  Spoken narration is made by a speech engine that the user installs on their own computer
-  and that OpenStage Author runs as a separate program. That engine may include components
-  under the GNU General Public License, such as phonemizer-fork and espeak-ng. OpenStage
-  Author does not include, bundle, or host them. They keep their own licences.
+Speech engine (put on the user's own computer, at their request; not included, bundled or hosted by OpenStage Author)
+  Spoken narration is made by the Kokoro speech engine (Apache License 2.0), which OpenStage
+  Author runs as a separate program. The user either installs it themselves or presses a button
+  in the editor, which says what it is going to do and then downloads it from its own publishers
+  (the Python packages from pypi.org, the voice model from huggingface.co) into the editor's own
+  folder on their computer. What the engine needs for its English voices includes components under
+  the GNU General Public License, such as phonemizer-fork and espeak-ng; the editor says so before it
+  downloads them. OpenStage Author's installer and website do not include, bundle, or host them.
+  They keep their own licences.
 
 AI services and voice plugins (connected by the user; not included, bundled or hosted by OpenStage Author)
   The editor can make voices and pictures with OpenAI (https://openai.com), and can run
