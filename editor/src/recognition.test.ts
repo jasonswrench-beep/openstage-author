@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_LIMITS, cueWarnings, type Cue } from "./captions.ts";
 import {
-  cuesFromWords, dropNotes, dropSilent, encodeWav, hasSound, hintFor, hintSourcesOf, megabytes, parseSpeechStatus, parseWhisper, placeByVoice, soundEnd, soundMapOf, wordEnds, type Word,
+  MAX_LISTEN_MINUTES, PIECE_MINUTES, cuesFromWords, dropNotes, dropSilent, encodeWav, hasSound, hintFor, hintSourcesOf, joinPieces, megabytes, parseSpeechStatus, parseWhisper, placeByVoice, planPieces, soundEnd, soundMapOf, wordEnds,
+  type SoundMap, type Word,
 } from "./recognition.ts";
 import { KEYBOARD_NOTE, MUSIC_NOTE, SILENCE_BLANK, SILENCE_YOU, SPEECH_SAMPLE } from "./recognition.fixtures.ts";
 
@@ -235,4 +236,81 @@ test("the course's words for the hint come from its title, slide names, headings
   const hint = hintFor(sources);
   for (const t of ["Brightspace", "SCORM", "SUNY", "OpenStage", "Wrench"]) assert.ok(hint.split(", ").includes(t), `${t} in ${hint}`);
   assert.ok(!hint.includes("Secret") && !hint.includes("Hidden"), "a picture's description is not part of what is said");
+});
+
+// ---- a long clip, listened to in pieces
+
+/** A sound map of `minutes` of loud sound, with the stretches named made quiet (each `[from, to]` in seconds). */
+function mapWith(minutes: number, quiet: [number, number][] = []): SoundMap {
+  const frameMs = 20;
+  const db = new Float32Array(Math.round((minutes * 60_000) / frameMs)).fill(-20);
+  for (const [from, to] of quiet) db.fill(-90, Math.round((from * 1000) / frameMs), Math.round((to * 1000) / frameMs));
+  return { frameMs, db, gateDb: -62 };
+}
+
+test("a clip that is long is listened to in pieces, so the limit is hours and not 45 minutes", () => {
+  assert.equal(MAX_LISTEN_MINUTES, 180);
+  assert.equal(PIECE_MINUTES, 20);
+});
+
+test("a clip no longer than a piece is one piece, with no cut", () => {
+  const pieces = planPieces(mapWith(20), 20 * 60 * 16000);
+  assert.deepEqual(pieces, [{ fromSample: 0, toSample: 20 * 60 * 16000, fromMs: 0 }]);
+});
+
+test("a long clip is cut into equal pieces, each cut in the quietest moment near the even spacing", () => {
+  const total = 50 * 60 * 16000;
+  // Three pieces of about 16 minutes 40 seconds: the cuts want to fall at 16:40 and 33:20. Pauses are at 16:30 and 33:35 (990 and 2015 seconds).
+  const pieces = planPieces(mapWith(50, [[990, 990.5], [2015, 2015.5]]), total);
+  assert.equal(pieces.length, 3);
+  assert.equal(pieces[0]!.fromSample, 0);
+  assert.equal(pieces[2]!.toSample, total);
+  for (let i = 1; i < pieces.length; i++) assert.equal(pieces[i]!.fromSample, pieces[i - 1]!.toSample, "no gap and no overlap");
+  // The even spacing is 16:40 and 33:20; each cut is somewhere inside its pause, the part of it nearest the even spacing.
+  assert.ok(pieces[1]!.fromMs >= 990_000 && pieces[1]!.fromMs <= 990_500, `first cut at ${pieces[1]!.fromMs} ms, in the first pause`);
+  assert.ok(pieces[2]!.fromMs >= 2_015_000 && pieces[2]!.fromMs <= 2_015_500, `second cut at ${pieces[2]!.fromMs} ms, in the second pause`);
+});
+
+test("no piece is longer than the most allowed, even when every cut moves as far as it can", () => {
+  for (const minutes of [20.1, 25, 40, 61, 119, 180]) {
+    const total = Math.round(minutes * 60 * 16000);
+    const quiet: [number, number][] = [];
+    // A pause only at the far end of each cut's reach, so every cut moves the whole way.
+    for (let k = 1; k < 12; k++) quiet.push([(minutes * 60 * k) / Math.ceil((minutes * 60) / (PIECE_MINUTES * 60 - 20)) + 19, (minutes * 60 * k) / Math.ceil((minutes * 60) / (PIECE_MINUTES * 60 - 20)) + 19.5]);
+    const pieces = planPieces(mapWith(minutes, quiet), total);
+    for (const p of pieces) assert.ok((p.toSample - p.fromSample) / 16 <= PIECE_MINUTES * 60_000 + 1, `${minutes} minutes: a piece of ${(p.toSample - p.fromSample) / 16000} s`);
+    assert.equal(pieces.reduce((n, p) => n + (p.toSample - p.fromSample), 0), total, "the pieces add up to the whole clip");
+  }
+});
+
+test("with no pause to be found a cut falls as near the even spacing as it can", () => {
+  const total = 45 * 60 * 16000;
+  const pieces = planPieces(mapWith(45), total);
+  assert.equal(pieces.length, 3);
+  assert.ok(Math.abs(pieces[1]!.fromMs - 900_000) <= 100, String(pieces[1]!.fromMs));
+});
+
+test("the answers for the pieces are joined with their times moved on, and the rough ones counted together", () => {
+  const piece = (words: [string, number][]): string =>
+    JSON.stringify({ transcription: [{ tokens: words.map(([text, dtw]) => ({ text, offsets: { from: dtw * 10, to: dtw * 10 + 200 }, t_dtw: dtw })) }] });
+  const one = piece([[" Hello", 10], [" there", 60]]);
+  const two = piece([[" Again", 5], [" friends", 90]]);
+  const joined = joinPieces([one, two], [0, 1_000_000]);
+  assert.deepEqual(joined.words, [
+    { text: "Hello", startMs: 100 },
+    { text: "there", startMs: 600 },
+    { text: "Again", startMs: 1_000_050 },
+    { text: "friends", startMs: 1_000_900 },
+  ]);
+  assert.deepEqual(joined.problems, []);
+  // A word with no alignment time has only a rough one; the pieces' counts are added.
+  const rough = (w: string): string => JSON.stringify({ transcription: [{ tokens: [{ text: ` ${w}`, offsets: { from: 500, to: 900 } }] }] });
+  assert.deepEqual(joinPieces([rough("a"), rough("b")], [0, 60_000]).problems, ["2 words have only a rough time, so their captions may start a little early or late."]);
+  assert.deepEqual(joinPieces([one], [0]), parseWhisper(one), "one piece is read exactly as it was before pieces");
+});
+
+test("if the answer for any piece cannot be used the whole is refused and the part is named", () => {
+  const good = JSON.stringify({ transcription: [{ tokens: [{ text: " Hi", offsets: { from: 0, to: 100 }, t_dtw: 0 }] }] });
+  assert.throws(() => joinPieces([good, "not json", good], [0, 1, 2]), /^Error: Part 2 of 3: The recogniser's answer could not be read\.$/);
+  assert.throws(() => joinPieces(["not json"], [0]), /^Error: The recogniser's answer could not be read\.$/);
 });

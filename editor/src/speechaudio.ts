@@ -33,10 +33,10 @@ export async function decodeSpeech(bytes: Uint8Array): Promise<Int16Array> {
   try {
     decoded = await context.decodeAudioData(own as ArrayBuffer);
   } catch {
-    throw new Error("The sound of this file could not be read here. It may have no sound, or be a kind of file this window cannot play.");
+    throw new Error("The sound of this file could not be read here. It may have no sound, be a kind of file this window cannot play, or be too long for this computer's memory.");
   }
   if (decoded.duration > MAX_LISTEN_MINUTES * 60) {
-    throw new Error(`This is ${Math.round(decoded.duration / 60)} minutes long. Listening works on up to ${MAX_LISTEN_MINUTES} minutes at a time. Cut the video shorter, or do it in parts.`);
+    throw new Error(`This is ${Math.round(decoded.duration / 60)} minutes long. Listening works on up to ${MAX_LISTEN_MINUTES} minutes (${MAX_LISTEN_MINUTES / 60} hours). Cut the video shorter, or do it in parts.`);
   }
   if (decoded.length === 0) throw new Error("There is no sound in this file.");
   return toMono16(Array.from({ length: decoded.numberOfChannels }, (_v, c) => decoded.getChannelData(c)));

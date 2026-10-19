@@ -18,7 +18,7 @@ Everything happens on your computer. Nothing is sent anywhere, and the program t
 - **Set the times of my captions by the voice** keeps your words (typed, made from a script, or brought in from a file) and gives them the times of the voice. It tells you how many of your words it heard exactly. This is the best way to get a script's captions to line up.
 - **Words to listen for** is filled in from your course (its title, slide names, headings, text and narration scripts). Names it would otherwise mishear, such as *Brightspace* or *New Paltz*, are heard right far more often when they are here. Add the names of people and places in your video. These words stay on your computer.
 - **Stop** ends a listening or a download. Nothing is changed.
-- It works on a clip up to 45 minutes long. For a longer one, cut it in parts.
+- It works on a clip up to 3 hours long. A clip longer than 20 minutes is listened to in parts (the dialog says "Part 2 of 3" as it goes), each cut in the quietest moment near the even spacing so a cut falls in a pause, and the captions come out as one list. Stop works between parts as well as during one. The limit is the computer's memory (the whole sound is read at once, about 8 megabytes for each minute of stereo), and a course's own size limits keep a clip well under it.
 - It leaves out the notes it writes about sounds (such as *[BLANK_AUDIO]* or *(keyboard clicking)*) and any word it "hears" where the clip is silent, and tells you how many.
 
 ## What to expect

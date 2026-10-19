@@ -80,14 +80,23 @@ interface Token {
  * are skipped, and a token that does not begin with a space belongs to the word before it.
  */
 export function parseWhisper(raw: string): Parsed {
+  const one = parseOne(raw);
+  return { words: one.words, problems: one.fault !== null ? [one.fault] : roughProblems(one.rough) };
+}
+
+const roughProblems = (rough: number): string[] =>
+  rough > 0 ? [`${rough} ${rough === 1 ? "word has" : "words have"} only a rough time, so ${rough === 1 ? "its caption may" : "their captions may"} start a little early or late.`] : [];
+
+/** One answer of the recogniser: its words, how many had only a rough time, and a sentence if the answer could not be used. */
+function parseOne(raw: string): { words: Word[]; rough: number; fault: string | null } {
   let doc: unknown;
   try {
     doc = JSON.parse(raw);
   } catch {
-    return { words: [], problems: ["The recogniser's answer could not be read."] };
+    return { words: [], rough: 0, fault: "The recogniser's answer could not be read." };
   }
   const segments = (doc as { transcription?: unknown } | null)?.transcription;
-  if (!Array.isArray(segments)) return { words: [], problems: ["The recogniser's answer had no text in it."] };
+  if (!Array.isArray(segments)) return { words: [], rough: 0, fault: "The recogniser's answer had no text in it." };
   const words: Word[] = [];
   let rough = 0;
   let last = 0;
@@ -118,9 +127,24 @@ export function parseWhisper(raw: string): Parsed {
     }
     push();
   }
-  const problems: string[] = [];
-  if (rough > 0) problems.push(`${rough} ${rough === 1 ? "word has" : "words have"} only a rough time, so ${rough === 1 ? "its caption may" : "their captions may"} start a little early or late.`);
-  return { words, problems };
+  return { words, rough, fault: null };
+}
+
+/**
+ * The answers for the pieces of a long clip, joined into one. Each answer counts its times from the start of its own piece, so they are moved on by where that piece begins
+ * (`startsMs`). If any piece's answer cannot be used the whole is refused, naming the piece: captions with twenty minutes missing in the middle would look finished and not be.
+ */
+export function joinPieces(raws: readonly string[], startsMs: readonly number[]): Parsed {
+  const words: Word[] = [];
+  let rough = 0;
+  for (let i = 0; i < raws.length; i++) {
+    const one = parseOne(raws[i]!);
+    if (one.fault !== null) throw new Error(raws.length === 1 ? one.fault : `Part ${i + 1} of ${raws.length}: ${one.fault}`);
+    const offset = startsMs[i] ?? 0;
+    for (const w of one.words) words.push({ text: w.text, startMs: w.startMs + offset });
+    rough += one.rough;
+  }
+  return { words, problems: roughProblems(rough) };
 }
 
 // ---- notes and silence
@@ -522,5 +546,58 @@ export function encodeWav(samples: Int16Array, rate = 16000): Uint8Array {
   return out;
 }
 
-/** The longest clip that will be listened to in one go, in minutes, because the sound is read into memory. */
-export const MAX_LISTEN_MINUTES = 45;
+/**
+ * The longest clip that will be listened to, in minutes. The window decodes the whole sound at once (about 8 megabytes a minute for stereo, once, and it is let go as soon as it has been
+ * mixed down), so this is a limit of memory, not of the recogniser, and a course's own size limits keep a clip well under it. It was 45 before long clips were listened to in pieces.
+ */
+export const MAX_LISTEN_MINUTES = 180;
+
+/** The longest piece, in minutes, that is handed to the recogniser at a time: a longer clip is cut into equal pieces no longer than this and listened to one after another. */
+export const PIECE_MINUTES = 20;
+
+/** One piece of a long clip: where it begins and ends, in samples of the whole sound and in milliseconds. */
+export interface Piece {
+  fromSample: number;
+  toSample: number;
+  fromMs: number;
+}
+
+/**
+ * Where to cut a clip into pieces to listen to one after another. A clip no longer than `pieceMinutes` is one piece. A longer one is cut into the fewest equal pieces that, once the cuts
+ * have moved, are each no longer than that, and each cut is moved to the quietest moment (a tenth of a second with the lowest average level) within `reachMs` either side of the even spacing, so a cut falls in a
+ * pause and not in the middle of a word whenever there is a pause to be found.
+ */
+export function planPieces(map: SoundMap, totalSamples: number, pieceMinutes = PIECE_MINUTES, reachMs = 20_000, rate = 16000): Piece[] {
+  const totalMs = (totalSamples / rate) * 1000;
+  const longest = pieceMinutes * 60_000;
+  // Each cut may move by `reachMs`, so the pieces are planned a little shorter than the most allowed, and none is longer than it once the cuts have moved.
+  const count = totalMs <= longest ? 1 : Math.ceil(totalMs / (longest - reachMs));
+  const cuts: number[] = [0];
+  const ms = (sample: number): number => Math.round((sample / rate) * 1000);
+  const span = Math.max(1, Math.round(100 / map.frameMs));
+  for (let k = 1; k < count; k++) {
+    const nominal = (totalMs * k) / count;
+    const first = Math.max(0, Math.floor((nominal - reachMs) / map.frameMs));
+    const last = Math.min(map.db.length - span, Math.floor((nominal + reachMs) / map.frameMs));
+    let best = -1;
+    let bestLevel = Infinity;
+    let bestDistance = Infinity;
+    for (let f = first; f <= last; f++) {
+      let sum = 0;
+      for (let i = 0; i < span; i++) sum += map.db[f + i]!;
+      const level = sum / span;
+      const distance = Math.abs((f + span / 2) * map.frameMs - nominal);
+      if (level < bestLevel - 1e-9 || (Math.abs(level - bestLevel) <= 1e-9 && distance < bestDistance)) {
+        best = f;
+        bestLevel = level;
+        bestDistance = distance;
+      }
+    }
+    const at = best < 0 ? nominal : (best + span / 2) * map.frameMs;
+    cuts.push(Math.min(totalSamples - 1, Math.max(cuts[cuts.length - 1]! + 1, Math.round((at / 1000) * rate))));
+  }
+  cuts.push(totalSamples);
+  const pieces: Piece[] = [];
+  for (let i = 0; i < cuts.length - 1; i++) pieces.push({ fromSample: cuts[i]!, toSample: cuts[i + 1]!, fromMs: ms(cuts[i]!) });
+  return pieces;
+}

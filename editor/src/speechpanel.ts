@@ -6,7 +6,7 @@
 // happens. The sound is read in this window (speechaudio.ts) and handed to the recogniser program through the shell; nothing is sent anywhere.
 
 import { errorText, type Backend } from "./backend.ts";
-import { dropNotes, dropSilent, encodeWav, megabytes, parseWhisper, soundMapOf, type SoundMap, type SpeechModel, type SpeechStatus, type Word } from "./recognition.ts";
+import { dropNotes, dropSilent, encodeWav, joinPieces, megabytes, planPieces, soundMapOf, type SoundMap, type SpeechModel, type SpeechStatus, type Word } from "./recognition.ts";
 import { decodeSpeech } from "./speechaudio.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -124,6 +124,8 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
     lastPercent = percent ?? -1;
   }
 
+  let stopAsked = false;
+
   function begin(words: string): void {
     busy = true;
     lastPercent = -1;
@@ -172,6 +174,7 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
     const m = chosen();
     if (m === undefined || busy) return;
     begin("Reading the sound...");
+    stopAsked = false;
     opts.say(mode === "write" ? "Listening to the voice. This takes a fraction of the length of the recording." : "Listening to the voice to set the times of your captions.");
     let token: string | null = null;
     let off: () => void = () => {};
@@ -182,13 +185,27 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
       const samples = await decodeSpeech(bytes);
       const lengthMs = Math.round(samples.length / 16);
       const sound = soundMapOf(samples);
-      token = await b.speechAudioPut(encodeWav(samples));
-      progress(null, `Listening with ${m.id}...`);
+      // A long clip is listened to in pieces, one after another, cut where the sound is quietest, and the words are joined with their times moved on.
+      const pieces = planPieces(sound, samples.length);
+      if (pieces.length > 1) opts.say(`This is ${Math.round(lengthMs / 60000)} minutes long, so it is listened to in ${pieces.length} parts, one after another. You can stop it at any time with the Stop button.`);
+      let part = 0;
+      const where = (): string => (pieces.length === 1 ? "" : `Part ${part + 1} of ${pieces.length}: `);
       off = await b.onSpeechProgress((p) => {
-        if (p !== lastPercent) progress(p, `Listening with ${m.id}: ${p}%`);
+        const whole = Math.floor((part * 100 + p) / pieces.length);
+        if (whole !== lastPercent) progress(whole, `${where()}Listening with ${m.id}: ${p}%`);
       });
-      const json = await b.speechListen(token, m.id, hint.value);
-      const parsed = parseWhisper(json);
+      const answers: string[] = [];
+      for (part = 0; part < pieces.length; part++) {
+        if (stopAsked) throw new Error("Listening was stopped.");
+        const piece = pieces[part]!;
+        progress(pieces.length === 1 ? null : Math.floor((part * 100) / pieces.length), `${where()}Listening with ${m.id}...`);
+        token = await b.speechAudioPut(encodeWav(samples.subarray(piece.fromSample, piece.toSample)));
+        answers.push(await b.speechListen(token, m.id, hint.value));
+        const done = token;
+        token = null;
+        void b.speechDrop(done).catch(() => undefined);
+      }
+      const parsed = joinPieces(answers, pieces.map((p) => p.fromMs));
       const clean = dropNotes(parsed.words);
       const awake = dropSilent(clean.words, sound);
       busy = false;
@@ -209,6 +226,7 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
   place.addEventListener("click", () => void listenTo("place", place));
   stop.addEventListener("click", () => {
     opts.say("Stopping...");
+    stopAsked = true; // between two parts of a long clip there is nothing running to cancel, so the loop looks at this
     void b.speechCancel();
   });
   select.addEventListener("change", update);
