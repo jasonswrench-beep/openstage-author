@@ -60,5 +60,16 @@ OpenStage Capture (screen recording; the capture/, capture-edit/ and capture-tim
   outside code. The audit of other recorders, and why none of their code is used, is in
   docs/decisions/0001-screen-capture.md.
 
+The editor program (the editor/ folder) and the publishing tools
+  The editor is a Tauri program written in Rust, with a web side in TypeScript. Its 255 Rust crates, and the JavaScript packages that its web side and the
+  publishing tools use (@tauri-apps/api and its two plugins, fflate, esbuild), are listed with their licences in editor/THIRD-PARTY.md, which
+  tools/check_licences.py writes and checks on request. Every licence in it is permissive (MIT, Apache-2.0, BSD, ISC, Zlib, Unicode, CC0 and the like)
+  except the Mozilla Public License 2.0, which five of the crates carry (cssparser, cssparser-macros, dtoa-short, option-ext, selectors; they come with
+  Tauri's web view layer). That licence applies file by file; those crates are used exactly as published, and their source is on crates.io. The check
+  fails if a sixth appears, or if anything with a copyleft or unknown licence does. A program or package that is given to other people carries
+  the licence texts, which tools/check_licences.py --texts collects.
+  The editor shows its windows with Microsoft's WebView2, which is part of Windows 11 and is installed separately on older Windows. OpenStage Author does
+  not include it.
+
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.

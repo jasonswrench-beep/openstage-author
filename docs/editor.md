@@ -189,8 +189,8 @@ and whether the captions are timed to the spoken words; with audio, a "Listen to
 each with its audio status, a "Go to" button, and "Make audio" (or "Make all missing audio" for the lot). It works from the
 project as it is on screen, saved or not, and can be cancelled; the first time can take a minute or more for each object.
 If no speech engine is set up the dialog says so and still lists everything (transcripts and captions work without audio).
-OPEN EDITOR.bat looks for the engine in the Audiobook Studio folder; otherwise set `OPENSTAGE_KOKORO_PYTHON` to the
-Python that has Kokoro installed. **Clear unused audio** in the Narration dialog deletes the audio that no narration names any more (it is left behind when a script, voice, speed or language changes, and is found again if the change is undone), after asking, and says how much space it frees. It asks you to save first, so audio the saved version uses is not cleared. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
+The engine is installed separately (`docs/narration-setup.md`); its Python is named once in `local-settings.bat`
+(`OPENSTAGE_KOKORO_PYTHON`), which the `.bat` files read. **Clear unused audio** in the Narration dialog deletes the audio that no narration names any more (it is left behind when a script, voice, speed or language changes, and is found again if the change is undone), after asking, and says how much space it frees. It asks you to save first, so audio the saved version uses is not cleared. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
 is published with the audio already made, or without audio.
 
 **AI services.** The **AI services** button opens a dialog for OpenAI and for voice plugins (docs/ai-generation.md, docs/plugins.md). For OpenAI: the key
@@ -549,8 +549,8 @@ choose with "Choose folder...". Until you choose, that is a "Published courses" 
 the folder you choose is remembered for next time. The folder and the package are named after the project.
 Publishing again replaces them, and it refuses a place that is inside the project, holds the project, or
 already has a folder of that name with other things in it, so it can never empty something that is yours.
-Narration audio is made for any narrated object that has none, if a speech engine is set up (OPEN EDITOR.bat
-looks for Kokoro in the Audiobook Studio folder); otherwise the course has transcripts and no new audio, and
+Narration audio is made for any narrated object that has none, if a speech engine is set up (`local-settings.bat`
+names the Python that has Kokoro; see `docs/narration-setup.md`); otherwise the course has transcripts and no new audio, and
 the dialog says so. The first time this can take several minutes, so the button becomes "Cancel publishing",
 and Escape cancels too. When it finishes the dialog says what was made and offers "Show the package in its
 folder" and "Open the course in my browser". The web-files folder also holds `_scorm-test.html`, a stand-in

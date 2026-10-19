@@ -1,8 +1,8 @@
 # Brightspace test plan: "Choosing the Right Channel at Work"
 
-Package to upload: `dist\lms-test-lesson-scorm12.zip` (SCORM 1.2, 14.5 MB, most of it voice). Most of this plan has now been tried once in
-a real Brightspace (the first run you recorded), and the rest has not. Everything under "What the stand-in LMS showed" is
-from my own pretend LMS, which is the point of the test: to find out where Brightspace differs.
+Package to upload: `dist\lms-test-lesson-scorm12.zip` (SCORM 1.2, 14.5 MB, most of it voice). Parts of this plan were run once in a real Brightspace
+(what was found is in `LMS-RESULTS.md`), and the rest has not been run. Everything under "What the stand-in LMS showed" is
+from the project's own pretend LMS (`TEST WITH STAND-IN LMS.bat`), which is the point of the test: to find out where a real LMS differs.
 
 ## What is in the lesson
 
@@ -53,7 +53,7 @@ Answer by choosing an option and pressing **Check answer**.
 ## Before you start
 
 * Upload the zip to your Brightspace course as a SCORM package. The menu names differ between Brightspace versions
-  (look under Content, or under Course Admin and Import). If you cannot find it, send me a screenshot.
+  (look under Content, or under Course Admin and Import). If you cannot find it, ask whoever manages the LMS, or look in its help.
 * **Use a test student, not instructor preview.** Most LMSs record nothing in preview, so a missing score may just be that.
 * Each test below needs a fresh attempt. How you get one depends on how Brightspace is set up: a second test student is
   easiest, or ask whoever manages the course to clear the attempt. Three attempts in all cover everything: tests 2, 3 and 4.
@@ -97,7 +97,7 @@ is reported as *failed*, never as *completed*. That is how SCORM 1.2 works, not 
    that", your name, the course title, "Score: 80%", today's date and "OpenStage Author sample lesson".
 6. Press **Print or save as PDF**. **Expect:** the print window opens and shows **only the certificate**, in black on
    white, across the page. Choose "Save as PDF" and open the file. If **nothing happens** when you press it, say so:
-   some LMS frames block printing, and I would then add another way to save it.
+   some LMS frames block printing, and the lesson would need another way to save it.
 7. Go on to slide 24.
 
 **Expect:** **passed** with a score of **80** (4 of 5), because Question 1 earned full points on its second try.
@@ -189,9 +189,9 @@ Learners are told what a file is before they download it, and nothing opens in a
    should say what the file is and its kind after the button's name.
 6. Note whether Brightspace asks anything before saving, and whether it saves with the same file name.
 
-These two files were made for this test. I checked that the PDF has a tagged structure, a language and a title, and that the
-Word file uses real heading styles, a numbered list and a table with a header row. I wrote the Word file by hand and have not
-opened it in Word, and nobody has read either file with a screen reader. If Word complains, or you do read them aloud, tell me.
+These two files were made for this test. The PDF was checked for a tagged structure, a language and a title, and the
+Word file for real heading styles, a numbered list and a table with a header row. The Word file was written by hand and has not
+been opened in Word, and nobody has read either file with a screen reader. If Word complains, or you do read them aloud, note what happened.
 Do not reuse them as real course material: they were made only to test the download.
 
 ### Test 11. Timing (slide 23)
@@ -249,7 +249,7 @@ never need sideways scrolling.
 
 ## What the stand-in LMS showed
 
-I ran the published package through my pretend SCORM 1.2 system. Brightspace should match these:
+The published package was run through the project's stand-in SCORM 1.2 system. A real LMS should match these:
 
 | Run | Result in the stand-in LMS |
 | --- | --- |
@@ -265,24 +265,24 @@ I ran the published package through my pretend SCORM 1.2 system. Brightspace sho
 | Slide 19 before any question | "You have finished 0 of 5 questions so far. Finish every question to see whether you passed." |
 | Slide 20, passed | name box; empty name refused; certificate appears; Print button |
 | Slide 20, failed or not finished | no name box, only a sentence saying why |
-| Slide 12 in an ordinary browser | the YouTube player appeared with its picture. I did not play it |
+| Slide 12 in an ordinary browser | the YouTube player appeared with its picture. It was not played |
 | Slide 23 effects, in an ordinary browser | each step slid in over 0.6 seconds from 40 pixels to the left of its place and the tip faded in over 0.8; nothing was left running afterwards; Turn off animation stopped the effects on the next visit and announced itself; with the device set to reduced motion no effect ran and the button was not offered |
-| Slide 23 in an ordinary browser | steps hidden at first and shown as their narration started (at the moments their sounds began); the tip at 4 seconds; Pause froze it for as long as I waited and Resume finished the time that was left; Show everything showed all and greyed its button; the buttons were gone on the next slide; with the sound refused, the three steps showed at once |
-| Reflow, in an ordinary browser 320 pixels wide | all 24 slides of this lesson, and all 23 slides of the interactions example, show as one column; none needed sideways scrolling; widening the window to 1280 brought the fixed slide back with no leftover changes. I looked at the title slide, flip cards, glossary, timeline, process circle, pyramid, Likert and semantic differential slides and the embedded video. I did not try a real phone or Brightspace's frame |
-| Slide 22 in an ordinary browser | both files listed with their kind and size, links to `assets/documents/...` with a `download` name and no new window; both files fetch with the right type. I did not press Download |
+| Slide 23 in an ordinary browser | steps hidden at first and shown as their narration started (at the moments their sounds began); the tip at 4 seconds; Pause froze it for as long as it was left and Resume finished the time that was left; Show everything showed all and greyed its button; the buttons were gone on the next slide; with the sound refused, the three steps showed at once |
+| Reflow, in an ordinary browser 320 pixels wide | all 24 slides of this lesson, and all 23 slides of the interactions example, show as one column; none needed sideways scrolling; widening the window to 1280 brought the fixed slide back with no leftover changes. The title slide, flip cards, glossary, timeline, process circle, pyramid, Likert and semantic differential slides and the embedded video were looked at. A real phone and Brightspace's frame were not tried |
+| Slide 22 in an ordinary browser | both files listed with their kind and size, links to `assets/documents/...` with a `download` name and no new window; both files fetch with the right type. Download was not pressed |
 | Items on slides 5, 6, 9, 10, 11 (an ordinary browser, with the real audio) | opening an item played its file; Listen played it again; closing an accordion heading, Flip back, and arrow keys between tabs played nothing; the transcript gained each item's words |
 
 (Every row was run on the finished 22 slide package except the Question 1 retry and the four combinations of slide 4
-answers. Those I ran just before the results and certificate slides were added, and those slides come after them and
+answers. Those were run just before the results and certificate slides were added, and those slides come after them and
 change nothing about them.)
 
-I also took the certificate through a headless Edge: the page, then the print view, then a PDF. The print view shows only
+The certificate was also taken through a headless Edge: the page, then the print view, then a PDF. The print view shows only
 the certificate in black on white, and the PDF is one landscape page. That is Edge, not Brightspace's frame.
 
 ## What to send back
 
 For each test: the result Brightspace shows (status, score), anything that looked wrong, and a screenshot if you can.
-The questions I most want answered: **(1)** does Brightspace record the score and a passed or failed result correctly,
+The questions that matter most: **(1)** does Brightspace record the score and a passed or failed result correctly,
 **(2)** does resume land on the right slide with the answers kept, **(3)** is the lesson readable in the frame,
 **(4)** does the sound start without a click, **(5)** does the YouTube video show and play inside Brightspace, and
 **(6)** does Print or save as PDF work from the certificate inside Brightspace, **(7)** does an item's voice start
@@ -296,7 +296,7 @@ one column that reads in order with no sideways scrolling (Test 13)?
 
 * No table of contents or menu: the lesson is a straight line, with Back and Next.
 * The lesson reports each question, and the survey answers on slides 4 and 21, to the LMS as interactions.
-  Most LMSs, Brightspace included as far as I know, do not show these anywhere a learner or instructor can see.
+  Most LMSs, Brightspace included as far as is known, do not show these anywhere a learner or instructor can see.
 * Sound that does not start by itself, until you press Play narration.
 * Arrow keys between tabs that change the tab but make no sound. Click, Enter or Listen plays it.
 * The item that is showing when a slide opens (the first tab, the first step, the first glossary term) is not read by

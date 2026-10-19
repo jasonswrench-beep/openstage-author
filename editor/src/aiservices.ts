@@ -185,7 +185,7 @@ export function availability(n: Pick<Narration, "voice">, ctx: { ai: AiSettings;
   const colon = n.voice.indexOf(":");
   const engine = colon < 0 ? "kokoro" : n.voice.slice(0, colon);
   if (engine === "kokoro") {
-    return ctx.kokoro ? { state: "ready", reason: "", short: "" } : { state: "blocked", short: "Kokoro is not set up on this computer.", reason: "No speech engine is set up on this computer. Choose a voice from a service or a plugin in AI services, or set up Kokoro: OPEN EDITOR.bat looks for it in the Audiobook Studio folder, and OPENSTAGE_KOKORO_PYTHON can name another." };
+    return ctx.kokoro ? { state: "ready", reason: "", short: "" } : { state: "blocked", short: "Kokoro is not set up on this computer.", reason: "No speech engine is set up on this computer. Choose a voice from a service or a plugin in AI services, or set up Kokoro, which is installed separately: docs/narration-setup.md says how, and local-settings.bat names the Python that has it." };
   }
   if (isServiceId(engine)) {
     const s = serviceById(engine);

@@ -32,11 +32,9 @@ if not errorlevel 1 (
   )
 )
 
-REM Narration is made by Kokoro, which lives in the Audiobook Studio Python on this PC.
-REM If it is not found, Publish still works: the course has transcripts but no new audio.
-if not defined OPENSTAGE_KOKORO_PYTHON (
-  if exist "D:\Claude Audio Test\.venv\Scripts\python.exe" set "OPENSTAGE_KOKORO_PYTHON=D:\Claude Audio Test\.venv\Scripts\python.exe"
-)
+REM Narration is made by Kokoro, a speech engine that is installed separately (see docs/narration-setup.md).
+REM Where it is on this computer is written once in local-settings.bat (local-settings.example.bat shows how). If it is not there, Publish still works: the course has transcripts but no new audio.
+if exist "%~dp0local-settings.bat" call "%~dp0local-settings.bat"
 
 set "EXE=%~dp0editor\src-tauri\target\release\openstage-editor.exe"
 

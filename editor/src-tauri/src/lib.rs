@@ -952,7 +952,7 @@ fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
 // The editor never makes audio itself. tools/narrate.py makes it, in the speech engine's own Python (the one named by
 // OPENSTAGE_KOKORO_PYTHON), and keeps it in the project's .cache/narration, each file named by a hash of what was said.
 
-const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. OPEN EDITOR.bat looks for the speech engine in the Audiobook Studio folder; if yours is somewhere else, set OPENSTAGE_KOKORO_PYTHON to the Python that has Kokoro installed, then open OpenStage Author again.";
+const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. Narration needs the Kokoro speech engine, which is installed separately (docs/narration-setup.md). Write the Python that has it in a file called local-settings.bat, next to OPEN EDITOR.bat (local-settings.example.bat shows how), then open OpenStage Author again.";
 
 /// The speech engine's Python, if one is set up.
 fn engine_path() -> Option<PathBuf> {
