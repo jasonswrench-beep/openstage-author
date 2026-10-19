@@ -108,6 +108,8 @@ export interface Backend {
   readNarrationAudio(dir: string, key: string): Promise<Uint8Array<ArrayBuffer>>;
   /** Delete narration audio by cache key. Returns how many were deleted. Only audio inside the project's own cache can be named. */
   deleteNarrationAudio(dir: string, keys: string[]): Promise<number>;
+  /** Keep the audio made for one key under another key that names the same sound. Resolves with whether anything was copied. */
+  reuseNarrationAudio(dir: string, from: string, to: string): Promise<boolean>;
   /**
    * Make narration audio for the project as it is in the editor now, saved or not. `ids` are the objects to make it
    * for, or none to make everything that is missing. The audio goes into the project's .cache folder.
@@ -299,6 +301,7 @@ const tauriBackend: Backend = {
   narrationEngine: () => invoke<boolean>("narration_engine"),
   narrationCache: (dir) => invoke<CachedAudio[]>("narration_cache", { dir }),
   deleteNarrationAudio: (dir, keys) => invoke<number>("delete_narration_audio", { dir, keys }),
+  reuseNarrationAudio: (dir, from, to) => invoke<boolean>("reuse_narration_audio", { dir, from, to }),
   async readNarrationAudio(dir, key) {
     return base64ToBytes(await invoke<string>("read_narration_audio", { dir, hash: key }));
   },
@@ -476,6 +479,9 @@ const previewBackend: Backend = {
   },
   async deleteNarrationAudio() {
     throw new Error("Clearing narration audio needs the desktop app.");
+  },
+  async reuseNarrationAudio() {
+    return false;
   },
   async makeNarration() {
     throw new Error("Making narration audio needs the desktop app.");

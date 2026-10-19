@@ -41,7 +41,7 @@ import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
-import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
 import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
@@ -696,6 +696,21 @@ export class App {
     }
   }
 
+  /**
+   * The language of a script was changed. The language is part of what names the audio, so the audio would have to be made again; but for a voice that sounds the same in every
+   * language (OpenAI's) the sound is the same, so the audio already made is kept under the new name instead, and nothing is paid for twice. Only audio that is there is copied.
+   */
+  private async keepAudioForNewLanguage(m: Model, before: Narration, lang: string): Promise<void> {
+    if (!soundIgnoresLanguage(before.voice)) return;
+    const from = keyOf(before);
+    const to = keyOf({ ...before, lang });
+    if (from === to || this.narrationCache.has(to) || !this.narrationCache.has(from)) return;
+    const copied = await backend.reuseNarrationAudio(m.dir, from, to).catch(() => false);
+    if (!copied || this.model !== m) return;
+    await this.refreshNarration();
+    this.announce("The audio you already had is kept for the new language, because this voice sounds the same in every language. Nothing needs to be made again, so nothing is charged.");
+  }
+
   /** How long an object's narration lasts in milliseconds, if its audio has been made. The timeline lines things up with it. */
   private narrationMs(o: OSObject): number | null {
     const n = (o.narration as Narration | null) ?? null;
@@ -925,7 +940,12 @@ export class App {
         const lang = h("select", { id: `p-${prefix}-lang` }, ...languageOptions(n.lang).map((l) => h("option", { value: l.lang, text: l.name })));
         lang.value = n.lang;
         lang.dataset["key"] = `prop:${prefix}-lang`;
-        lang.addEventListener("change", () => { const msg = m.setNarrationLang(key, lang.value); if (msg) this.announce(msg); });
+        lang.addEventListener("change", () => {
+          const msg = m.setNarrationLang(key, lang.value);
+          if (!msg) return;
+          this.announce(msg);
+          void this.keepAudioForNewLanguage(m, n, lang.value);
+        });
         parts.push(h("div", { class: "field" }, h("label", { for: `p-${prefix}-lang`, text: "Language of the script" }), lang));
       }
       parts.push(this.field(`${prefix}-speed`, "Speed (1 is normal)", n.speed, (v) => {

@@ -1027,6 +1027,38 @@ fn delete_narration_audio_at(dir: &Path, keys: &[String]) -> Result<usize, Strin
     Ok(removed)
 }
 
+/// Keep audio that was made for one key under another, because the two keys name the same sound (the language of a script said by a voice that does not change with it). The sound
+/// and its timings are copied, not moved, so the old key still has its audio, and the timings' own `hash` is made to say the new key. Returns whether anything was copied: false when
+/// the old audio is not there or the new key already has its own. Only real keys name files, and only inside the project's own .cache/narration.
+fn reuse_narration_audio_at(dir: &Path, from: &str, to: &str) -> Result<bool, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !is_cache_key(from) || !is_cache_key(to) {
+        return Err("That is not narration audio.".into());
+    }
+    let folder = dir.join(".cache").join("narration");
+    let (from_wav, from_json) = (folder.join(format!("{from}.wav")), folder.join(format!("{from}.json")));
+    let (to_wav, to_json) = (folder.join(format!("{to}.wav")), folder.join(format!("{to}.json")));
+    if from == to || (to_wav.is_file() && to_json.is_file()) || !from_wav.is_file() || !from_json.is_file() {
+        return Ok(false);
+    }
+    let text = fs::read_to_string(&from_json).map_err(|e| format!("Could not read the audio's timings: {e}"))?;
+    let mut meta: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("The audio's timings could not be read: {e}"))?;
+    let Some(object) = meta.as_object_mut() else { return Err("The audio's timings could not be read.".into()) };
+    object.insert("hash".into(), serde_json::Value::String(format!("sha256:{to}")));
+    // The sound first, under a temporary name; the timings last, because the audio only counts as made when both are there.
+    let part = folder.join(format!("{to}.wav.part"));
+    fs::copy(&from_wav, &part).map_err(|e| format!("Could not keep the audio: {e}"))?;
+    fs::rename(&part, &to_wav).map_err(|e| {
+        let _ = fs::remove_file(&part);
+        format!("Could not keep the audio: {e}")
+    })?;
+    let out = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
+    fs::write(&to_json, out).map_err(|e| format!("Could not keep the audio's timings: {e}"))?;
+    Ok(true)
+}
+
 fn read_narration_audio_at(dir: &Path, key: &str) -> Result<Vec<u8>, String> {
     if !is_cache_key(key) {
         return Err("That is not a narration audio file.".into());
@@ -1633,6 +1665,12 @@ fn narration_cache(dir: String) -> Result<Vec<CachedNarration>, String> {
 fn read_narration_audio(dir: String, hash: String) -> Result<String, String> {
     use base64::Engine;
     read_narration_audio_at(Path::new(&dir), &hash).map(|bytes| base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+/// Keep the audio of one key under another, when they name the same sound. See `reuse_narration_audio_at`.
+#[tauri::command]
+fn reuse_narration_audio(dir: String, from: String, to: String) -> Result<bool, String> {
+    reuse_narration_audio_at(Path::new(&dir), &from, &to)
 }
 
 /// Delete the narration audio the editor says nothing uses any more.
@@ -2506,7 +2544,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3449,6 +3487,38 @@ mod tests {
         }
         assert!(read_narration_audio_at(&project, &"e".repeat(64)).is_err(), "a key with no audio");
         assert!(read_narration_audio_at(&std::env::temp_dir(), &key).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn audio_is_kept_under_a_second_key_when_the_two_name_the_same_sound() {
+        let project = temp_project("narr-reuse");
+        let folder = project.join(".cache").join("narration");
+        fs::create_dir_all(&folder).unwrap();
+        let (a, b) = ("a".repeat(64), "b".repeat(64));
+        fs::write(folder.join(format!("{a}.wav")), [9u8, 8, 7]).unwrap();
+        fs::write(folder.join(format!("{a}.json")), format!(r#"{{"hash": "sha256:{a}", "duration": 3.5, "exactTimings": false, "cues": [{{"text": "Hi"}}]}}"#)).unwrap();
+        assert!(reuse_narration_audio_at(&project, &a, &b).unwrap(), "copied");
+        assert_eq!(fs::read(folder.join(format!("{b}.wav"))).unwrap(), vec![9, 8, 7]);
+        assert!(folder.join(format!("{a}.wav")).is_file(), "the first is still there");
+        let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(folder.join(format!("{b}.json"))).unwrap()).unwrap();
+        assert_eq!(meta["hash"], format!("sha256:{b}"), "the copy names itself");
+        assert_eq!(meta["duration"], 3.5);
+        assert_eq!(meta["cues"][0]["text"], "Hi");
+        let listed = narration_cache_at(&project).unwrap();
+        assert_eq!(listed.iter().map(|n| n.hash.clone()).collect::<Vec<_>>(), vec![a.clone(), b.clone()]);
+        assert!(!folder.join(format!("{b}.wav.part")).exists(), "no temporary file is left");
+        // Nothing is overwritten, and nothing is copied that is not there.
+        fs::write(folder.join(format!("{b}.wav")), [1u8]).unwrap();
+        assert!(!reuse_narration_audio_at(&project, &a, &b).unwrap(), "the new key already has its own audio");
+        assert_eq!(fs::read(folder.join(format!("{b}.wav"))).unwrap(), vec![1]);
+        assert!(!reuse_narration_audio_at(&project, &"c".repeat(64), &"d".repeat(64)).unwrap(), "no audio for the old key");
+        assert!(!reuse_narration_audio_at(&project, &a, &a).unwrap(), "the same key");
+        for bad in ["", "../x", &"A".repeat(64), &format!("{a}.wav")] {
+            assert!(reuse_narration_audio_at(&project, bad, &b).is_err(), "{bad}");
+            assert!(reuse_narration_audio_at(&project, &a, bad).is_err(), "{bad}");
+        }
+        assert!(reuse_narration_audio_at(&std::env::temp_dir(), &a, &b).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
     }
 

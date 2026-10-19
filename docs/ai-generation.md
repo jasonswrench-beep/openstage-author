@@ -65,7 +65,9 @@ a note says where the voice is made. Then:
   anything is sent. Before the words of a script are sent for the first time you are asked, and the question says how many narrations and
   characters. The scripts are sent; nothing else from your course is.
 - **Language.** A voice that speaks many languages has a **Language of the script** box. It starts at the course's language. OpenAI makes
-  the same sound whatever it says, but changing it still counts as a change and the audio is made again.
+  the same sound whatever it says. The language is part of what names the audio, so a new language is a new name; so that nothing is paid for twice, the editor keeps the audio you already have under the new name (a copy,
+  made on this computer; "The audio you already had is kept for the new language..."), and the audio is ready at once. This is only done for OpenAI's voices. A voice from a plugin is told the language and may sound
+  different, so changing its language makes the audio again.
 - **Pronunciations** cannot be taught to these voices. If one says a word wrongly, spell the word as it sounds in the script. The captions show
   your spelling. Pronunciations you wrote for another voice stay in the file and are ignored.
 - **Captions** are still made from your script. OpenAI does not say when each word is spoken, so the caption times are estimated from the

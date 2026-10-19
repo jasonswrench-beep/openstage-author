@@ -199,7 +199,7 @@ and under *models (advanced)* the model names. Voice plugins are listed with a s
 internet; **Open the plugins folder** shows where they go. **Save** keeps it; **Cancel** and Escape drop the changes. Only a service with a key and a yes has its voices in the lists.
 The first time the author makes something with a service they have not said yes to, a question asks, and says what is sent; its **Not now** button has the focus. A voice from a service or
 plugin is under its own heading in every Voice list (an object's, an item's, a description's, a character's). Under the list, a note says where the voice is made. A voice that speaks many languages
-has a **Language of the script** box. A voice that cannot use pronunciations says so and has no way to add one. If the credits page is off, the note says
+has a **Language of the script** box (for an OpenAI voice, changing it keeps the audio already made under the new language, since the voice sounds the same; `soundIgnoresLanguage`, the shell command `reuse_narration_audio`). A voice that cannot use pronunciations says so and has no way to add one. If the credits page is off, the note says
 that listeners are not told the voice is made by an AI service. The Narration dialog starts with one sentence for each engine (where the audio is made and whether anything is sent),
 asks before sending to a service for the first time, and leaves out what the author did not allow.
 

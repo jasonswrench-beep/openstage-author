@@ -70,7 +70,7 @@ Built and tested, but not yet seen working in the editor window itself. Each is 
 ### Small follow-ups
 
 - [ ] **Bring the notes up to date.** `CLAUDE.md` "Current phase" still talks about the editor's first slice (it needs your yes to change a rules file); `docs/handoff/HANDOFF.md` still says the recorder import is waiting; and the Phase 4 entry below changes with the merge.
-- [ ] **Changing the language of an OpenAI narration makes the audio again, and OpenAI charges for it,** though the sound is identical. It could reuse the audio it already has.
+- [x] **Changing the language of an OpenAI narration no longer makes the audio again** (built 2026-10-18). The language is still part of the audio's name, so the editor keeps the audio you already have under the new name (a copy on this computer, no request to OpenAI, nothing charged) and says so. Only OpenAI's voices: a plugin's voice is told the language and may sound different. Tried in the real app with a pretend key (no request was made); **not tried with a real OpenAI voice**.
 - A readout of what a service has charged will **not** be built, on purpose: the software cannot see it and a guess could mislead. Instead the editor says, in **AI services**, in the question before anything is sent and under **Make the picture**, that the author must always check their charges on the service's own account page. That is the author's job, not the software's (decided 2026-10-14).
 
 ### Bigger items
