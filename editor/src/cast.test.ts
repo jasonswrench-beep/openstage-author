@@ -7,7 +7,8 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { Character } from "../../player/src/types.ts";
+import type { Character, ScenarioContent } from "../../player/src/types.ts";
+import { cloneCast, draftProblems, poseKey, poseUse, tidyPerson } from "./characters.ts";
 import { Model } from "./model.ts";
 import { creditForPicture, parsePackList } from "./packs.ts";
 import { newProjectFiles } from "./template.ts";
@@ -87,6 +88,138 @@ test("a cast and its credit pass the real validator, and the credit is complete"
     const found = JSON.parse(r.stdout) as { severity: string; rule: string }[];
     assert.deepEqual(found.filter((f) => f.severity === "error"), []);
     assert.deepEqual(found.filter((f) => f.rule.startsWith("credit")), [], "the credit is complete and its picture is there");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- poses (format 0.29.0)
+
+const POSES = [
+  { id: "welcome", label: "Waving hello", src: "assets/images/kathy-welcome.png" },
+  { id: "think", label: "Thinking, hand to chin", src: "assets/images/kathy-think.png" },
+];
+
+/** A project with Kathy (with two poses) and Ken (with none), and one scenario. */
+function staged() {
+  const { character } = kathy();
+  const withPoses: Character = { ...character, poses: POSES.map((x) => ({ ...x })), library: { pack: "openstage-people-1", person: "kathy" } };
+  const ken: Character = { id: "ken", name: "Ken", role: "", voice: "am_adam", picture: null };
+  const m = fresh();
+  assert.ok(m.setCharacters([withPoses, ken]));
+  m.addScenario();
+  const id = m.object!.id;
+  /** The scenario as it is now (an edit makes a new one, so it is read again each time). */
+  const content = () => m.object!.content as unknown as ScenarioContent;
+  return { m, id, c: content, line: content().nodes[0]!.lines[0]!.id, withPoses, ken };
+}
+
+test("a line can show its speaker in one of their poses, and show their picture again", () => {
+  const { m, id, c, line } = staged();
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  assert.match(m.setScenarioLinePose(id, line, "welcome")!, /Now shown in the pose "Waving hello"/);
+  assert.equal(c().nodes[0]!.lines[0]!.pose, "welcome");
+  assert.equal(m.setScenarioLinePose(id, line, "welcome"), null, "nothing changed");
+  assert.match(m.setScenarioLinePose(id, line, null)!, /Now shown with Kathy's picture/);
+  assert.equal("pose" in c().nodes[0]!.lines[0]!, false, "no pose is no key at all");
+  m.setScenarioLinePose(id, line, "think");
+  assert.equal(m.undo(), true);
+  assert.equal(c().nodes[0]!.lines[0]!.pose, undefined, "one undo takes the pose back");
+});
+
+test("a pose is refused for the narrator, for someone with no poses, and for a pose that is not theirs", () => {
+  const { m, id, c, line } = staged();
+  assert.match(m.setScenarioLinePose(id, line, "welcome")!, /narrator has no pose/);
+  m.setScenarioLineSpeaker(id, line, "ken");
+  assert.match(m.setScenarioLinePose(id, line, "welcome")!, /Ken does not have that pose/);
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  assert.match(m.setScenarioLinePose(id, line, "dancing")!, /Kathy does not have that pose/);
+  assert.equal(c().nodes[0]!.lines[0]!.pose, undefined);
+});
+
+test("changing who says a line keeps a pose the new speaker has and takes off one they do not", () => {
+  const { m, id, c, line, withPoses } = staged();
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  m.setScenarioLinePose(id, line, "welcome");
+  assert.match(m.setScenarioLineSpeaker(id, line, "ken")!, /pose it had was taken off/);
+  assert.equal(c().nodes[0]!.lines[0]!.pose, undefined);
+  // Ken gets a pose with the same id as Kathy's: it carries over.
+  const both = [withPoses, { id: "ken", name: "Ken", role: "", voice: "am_adam", picture: null, poses: [{ id: "welcome", label: "Waving", src: "assets/images/ken-welcome.png" }] }] as Character[];
+  assert.ok(m.setCharacters(both));
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  m.setScenarioLinePose(id, line, "welcome");
+  const said = m.setScenarioLineSpeaker(id, line, "ken")!;
+  assert.doesNotMatch(said, /taken off/);
+  assert.equal(c().nodes[0]!.lines[0]!.pose, "welcome");
+  assert.match(m.setScenarioLineSpeaker(id, line, null)!, /taken off/, "the narrator has none");
+});
+
+test("a pose a line uses cannot be taken out of the cast until the line is changed", () => {
+  const { m, id, line, withPoses, ken } = staged();
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  m.setScenarioLinePose(id, line, "think");
+  const without = { ...withPoses, poses: withPoses.poses!.filter((x) => x.id !== "think") };
+  const refusal = m.setCharacters([without, ken])!;
+  assert.match(refusal, /Kathy's pose "Thinking, hand to chin" is still used by 1 line in the scenario/, refusal);
+  assert.equal(m.characters[0]!.poses!.length, 2, "nothing was changed");
+  const unused = { ...withPoses, poses: withPoses.poses!.filter((x) => x.id !== "welcome") };
+  assert.match(m.setCharacters([unused, ken])!, /2 people/, "a pose no line uses can go");
+  m.setScenarioLinePose(id, line, null);
+  assert.match(m.setCharacters([{ ...unused, poses: [] }, ken])!, /2 people/);
+  assert.equal("poses" in m.characters[0]!, false, "no poses is no key at all");
+});
+
+test("where poses are used is counted in words, per person and pose, and 'you' lines are left out", () => {
+  const { m, id, c, line } = staged();
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  m.setScenarioLinePose(id, line, "welcome");
+  const second = c().nodes[1]!.lines[0]!.id;
+  m.setScenarioLineSpeaker(id, second, "kathy");
+  m.setScenarioLinePose(id, second, "welcome");
+  const uses = poseUse(m.slides);
+  assert.deepEqual([...uses.keys()], [poseKey("kathy", "welcome")]);
+  assert.match(uses.get(poseKey("kathy", "welcome"))![0]!, /^2 lines in the scenario/);
+  m.setScenarioLineSpeaker(id, second, "you");
+  assert.match(poseUse(m.slides).get(poseKey("kathy", "welcome"))![0]!, /^1 line in the scenario/);
+});
+
+test("a cast copied for the dialog does not share its poses or its library with the project's", () => {
+  const { withPoses } = staged();
+  const copy = cloneCast([withPoses])[0]!;
+  copy.poses![0]!.label = "Changed";
+  copy.library!.person = "someone-else";
+  assert.equal(withPoses.poses![0]!.label, "Waving hello");
+  assert.equal(withPoses.library!.person, "kathy");
+  assert.equal("poses" in cloneCast([{ ...withPoses, poses: undefined }])[0]!, false);
+  assert.equal("poses" in tidyPerson({ ...withPoses, poses: [] }), false);
+  assert.equal(tidyPerson({ ...withPoses, name: "  Kathy  " }).name, "Kathy");
+});
+
+test("draftProblems with no pose uses is as it was for a cast with no poses", () => {
+  const { withPoses, ken } = staged();
+  assert.deepEqual(draftProblems([withPoses, ken], [withPoses, ken], new Map()), []);
+  assert.deepEqual(draftProblems([{ ...withPoses, poses: [] }, ken], [withPoses, ken], new Map()), []);
+});
+
+test("a project with poses passes the real validator, and a line's pose that is not the speaker's does not", { skip: !process.env["OPENSTAGE_PYTHON"] }, () => {
+  const { m, id, c, line } = staged();
+  m.setScenarioLineSpeaker(id, line, "kathy");
+  m.setScenarioLinePose(id, line, "welcome");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "openstage-poses-"));
+  const validate = () => {
+    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    return JSON.parse(r.stdout) as { severity: string; rule: string }[];
+  };
+  try {
+    mkdirSync(path.join(dir, "slides"));
+    mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
+    for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
+    for (const name of ["kathy.png", "kathy-welcome.png", "kathy-think.png"]) copyFileSync(path.join(BUNDLED, "openstage-people-1", "kathy", "head.png"), path.join(dir, "assets", "images", name));
+    assert.deepEqual(validate().filter((f) => f.severity === "error"), []);
+    // Break it by hand: the line asks for a pose Kathy does not have.
+    (c().nodes[0]!.lines[0]! as { pose?: string }).pose = "dancing";
+    for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
+    assert.deepEqual(validate().filter((f) => f.severity === "error").map((f) => f.rule), ["scenario-pose-unknown"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

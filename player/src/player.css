@@ -270,6 +270,7 @@ h3.os-scenario-heading { font-size: 1.05em; }
 .os-scenario-line { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0; }
 .os-scenario-story { padding-left: 10px; border-left: 4px solid var(--os-muted, #4a4f57); }
 .os-scenario-pic { flex: none; width: 48px; height: 48px; object-fit: cover; border-radius: 50%; }
+.os-scenario-pose { flex: none; width: 220px; height: 180px; max-width: 45%; object-fit: cover; object-position: top center; border-radius: 8px; }
 .os-scenario-body { min-width: 0; overflow-wrap: anywhere; }
 .os-scenario-result { margin: 0 0 14px; padding: 8px 12px; border-left: 4px solid var(--os-accent-strong, #0b3fb3); border-radius: 6px; background: var(--os-surface, #f4f5f7); }
 .os-scenario-chosen { margin: 0 0 6px; font-weight: 600; }

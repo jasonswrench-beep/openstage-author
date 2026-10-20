@@ -67,6 +67,15 @@ export interface IconContent {
   shapes: IconShape[];
 }
 
+/** One more picture of a person, in a pose, to show with a line of a scenario. */
+export interface CharacterPose {
+  id: string;
+  /** What a menu says. */
+  label: string;
+  /** A file under assets/. */
+  src: string;
+}
+
 /** A person in the project's cast. See docs/format-spec.md. */
 export interface Character {
   id: string;
@@ -76,6 +85,10 @@ export interface Character {
   /** The narration voice that reads their lines. */
   voice: string;
   picture: { src: string; alt: string; decorative: boolean } | null;
+  /** More pictures of them, each in a pose. Absent means none. */
+  poses?: CharacterPose[];
+  /** Where they came from in the library of people (a character pack and a person in it), so the editor can offer more poses. The course never uses it. */
+  library?: { pack: string; person: string };
 }
 
 export type EventName =
@@ -344,6 +357,8 @@ export interface TableContent {
 export interface ScenarioLine {
   id: string;
   speaker: string | null;
+  /** The id of one of the speaker's poses, to show them in it instead of their picture. Absent or null means their picture. */
+  pose?: string | null;
   /** Plain text. */
   text: string;
   /** What the learner hears with the line. Its audio is found under itemNarrationKey (the object's id and the line's id). */

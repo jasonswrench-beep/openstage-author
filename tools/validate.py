@@ -33,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 28, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 29, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1180,6 +1180,15 @@ def _scenario(rel, obj, variables, cast, chosen, add):
         if speaker is not None and speaker != YOU and speaker not in cast:
             add(ERROR, rel, oid, "scenario-speaker-unknown", "A line is spoken by someone who is not in the cast",
                 f"The {where} is spoken by '{speaker}', who is not in the project's cast.")
+        pose = line.get("pose")
+        if pose is not None:
+            if speaker is None:
+                add(ERROR, rel, oid, "scenario-pose-narrator", "A line told by the narrator has a pose",
+                    f"The {where} is told by the narrator, who has no pictures. A pose belongs to a person in the cast.")
+            elif speaker in cast and pose not in {p["id"] for p in cast[speaker].get("poses", [])}:
+                add(ERROR, rel, oid, "scenario-pose-unknown", "A line shows its speaker in a pose they do not have",
+                    f"The {where} shows {cast[speaker]['name']} in the pose '{pose}', which {cast[speaker]['name']} does not have. Choose one of their poses, or none.")
+            # A line spoken by "you" shows the pose in the person the learner chose, if they have it; who that will be is not known here.
         voice = (line["narration"] or {}).get("voice")
         if voice and speaker in cast and cast[speaker]["voice"] != voice:
             add(WARNING, rel, oid, "scenario-voice-differs", "A line is not read in its speaker's voice",
@@ -1256,6 +1265,13 @@ def _characters(project, asset_root, add):
             target = (asset_root / picture["src"]).resolve()
             if asset_root.resolve() not in target.parents or not target.is_file():
                 add(ERROR, rel, pid, "asset-missing", "Asset missing", f"{picture['src']} does not exist in the project.")
+        pose_ids = [x["id"] for x in person.get("poses", [])]
+        for dup in sorted({i for i in pose_ids if pose_ids.count(i) > 1}):
+            add(ERROR, rel, pid, "character-pose-duplicate", "Two poses of one person have the same id", f"{person['name']} has more than one pose with the id '{dup}'.")
+        for pose in person.get("poses", []):
+            target = (asset_root / pose["src"]).resolve()
+            if asset_root.resolve() not in target.parents or not target.is_file():
+                add(ERROR, rel, pid, "asset-missing", "Asset missing", f"{pose['src']} does not exist in the project (the pose '{pose['id']}' of {person['name']}).")
 
 
 def _narration(rel, obj, add):

@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.28.0",
+  "schemaVersion": "0.29.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -99,7 +99,18 @@ empty. `voice` is the narration voice that reads the person's lines (`voice-unkn
 needs alt text that says what the person looks like, or it is marked `decorative` and then has no alt text (`character-picture-alt`), and the file has to be
 in the project (`asset-missing`). The picture is only a picture of the person: their name is always written beside it, so the picture is hidden from a
 screen reader beside a line (the name is read), and is described once where a learner has to pick a person (see the character input). (Added in 0.21.0.)
-A picture may be one from a character pack (`docs/character-packs.md`): the editor copies it into the project's images, takes its alt text from the pack's description of the person (which the author can change), and records its maker in `assets.json`. The format does not change for that.
+A picture may be one from a character pack (`docs/character-packs.md`): the editor copies it into the project's images, takes its alt text from the pack's description of the person (which the author can change), and records its maker in `assets.json`.
+
+A person may also have **`poses`** (added in 0.29.0): more pictures of them, each in a pose, to show beside a line of a scenario in place of their picture, and a **`library`** that says where they came from, so the editor can offer more of their poses.
+
+```json
+{ "id": "maya", "name": "Maya Reyes", "role": "Team lead", "voice": "af_heart",
+  "picture": { "src": "assets/images/maya.png", "alt": "Maya, a woman with dark skin and short dark hair, wearing a dark grey skirt suit", "decorative": false },
+  "poses": [ { "id": "welcome", "label": "Waving hello", "src": "assets/images/maya-welcome.png" } ],
+  "library": { "pack": "openstage-people-1", "person": "lisa" } }
+```
+
+`poses` has up to 40 entries. A pose's `id` is a plain id, unique for the person (`character-pose-duplicate`); `label` (1 to 60 letters) is what a menu says; `src` is a file in the project (`asset-missing`). The ids a pack uses are the same from one person to the next where the standard names are used (`welcome`, `think`, `present-left`, `arms-crossed`...), so a pose carries over when a line is given to someone else. A pose has no alt text of its own: it is shown only beside the person's name, so a screen reader skips it, as with the picture. `library` is `{ "pack", "person" }`, two ids of a character pack (`docs/character-packs.md`); the course never reads it. A pose that a line uses cannot be taken out of the cast in the editor until the line is changed.
 
 `sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
 course (the cache and the empty `.gitkeep` placeholder files are always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
@@ -514,7 +525,9 @@ A **situation** (`nodes[]`) has an `id`, a `title` (its heading), a `prompt` (th
 learner would say it), `next` (the id of the situation it leads to), `effects` (0 to 6, each a `variable` and a number to `add`, which is not 0 and may be negative) and
 a `response` (0 to 6 lines shown straight after the choice, before the next situation, which is where a person's reaction or a coach's note goes). A **line**
 has an `id`, a `speaker`, `text` (plain text, up to 2000 characters) and a `narration` (or null, and then it can only be read). The speaker is `null` for the
-narrator, `"you"` for the learner's own character, or the id of a person in the project's cast.
+narrator, `"you"` for the learner's own character, or the id of a person in the project's cast. A line may also have a **`pose`** (0.29.0): the id of one of its speaker's `poses`.
+The line then shows the person in that pose (a picture of them to the waist, 220 by 180 points, with the person's name beside it as always) instead of their small round picture; with no `pose`, or `null`, it shows their picture. A pose is decoration (its `alt` is empty), and what a line means is in its words.
+A narrator's line has no pose (`scenario-pose-narrator`), and the pose of a person in the cast must be one they have (`scenario-pose-unknown`). A line spoken by `"you"` may name a pose: it is shown if the person the learner chose has a pose with that id, and not otherwise, because who that will be is not known until the course is played, so the validator cannot check it and the editor does not offer it.
 
 All the ids in one scenario are different, whatever they name (situation, choice, line or meter), because the learner's path is remembered by them and audio is
 filed under them (`scenario-duplicate-id`). A choice's effect adds to a number variable when the choice is made, with the same arithmetic as the rule "add to a
@@ -1396,6 +1409,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.28.0 | 0.29.0 | Adds the optional `poses` and `library` of a person in the cast (more pictures of them, each in a pose, and the character pack they came from) and the optional `pose` of a line of a scenario (which of its speaker's poses to show). Nothing in an existing project changes: no person has poses and no line has a pose. |
 | 0.27.0 | 0.28.0 | Adds the optional `altSuggestion` to an object's `accessibility`: a description the computer worked out and the author has not approved (`text` and `basis`). The course never uses it, and alt text is still required. Nothing in an existing project changes: no object has one. |
 | 0.26.0 | 0.27.0 | Adds the optional `base` to a slide's Capture provenance: what the Capture module made for a step (the slide's name and picture, and for each part its id, layer and a fingerprint of each field), so a lesson can be brought up to date without losing what the author changed. Nothing in an existing project changes: no slide had one, and a slide without one is left as it is when a lesson is brought up to date. |
 | 0.25.0 | 0.26.0 | Adds the `generated` credit provider and its record (a picture or sound an AI service made, with the service, model, prompt and time), and lets a narration's `voice` name an engine other than the built-in one (`openai:alloy`). Nothing in an existing project changes: a voice with no engine in its name is still Kokoro's, and nothing was generated before. |

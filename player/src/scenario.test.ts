@@ -140,14 +140,37 @@ test("there is nothing to take back at the start", () => {
 
 test("the narrator has no name, a person from the cast is named with their picture, and an unknown speaker is shown as the narrator", () => {
   assert.equal(speakerOf(line("l", "x", null), cast, null), null);
-  assert.deepEqual(speakerOf(line("l", "x", "maya"), cast, null), { name: "Maya Reyes", picture: cast[0]!.picture });
-  assert.deepEqual(speakerOf(line("l", "x", "dev"), cast, null), { name: "Dev Patel", picture: null });
+  assert.deepEqual(speakerOf(line("l", "x", "maya"), cast, null), { name: "Maya Reyes", picture: cast[0]!.picture, pose: null });
+  assert.deepEqual(speakerOf(line("l", "x", "dev"), cast, null), { name: "Dev Patel", picture: null, pose: null });
   assert.equal(speakerOf(line("l", "x", "stranger"), cast, null), null);
 });
 
 test("'you' is the character the learner chose, or just 'You' before they have chosen", () => {
-  assert.deepEqual(speakerOf(line("l", "x", "you"), cast, null), { name: "You", picture: null });
-  assert.deepEqual(speakerOf(line("l", "x", "you"), cast, cast[1]!), { name: "Dev Patel", picture: null });
+  assert.deepEqual(speakerOf(line("l", "x", "you"), cast, null), { name: "You", picture: null, pose: null });
+  assert.deepEqual(speakerOf(line("l", "x", "you"), cast, cast[1]!), { name: "Dev Patel", picture: null, pose: null });
+});
+
+const posed: Character[] = [
+  { ...cast[0]!, poses: [{ id: "welcome", label: "Waving hello", src: "assets/images/maya-welcome.png" }, { id: "think", label: "Thinking", src: "assets/images/maya-think.png" }] },
+  cast[1]!,
+];
+
+test("a line can ask for a pose, and gets it only if the speaker has it", () => {
+  const asked = (pose: string | null | undefined, speaker = "maya", people = posed) => speakerOf({ ...line("l", "x", speaker), ...(pose === undefined ? {} : { pose }) }, people, null);
+  assert.deepEqual(asked("welcome")!.pose, { id: "welcome", label: "Waving hello", src: "assets/images/maya-welcome.png" });
+  assert.equal(asked("welcome")!.picture, posed[0]!.picture, "the picture is still there for the places that need it");
+  assert.equal(asked(undefined)!.pose, null, "no pose is the picture");
+  assert.equal(asked(null)!.pose, null);
+  assert.equal(asked("dancing")!.pose, null, "a pose the person does not have falls back to their picture (the validator reports it)");
+  assert.equal(asked("welcome", "dev")!.pose, null, "someone with no poses has none to show");
+  assert.equal(asked("welcome", "stranger"), null);
+});
+
+test("the learner's own character shows the pose a line asks for, if the person they chose has it", () => {
+  const speak = (pose: string, you: Character | null) => speakerOf({ ...line("l", "x", "you"), pose }, posed, you);
+  assert.equal(speak("think", posed[0]!)!.pose?.src, "assets/images/maya-think.png");
+  assert.equal(speak("think", posed[1]!)!.pose, null, "the person chosen has no such pose");
+  assert.equal(speak("think", null)!.pose, null, "nobody has been chosen yet");
 });
 
 test("the character the learner chose is read from the scenario's variable", () => {

@@ -134,6 +134,9 @@ schema error.
 | A person in the cast has no name (`character-name-empty`) | Error | A person in the cast needs a name |
 | Two people in the cast have the same name (`character-name-duplicate`) | Warning | Two people in the cast have the same name |
 | A person's picture has no alt text and is not decorative, or is decorative with alt text (`character-picture-alt`) | Error | A picture of a person needs alt text, or must be marked decorative |
+| Two poses of one person share an id (`character-pose-duplicate`) | Error | Two poses of one person have the same id |
+| A line names a pose its speaker does not have (`scenario-pose-unknown`) | Error | A line shows its speaker in a pose they do not have |
+| A line told by the narrator names a pose (`scenario-pose-narrator`) | Error | A line told by the narrator has a pose |
 
 A person's voice that does not exist, or a line's narration with one that does not, is `voice-unknown`, like any narration; a picture that is missing is `asset-missing`.
 

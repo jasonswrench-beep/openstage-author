@@ -2,8 +2,8 @@
 // and a picture with a description. Like the other dialogs it is a native <dialog>, so focus moves in, Tab stays inside, and Escape closes it.
 // Every control is a real labelled control, and nothing is changed in the project until Save the cast, and then in one undo step.
 
-import type { Character, CreditEntry } from "../../player/src/types.ts";
-import { cloneCast, draftNotes, draftProblems, newPerson, personId, CAST_LIMIT } from "./characters.ts";
+import type { Character, CharacterPose, CreditEntry } from "../../player/src/types.ts";
+import { cloneCast, draftNotes, draftProblems, newPerson, personId, poseKey, CAST_LIMIT } from "./characters.ts";
 import { isKnownVoice, VOICES, voiceGroups } from "./narration.ts";
 import { chosenMessage, isPlaceholderName, voiceFor, type VoiceHint } from "./packs.ts";
 
@@ -32,6 +32,15 @@ export interface LibraryPick {
   voice: VoiceHint;
   /** The record for assets.json that credits the pack's maker. */
   credit: CreditEntry;
+  /** Which pack and which person of it, so more poses of them can be offered. */
+  library: { pack: string; person: string };
+}
+
+/** Poses of a person, chosen from their pack, with the pictures already copied into the project. */
+export interface PoseAdds {
+  poses: CharacterPose[];
+  /** The records for assets.json that credit the pack's maker, one for each picture. */
+  credits: CreditEntry[];
 }
 
 export interface CastDialogOptions {
@@ -39,10 +48,14 @@ export interface CastDialogOptions {
   current: Character[];
   /** Where each person is used, so one that is in use cannot be taken out. */
   uses: Map<string, string[]>;
+  /** Where each pose of each person is used (see poseUse in characters.ts), so a pose that is in use cannot be taken out. */
+  poseUses: Map<string, string[]>;
   /** Ask for a picture: it is copied into the project and its path comes back. Null if the author cancelled. */
   choosePicture(): Promise<string | null>;
   /** Show the library of people (see packdialog.ts), copy the picture of the one chosen into the project, and give what the pack says about them. Null if the author closed it without choosing. */
   chooseFromLibrary(): Promise<LibraryPick | null>;
+  /** Show the poses of the person's pack (see posedialog.ts), copy the ones chosen into the project, and give them. Null if there is nothing to add, or the author cancelled. */
+  choosePoses(person: Character): Promise<PoseAdds | null>;
   /** An address the page can show a project picture from. */
   imageUrl(src: string): Promise<string>;
   /** Delete a picture this dialog copied into the project and then did not keep (one that was replaced, or the dialog was cancelled). */
@@ -157,12 +170,44 @@ export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
       });
 
       const legend = h("legend", { text: legendText(p, i) });
+      // Poses: more pictures of a person from the library, to show beside a line of a scenario.
+      const posesBox = h("div", { class: "cd-poses" });
+      if (p.library) {
+        const have = p.poses ?? [];
+        posesBox.append(h("p", { class: "note", text: have.length === 0 ? `No poses yet. A pose is another picture of ${p.name || "this person"}, to show beside a line of a scenario instead of their face.` : `${have.length} ${have.length === 1 ? "pose" : "poses"}, to choose for a line of a scenario in its Pose box:` }));
+        if (have.length > 0) {
+          posesBox.append(h("ul", { class: "cd-pose-list" }, ...have.map((pose) => {
+            const drop = h("button", { type: "button", text: "Remove", "aria-label": `Remove the pose ${pose.label} from ${p.name || `person ${i + 1}`}` });
+            drop.addEventListener("click", () => {
+              const where = opts.poseUses.get(poseKey(p.id, pose.id));
+              if (where && where.length > 0) {
+                const why = `The pose ${pose.label} is used by ${where.join(" and ")}. Change those lines first, then take the pose out.`;
+                problems.replaceChildren(h("p", { text: why }));
+                opts.announce(why);
+                return;
+              }
+              problems.replaceChildren();
+              p.poses = (p.poses ?? []).filter((x) => x.id !== pose.id);
+              draw(`${k}-poses`);
+              opts.announce(`Removed the pose ${pose.label} from the draft.`);
+            });
+            return h("li", {}, `${pose.label} `, drop);
+          })));
+        }
+        const addPoses = h("button", { type: "button", id: `${k}-poses`, text: "Add poses from the library..." });
+        addPoses.addEventListener("click", () => void poses(p, i));
+        posesBox.append(h("div", { class: "btn-row" }, addPoses));
+      } else {
+        posesBox.append(h("p", { class: "note", text: "Poses come with people from the library. Choose this person from the library to add some." }));
+      }
+
       return h("fieldset", { class: "cd-person" }, legend,
         h("div", { class: "field" }, label("Name", `${k}-name`), name),
         h("div", { class: "field" }, label("Who they are (optional)", `${k}-role`), role),
         h("div", { class: "field" }, label("Voice", `${k}-voice`), voice),
         h("p", { class: "note", text: "Their lines in a scenario are read in this voice." }),
         h("fieldset", {}, h("legend", { text: "Picture" }), picture),
+        h("fieldset", {}, h("legend", { text: "Poses" }), posesBox),
         h("div", { class: "btn-row" }, earlier, later, remove));
     };
 
@@ -191,6 +236,9 @@ export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
         added.add(pick.src);
         p.picture = { src: pick.src, alt: pick.alt, decorative: false };
         credits.set(pick.src, pick.credit);
+        // Poses belong to the person they came with: someone else from the library brings none of the old person's.
+        if (p.library?.pack !== pick.library.pack || p.library?.person !== pick.library.person) delete p.poses;
+        p.library = { ...pick.library };
         if (named) p.name = pick.name;
         if (named && !p.role.trim()) p.role = pick.role;
         // A person who is new in this dialog has nothing pointing at them yet, so their id can say who they are.
@@ -201,6 +249,20 @@ export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
         opts.announce(chosenMessage(pick.name, { name: named, voice: voiceChanged }));
       } catch (err) {
         opts.announce(`Could not use that person. ${err instanceof Error ? err.message : String(err)}`);
+      }
+    };
+
+    const poses = async (p: Character, i: number): Promise<void> => {
+      try {
+        const got = await opts.choosePoses(p);
+        if (!got || got.poses.length === 0) { document.getElementById(`cd-${i}-poses`)?.focus(); return; }
+        p.poses = [...(p.poses ?? []), ...got.poses];
+        for (const pose of got.poses) added.add(pose.src);
+        for (const c of got.credits) credits.set(c.path, c);
+        draw(`cd-${i}-poses`);
+        opts.announce(`Added ${got.poses.length} ${got.poses.length === 1 ? "pose" : "poses"} for ${p.name || "this person"} to the draft: ${got.poses.map((x) => x.label).join(", ")}.`);
+      } catch (err) {
+        opts.announce(`Could not add the poses. ${err instanceof Error ? err.message : String(err)}`);
       }
     };
 
@@ -221,7 +283,7 @@ export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
     const finish = () => {
       dialog.close();
       dialog.remove();
-      const kept = new Set((result?.cast ?? []).map((p) => p.picture?.src));
+      const kept = new Set((result?.cast ?? []).flatMap((p) => [p.picture?.src, ...(p.poses ?? []).map((x) => x.src)]));
       for (const src of added) if (!kept.has(src)) void opts.discardPicture(src).catch(() => undefined);
       resolve(result);
     };
@@ -229,14 +291,14 @@ export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); finish(); });
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const found = draftProblems(draft, opts.current, opts.uses);
+      const found = draftProblems(draft, opts.current, opts.uses, opts.poseUses);
       if (found.length > 0) {
         problems.replaceChildren(h("p", { text: "The cast cannot be saved yet:" }), h("ul", {}, ...found.map((p) => h("li", { text: p }))));
         return;
       }
       problems.replaceChildren();
       const cast = cloneCast(draft);
-      result = { cast, credits: [...credits.values()].filter((c) => cast.some((p) => p.picture?.src === c.path)) };
+      result = { cast, credits: [...credits.values()].filter((c) => cast.some((p) => p.picture?.src === c.path || (p.poses ?? []).some((x) => x.src === c.path))) };
       finish();
     });
 

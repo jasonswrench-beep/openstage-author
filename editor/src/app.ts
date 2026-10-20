@@ -62,12 +62,13 @@ import { askTheme } from "./themepicker.ts";
 import { editTheme as editThemeDialog } from "./themeeditor.ts";
 import { editCast } from "./castdialog.ts";
 import { chooseFromLibrary } from "./packdialog.ts";
+import { choosePoses as choosePosesDialog } from "./posedialog.ts";
 import { creditForPicture } from "./packs.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
 import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
 import { BUTTON_LOOKS, CUSTOM_LOOK } from "./buttonlooks.ts";
-import { castUse, YOU } from "./characters.ts";
+import { castUse, poseUse, YOU } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
 import { logoFromImage } from "./themeedit.ts";
 import { BUILT_IN_THEMES, COLOR_ROLE_NAMES } from "./themes.ts";
@@ -141,9 +142,9 @@ function announceNoteText(look: string, said: string, uses: number): string {
  */
 function scenarioShape(o: OSObject, m: Model, selected: string): string {
   const c = o.content as unknown as ScenarioContent;
-  const lines = (list: ScenarioLine[]) => list.map((l) => `${l.id}:${l.speaker ?? "-"}:${l.narration ? `s${((l.narration as Narration).pronunciations ?? []).length}` : "n"}`).join(",");
+  const lines = (list: ScenarioLine[]) => list.map((l) => `${l.id}:${l.speaker ?? "-"}:${l.pose ?? "-"}:${l.narration ? `s${((l.narration as Narration).pronunciations ?? []).length}` : "n"}`).join(",");
   const nodes = c.nodes.map((n) => `${n.id}[${lines(n.lines)}|${n.choices.map((ch) => `${ch.id}>${ch.next}(${ch.effects.map((e) => e.variable).join("+")})<${lines(ch.response)}>`).join(";")}]`).join(" ");
-  return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}`).join(",")}`;
+  return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}${(p.poses ?? []).map((x) => `${x.id}${x.label}`).join("+")}${p.library ? "L" : ""}`).join(",")}`;
 }
 
 export class App {
@@ -794,6 +795,7 @@ export class App {
     const next = await editCast({
       current: m.characters,
       uses: castUse(m.slides),
+      poseUses: poseUse(m.slides),
       choosePicture: async () => {
         const picked = await backend.pickImage();
         return picked ? backend.importImage(m.dir, picked) : null;
@@ -804,7 +806,31 @@ export class App {
         const { pack, person } = chosen;
         // The picture is copied into the project at once, as a picture chosen from the computer is, so the cast dialog can show it.
         const src = await backend.packUsePicture(m.dir, pack.source, pack.folder, person.head, person.id);
-        return { src, alt: person.alt, name: person.name, role: person.role, voice: person.voice, credit: creditForPicture(pack, person, src) };
+        return { src, alt: person.alt, name: person.name, role: person.role, voice: person.voice, credit: creditForPicture(pack, person, src), library: { pack: pack.id, person: person.id } };
+      },
+      choosePoses: async (character) => {
+        const link = character.library;
+        if (!link) return null;
+        const found = (await backend.packsList()).packs.find((x) => x.id === link.pack);
+        const who = found?.people.find((x) => x.id === link.person);
+        if (!found || !who) {
+          this.announce(`The pack "${link.pack}" is not on this computer, so more poses of ${character.name || "this person"} cannot be added. The poses the course has are kept. Add the pack from the library to get more.`);
+          return null;
+        }
+        if (who.poses.length === 0) {
+          this.announce(`${who.name} has no poses in the pack "${found.title}".`);
+          return null;
+        }
+        const chosen = await choosePosesDialog({ backend, pack: found, person: who, have: new Set((character.poses ?? []).map((x) => x.id)), announce: (msg) => this.announce(msg) });
+        if (!chosen || chosen.length === 0) return null;
+        const poses = [];
+        const credits = [];
+        for (const pose of chosen) {
+          const src = await backend.packUsePicture(m.dir, found.source, found.folder, pose.file, `${character.id}-${pose.id}`);
+          poses.push({ id: pose.id, label: pose.label, src });
+          credits.push(creditForPicture(found, who, src));
+        }
+        return { poses, credits };
       },
       imageUrl: (src) => backend.assetUrl(m.dir, src),
       discardPicture: (src) => backend.deleteAsset(m.dir, src),
@@ -3451,8 +3477,20 @@ export class App {
           return d;
         })()
         : h("p", { class: "note", text: "Not spoken: this line can only be read. A learner who cannot read the screen will not hear it. Tick Spoken aloud to give it a voice." });
+      // The pose of the person who says it: a picture shown beside the line instead of their face. Only a person from the cast has poses.
+      const who = line.speaker && line.speaker !== YOU ? cast.find((p) => p.id === line.speaker) : undefined;
+      const poseField = who && (who.poses?.length ?? 0) > 0
+        ? this.selectField(`${k}-pose`, "Pose beside the line", [
+          { value: "", label: `${who.name}'s picture` },
+          ...who.poses!.map((x) => ({ value: x.id, label: x.label })),
+          ...(line.pose && !who.poses!.some((x) => x.id === line.pose) ? [{ value: line.pose, label: `${line.pose} (not one of their poses)`, disabled: true }] : []),
+        ], line.pose ?? "", (v) => say(m.setScenarioLinePose(o.id, line.id, v === "" ? null : v)))
+        : who?.library
+          ? h("p", { class: "note", text: `${who.name} has no poses yet. Add some in Characters, then choose one here.` })
+          : null;
       return h("fieldset", {}, h("legend", { text: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${index + 1} of ${list.length}` }),
         this.selectField(`${k}-speaker`, "Said by", speakers, line.speaker ?? "", (v) => say(m.setScenarioLineSpeaker(o.id, line.id, v === "" ? null : v))),
+        ...(poseField ? [poseField] : []),
         this.stacked(this.field(`${k}-text`, "Words", line.text, (v) => say(m.setScenarioLineText(o.id, line.id, v)), { area: true, rows: 3 })),
         check(`${k}-spoken`, "Spoken aloud", said !== null, (on) => say(m.setScenarioLineSpoken(o.id, line.id, on))),
         voiceBox,
@@ -3563,6 +3601,7 @@ export class App {
       const said = (line.narration as Narration | null) ?? null;
       set(`${k}-text`, line.text);
       set(`${k}-speaker`, line.speaker ?? "");
+      set(`${k}-pose`, line.pose ?? "");
       tick(`${k}-spoken`, said !== null);
       if (said) { set(`${k}-narration-script`, said.script); set(`${k}-narration-voice`, said.voice); set(`${k}-narration-speed`, said.speed); }
     }

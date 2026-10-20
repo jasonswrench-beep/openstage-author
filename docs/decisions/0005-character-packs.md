@@ -1,6 +1,6 @@
 # 0005: Character packs
 
-Status: accepted by Jason S. Wrench, 2026-10-20 (the questions below were put to them and answered in chat). Phase 1 built the same day; poses come next.
+Status: accepted by Jason S. Wrench, 2026-10-20 (the questions below were put to them and answered in chat). Phase 1 (the library, adding packs, credit) and phase 2 (poses) were built the same day.
 
 ## Context
 
@@ -16,7 +16,8 @@ The cast of a course had a picture maker: a cartoon person drawn from a few choi
 6. **Choosing copies the picture into the project**, so a course does not depend on the pack and removing a pack changes nothing in a project. The copy is made at once (so the dialog can show it) and is deleted again if the dialog is cancelled or the person is given another picture, so browsing the library leaves nothing behind.
 7. **Credit.** Each picture copied from a pack gets an entry in `assets.json` (provider `other`, the pack's creator, link and licence, `requiresCredit` true), saved with the cast in the same undo step. `provider: generated` is not used: it requires the words that made the picture, which the pack does not hold, and it says so on the credits page in other words (the pack's licence line names the AI service). A person with many pictures is one line on the credits page.
 8. **Two faults in the old credit handling were found and fixed on the way.** The checker and the publisher decided whether a file was "used" by looking for its name in the slides only, so a picture used only by the cast was never credited and never raised the "credits page is off" warning. The cast now counts. Lines that read the same are merged.
-9. **Head picture and poses.** Each person has a square head-and-shoulders picture (for the cast, the library and the small face beside a line) and poses: the whole person, all cut to one frame so that changing pose does not make them jump. Phase 1 uses the head picture. Poses (a pose for a line of a scenario, a person on a slide) are the next step and will need a format change (an optional list of poses for a person, an optional pose on a line, schema 0.27.0, and a migration that changes nothing).
+9. **Head picture and poses.** Each person has a square head-and-shoulders picture (for the cast, the library and the small face beside a line) and poses: the whole person, all cut to one frame so that changing pose does not make them jump.
+10. **Poses are copied one at a time, and a line can show one.** Choosing a person copies only their head picture. **Add poses from the library...** in the cast dialog copies the poses ticked, so a course that uses three stays small (all of a person's poses would be about 3 MB). A person remembers which pack and person they came from (`library`) so more poses can be offered, and if that pack is gone the poses they already have are kept and the dialog says so. A line of a scenario can show its speaker in one of their poses, cut to the waist, instead of their small face (format 0.29.0; nothing in an existing project changes). A pose a line uses cannot be taken out of the cast. A pose is decoration, with no alt text of its own: the person's name is always written beside it.
 
 ## The first pack
 
@@ -31,7 +32,8 @@ Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's
 
 ## Not built
 
-* Poses: the pose picker for a line, and a person in a pose on a slide (next).
+* A person in a pose on a slide (an image object from the library, with the pack's description of the pose as its alt text). The pack already carries that description (`alt`) for every pose.
+* A line spoken by "you" cannot be given a pose in the editor (who the learner chose is only known when the course is played). The format allows it.
 * Downloading a pack from the web. The zip file is the way in until there is a place to download from.
 * The full-length picture on a slide from the library (poses give it).
 * WebP pictures in a pack: allowed by the format and the checks, not made by the tool.

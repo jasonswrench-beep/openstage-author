@@ -1846,6 +1846,86 @@ class ScenarioAndCast(unittest.TestCase):
             self.install(p, self.scenario(start="n-nowhere"))
             self.assertEqual(len(self.hits(p, "scenario-start-missing", "error")), 1)
 
+    # ---- poses (format 0.29.0)
+
+    def posed_cast(self, p):
+        """Maya has two poses (their pictures are written into the project), Dev has none."""
+        (p.root / "assets" / "images").mkdir(parents=True, exist_ok=True)
+        for name in ("maya-welcome.png", "maya-think.png"):
+            (p.root / "assets" / "images" / name).write_bytes(b"x")
+        cast = copy.deepcopy(self.CAST)
+        cast[0]["poses"] = [{"id": "welcome", "label": "Waving hello", "src": "assets/images/maya-welcome.png"},
+                            {"id": "think", "label": "Thinking", "src": "assets/images/maya-think.png"}]
+        cast[0]["library"] = {"pack": "openstage-people-1", "person": "lisa"}
+        return cast
+
+    def test_a_line_can_show_its_speaker_in_one_of_their_poses(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0]["pose"] = "welcome"
+            c["nodes"][1]["lines"][0]["pose"] = None
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(self.found(p), [])
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+
+    def test_a_pose_the_speaker_does_not_have_is_an_error(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0]["pose"] = "dancing"
+            self.install(p, c, cast=self.posed_cast(p))
+            hit = self.hits(p, "scenario-pose-unknown", "error")
+            self.assertEqual(len(hit), 1)
+            self.assertIn("Maya Reyes", hit[0].detail)
+
+    def test_a_pose_of_someone_who_has_none_is_an_error(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][1]["lines"][0]["speaker"] = "dev"
+            c["nodes"][1]["lines"][0]["pose"] = "welcome"
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(len(self.hits(p, "scenario-pose-unknown", "error")), 1)
+
+    def test_the_narrator_has_no_pose(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][2]["lines"][0]["pose"] = "welcome"
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(len(self.hits(p, "scenario-pose-narrator", "error")), 1)
+
+    def test_a_pose_on_a_line_spoken_by_you_is_left_to_the_course(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0].update({"speaker": "you", "pose": "welcome"})
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(self.hits(p, "scenario-pose-unknown"), [])
+            self.assertEqual(self.hits(p, "scenario-pose-narrator"), [])
+
+    def test_two_poses_with_one_id_and_a_pose_without_its_file_are_errors(self):
+        with MutatedProject() as p:
+            cast = self.posed_cast(p)
+            cast[0]["poses"].append({"id": "think", "label": "Thinking again", "src": "assets/images/maya-think.png"})
+            cast[0]["poses"].append({"id": "gone", "label": "Not there", "src": "assets/images/maya-gone.png"})
+            self.install(p, None, cast=cast)
+            self.assertEqual(len(self.hits(p, "character-pose-duplicate", "error")), 1)
+            missing = [f for f in self.hits(p, "asset-missing", "error") if "maya-gone" in f.detail]
+            self.assertEqual(len(missing), 1)
+
+    def test_the_shape_of_a_pose_is_checked(self):
+        for bad in ({"id": "welcome", "label": "", "src": "assets/images/maya-welcome.png"},
+                    {"id": "Welcome", "label": "Waving", "src": "assets/images/maya-welcome.png"},
+                    {"id": "welcome", "label": "Waving"},
+                    {"id": "welcome", "label": "Waving", "src": "../x.png"}):
+            with MutatedProject() as p:
+                cast = self.posed_cast(p)
+                cast[0]["poses"] = [bad]
+                self.install(p, None, cast=cast)
+                self.assertTrue([f for f in p.run() if f.severity == "error"], bad)
+        with MutatedProject() as p:
+            cast = self.posed_cast(p)
+            cast[0]["library"] = {"pack": "Bad Pack", "person": "lisa"}
+            self.install(p, None, cast=cast)
+            self.assertTrue([f for f in p.run() if f.severity == "error"])
+
     def test_a_choice_has_to_lead_somewhere(self):
         with MutatedProject() as p:
             c = self.scenario()

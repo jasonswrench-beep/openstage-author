@@ -161,6 +161,12 @@ export function voiceFor(hint: VoiceHint, cast: readonly Character[], current: s
   return voices.find((v) => v.startsWith("a") && fits(v)) ?? voices.find(fits) ?? current;
 }
 
+/** What to say about how many poses are chosen, and how many the person already has in the course. */
+export function chosenCount(n: number, have: number): string {
+  const already = have > 0 ? ` ${have} ${have === 1 ? "is" : "are"} in the course already.` : "";
+  return n === 0 ? `No new poses chosen.${already}` : `${n} new ${n === 1 ? "pose" : "poses"} chosen.${already}`;
+}
+
 /** What to tell a screen reader after someone is chosen from a pack. */
 export function chosenMessage(name: string, changed: { name: boolean; voice: boolean }): string {
   const also = [changed.name ? "their name" : "", changed.voice ? "a voice" : ""].filter(Boolean).join(" and ");

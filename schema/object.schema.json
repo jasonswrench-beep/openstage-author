@@ -487,6 +487,10 @@
       "properties": {
         "id": { "$ref": "project.schema.json#/$defs/id" },
         "speaker": { "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }] },
+        "pose": {
+          "$comment": "Optional. The id of one of the speaker's poses, to show them in it instead of their picture. Absent or null means their picture.",
+          "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }]
+        },
         "text": { "type": "string", "maxLength": 2000 },
         "narration": {
           "$comment": "What the learner hears when this line is shown. Same shape as an object's narration. Null means the line can only be read.",

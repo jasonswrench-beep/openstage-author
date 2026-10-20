@@ -10,7 +10,7 @@
 // choice of the start situation, then the third choice of the situation it led to). That is all the course has to remember, and it is
 // small enough to keep with the learner's other progress in an LMS.
 
-import type { Character, OSObject, Primitive, ScenarioChoice, ScenarioContent, ScenarioEffect, ScenarioLine, ScenarioMeter, ScenarioNode } from "./types.ts";
+import type { Character, CharacterPose, OSObject, Primitive, ScenarioChoice, ScenarioContent, ScenarioEffect, ScenarioLine, ScenarioMeter, ScenarioNode } from "./types.ts";
 
 /** The most choices one walk through a scenario can hold. A story that loops back on itself stops here, so what is remembered stays small. */
 export const MAX_STEPS = 120;
@@ -91,10 +91,11 @@ export function undo(c: ScenarioContent, path: string, steps: number): Move | nu
 
 // ---- what to show and say
 
-/** Who is speaking a line: a name and, if they have one, a picture. Null for the narrator. */
+/** Who is speaking a line: a name and, if they have one, a picture, and the pose the line asks for if the person has it. Null for the narrator. */
 export interface Speaker {
   name: string;
   picture: Character["picture"];
+  pose: CharacterPose | null;
 }
 
 /** The person from the cast the learner chose to be, or null if there is none (no choice yet, or the scenario does not use one). */
@@ -104,12 +105,15 @@ export function youOf(c: ScenarioContent, cast: Character[], value: (variable: s
   return typeof v === "string" ? cast.find((p) => p.id === v) ?? null : null;
 }
 
+const poseOf = (person: Character, id: string | null | undefined): CharacterPose | null => (id ? person.poses?.find((p) => p.id === id) ?? null : null);
+
 export function speakerOf(line: ScenarioLine, cast: Character[], you: Character | null): Speaker | null {
   if (line.speaker === null) return null;
-  if (line.speaker === "you") return you ? { name: you.name, picture: you.picture } : { name: "You", picture: null };
+  // The learner's own character shows the pose a line asks for if they have it: who they are is only known when the course is played.
+  if (line.speaker === "you") return you ? { name: you.name, picture: you.picture, pose: poseOf(you, line.pose) } : { name: "You", picture: null, pose: null };
   const person = cast.find((p) => p.id === line.speaker);
   // Someone who is not in the cast is the validator's to report; the line is still shown, as the narrator's.
-  return person ? { name: person.name, picture: person.picture } : null;
+  return person ? { name: person.name, picture: person.picture, pose: poseOf(person, line.pose) } : null;
 }
 
 /** A line for each choice the learner made: where they were, and what they did. Shown at an ending. */
@@ -226,8 +230,12 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
   const lineItem = (line: ScenarioLine): HTMLElement => {
     const speaker = speakerOf(line, hooks.cast, you());
     const li = make(doc, "li", speaker ? "os-scenario-line" : "os-scenario-line os-scenario-story");
-    // The name is always written beside the picture, so the picture says nothing to a screen reader.
-    if (speaker?.picture) {
+    // The name is always written beside the picture, so the picture says nothing to a screen reader. A pose is shown in place of the picture, cut to show the person to the waist.
+    if (speaker?.pose) {
+      const img = make(doc, "img", "os-scenario-pose", { alt: "" }) as HTMLImageElement;
+      img.src = speaker.pose.src;
+      li.appendChild(img);
+    } else if (speaker?.picture) {
       const img = make(doc, "img", "os-scenario-pic", { alt: "" }) as HTMLImageElement;
       img.src = speaker.picture.src;
       li.appendChild(img);

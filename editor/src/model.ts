@@ -31,12 +31,12 @@ import { EFFECTS } from "../../player/src/animation.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { templateById } from "./templates.ts";
-import { castUse, cloneCast, draftProblems as castProblems, voiceChanges } from "./characters.ts";
+import { castUse, cloneCast, draftProblems as castProblems, poseUse, tidyPerson, voiceChanges } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.28.0";
+export const FORMAT_VERSION = "0.29.0";
 
 export interface OpenedProject {
   dir: string;
@@ -1892,9 +1892,9 @@ export class Model {
    */
   setCharacters(draft: Character[], credits: CreditEntry[] = []): string | null {
     const before = this.characters;
-    const problems = castProblems(draft, before, castUse(this.slides));
+    const problems = castProblems(draft, before, castUse(this.slides), poseUse(this.slides));
     if (problems.length > 0) return problems[0]!;
-    const next = cloneCast(draft).map((p) => ({ ...p, name: p.name.trim(), role: p.role.trim() }));
+    const next = cloneCast(draft).map(tidyPerson);
     const newCredits = credits.filter((c) => JSON.stringify(this.creditOf(c.path)) !== JSON.stringify(c));
     if (JSON.stringify(next) === JSON.stringify(before) && newCredits.length === 0) return null;
     this.record("");
@@ -1984,6 +1984,7 @@ export class Model {
   moveScenarioLine(objectId: string, lineId: string, delta: -1 | 1): string | null { return this.editScenario(objectId, (c) => S.moveLine(c, lineId, delta), true); }
   setScenarioLineText(objectId: string, lineId: string, text: string): string | null { return this.editScenario(objectId, (c) => S.setLineText(c, lineId, text)); }
   setScenarioLineSpeaker(objectId: string, lineId: string, speaker: string | null): string | null { return this.editScenario(objectId, (c) => S.setLineSpeaker(c, lineId, speaker, this.characters), true); }
+  setScenarioLinePose(objectId: string, lineId: string, pose: string | null): string | null { return this.editScenario(objectId, (c) => S.setLinePose(c, lineId, pose, this.characters)); }
   setScenarioLineSpoken(objectId: string, lineId: string, on: boolean): string | null {
     const like = this.narratedObjects().at(-1)?.narration;
     return this.editScenario(objectId, (c) => S.setLineSpoken(c, lineId, on, this.characters, like), true);

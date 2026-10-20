@@ -250,14 +250,36 @@ export function setLineSpeaker(c: ScenarioContent, lineId: string, speaker: stri
   if (!home || home.line.speaker === speaker) return unchanged;
   if (speaker !== null && speaker !== YOU && !cast.some((p) => p.id === speaker)) return refused("That person is not in the cast.");
   home.line.speaker = speaker;
+  // A pose belongs to a person: it stays if the new speaker has one with that id (the standard names are the same from one person to the next), and is dropped if not.
+  const next = speaker !== null && speaker !== YOU ? cast.find((p) => p.id === speaker) : undefined;
+  const lostPose = home.line.pose ? !(next?.poses ?? []).some((x) => x.id === home.line.pose) : false;
+  if (lostPose) delete home.line.pose;
   const voice = voiceFor(speaker, cast);
   const n = home.line.narration as Narration | null;
   if (n && voice && n.voice !== voice) {
     home.line.narration = { ...n, voice, lang: langAfterVoiceChange(n, voice) };
-    return done(`Now spoken by ${cast.find((p) => p.id === speaker)!.name}. Its voice changed to theirs, so make the audio again.`);
+    return done(`Now spoken by ${cast.find((p) => p.id === speaker)!.name}. Its voice changed to theirs, so make the audio again.${lostPose ? " The pose it had was taken off, because they do not have it." : ""}`);
   }
   const who = speaker === null ? "the narrator" : speaker === YOU ? "you, the learner's character" : cast.find((p) => p.id === speaker)!.name;
-  return done(`Now spoken by ${who}.`);
+  return done(`Now spoken by ${who}.${lostPose ? " The pose it had was taken off, because they do not have it." : ""}`);
+}
+
+/** Show a line's speaker in one of their poses, or (null) with their picture. Only a person in the cast has poses. */
+export function setLinePose(c: ScenarioContent, lineId: string, pose: string | null, cast: readonly Character[]): Edit {
+  const home = lineOf(c, lineId);
+  if (!home) return unchanged;
+  const line = home.line;
+  if ((line.pose ?? null) === pose) return unchanged;
+  const person = line.speaker !== null && line.speaker !== YOU ? cast.find((p) => p.id === line.speaker) : undefined;
+  if (pose === null) {
+    delete line.pose;
+    return done(`Now shown with ${person ? `${person.name}'s picture` : "their picture"}.`);
+  }
+  if (!person) return refused(line.speaker === null ? "A line told by the narrator has no pose: choose who says it first." : "Choose a person from the cast to give a pose to.");
+  const chosen = person.poses?.find((x) => x.id === pose);
+  if (!chosen) return refused(`${person.name} does not have that pose. Add poses in Characters.`);
+  line.pose = pose;
+  return done(`Now shown in the pose "${chosen.label}".`);
 }
 
 /** Make a line spoken (its words, in its speaker's voice) or take its spoken form away. */
