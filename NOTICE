@@ -31,8 +31,9 @@ Lucide icons (the Icons picker in the editor, and the icons a course holds)
 
 Character pack "OpenStage people, set 1" (character-packs/openstage-people-1: eight people, Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa and Salma, in many poses, in the editor's library of people)
   Pictures made by Jason S. Wrench with Ideogram (https://ideogram.ai), an AI picture service, from written
-  descriptions. They are not part of the Apache License above. They may be used in courses made with
-  OpenStage Author, and a course that uses one names its maker on its credits page.
+  descriptions. Jason S. Wrench states that they remain in the public domain, so they are not part of the
+  Apache License above and anyone may use them for any purpose. A course made with OpenStage Author that
+  uses one still says on its credits page that it is AI-generated.
 
 Speech engine (put on the user's own computer, at their request; not included, bundled or hosted by OpenStage Author)
   Spoken narration is made by the Kokoro speech engine (Apache License 2.0), which OpenStage

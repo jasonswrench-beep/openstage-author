@@ -27,8 +27,9 @@ Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's
 
 ## Licensing and provenance
 
-* Ideogram's terms of service (section 2.1) say Ideogram claims no ownership of what is made and the person may use it, including commercially; section 4.2 and 6.2 put the duty to hold the rights to anything uploaded, and not to infringe a person's likeness, on the user. Jason says nothing was uploaded. The pictures are not offered under Apache-2.0 (pictures made only by an AI are in doubt as to copyright, and "free to use in courses made with OpenStage Author" says what a person may do). The credits page says they are AI-generated, in the licence line, so a learner is not left to guess.
-* **Open:** the exact words of that licence line are Jason's to settle before release (are the pictures free to use in any course, or only in courses made with OpenStage Author; may the pictures be given away on their own). Today it reads "Pictures made with Ideogram (AI-generated). Free to use in courses made with OpenStage Author". Changing it means changing `pack.json` and the source file, and rebuilding.
+* Ideogram's terms of service (section 2.1) say Ideogram claims no ownership of what is made and the person may use it, including commercially; section 4.2 and 6.2 put the duty to hold the rights to anything uploaded, and not to infringe a person's likeness, on the user. Jason says nothing was uploaded.
+* **Settled by Jason, 2026-10-20:** "Images were created using Ideogram and remain in the Public Domain." So the pictures are not under Apache-2.0, and anyone may use them for any purpose. The licence line is now "Made with Ideogram (AI-generated), in the public domain" (`pack.json`, the source file, `NOTICE`, the assets.json of the two examples). Nothing here is legal advice; it is the owner's statement, recorded.
+* **The credit stays.** A public-domain picture needs no credit, but the entry keeps `requiresCredit` true: the credits page still tells a learner a person is AI-generated (as it does for AI narration), and a course with the credits page off still gets the warning for that reason. A pack with another licence says its own.
 
 ## Not built
 

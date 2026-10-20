@@ -72,7 +72,7 @@ openstage-people-1/
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
-    "licence": "Pictures made with Ideogram (AI-generated). Free to use in courses made with OpenStage Author",
+    "licence": "Made with Ideogram (AI-generated), in the public domain",
     "url": "https://openstageauthor.com"
   },
   "people": [
@@ -148,4 +148,4 @@ Write the descriptions as you would want to hear them: who the person is, then w
 
 The pictures in a pack are not part of OpenStage Author's Apache-2.0 licence unless the pack says so. Each pack says who made its pictures and what you may do with them, and that is what the credits page tells your learners. A person who makes a pack decides its licence.
 
-The pack that comes with the program, OpenStage people, set 1, was made by Jason S. Wrench with Ideogram, from written descriptions. The pictures are free to use in courses made with OpenStage Author. They are not offered under Apache-2.0, and the licence line says they are AI-generated, so a learner is not left to guess. (The wording of that licence is for Jason S. Wrench to settle before the program is released.)
+The pack that comes with the program, OpenStage people, set 1, was made by Jason S. Wrench with Ideogram, from written descriptions. Jason S. Wrench states that the pictures were created using Ideogram and remain in the public domain, so anyone may use them for any purpose, and they are not under Apache-2.0. A course that uses one still says on its credits page who made it and that it is AI-generated ("Made with Ideogram (AI-generated), in the public domain"), so a learner is not left to guess; this is the same honesty the credits page keeps for AI narration, and it is why the entry still asks for the credits page to be on.
