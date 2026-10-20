@@ -3,7 +3,7 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Six people in everyday work and casual clothes, each in many poses: Daryl, David, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
+  "description": "Seven people in everyday work and casual clothes, each in many poses: Daryl, David, Gerry, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
@@ -270,6 +270,124 @@
         }
       ],
       "head": "david/head.png"
+    },
+    {
+      "id": "gerry",
+      "name": "Gerry",
+      "role": "",
+      "voice": "male",
+      "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "gerry/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "gerry/welcome.png",
+          "label": "Waving hello",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "gerry/welcome-2.png",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "gerry/explain.png",
+          "label": "Explaining, hands open across the chest",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with both hands open and held across the chest, smiling."
+        },
+        {
+          "id": "explain-2",
+          "file": "gerry/explain-2.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with one hand at the chest and the other raised."
+        },
+        {
+          "id": "explain-3",
+          "file": "gerry/explain-3.png",
+          "label": "Explaining, looking up",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with both hands open, looking up and to the side."
+        },
+        {
+          "id": "offer",
+          "file": "gerry/offer.png",
+          "label": "Offering, hand out, palm up",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding one hand out in front, palm up, smiling."
+        },
+        {
+          "id": "present-right",
+          "file": "gerry/present-right.png",
+          "label": "Presenting, arms out to the right",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding both hands out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "gerry/present-right-2.png",
+          "label": "Presenting, both arms out wide to the right",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding both arms out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "gerry/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding one arm out to the left as if presenting, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "gerry/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "gerry/arms-crossed-2.png",
+          "label": "Arms crossed, calm",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "gerry/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "gerry/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "stop-2",
+          "file": "gerry/stop-2.png",
+          "label": "Hand up beside the chest",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding up one hand beside the chest, palm out, looking serious."
+        },
+        {
+          "id": "point",
+          "file": "gerry/point.png",
+          "label": "Pointing",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, pointing with one hand held up beside the shoulder, smiling."
+        },
+        {
+          "id": "side",
+          "file": "gerry/side.png",
+          "label": "Seen from the side",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, seen from the side, standing, facing right, looking up."
+        },
+        {
+          "id": "side-2",
+          "file": "gerry/side-2.png",
+          "label": "Seen at an angle",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "gerry/head.png"
     },
     {
       "id": "jacob",

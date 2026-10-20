@@ -2,7 +2,7 @@
 
 A **character pack** is a folder of pictures of people, with a description of each person. It is how a course gets people on its screen: the cast of a scenario, the people a learner can choose to be, a face beside a line of dialogue. Packs are data only, pictures and words. Nothing in one is ever run.
 
-OpenStage Author comes with one pack, **OpenStage people, set 1**: Daryl, David, Jacob, Kathy, Ken and Lisa, each in many poses. More packs can be added, one at a time, from a zip file.
+OpenStage Author comes with one pack, **OpenStage people, set 1**: Daryl, David, Gerry, Jacob, Kathy, Ken and Lisa, each in many poses. More packs can be added, one at a time, from a zip file.
 
 ## Using a person from a pack
 
@@ -68,7 +68,7 @@ openstage-people-1/
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Six people in everyday work and casual clothes, each in many poses.",
+  "description": "Seven people in everyday work and casual clothes, each in many poses.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
