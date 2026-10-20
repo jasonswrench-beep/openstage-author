@@ -2,7 +2,7 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Seven people in everyday work and casual clothes, each in many poses: Daryl, David, Gerry, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
+  "description": "Eight people in everyday work and casual clothes, each in many poses: Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa and Salma. The pictures were made with Ideogram from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
@@ -854,6 +854,137 @@
           "file": "_KMw_bn3jUSC",
           "label": "Hand up, palm out",
           "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding up one hand, palm out, looking serious."
+        }
+      ]
+    },
+    {
+      "id": "salma",
+      "name": "Salma",
+      "role": "",
+      "voice": "female",
+      "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals.",
+      "folder": "Salma",
+      "default": "neutral",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "_kQi3YrjtUQS",
+          "label": "Standing, relaxed",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "_wXtscz4tXzK",
+          "label": "Standing, calm",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms down, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "_948fuCUuVXG",
+          "label": "Waving hello",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "_A7paVS7hVq-",
+          "label": "Waving, hand held high",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "_1aHl9MCKXtq",
+          "label": "Explaining, both hands raised",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, explaining with both hands raised."
+        },
+        {
+          "id": "offer",
+          "file": "_vow-LO35XRm",
+          "label": "Offering, hand open, palm up",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "_3hqRT8hqVq-",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand up and out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "_SYn_CMuSVkC",
+          "label": "Presenting, arm out to the right",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one arm out to the right, palm up, with the other hand across the body."
+        },
+        {
+          "id": "present-right-3",
+          "file": "_x1jL2YNeUNy",
+          "label": "Presenting, hand out to the right, smiling",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "_pwD4OXUEU9i",
+          "label": "Presenting, arm out to the left",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "_yUZCQDzRWoy",
+          "label": "Presenting, hand out wide to the left, stepping",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, stepping forward and holding one hand out wide to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "_X_-U_yixXnW",
+          "label": "Arms crossed",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "_ZgFPgWwDUiG",
+          "label": "Arms crossed, hands tucked",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms crossed and hands tucked in, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "_3xmM3dCPW9G",
+          "label": "Thinking, hand to chin",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "__feB4M1OVKa",
+          "label": "Thinking, hand to chin, another look",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "_v-XaywXkV9S",
+          "label": "Hand up, palm out",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "emphasis",
+          "file": "_cIunPvTKXvu",
+          "label": "Making a point, fist raised",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "_ND4R9PTmXjy",
+          "label": "Making a point, fist near the face",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, smiling, with one hand raised in a loose fist near the face."
+        },
+        {
+          "id": "side",
+          "file": "_hckQgjXFU6y",
+          "label": "Seen from the side",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, seen from the side, standing, facing left."
+        },
+        {
+          "id": "side-2",
+          "file": "_meTlRdTOVlO",
+          "label": "Seen at an angle",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, seen at an angle from the side, standing, facing left."
         }
       ]
     }
