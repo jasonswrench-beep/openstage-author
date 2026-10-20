@@ -188,10 +188,14 @@ button.small:hover { background: #e3e6eb; }
 .cd-pic-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
 .cd-pic { flex: none; width: 72px; height: 72px; object-fit: cover; border-radius: 50%; border: 1px solid #c9ced6; background: #fff; }
 .cd-notes:empty { display: none; }
-.avatar-dialog { max-height: 92vh; overflow: auto; }
-.av-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; align-items: start; }
-.av-preview svg { width: 200px; height: 200px; border-radius: 50%; border: 1px solid #c9ced6; display: block; }
-.av-words { margin: 8px 0 0; font-weight: 600; max-width: 220px; }
+.library-dialog { max-height: 92vh; overflow: auto; }
+.lib-pack { margin: 14px 0; }
+.lib-people { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.lib-person { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #c9ced6; border-radius: 8px; padding: 10px; background: #fff; color: #1a1a1a; }
+.lib-pic { flex: none; width: 88px; height: 88px; object-fit: cover; object-position: top; border-radius: 50%; border: 1px solid #c9ced6; background: #fff; }
+.lib-body p { margin: 0 0 6px; }
+.lib-alt { font-size: 14px; }
+.lib-broken li { margin: 4px 0; }
 .ic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin: 8px 0; }
 .ic-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border: 1px solid #c9ced6; border-radius: 6px; background: #fff; color: #1a1a1a; font-size: 12px; cursor: pointer; }
 .ic-cell svg { width: 30px; height: 30px; }
@@ -387,12 +391,11 @@ button.small:hover { background: #e3e6eb; }
   .dialog .field, .field { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .field.check { grid-template-columns: auto minmax(0, 1fr); }
   .layout-grid, .choice-grid, .theme-grid { grid-template-columns: minmax(0, 1fr); }
-  .as-split, .av-layout { grid-template-columns: minmax(0, 1fr); }
+  .as-split, .lib-people { grid-template-columns: minmax(0, 1fr); }
   .as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .as-toolbar input[type="search"] { min-width: 0; width: 100%; }
   .vr-row, .nr-row, .te-colour { grid-template-columns: minmax(0, 1fr); }
   .te-colours { grid-template-columns: minmax(0, 1fr); }
   .pron-row { grid-template-columns: minmax(0, 1fr); }
   .tl-row { grid-template-columns: 7em minmax(0, 1fr); }
-  .av-preview svg { width: 160px; height: 160px; }
 }

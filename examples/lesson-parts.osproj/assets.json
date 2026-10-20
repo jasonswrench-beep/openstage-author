@@ -1,0 +1,30 @@
+{
+  "assets": [
+    {
+      "path": "assets/images/maya.png",
+      "title": "Maya Reyes (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Pictures made with Ideogram (AI-generated). Free to use in courses made with OpenStage Author",
+        "requiresCredit": true
+      }
+    },
+    {
+      "path": "assets/images/alex.png",
+      "title": "Alex Kim (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Pictures made with Ideogram (AI-generated). Free to use in courses made with OpenStage Author",
+        "requiresCredit": true
+      }
+    }
+  ]
+}

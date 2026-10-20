@@ -99,6 +99,7 @@ empty. `voice` is the narration voice that reads the person's lines (`voice-unkn
 needs alt text that says what the person looks like, or it is marked `decorative` and then has no alt text (`character-picture-alt`), and the file has to be
 in the project (`asset-missing`). The picture is only a picture of the person: their name is always written beside it, so the picture is hidden from a
 screen reader beside a line (the name is read), and is described once where a learner has to pick a person (see the character input). (Added in 0.21.0.)
+A picture may be one from a character pack (`docs/character-packs.md`): the editor copies it into the project's images, takes its alt text from the pack's description of the person (which the author can change), and records its maker in `assets.json`. The format does not change for that.
 
 `sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
 course (the cache and the empty `.gitkeep` placeholder files are always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
@@ -418,9 +419,9 @@ filled in (`credit-incomplete`). The validator warns about an entry whose file i
 (`credit-asset-missing`), and when an asset that needs credit is used while `credits` is off
 (`credit-page-off`).
 
-When the course is published, the entries for assets that slides actually use go into the package, and if
-`credits` is on the player shows a "Credits" button that opens a dialog listing them: the title, the
-creator, where it came from, and the licence. The dialog is native, so focus stays inside it and Escape
+When the course is published, the entries for assets that the course actually uses go into the package (a file is used if a slide names it, or a person in the cast has it as their picture),
+and if `credits` is on the player shows a "Credits" button that opens a dialog listing them: the title, the
+creator, where it came from, and the licence. Entries that would read the same are one line. The dialog is native, so focus stays inside it and Escape
 closes it.
 
 **Pictures an AI service made** (added in 0.26.0; the record is also allowed for a sound, but nothing makes one now). The provider is `generated`, and the `source` carries a

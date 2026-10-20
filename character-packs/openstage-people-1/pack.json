@@ -1,0 +1,605 @@
+{
+  "id": "openstage-people-1",
+  "title": "OpenStage people, set 1",
+  "version": "1.0.0",
+  "description": "Five people in work clothes, each in many poses: David, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
+  "credit": {
+    "creator": "Jason S. Wrench",
+    "creatorUrl": "https://openstageauthor.com",
+    "licence": "Pictures made with Ideogram (AI-generated). Free to use in courses made with OpenStage Author",
+    "url": "https://openstageauthor.com"
+  },
+  "people": [
+    {
+      "id": "david",
+      "name": "David",
+      "role": "",
+      "voice": "male",
+      "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "david/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms down."
+        },
+        {
+          "id": "neutral-2",
+          "file": "david/neutral-2.png",
+          "label": "Standing, smiling",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms down, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "david/welcome.png",
+          "label": "Waving hello",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "david/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, waving with one hand held high."
+        },
+        {
+          "id": "explain",
+          "file": "david/explain.png",
+          "label": "Explaining, one hand open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with one hand open."
+        },
+        {
+          "id": "explain-2",
+          "file": "david/explain-2.png",
+          "label": "Explaining, both hands open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open."
+        },
+        {
+          "id": "explain-3",
+          "file": "david/explain-3.png",
+          "label": "Explaining, hands close together",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open in front of the chest."
+        },
+        {
+          "id": "explain-4",
+          "file": "david/explain-4.png",
+          "label": "Explaining, hands wide apart",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open and held wide apart."
+        },
+        {
+          "id": "laughing",
+          "file": "david/laughing.png",
+          "label": "Laughing, one hand open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, laughing, with one hand open at the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "david/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding one arm out to the right as if presenting."
+        },
+        {
+          "id": "present-left",
+          "file": "david/present-left.png",
+          "label": "Presenting, arms out to the left",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding both arms out to the left as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "david/present-right-2.png",
+          "label": "Presenting, hand out low to the right",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding one hand out to the right at waist height."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "david/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "david/arms-crossed-2.png",
+          "label": "Arms crossed, smiling",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms crossed, smiling."
+        },
+        {
+          "id": "hands-together",
+          "file": "david/hands-together.png",
+          "label": "Hands together",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with hands clasped in front."
+        },
+        {
+          "id": "think",
+          "file": "david/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "david/think-2.png",
+          "label": "Thinking, turned slightly",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, turned slightly, with a hand at the chin as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "david/emphasis.png",
+          "label": "Making a point, hand raised",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, raising one hand, loosely closed, to make a point."
+        },
+        {
+          "id": "stop",
+          "file": "david/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding up one hand, palm out."
+        },
+        {
+          "id": "side",
+          "file": "david/side.png",
+          "label": "Seen from the side",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen from the side, standing."
+        },
+        {
+          "id": "side-2",
+          "file": "david/side-2.png",
+          "label": "Seen in profile",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen in profile, standing and looking ahead."
+        }
+      ],
+      "head": "david/head.png"
+    },
+    {
+      "id": "jacob",
+      "name": "Jacob",
+      "role": "",
+      "voice": "male",
+      "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "jacob/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "jacob/welcome.png",
+          "label": "Waving hello",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "jacob/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "jacob/explain.png",
+          "label": "Explaining, both hands open",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, explaining with both hands open."
+        },
+        {
+          "id": "explain-2",
+          "file": "jacob/explain-2.png",
+          "label": "Explaining, hands in front",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, explaining with both hands held out in front of the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "jacob/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out to the right as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "jacob/present-right-2.png",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one hand up and out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "jacob/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out to the left as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "jacob/present-left-2.png",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out wide to the left, feet apart, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "jacob/arms-crossed.png",
+          "label": "Arms crossed, serious",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms crossed, looking serious."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "jacob/arms-crossed-2.png",
+          "label": "Arms crossed, calm",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "jacob/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "jacob/think-2.png",
+          "label": "Thinking, arms crossed, hand to chin",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "jacob/emphasis.png",
+          "label": "Making a point, hand at the chest",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding a loosely closed hand to the chest, smiling."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "jacob/emphasis-2.png",
+          "label": "Making a point, hand raised",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding a loosely closed hand up near the shoulder, smiling."
+        },
+        {
+          "id": "stop",
+          "file": "jacob/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "stop-2",
+          "file": "jacob/stop-2.png",
+          "label": "Hand up beside the shoulder",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding up one hand beside the shoulder, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "jacob/side.png",
+          "label": "Seen from the side, facing left",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing left."
+        },
+        {
+          "id": "side-2",
+          "file": "jacob/side-2.png",
+          "label": "Seen from the side, facing right",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing right."
+        }
+      ],
+      "head": "jacob/head.png"
+    },
+    {
+      "id": "kathy",
+      "name": "Kathy",
+      "role": "",
+      "voice": "female",
+      "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "kathy/neutral.png",
+          "label": "Seated, relaxed",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with hands together in the lap, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "kathy/welcome.png",
+          "label": "Waving hello",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and waving hello."
+        },
+        {
+          "id": "explain",
+          "file": "kathy/explain.png",
+          "label": "Explaining, both hands raised",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and explaining with both hands raised and open."
+        },
+        {
+          "id": "explain-2",
+          "file": "kathy/explain-2.png",
+          "label": "Explaining, one hand held out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and explaining with open hands, one held out to the right."
+        },
+        {
+          "id": "present-right",
+          "file": "kathy/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "kathy/present-right-2.png",
+          "label": "Presenting, hand out low to the right",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated, holding one hand out to the right, palm up."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "kathy/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "kathy/arms-crossed-2.png",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated at a slight angle with arms crossed."
+        },
+        {
+          "id": "think",
+          "file": "kathy/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a hand at the chin, smiling as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "kathy/think-2.png",
+          "label": "Thinking, head tilted",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a hand at the chin and the head tilted, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "kathy/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and holding up one hand, palm out."
+        },
+        {
+          "id": "emphasis",
+          "file": "kathy/emphasis.png",
+          "label": "Making a point, hand raised",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and smiling, with one hand raised at the side."
+        },
+        {
+          "id": "concerned",
+          "file": "kathy/concerned.png",
+          "label": "Concerned, hand out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a worried look, one hand held out."
+        },
+        {
+          "id": "side",
+          "file": "kathy/side.png",
+          "label": "Seen from the side",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seen from the side, seated, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "kathy/side-2.png",
+          "label": "Seen at an angle",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seen at an angle, seated, facing right."
+        }
+      ],
+      "head": "kathy/head.png"
+    },
+    {
+      "id": "ken",
+      "name": "Ken",
+      "role": "",
+      "voice": "male",
+      "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "ken/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms down."
+        },
+        {
+          "id": "neutral-2",
+          "file": "ken/neutral-2.png",
+          "label": "Standing, arms at sides",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms at the sides, looking ahead."
+        },
+        {
+          "id": "welcome",
+          "file": "ken/welcome.png",
+          "label": "Waving hello",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "ken/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, waving with one hand held high."
+        },
+        {
+          "id": "explain",
+          "file": "ken/explain.png",
+          "label": "Explaining, hands at the chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, explaining with both hands raised in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "ken/explain-2.png",
+          "label": "Explaining, feet apart",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, explaining with both hands raised and open, standing with feet apart."
+        },
+        {
+          "id": "present-left",
+          "file": "ken/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left as if presenting."
+        },
+        {
+          "id": "present-left-2",
+          "file": "ken/present-left-2.png",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left, palm up, with the other hand open at the waist."
+        },
+        {
+          "id": "point",
+          "file": "ken/point.png",
+          "label": "Pointing",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, pointing with one hand and gesturing up and to the right with the other."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "ken/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms crossed."
+        },
+        {
+          "id": "think",
+          "file": "ken/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "ken/think-2.png",
+          "label": "Thinking, arms crossed, hand to chin",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "ken/emphasis.png",
+          "label": "Making a point, hand at the chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding a loosely closed hand to the chest, smiling."
+        },
+        {
+          "id": "hand-on-chest",
+          "file": "ken/hand-on-chest.png",
+          "label": "Hand on chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding a hand to the chest, smiling."
+        },
+        {
+          "id": "stop",
+          "file": "ken/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding up one hand, palm out."
+        },
+        {
+          "id": "stop-2",
+          "file": "ken/stop-2.png",
+          "label": "Hand raised, serious",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, raising one hand, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "ken/side.png",
+          "label": "Seen from the side, facing left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, seen from the side, standing, facing left."
+        },
+        {
+          "id": "side-2",
+          "file": "ken/side-2.png",
+          "label": "Looking back over the shoulder",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, turned away at an angle, looking back over the shoulder."
+        }
+      ],
+      "head": "ken/head.png"
+    },
+    {
+      "id": "lisa",
+      "name": "Lisa",
+      "role": "",
+      "voice": "female",
+      "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "lisa/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "lisa/welcome.png",
+          "label": "Waving hello",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "lisa/welcome-2.png",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, waving gently with one hand near the shoulder."
+        },
+        {
+          "id": "explain",
+          "file": "lisa/explain.png",
+          "label": "Explaining, hands at the waist",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, explaining with both hands held out in front at waist height."
+        },
+        {
+          "id": "explain-2",
+          "file": "lisa/explain-2.png",
+          "label": "Explaining, hands raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, explaining with both hands raised and open, turned slightly."
+        },
+        {
+          "id": "present-right",
+          "file": "lisa/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "lisa/present-right-2.png",
+          "label": "Presenting, hand out, other hand at the chest",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out to the right, palm up, with the other hand at the chest."
+        },
+        {
+          "id": "present-right-3",
+          "file": "lisa/present-right-3.png",
+          "label": "Presenting, hand out low to the right",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out to the right at waist height, palm up."
+        },
+        {
+          "id": "present-left",
+          "file": "lisa/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one arm out to the left, palm up, as if presenting."
+        },
+        {
+          "id": "offer",
+          "file": "lisa/offer.png",
+          "label": "Offering, hand out, palm up",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out in front at waist height, palm up."
+        },
+        {
+          "id": "think",
+          "file": "lisa/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "lisa/think-2.png",
+          "label": "Thinking, serious",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, resting a hand on the chin, looking serious."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "lisa/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "lisa/arms-crossed-2.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms crossed, smiling."
+        },
+        {
+          "id": "emphasis",
+          "file": "lisa/emphasis.png",
+          "label": "Making a point, fist raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "lisa/emphasis-2.png",
+          "label": "Making a point, other fist raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, smiling, with the other hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "stop",
+          "file": "lisa/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding up one hand, palm out, looking serious."
+        }
+      ],
+      "head": "lisa/head.png"
+    }
+  ],
+  "packVersion": 1
+}

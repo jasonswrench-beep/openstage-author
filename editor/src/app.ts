@@ -61,7 +61,8 @@ import { newProjectFiles } from "./template.ts";
 import { askTheme } from "./themepicker.ts";
 import { editTheme as editThemeDialog } from "./themeeditor.ts";
 import { editCast } from "./castdialog.ts";
-import { makeAvatar } from "./avatardialog.ts";
+import { chooseFromLibrary } from "./packdialog.ts";
+import { creditForPicture } from "./packs.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
 import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
@@ -797,18 +798,21 @@ export class App {
         const picked = await backend.pickImage();
         return picked ? backend.importImage(m.dir, picked) : null;
       },
-      makePicture: async (name) => {
-        const made = await makeAvatar({ name, announce: (msg) => this.announce(msg) });
-        if (!made) return null;
-        const src = await backend.saveGeneratedImage(m.dir, name || "person", made.svg);
-        return { src, description: made.description };
+      chooseFromLibrary: async () => {
+        const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
+        if (!chosen) return null;
+        const { pack, person } = chosen;
+        // The picture is copied into the project at once, as a picture chosen from the computer is, so the cast dialog can show it.
+        const src = await backend.packUsePicture(m.dir, pack.source, pack.folder, person.head, person.id);
+        return { src, alt: person.alt, name: person.name, role: person.role, voice: person.voice, credit: creditForPicture(pack, person, src) };
       },
       imageUrl: (src) => backend.assetUrl(m.dir, src),
+      discardPicture: (src) => backend.deleteAsset(m.dir, src),
       announce: (msg) => this.announce(msg),
     });
     this.castBtn.focus();
     if (!next) return;
-    const msg = m.setCharacters(next);
+    const msg = m.setCharacters(next.cast, next.credits);
     this.announce(msg ? `${msg} Press Control Z to undo.` : "The cast is as it was.");
   }
 

@@ -121,21 +121,6 @@ createServer(async (req, res) => {
       if (!existsSync(target)) writeFileSync(target, bytes);
       return send(res, 200, JSON.stringify(`assets/images/${name}`));
     }
-    if (url.pathname === "/api/save-generated") {
-      // The same checks as save_generated_svg_at in src-tauri/src/lib.rs: a plain drawing, nothing that can run or reach out.
-      const { dir, name, svg } = await body(req);
-      const lower = String(svg).toLowerCase();
-      const bad = ["<script", "javascript:", "<foreignobject", "<iframe", "<image", "<use", "<style", "<!entity", "<!doctype", "href=", "xlink:", "@import", "url("].find((b) => lower.includes(b));
-      if (!existsSync(path.join(dir, "project.json")) || svg.length > 200 * 1024 || !lower.trimStart().startsWith("<svg") || bad || /[\s"']on[a-z]+\s*=/.test(lower)) {
-        return send(res, 400, "That is not a picture the editor drew.", "text/plain");
-      }
-      const stem = String(name).replace(/[^A-Za-z0-9_-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "picture";
-      mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
-      let file = `${stem}.svg`;
-      for (let n = 2; existsSync(path.join(dir, "assets", "images", file)); n++) file = `${stem}-${n}.svg`;
-      writeFileSync(path.join(dir, "assets", "images", file), svg);
-      return send(res, 200, JSON.stringify(`assets/images/${file}`));
-    }
     if (url.pathname === "/api/assets") {
       const { dir } = await body(req);
       const out = [];

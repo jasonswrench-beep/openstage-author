@@ -209,3 +209,18 @@ test("a project with raw recording material that is not listed is warned about b
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the people of the cast are credited on the credits page, though no slide shows their pictures", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "scenario.osproj"), path.join(dir, "site"), "--preview");
+    assert.equal(status, 0, JSON.stringify(result));
+    const page = readFileSync(path.join(dir, "site", "index.html"), "utf-8");
+    const credits = (JSON.parse(/"credits":(\[.*?\]),"fileSizes"/s.exec(page)![1]!) as { title: string; source: { creator: string } }[]).map((c) => `${c.title} / ${c.source.creator}`);
+    assert.ok(credits.includes("Maya Reyes (character picture) / Jason S. Wrench"), credits.join("; "));
+    assert.ok(credits.includes("Alex Kim (character picture) / Jason S. Wrench"));
+    assert.ok(credits.includes("Jordan Lee (character picture) / Jason S. Wrench"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

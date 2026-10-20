@@ -2,9 +2,10 @@
 // and a picture with a description. Like the other dialogs it is a native <dialog>, so focus moves in, Tab stays inside, and Escape closes it.
 // Every control is a real labelled control, and nothing is changed in the project until Save the cast, and then in one undo step.
 
-import type { Character } from "../../player/src/types.ts";
-import { cloneCast, draftNotes, draftProblems, newPerson, CAST_LIMIT } from "./characters.ts";
-import { isKnownVoice, voiceGroups } from "./narration.ts";
+import type { Character, CreditEntry } from "../../player/src/types.ts";
+import { cloneCast, draftNotes, draftProblems, newPerson, personId, CAST_LIMIT } from "./characters.ts";
+import { isKnownVoice, VOICES, voiceGroups } from "./narration.ts";
+import { chosenMessage, isPlaceholderName, voiceFor, type VoiceHint } from "./packs.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -19,6 +20,20 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
   return e;
 }
 
+/** A person chosen from a character pack, with their picture already copied into the project. */
+export interface LibraryPick {
+  /** The picture's place in the project. */
+  src: string;
+  /** What the person looks like, as the pack says: it comes with the picture as its alt text. */
+  alt: string;
+  name: string;
+  role: string;
+  /** The kind of voice the pack suggests. */
+  voice: VoiceHint;
+  /** The record for assets.json that credits the pack's maker. */
+  credit: CreditEntry;
+}
+
 export interface CastDialogOptions {
   /** The cast the project has now. */
   current: Character[];
@@ -26,23 +41,30 @@ export interface CastDialogOptions {
   uses: Map<string, string[]>;
   /** Ask for a picture: it is copied into the project and its path comes back. Null if the author cancelled. */
   choosePicture(): Promise<string | null>;
-  /**
-   * Draw a picture of the person (see avatardialog.ts) and save it in the project. Its path comes back with a description in words,
-   * which is offered as a start for the alt text and never put in. Null if the author cancelled.
-   */
-  makePicture(name: string): Promise<{ src: string; description: string } | null>;
+  /** Show the library of people (see packdialog.ts), copy the picture of the one chosen into the project, and give what the pack says about them. Null if the author closed it without choosing. */
+  chooseFromLibrary(): Promise<LibraryPick | null>;
   /** An address the page can show a project picture from. */
   imageUrl(src: string): Promise<string>;
+  /** Delete a picture this dialog copied into the project and then did not keep (one that was replaced, or the dialog was cancelled). */
+  discardPicture(src: string): Promise<void>;
   /** Said to a screen reader, as the editor's other messages are. */
   announce(message: string): void;
 }
 
+/** What the dialog gives back when the cast is saved: the cast, and the credit records of the library pictures it uses. */
+export interface CastResult {
+  cast: Character[];
+  credits: CreditEntry[];
+}
+
 /** Show the dialog. Resolves to the cast to apply, or null if it was cancelled. */
-export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
+export function editCast(opts: CastDialogOptions): Promise<CastResult | null> {
   return new Promise((resolve) => {
     let draft = cloneCast(opts.current);
-    /** What the picture maker said each new picture looks like, to offer as alt text. It is only used if the author presses the button. */
-    const suggestions = new Map<Character, string>();
+    /** The credit for each picture that came from the library, by the picture's place. Only the ones still in use when the cast is saved are kept. */
+    const credits = new Map<string, CreditEntry>();
+    /** The pictures this dialog has copied into the project. Choosing is a copy at once, so one that is replaced or not saved is deleted again when the dialog closes. */
+    const added = new Set<string>();
 
     const dialog = h("dialog", { class: "dialog wide cast-dialog", "aria-labelledby": "cd-title" });
     const form = h("form", { method: "dialog" });
@@ -82,6 +104,8 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
       voice.addEventListener("change", () => { p.voice = voice.value; });
 
       const picture = h("div", { class: "cd-picture" });
+      const fromLibrary = h("button", { type: "button", id: `${k}-library`, text: "Choose from the library..." });
+      fromLibrary.addEventListener("click", () => void library(p, i));
       if (p.picture) {
         const pic = p.picture;
         const img = h("img", { class: "cd-pic", alt: "", "aria-hidden": "true" });
@@ -97,35 +121,21 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
           if (deco.checked) alt.value = "";
           opts.announce(deco.checked ? `${p.name || "This person"}'s picture is decorative: it has no alt text.` : "The picture needs alt text again. Say what the person looks like.");
         });
-        const change = h("button", { type: "button", text: "Choose a different picture..." });
+        const change = h("button", { type: "button", text: "Choose a different picture from my computer..." });
         change.addEventListener("click", () => void choose(p, i));
-        const remake = h("button", { type: "button", text: "Make a different picture..." });
-        remake.addEventListener("click", () => void make(p, i));
-        const suggestion = suggestions.get(p);
-        const useSuggestion = suggestion && !pic.decorative && pic.alt.trim() === ""
-          ? h("div", { class: "btn-row" }, h("p", { class: "note", text: `The picture maker describes it as: "${suggestion}".` }),
-            (() => {
-              const b = h("button", { type: "button", text: "Use that as the alt text" });
-              b.addEventListener("click", () => { pic.alt = suggestion; suggestions.delete(p); draw(`${k}-alt`); opts.announce("Alt text filled in from the picture maker's description. Change it if it is not right."); });
-              return b;
-            })())
-          : null;
         const remove = h("button", { type: "button", text: "Remove picture" });
-        remove.addEventListener("click", () => { p.picture = null; draw(`${k}-picture`); opts.announce("Picture removed from the draft."); });
+        remove.addEventListener("click", () => { p.picture = null; draw(`${k}-library`); opts.announce("Picture removed from the draft."); });
         picture.append(
-          h("div", { class: "cd-pic-row" }, img, h("p", { class: "note", text: `Picture: ${pic.src.split("/").pop() ?? pic.src}` })),
+          h("div", { class: "cd-pic-row" }, img, h("p", { class: "note", text: `Picture: ${pic.src.split("/").pop() ?? pic.src}${credits.has(pic.src) ? " (from the library)" : ""}` })),
           h("div", { class: "field" }, label("Alt text (what the person looks like)", `${k}-alt`), alt),
-          ...(useSuggestion ? [useSuggestion] : []),
           h("div", { class: "field check" }, deco, label("The picture is decorative (a screen reader skips it)", `${k}-deco`)),
           h("p", { class: "note", text: "A person's name is always written beside their picture, so in a scenario the picture says nothing to a screen reader. Where a learner chooses who to be, the alt text is read once, so write what the person looks like." }),
-          h("div", { class: "btn-row" }, change, remake, remove),
+          h("div", { class: "btn-row" }, fromLibrary, change, remove),
         );
       } else {
-        const choosePic = h("button", { type: "button", id: `${k}-picture`, text: "Choose a picture..." });
+        const choosePic = h("button", { type: "button", id: `${k}-picture`, text: "Choose a picture from my computer..." });
         choosePic.addEventListener("click", () => void choose(p, i));
-        const makePic = h("button", { type: "button", text: "Make a picture..." });
-        makePic.addEventListener("click", () => void make(p, i));
-        picture.append(h("p", { class: "note", text: "No picture. A person without one is shown by name only. Choose a picture from your computer, or make a simple one here." }), h("div", { class: "btn-row" }, choosePic, makePic));
+        picture.append(h("p", { class: "note", text: "No picture. A person without one is shown by name only. Choose someone from the library, which comes with a description of them, or a picture from your computer." }), h("div", { class: "btn-row" }, fromLibrary, choosePic));
       }
 
       const earlier = h("button", { type: "button", text: "Move earlier", "aria-label": `Move earlier: ${p.name || `person ${i + 1}`}`, ...(i === 0 ? { disabled: true } : {}) });
@@ -162,6 +172,7 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
       try {
         const src = await opts.choosePicture();
         if (!src) return;
+        added.add(src);
         p.picture = { src, alt: "", decorative: false };
         draw(`cd-${i}-alt`);
         opts.announce("Picture added to the draft. Say what the person looks like in the alt text, or mark the picture decorative.");
@@ -170,16 +181,26 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
       }
     };
 
-    const make = async (p: Character, i: number): Promise<void> => {
+    const library = async (p: Character, i: number): Promise<void> => {
       try {
-        const made = await opts.makePicture(p.name.trim());
-        if (!made) { document.getElementById(`cd-${i}-picture`)?.focus(); return; }
-        p.picture = { src: made.src, alt: "", decorative: false };
-        suggestions.set(p, made.description);
+        const pick = await opts.chooseFromLibrary();
+        if (!pick) { document.getElementById(`cd-${i}-library`)?.focus(); return; }
+        const named = isPlaceholderName(p.name);
+        // Someone the author has not named yet is a new person, so the pack can say who they are and what they sound like. Someone already named keeps their name and voice.
+        const voiced = named ? voiceFor(pick.voice, draft, p.voice, VOICES) : p.voice;
+        added.add(pick.src);
+        p.picture = { src: pick.src, alt: pick.alt, decorative: false };
+        credits.set(pick.src, pick.credit);
+        if (named) p.name = pick.name;
+        if (named && !p.role.trim()) p.role = pick.role;
+        // A person who is new in this dialog has nothing pointing at them yet, so their id can say who they are.
+        if (named && !opts.current.some((c) => c.id === p.id)) p.id = personId(p.name, draft.filter((q) => q !== p).map((q) => q.id));
+        const voiceChanged = voiced !== p.voice;
+        p.voice = voiced;
         draw(`cd-${i}-alt`);
-        opts.announce(`Picture added to the draft. Say what the person looks like in the alt text, or mark the picture decorative. The picture maker describes it as: ${made.description}. There is a button to use that as a start.`);
+        opts.announce(chosenMessage(pick.name, { name: named, voice: voiceChanged }));
       } catch (err) {
-        opts.announce(`Could not make the picture. ${err instanceof Error ? err.message : String(err)}`);
+        opts.announce(`Could not use that person. ${err instanceof Error ? err.message : String(err)}`);
       }
     };
 
@@ -188,7 +209,7 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
       draft.push(newPerson(draft));
       draw(`cd-${draft.length - 1}-name`);
       (document.getElementById(`cd-${draft.length - 1}-name`) as HTMLInputElement | null)?.select();
-      opts.announce(`Added person ${draft.length}. Give them a name and choose their voice.`);
+      opts.announce(`Added person ${draft.length}. Give them a name and choose their voice, or choose someone from the library.`);
     });
 
     form.append(title, intro, list, h("div", { class: "btn-row" }, add), notes, problems, h("div", { class: "dialog-actions" }, save, cancel));
@@ -196,10 +217,12 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
     document.body.appendChild(dialog);
     draw();
 
-    let result: Character[] | null = null;
+    let result: CastResult | null = null;
     const finish = () => {
       dialog.close();
       dialog.remove();
+      const kept = new Set((result?.cast ?? []).map((p) => p.picture?.src));
+      for (const src of added) if (!kept.has(src)) void opts.discardPicture(src).catch(() => undefined);
       resolve(result);
     };
     cancel.addEventListener("click", finish);
@@ -212,7 +235,8 @@ export function editCast(opts: CastDialogOptions): Promise<Character[] | null> {
         return;
       }
       problems.replaceChildren();
-      result = cloneCast(draft);
+      const cast = cloneCast(draft);
+      result = { cast, credits: [...credits.values()].filter((c) => cast.some((p) => p.picture?.src === c.path)) };
       finish();
     });
 

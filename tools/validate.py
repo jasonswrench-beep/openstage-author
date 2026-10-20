@@ -1020,7 +1020,8 @@ def _download(rel, obj, add):
 def _credits(project, assets_data, slides, asset_root, add):
     """The record of where assets came from. Entries are checked against the files and against the project's own setting."""
     entries = assets_data["assets"]
-    used = json.dumps(slides)
+    # A file is used if a slide names it, or a person in the cast has it as their picture (no slide names that).
+    used = json.dumps(slides) + json.dumps(project.get("characters") or [])
     seen = set()
     for e in entries:
         rel = "assets.json"

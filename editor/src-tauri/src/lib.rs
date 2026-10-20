@@ -217,9 +217,6 @@ fn import_image_at(dir: &Path, source: &Path) -> Result<String, String> {
     import_asset_at(dir, source, "image")
 }
 
-/// The most a picture the editor drew itself may weigh. A drawn person is a few kilobytes.
-const GENERATED_SVG_MAX: usize = 200 * 1024;
-
 /// The biggest picture taken out of a PowerPoint deck that is saved.
 const DECK_PICTURE_MAX: usize = 50 * 1024 * 1024;
 
@@ -283,44 +280,6 @@ fn save_step_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<Str
         let _ = fs::remove_file(&temp);
         format!("Could not save the picture: {e}")
     })?;
-    Ok(format!("assets/images/{name}"))
-}
-
-/// Save a picture the editor drew itself (a person made in the avatar maker) as an SVG in the project's images, and return its
-/// project-relative path. Only a plain drawing is accepted: nothing that can run, load another page or file, or reach out. The name is
-/// made safe, and an existing file is never overwritten.
-fn save_generated_svg_at(dir: &Path, name_hint: &str, svg: &str) -> Result<String, String> {
-    if !dir.join("project.json").is_file() {
-        return Err("That folder is not an OpenStage project.".into());
-    }
-    if svg.len() > GENERATED_SVG_MAX {
-        return Err("That picture is larger than it should be.".into());
-    }
-    let lower = svg.to_ascii_lowercase();
-    if !lower.trim_start().starts_with("<svg") {
-        return Err("That is not a picture the editor drew.".into());
-    }
-    for bad in ["<script", "javascript:", "<foreignobject", "<iframe", "<image", "<use", "<style", "<!entity", "<!doctype", "href=", "xlink:", "@import", "url("] {
-        if lower.contains(bad) {
-            return Err(format!("A drawn picture cannot contain {bad}."));
-        }
-    }
-    // Any attribute that starts with "on" is an event handler.
-    for (at, _) in lower.match_indices("on") {
-        let before = lower[..at].chars().next_back();
-        if !matches!(before, Some(c) if c.is_whitespace() || c == '"' || c == '\'') {
-            continue;
-        }
-        let word: String = lower[at..].chars().take_while(|c| c.is_ascii_alphabetic()).collect();
-        if lower[at + word.len()..].trim_start().starts_with('=') {
-            return Err("A drawn picture cannot contain an event handler.".into());
-        }
-    }
-    let stem = safe_stem(name_hint, "picture");
-    let folder = dir.join("assets").join("images");
-    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let name = unique_name(&folder, &stem, "svg");
-    fs::write(folder.join(&name), svg).map_err(|e| format!("Could not save the picture: {e}"))?;
     Ok(format!("assets/images/{name}"))
 }
 
@@ -1602,6 +1561,191 @@ async fn voice_sample(app: tauri::AppHandle, voice: String, lang: String) -> Res
         .map_err(|e| e.to_string())?
 }
 
+// ---- Character packs
+//
+// A character pack is a folder of pictures of people with a pack.json that describes them (docs/character-packs.md). The packs that came with the
+// program are in the `character-packs` folder beside it; the ones the author adds are kept in the editor's data folder. tools/charpack.py decides
+// what a good pack is and installs one from a zip file; this side finds the two folders, passes the request on, and reads a picture only from
+// inside a pack, by a name that cannot climb out of it.
+
+/// The most a picture inside a pack may weigh. tools/charpack.py refuses a bigger one, and so does this.
+const PACK_PICTURE_MAX: u64 = 3 * 1024 * 1024;
+
+/// The folder of the packs that came with the program, if this copy has one (it has a README.txt that marks it).
+fn packs_bundled_dir() -> Option<PathBuf> {
+    find_repo_file("character-packs/README.txt").and_then(|f| f.parent().map(Path::to_path_buf))
+}
+
+/// The folder of the packs the author has added: in the editor's data folder, so removing the program with its data removes them too.
+fn packs_yours_dir() -> Option<PathBuf> {
+    DATA_DIR.get().map(|d| d.join("character-packs"))
+}
+
+/// The name of a pack's folder as the page gives it back: one plain name, which cannot lead anywhere else.
+fn pack_folder_ok(name: &str) -> bool {
+    !name.is_empty()
+        && name.chars().count() <= 100
+        && !name.starts_with('.')
+        && !name.contains("..")
+        && name.chars().all(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+}
+
+/// The folder of a pack that is on this computer: `source` says which of the two places it is in.
+fn pack_dir_in(bundled: Option<&Path>, yours: Option<&Path>, source: &str, folder: &str) -> Result<PathBuf, String> {
+    let root = match source {
+        "bundled" => bundled,
+        "yours" => yours,
+        _ => None,
+    }
+    .ok_or("That pack is not on this computer.")?;
+    if !pack_folder_ok(folder) {
+        return Err("That is not the name of a pack.".into());
+    }
+    let dir = root.join(folder);
+    if !dir.join("pack.json").is_file() {
+        return Err("That pack is not on this computer.".into());
+    }
+    Ok(dir)
+}
+
+fn pack_dir(source: &str, folder: &str) -> Result<PathBuf, String> {
+    pack_dir_in(packs_bundled_dir().as_deref(), packs_yours_dir().as_deref(), source, folder)
+}
+
+/// A picture of a pack, by its place inside the pack (up to three plain names joined by `/`, ending `.png` or `.webp`), read whole. Anything else is refused.
+fn read_pack_picture_at(pack: &Path, rel: &str) -> Result<(Vec<u8>, &'static str), String> {
+    let parts: Vec<&str> = rel.split('/').collect();
+    let ext = rel.rsplit('.').next().map(str::to_ascii_lowercase).unwrap_or_default();
+    let kind = match ext.as_str() {
+        "png" => "png",
+        "webp" => "webp",
+        _ => return Err("A pack holds only PNG and WebP pictures.".into()),
+    };
+    let plain = !rel.is_empty()
+        && parts.len() <= 3
+        && parts.iter().all(|p| !p.is_empty() && !p.starts_with('.') && !p.contains("..") && p.chars().all(|c| !c.is_control() && !matches!(c, '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')))
+        && Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
+    if !plain {
+        return Err("That is not a place inside a pack.".into());
+    }
+    let file = pack.join(rel);
+    let meta = fs::metadata(&file).map_err(|_| "That picture is not in the pack.".to_string())?;
+    if !meta.is_file() {
+        return Err("That picture is not in the pack.".into());
+    }
+    if meta.len() > PACK_PICTURE_MAX {
+        return Err("That picture is larger than a picture in a pack may be.".into());
+    }
+    let bytes = fs::read(&file).map_err(|e| format!("Could not read the picture: {e}"))?;
+    if !picture_matches(kind, &bytes) {
+        return Err("That is not a picture of the kind its name says.".into());
+    }
+    Ok((bytes, if kind == "png" { "image/png" } else { "image/webp" }))
+}
+
+/// A picture of a pack as a data URL, for the page to show.
+fn pack_picture_data_url(pack: &Path, rel: &str) -> Result<String, String> {
+    use base64::Engine;
+    let (bytes, mime) = read_pack_picture_at(pack, rel)?;
+    Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Copy a picture of a pack into the project's images, and return its project-relative path. A file already there is never overwritten (a new name is made).
+fn copy_pack_picture_at(project: &Path, pack: &Path, rel: &str, name_hint: &str) -> Result<String, String> {
+    if !project.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let (bytes, mime) = read_pack_picture_at(pack, rel)?;
+    let ext = if mime == "image/png" { "png" } else { "webp" };
+    let folder = project.join("assets").join("images");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let name = unique_name(&folder, &safe_stem(name_hint, "person"), ext);
+    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
+    Ok(format!("assets/images/{name}"))
+}
+
+/// Run tools/charpack.py and return its one line of JSON.
+fn run_charpack(args: &[&str]) -> Result<String, String> {
+    let tool = find_tool("charpack.py").ok_or("Could not find tools/charpack.py.")?;
+    let mut cmd = Command::new(tools_python());
+    cmd.arg(&tool).args(args);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window flashing up
+    }
+    let out = cmd.output().map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { NO_PYTHON.to_string() } else { format!("Could not run the tool: {e}") })?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    match text.lines().rev().find(|l| l.trim_start().starts_with('{')) {
+        Some(line) => Ok(line.to_string()),
+        None => {
+            let tail: Vec<String> = String::from_utf8_lossy(&out.stderr).lines().map(str::trim).filter(|l| !l.is_empty()).rev().take(3).map(str::to_string).collect();
+            Err(format!("The tool stopped before it finished. {}", tail.into_iter().rev().collect::<Vec<_>>().join(" ")).trim().to_string())
+        }
+    }
+}
+
+fn packs_args(yours: &Path) -> (String, String) {
+    (packs_bundled_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(), yours.to_string_lossy().into_owned())
+}
+
+/// Every character pack on this computer: the good ones, and the folders that look like packs but cannot be used, with why.
+#[tauri::command]
+async fn packs_list() -> Result<String, String> {
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bundled, yours) = packs_args(&yours);
+        run_charpack(&["list", "--bundled", &bundled, "--yours", &yours])
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The folder the author's own packs are kept in, made if it is not there yet.
+#[tauri::command]
+fn packs_folder() -> Result<String, String> {
+    let dir = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not make the packs folder: {e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Install a character pack from a zip file. Everything is checked first (docs/character-packs.md says how); a pack that is not good is not kept.
+#[tauri::command]
+async fn pack_install(source: String) -> Result<String, String> {
+    let zip = PathBuf::from(&source);
+    if !zip.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("zip")) || !zip.is_file() {
+        return Ok(serde_json::json!({ "ok": false, "message": "That is not a zip file." }).to_string());
+    }
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bundled, yours) = packs_args(&yours);
+        run_charpack(&["install", &source, "--bundled", &bundled, "--yours", &yours])
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Take away a pack the author added. One that came with the program is not touched.
+#[tauri::command]
+async fn pack_remove(id: String) -> Result<String, String> {
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || run_charpack(&["remove", &id, "--yours", &yours.to_string_lossy()]))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// A picture of a pack, as a data URL the page can show. `source` is "bundled" or "yours", and `folder` the pack's folder, as the list gave them.
+#[tauri::command]
+fn pack_picture_url(source: String, folder: String, path: String) -> Result<String, String> {
+    pack_picture_data_url(&pack_dir(&source, &folder)?, &path)
+}
+
+/// Copy a picture of a pack into the project, and return where it is now.
+#[tauri::command]
+fn pack_use_picture(dir: String, source: String, folder: String, path: String, name_hint: String) -> Result<String, String> {
+    copy_pack_picture_at(Path::new(&dir), &pack_dir(&source, &folder)?, &path, &name_hint)
+}
+
 fn read_asset_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
     let rel_path = Path::new(rel);
     let clean = rel.starts_with("assets/")
@@ -1648,11 +1792,6 @@ fn open_project(dir: String) -> Result<OpenedProject, String> {
 #[tauri::command]
 fn save_files(dir: String, files: Vec<FileText>, remove: Vec<String>) -> Result<(), String> {
     write_files(Path::new(&dir), &files, &remove)
-}
-
-#[tauri::command]
-fn save_generated_image(dir: String, name: String, svg: String) -> Result<String, String> {
-    save_generated_svg_at(Path::new(&dir), &name, &svg)
 }
 
 /// A picture from a PowerPoint deck. It arrives as base64 text, because raw bytes do not travel well through the page.
@@ -2932,7 +3071,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3156,52 +3295,6 @@ mod tests {
         let _ = fs::create_dir_all(&elsewhere);
         assert!(save_deck_picture_at(&elsewhere, name, &png).is_err(), "not a project");
         let _ = fs::remove_dir_all(elsewhere);
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn a_picture_the_editor_drew_is_saved_in_the_images_and_never_overwrites() {
-        let dir = temp_project("generated-svg");
-        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#cfe8d6"/><circle cx="100" cy="88" r="40" fill="#d9a273"/></svg>"##;
-        let first = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
-        assert_eq!(first, "assets/images/Maya-Reyes.svg");
-        let second = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
-        assert_eq!(second, "assets/images/Maya-Reyes-2.svg");
-        assert_eq!(fs::read_to_string(dir.join(&first)).unwrap(), svg);
-        assert_eq!(save_generated_svg_at(&dir, "../../evil", svg).unwrap(), "assets/images/evil.svg", "the name cannot climb out of the folder");
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn a_drawn_picture_that_could_run_or_reach_out_is_refused() {
-        let dir = temp_project("generated-svg-bad");
-        let bad = [
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect onclick = "x"/></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com"><rect/></a></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><image href="x.png"/></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div/></foreignObject></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:url(http://x)"/></svg>"##,
-            r##"<html><body>not a picture</body></html>"##,
-        ];
-        for svg in bad {
-            assert!(save_generated_svg_at(&dir, "x", svg).is_err(), "{svg}");
-        }
-        assert!(save_generated_svg_at(&dir, "x", &format!("<svg>{}</svg>", "a".repeat(GENERATED_SVG_MAX))).is_err(), "too big");
-        assert!(!dir.join("assets/images").exists() || fs::read_dir(dir.join("assets/images")).unwrap().count() == 0, "nothing was written");
-        let elsewhere = std::env::temp_dir().join(format!("openstage-test-notproj3-{}", std::process::id()));
-        fs::create_dir_all(&elsewhere).unwrap();
-        assert!(save_generated_svg_at(&elsewhere, "x", "<svg></svg>").is_err(), "not a project");
-        let _ = fs::remove_dir_all(dir);
-        let _ = fs::remove_dir_all(elsewhere);
-    }
-
-    #[test]
-    fn an_attribute_that_only_contains_on_is_not_an_event_handler() {
-        let dir = temp_project("generated-svg-on");
-        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 200 200"><path stroke-linejoin="round" d="M0 0"/></svg>"##;
-        assert!(save_generated_svg_at(&dir, "ok", svg).is_ok());
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -4513,5 +4606,113 @@ mod tests {
         assert!(read_caption_source_at(&dir.join("e.vtt")).is_err(), "a folder is not a file");
         assert!(read_caption_source_at(&dir.join("missing.vtt")).is_err());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ---- character packs
+
+    fn temp_pack(name: &str) -> (PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!("openstage-test-pack-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let pack = root.join("people");
+        fs::create_dir_all(pack.join("ann")).unwrap();
+        fs::write(pack.join("pack.json"), "{}").unwrap();
+        let mut png = vec![0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+        png.extend_from_slice(b"not really a picture, but it starts like one");
+        fs::write(pack.join("ann").join("head.png"), &png).unwrap();
+        fs::write(pack.join("ann").join("fake.png"), b"<script>alert(1)</script>").unwrap();
+        fs::write(pack.join("secret.txt"), "not a picture").unwrap();
+        (root, pack)
+    }
+
+    #[test]
+    fn a_pack_folder_is_one_plain_name() {
+        for good in ["openstage-people-1", "my pack", "Pack_2.0"] {
+            assert!(pack_folder_ok(good), "{good}");
+        }
+        for bad in ["", ".hidden", "..", "a/b", "a\\b", "C:x", "a..b", "x\u{0}y", &"a".repeat(101)] {
+            assert!(!pack_folder_ok(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_pack_is_found_only_in_the_two_places_and_only_if_it_has_a_pack_json() {
+        let (root, _) = temp_pack("find");
+        assert_eq!(pack_dir_in(Some(&root), None, "bundled", "people").unwrap(), root.join("people"));
+        assert_eq!(pack_dir_in(None, Some(&root), "yours", "people").unwrap(), root.join("people"));
+        assert!(pack_dir_in(Some(&root), None, "yours", "people").is_err(), "the wrong place");
+        assert!(pack_dir_in(Some(&root), None, "elsewhere", "people").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "../people").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "missing").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_picture_is_read_from_inside_a_pack_and_nowhere_else() {
+        let (root, pack) = temp_pack("read");
+        let (bytes, mime) = read_pack_picture_at(&pack, "ann/head.png").unwrap();
+        assert_eq!(mime, "image/png");
+        assert!(bytes.starts_with(&[0x89, 0x50]));
+        assert!(pack_picture_data_url(&pack, "ann/head.png").unwrap().starts_with("data:image/png;base64,"));
+        for bad in [
+            "", "ann", "ann/", "../people/ann/head.png", "ann/../ann/head.png", "/ann/head.png", "ann\\head.png", "C:/x.png", "ann/.head.png",
+            "ann/head.gif", "secret.txt", "ann/fake.png", "ann/missing.png", "a/b/c/d.png", "ann/head.png/",
+        ] {
+            assert!(read_pack_picture_at(&pack, bad).is_err(), "{bad:?}");
+        }
+        fs::write(pack.join("ann").join("big.png"), vec![0x89u8; (PACK_PICTURE_MAX + 1) as usize]).unwrap();
+        assert!(read_pack_picture_at(&pack, "ann/big.png").unwrap_err().contains("larger"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_real_tool_lists_the_pack_that_comes_with_the_program_and_refuses_what_is_not_a_pack() {
+        if Command::new(tools_python()).arg("--version").output().is_err() {
+            eprintln!("skipped: no Python to run tools/charpack.py");
+            return;
+        }
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+        let bundled = repo.join("character-packs");
+        let yours = std::env::temp_dir().join(format!("openstage-test-yours-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&yours);
+        let listed = run_charpack(&["list", "--bundled", &bundled.to_string_lossy(), "--yours", &yours.to_string_lossy()]).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&listed).unwrap();
+        assert_eq!(v["ok"], true);
+        let packs = v["packs"].as_array().unwrap();
+        assert_eq!(packs.len(), 1, "{listed}");
+        assert_eq!(packs[0]["id"], "openstage-people-1");
+        assert_eq!(packs[0]["source"], "bundled");
+        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 5);
+        assert!(v["broken"].as_array().unwrap().is_empty(), "{listed}");
+        // The page may then ask for a picture of that pack, and only of it.
+        let folder = packs[0]["folder"].as_str().unwrap();
+        let head = packs[0]["people"][0]["head"].as_str().unwrap();
+        assert!(pack_picture_data_url(&bundled.join(folder), head).unwrap().starts_with("data:image/png;base64,"));
+        // Something that is not a zip file is refused in words, and nothing is made.
+        let fake = std::env::temp_dir().join(format!("openstage-test-fake-{}.zip", std::process::id()));
+        fs::write(&fake, "not a zip").unwrap();
+        let refused = run_charpack(&["install", &fake.to_string_lossy(), "--bundled", &bundled.to_string_lossy(), "--yours", &yours.to_string_lossy()]).unwrap();
+        let r: serde_json::Value = serde_json::from_str(&refused).unwrap();
+        assert_eq!(r["ok"], false);
+        assert!(r["message"].as_str().unwrap().contains("zip"), "{refused}");
+        assert!(!yours.join("openstage-people-1").exists());
+        let _ = fs::remove_file(&fake);
+        let _ = fs::remove_dir_all(&yours);
+    }
+
+    #[test]
+    fn a_picture_of_a_pack_is_copied_into_the_project_without_overwriting_anything() {
+        let (root, pack) = temp_pack("copy");
+        let project = temp_project("copy-into-project");
+        let first = copy_pack_picture_at(&project, &pack, "ann/head.png", "Ann Lee").unwrap();
+        assert_eq!(first, "assets/images/Ann-Lee.png");
+        assert!(project.join(&first).is_file());
+        let second = copy_pack_picture_at(&project, &pack, "ann/head.png", "Ann Lee").unwrap();
+        assert_eq!(second, "assets/images/Ann-Lee-2.png");
+        assert_eq!(copy_pack_picture_at(&project, &pack, "ann/head.png", "../../x").unwrap(), "assets/images/x.png");
+        assert!(copy_pack_picture_at(&project, &pack, "ann/fake.png", "x").is_err());
+        assert!(copy_pack_picture_at(&root, &pack, "ann/head.png", "x").is_err(), "not a project");
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&project);
     }
 }

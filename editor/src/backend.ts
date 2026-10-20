@@ -17,6 +17,7 @@ import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState
 import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
 import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
+import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -65,8 +66,6 @@ export interface Backend {
   pickImage(): Promise<string | null>;
   /** Copy an image into the project's assets folder. Returns its path inside the project. */
   importImage(dir: string, source: string): Promise<string>;
-  /** Save a picture the editor drew itself (an SVG) in the project's images. Returns its path inside the project. */
-  saveGeneratedImage(dir: string, nameHint: string, svg: string): Promise<string>;
   /**
    * Save a picture that came out of a PowerPoint deck in the project's images. `name` is the file name the importer made from what is in the
    * picture (pptx- and 14 letters and numbers, then the extension); a name that is already there is left as it is. Returns the path in the project.
@@ -108,6 +107,20 @@ export interface Backend {
   aboutInfo(): Promise<AboutInfo>;
   /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
   examplesFolder(): Promise<string>;
+  /** The character packs on this computer: the ones that came with the program and the ones the author added, and any folder that looks like a pack but cannot be used. */
+  packsList(): Promise<PackList>;
+  /** The folder the author's own packs are kept in (made if it is not there yet), to show them. */
+  packsFolder(): Promise<string>;
+  /** Ask for a pack's zip file with a file dialog. Null if the author cancelled. */
+  pickPackZip(): Promise<string | null>;
+  /** Install a pack from a zip file. Everything is checked first; the answer says what happened, in words. */
+  packInstall(source: string): Promise<PackAnswer>;
+  /** Take away a pack the author added. */
+  packRemove(id: string): Promise<PackAnswer>;
+  /** A picture inside a pack, as an address the page can show. */
+  packPictureUrl(source: PackSource, folder: string, path: string): Promise<string>;
+  /** Copy a picture of a pack into the project's images, and give its project-relative path. */
+  packUsePicture(dir: string, source: PackSource, folder: string, path: string, nameHint: string): Promise<string>;
   /** What the editor knows about the narration engine: the author's own, one it installed, or none, and whether it can install one. */
   engineStatus(): Promise<EngineStatus>;
   /** Install the narration engine into the editor's own folder (packages from PyPI, the voice model from Hugging Face). Progress comes through `onEngineProgress`; `cancelJob` stops it. */
@@ -245,7 +258,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | "captionsource" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
 /** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
 const testConfirm = (message: string): boolean | undefined =>
@@ -283,7 +296,6 @@ const tauriBackend: Backend = {
     return typeof picked === "string" ? picked : null;
   },
   importImage: (dir, source) => invoke<string>("import_image", { dir, source }),
-  saveGeneratedImage: (dir, name, svg) => invoke<string>("save_generated_image", { dir, name, svg }),
   saveDeckPicture: (dir, name, bytes) => invoke<string>("save_deck_picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     const forced = testPick(kind);
@@ -316,6 +328,24 @@ const tauriBackend: Backend = {
     return parseAbout(await invoke<string>("about_info"));
   },
   examplesFolder: () => invoke<string>("examples_folder"),
+  async packsList() {
+    return parsePackList(await invoke<string>("packs_list"));
+  },
+  packsFolder: () => invoke<string>("packs_folder"),
+  async pickPackZip() {
+    const forced = testPick("packzip");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a character pack (a zip file)", filters: [{ name: "Character packs", extensions: ["zip"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async packInstall(source) {
+    return parsePackAnswer(await invoke<string>("pack_install", { source }));
+  },
+  async packRemove(id) {
+    return parsePackAnswer(await invoke<string>("pack_remove", { id }));
+  },
+  packPictureUrl: (source, folder, path) => invoke<string>("pack_picture_url", { source, folder, path }),
+  packUsePicture: (dir, source, folder, path, nameHint) => invoke<string>("pack_use_picture", { dir, source, folder, path, nameHint }),
   async engineStatus() {
     return parseEngineStatus(await invoke<string>("engine_status"));
   },
@@ -446,7 +476,6 @@ const previewBackend: Backend = {
     return new URLSearchParams(location.search).get("image") ?? window.prompt("Path of an image file");
   },
   importImage: (dir, source) => post<string>("/api/import", { dir, source }),
-  saveGeneratedImage: (dir, name, svg) => post<string>("/api/save-generated", { dir, name, svg }),
   saveDeckPicture: (dir, name, bytes) => post<string>("/api/save-deck-picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     return new URLSearchParams(location.search).get(kind) ?? window.prompt(`Path of a ${kind} file`);
@@ -499,6 +528,27 @@ const previewBackend: Backend = {
   },
   async examplesFolder() {
     return "";
+  },
+  async packsList() {
+    return NO_PACKS;
+  },
+  async packsFolder() {
+    throw new Error("Character packs need the desktop app.");
+  },
+  async pickPackZip() {
+    return new URLSearchParams(location.search).get("packzip") ?? window.prompt("Path of a character pack (a zip file)");
+  },
+  async packInstall() {
+    return { ok: false, message: "Adding a character pack needs the desktop app." };
+  },
+  async packRemove() {
+    return { ok: false, message: "Removing a character pack needs the desktop app." };
+  },
+  async packPictureUrl() {
+    throw new Error("Character packs need the desktop app.");
+  },
+  async packUsePicture() {
+    throw new Error("Character packs need the desktop app.");
   },
   async engineStatus() {
     return { ...NO_ENGINE_STATUS, problem: "Installing the narration voice needs the desktop app." };

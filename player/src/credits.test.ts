@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { creditParts, narrationCredits, type CreditPart } from "./credits.ts";
+import { creditParts, creditsInUse, mergeCredits, narrationCredits, type CreditPart } from "./credits.ts";
 import type { CreditEntry } from "./types.ts";
 
 const words = (parts: CreditPart[]): string => parts.map((p) => p.text).join("");
@@ -54,4 +54,28 @@ test("narration is credited once for each engine whose voices speak in the cours
   assert.equal(words(creditParts(credits[2]!)), "Narration, made with Tone voice. Synthetic voices, not a person.");
   assert.ok(creditParts(credits[2]!).every((p) => !("href" in p)), "no home page, no link");
   assert.deepEqual(narrationCredits([]), []);
+});
+
+const person = (name: string, path: string): CreditEntry => ({
+  path, title: `${name} (character picture)`, kind: "image",
+  source: { provider: "other", url: "https://openstageauthor.com", creator: "Jason S. Wrench", creatorUrl: "", licence: "Free to use in courses made with OpenStage Author", requiresCredit: true },
+});
+
+test("a credit is in use if the course names the file, on a slide or in the cast, and only then", () => {
+  const recorded = [stock, person("Kathy", "assets/images/kathy.png"), person("Ken", "assets/images/ken.png")];
+  const slides = JSON.stringify([{ objects: [{ content: { src: "assets/images/a.jpg" } }] }]);
+  const cast = JSON.stringify([{ id: "kathy", picture: { src: "assets/images/kathy.png" } }]);
+  assert.deepEqual(creditsInUse(recorded, slides).map((e) => e.path), ["assets/images/a.jpg"], "a person who is not in the course is not credited");
+  assert.deepEqual(creditsInUse(recorded, slides + cast).map((e) => e.path), ["assets/images/a.jpg", "assets/images/kathy.png"], "a picture only the cast uses is credited");
+});
+
+test("an entry that says nothing about who made it is not on the credits page", () => {
+  const nameless: CreditEntry = { ...stock, path: "assets/images/mine.png", source: { ...stock.source, provider: "other", creator: "" } };
+  assert.deepEqual(creditsInUse([nameless, stock], "assets/images/mine.png assets/images/a.jpg").map((e) => e.path), ["assets/images/a.jpg"]);
+});
+
+test("credits that read the same are one line, and ones that read differently are kept", () => {
+  const same = [person("Kathy", "assets/images/kathy.png"), person("Kathy", "assets/images/kathy-wave.png"), person("Ken", "assets/images/ken.png"), stock];
+  assert.deepEqual(mergeCredits(same).map((e) => e.path), ["assets/images/kathy.png", "assets/images/ken.png", "assets/images/a.jpg"]);
+  assert.deepEqual(mergeCredits([]), []);
 });

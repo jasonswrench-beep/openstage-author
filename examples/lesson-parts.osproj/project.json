@@ -47,8 +47,8 @@
       "role": "Team lead",
       "voice": "af_heart",
       "picture": {
-        "src": "assets/images/maya.svg",
-        "alt": "Maya, with short dark brown hair, smiling, in a green shirt",
+        "src": "assets/images/maya.png",
+        "alt": "Maya, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse.",
         "decorative": false
       }
     },
@@ -58,8 +58,8 @@
       "role": "Analyst on Maya's team",
       "voice": "am_adam",
       "picture": {
-        "src": "assets/images/alex.svg",
-        "alt": "Alex, with curly brown hair and glasses, looking concerned, in a blue hoodie",
+        "src": "assets/images/alex.png",
+        "alt": "Alex, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie.",
         "decorative": false
       }
     }

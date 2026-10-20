@@ -1124,6 +1124,27 @@ class GeneratedCredits(unittest.TestCase):
         self.assertEqual(rules(self.findings(credits_on=True), "credit-page-off"), [])
 
 
+class CastCredits(unittest.TestCase):
+    """A picture of someone in the cast is used by the course though no slide names it, so it earns its credit like any other picture."""
+
+    def findings(self, credits_on):
+        with MutatedProject() as p:
+            (p.root / "assets" / "images").mkdir(parents=True, exist_ok=True)
+            (p.root / "assets" / "images" / "kathy.png").write_bytes(b"x")
+            entry = {"path": "assets/images/kathy.png", "title": "Kathy (character picture)", "kind": "image",
+                     "source": {"provider": "other", "url": "https://openstageauthor.com", "creator": "Jason S. Wrench", "creatorUrl": "",
+                                "licence": "Free to use in courses made with OpenStage Author", "requiresCredit": True}}
+            (p.root / "assets.json").write_text(json.dumps({"assets": [entry]}), encoding="utf-8")
+            p.edit("project.json", lambda d: d.__setitem__("credits", credits_on))
+            p.edit("project.json", lambda d: d.__setitem__("characters", [{"id": "kathy", "name": "Kathy", "role": "", "voice": "af_heart",
+                                                                            "picture": {"src": "assets/images/kathy.png", "alt": "Kathy, a woman with long red hair", "decorative": False}}]))
+            return p.run()
+
+    def test_the_credits_page_must_be_on_when_a_cast_picture_needs_credit(self):
+        self.assertEqual(len(rules(self.findings(False), "credit-page-off", severity="warning")), 1)
+        self.assertEqual(rules(self.findings(True), "credit-page-off"), [])
+
+
 class Themes(unittest.TestCase):
     THEMES = sorted((validate.ROOT / "themes").glob("*.theme.json"))
 

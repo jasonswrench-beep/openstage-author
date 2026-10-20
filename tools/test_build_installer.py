@@ -32,10 +32,13 @@ class Pieces(unittest.TestCase):
             self.assertTrue((b.ROOT / "tools" / name).is_file(), name)
         for name in b.EXAMPLES:
             self.assertTrue((b.ROOT / "examples" / name).is_dir(), name)
+        # The editor finds the packs that come with the program by this file, so an installer without it would show no one in the library.
+        self.assertTrue((b.ROOT / "character-packs" / "README.txt").is_file())
+        self.assertTrue(any((b.ROOT / "character-packs").glob("*/pack.json")))
 
     def test_what_the_uninstall_screen_offers_to_delete_is_named(self):
         text = (b.TAURI / "installer" / "English.nsh").read_text(encoding="utf-8-sig")
-        self.assertIn('LangString deleteAppData ${LANG_ENGLISH} "Also delete my settings, models and narration voice"', text)
+        self.assertIn('LangString deleteAppData ${LANG_ENGLISH} "Also delete my settings, models, narration voice and character packs"', text)
         import json
         conf = json.loads((b.TAURI / "tauri.installer.conf.json").read_text(encoding="utf-8"))
         self.assertEqual(conf["bundle"]["windows"]["nsis"]["customLanguageFiles"], {"English": "installer/English.nsh"})

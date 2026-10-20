@@ -431,9 +431,10 @@ built into the editor and need no format change. Their buttons are already wired
 ordinary slide, not tied to the template, and adding one is a single step for Undo.
 
 **Scenarios and the cast.** The **Characters** button in the toolbar opens the cast: the people a course can show and give a voice to. Each has a name, a few words
-on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can choose a file, or press **Make a picture...** to draw a simple person: skin tone, hair
-style and colour, expression, shirt and colour, glasses and background, with a live preview described in words, a Surprise me button, and the result saved in the project as a small drawing of
-your own (no credit needed). The maker describes the picture in words and offers that as a start for the alt text with a button, **Use that as the alt text**; it never fills the alt text in for you. You can add a person, move them and remove them.
+on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can press **Choose from the library...** to pick a person from a character pack (`docs/character-packs.md`), or **Choose a picture from my computer...**.
+The library shows each person with a description of them beside their picture. Choosing one brings their picture into the project with that description as the alt text (the dialog says so aloud, and the alt text is yours to change), gives a person who has no name yet
+the name and a voice of the kind the pack suggests, and saves the credit for the picture with the cast, in the same undo step. The library dialog also adds a pack from a zip file, shows the folder your own packs are kept in, and removes a pack you added (press twice).
+A picture that was copied into the project while choosing and was then replaced, or the dialog was cancelled, is deleted again. You can add a person, move them and remove them.
 The dialog changes nothing until **Save the cast**, and then one Undo takes it back. A person who is still used (they speak a line in a scenario, or a choice of
 character offers them) cannot be removed, and the dialog says where they are used. Changing a person's voice changes the voice of the lines they speak and says how
 many, so make the audio again. A scenario is added from "Interaction or scenario..." (Branching scenario), and starts as a small story to write over: one situation

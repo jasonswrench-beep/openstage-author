@@ -46,7 +46,7 @@ PIP_PACKAGES = ["jsonschema==4.26.0", "pip==26.2.1"]  # jsonschema is what tools
 
 # Only these example courses go in (the others are test material).
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj"]
-TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt"]
+TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "charpack.py", "pngio.py"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenStage Author Trial"}
 
@@ -147,6 +147,8 @@ def stage():
     copy_tree(ROOT / "tools" / "engines", PAYLOAD / "tools" / "engines")
     for folder in ("schema", "themes", "third-party"):
         copy_tree(ROOT / folder, PAYLOAD / folder)
+    # The character packs that come with the program (the editor finds them by the README.txt in this folder).
+    copy_tree(ROOT / "character-packs", PAYLOAD / "character-packs")
     (PAYLOAD / "examples").mkdir()
     for name in EXAMPLES:
         if (ROOT / "examples" / name).is_dir():

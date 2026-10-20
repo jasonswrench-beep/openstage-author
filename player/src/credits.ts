@@ -31,6 +31,25 @@ export function creditParts(c: CreditEntry): CreditPart[] {
   return parts;
 }
 
+/**
+ * The recorded credits for the files a course uses. `usedText` is everything in the course that can name a file (its slides, and the cast, whose pictures are not on a slide),
+ * written out as text: a file is used if its path is in it. An entry that names no creator and no library tells a learner nothing, so it is left out.
+ */
+export function creditsInUse(recorded: readonly CreditEntry[], usedText: string): CreditEntry[] {
+  return recorded.filter((e) => usedText.includes(e.path) && (e.source.creator || e.source.provider !== "other"));
+}
+
+/** Entries that would read the same on the credits page are one line: a person with many pictures is credited once. The first of each is kept. */
+export function mergeCredits(list: readonly CreditEntry[]): CreditEntry[] {
+  const seen = new Set<string>();
+  return list.filter((e) => {
+    const key = JSON.stringify(creditParts(e));
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** A narration voice the course uses, as narrate.py reports it. `where` is "computer", "internet" or "unknown". */
 export interface NarrationVoiceUse {
   engine: string;

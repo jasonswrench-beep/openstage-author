@@ -1887,17 +1887,23 @@ export class Model {
 
   /**
    * Replace the cast with the one the author made in the dialog, as one undo step. A person who is still used cannot be taken out;
-   * a person whose voice changed has the lines they speak changed to it, so they stay in one voice.
+   * a person whose voice changed has the lines they speak changed to it, so they stay in one voice. `credits` are the records of where
+   * pictures from a character pack came from; they are saved in the same step.
    */
-  setCharacters(draft: Character[]): string | null {
+  setCharacters(draft: Character[], credits: CreditEntry[] = []): string | null {
     const before = this.characters;
     const problems = castProblems(draft, before, castUse(this.slides));
     if (problems.length > 0) return problems[0]!;
     const next = cloneCast(draft).map((p) => ({ ...p, name: p.name.trim(), role: p.role.trim() }));
-    if (JSON.stringify(next) === JSON.stringify(before)) return null;
+    const newCredits = credits.filter((c) => JSON.stringify(this.creditOf(c.path)) !== JSON.stringify(c));
+    if (JSON.stringify(next) === JSON.stringify(before) && newCredits.length === 0) return null;
     this.record("");
     if (next.length === 0) delete this.project.characters;
     else this.project.characters = next;
+    for (const c of newCredits) {
+      const at = this.assets.findIndex((a) => a.path === c.path);
+      if (at === -1) this.assets.push(c); else this.assets[at] = c;
+    }
     // A person's lines are read in their voice. Change the voice of every spoken line of someone whose voice changed.
     const changed = voiceChanges(before, next);
     let lines = 0;
