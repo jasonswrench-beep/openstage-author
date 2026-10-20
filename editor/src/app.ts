@@ -321,12 +321,24 @@ export class App {
     this.workspace = h("div", { class: "workspace" }, slidesNav, main, this.timelinePanel.element, props, h("div", { class: "bottom" }, objects, problems));
     this.welcome = h("main", { class: "welcome", "aria-labelledby": "welcome-h" },
       h("h2", { id: "welcome-h", text: "Open a project to begin" }),
-      h("p", { text: "A project is a folder containing project.json. The examples folder in the OpenStage repository has two to try." }));
+      h("p", { id: "welcome-text", text: "A project is a folder containing project.json. Make a new one, or open one you have made." }));
     const newWelcome = h("button", { type: "button", text: "New project" });
     newWelcome.addEventListener("click", () => void this.newProject());
     const openWelcome = h("button", { type: "button", text: "Open project" });
     openWelcome.addEventListener("click", () => void this.open());
     this.welcome.append(newWelcome, " ", openWelcome);
+    // Example projects come with the program: say so and show where they are, so a first-time author is not left to look for them.
+    const showExamples = h("button", { type: "button", id: "welcome-examples", text: "Show the examples", hidden: true });
+    this.welcome.append(" ", showExamples);
+    void backend.examplesFolder().then((folder) => {
+      if (folder === "") return;
+      const note = this.welcome.querySelector("#welcome-text");
+      if (note) note.textContent = "A project is a folder containing project.json. Make a new one, open one you have made, or look at the example projects that came with the program: press Show the examples, then Open project and choose one of them.";
+      showExamples.hidden = false;
+      showExamples.addEventListener("click", () => {
+        backend.revealInFolder(folder).then(() => this.announce("Showing the example projects."), (err) => this.announce(errorText(err)));
+      });
+    }, () => undefined);
 
     this.statusSave = h("span");
     this.statusSlide = h("span");

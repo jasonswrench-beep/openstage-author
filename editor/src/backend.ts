@@ -106,6 +106,8 @@ export interface Backend {
   narrationEngine(): Promise<boolean>;
   /** The version, and where things are on this computer, for the About window. */
   aboutInfo(): Promise<AboutInfo>;
+  /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
+  examplesFolder(): Promise<string>;
   /** What the editor knows about the narration engine: the author's own, one it installed, or none, and whether it can install one. */
   engineStatus(): Promise<EngineStatus>;
   /** Install the narration engine into the editor's own folder (packages from PyPI, the voice model from Hugging Face). Progress comes through `onEngineProgress`; `cancelJob` stops it. */
@@ -313,6 +315,7 @@ const tauriBackend: Backend = {
   async aboutInfo() {
     return parseAbout(await invoke<string>("about_info"));
   },
+  examplesFolder: () => invoke<string>("examples_folder"),
   async engineStatus() {
     return parseEngineStatus(await invoke<string>("engine_status"));
   },
@@ -493,6 +496,9 @@ const previewBackend: Backend = {
   },
   async aboutInfo() {
     return { ...UNKNOWN_ABOUT, version: "(the page shown in a web browser, not the desktop program)" };
+  },
+  async examplesFolder() {
+    return "";
   },
   async engineStatus() {
     return { ...NO_ENGINE_STATUS, problem: "Installing the narration voice needs the desktop app." };
