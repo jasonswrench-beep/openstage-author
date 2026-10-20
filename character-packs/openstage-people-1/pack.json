@@ -3,7 +3,7 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Five people in work clothes, each in many poses: David, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
+  "description": "Six people in everyday work and casual clothes, each in many poses: Daryl, David, Jacob, Kathy, Ken and Lisa. The pictures were made with Ideogram from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
@@ -11,6 +11,130 @@
     "url": "https://openstageauthor.com"
   },
   "people": [
+    {
+      "id": "daryl",
+      "name": "Daryl",
+      "role": "",
+      "voice": "male",
+      "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "daryl/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "daryl/neutral-2.png",
+          "label": "Standing, hands at sides",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with hands at the sides, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "daryl/welcome.png",
+          "label": "Waving hello",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "daryl/welcome-2.png",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "daryl/explain.png",
+          "label": "Explaining, both hands raised",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with both hands raised."
+        },
+        {
+          "id": "explain-2",
+          "file": "daryl/explain-2.png",
+          "label": "Explaining, hands in front",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with both hands held in front of the chest."
+        },
+        {
+          "id": "explain-3",
+          "file": "daryl/explain-3.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with one hand raised near the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "daryl/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "daryl/present-right-2.png",
+          "label": "Presenting, hand out wide to the right",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one hand out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "daryl/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one arm out to the left, palm up, as if presenting."
+        },
+        {
+          "id": "present-left-2",
+          "file": "daryl/present-left-2.png",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one hand out low to the left, palm up."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "daryl/arms-crossed.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "daryl/arms-crossed-2.png",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing at a slight angle with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "daryl/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "daryl/think-2.png",
+          "label": "Thinking, elbow out",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, resting a hand on the chin, elbow out, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "daryl/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "thumbs-up",
+          "file": "daryl/thumbs-up.png",
+          "label": "Thumbs up",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, giving a thumbs up, smiling."
+        },
+        {
+          "id": "thumbs-up-2",
+          "file": "daryl/thumbs-up-2.png",
+          "label": "Thumb up at the chest",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding a thumb up at the chest, smiling."
+        },
+        {
+          "id": "side",
+          "file": "daryl/side.png",
+          "label": "Seen from the side",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, seen from the side, standing, facing right."
+        }
+      ],
+      "head": "daryl/head.png"
+    },
     {
       "id": "david",
       "name": "David",
