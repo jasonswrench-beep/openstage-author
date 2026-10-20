@@ -14,12 +14,17 @@ export interface EngineStatus {
   canInstall: boolean;
   /** Why not, in words, when it cannot. */
   problem: string;
+  /** Microsoft's Visual C++ runtime, which the voice needs, is not on this computer: the dialog offers Microsoft's download. */
+  runtimeMissing: boolean;
   folder: string;
   /** What the installed engine takes, in bytes. */
   size: number;
 }
 
-export const NO_ENGINE_STATUS: EngineStatus = { state: "none", canInstall: false, problem: "", folder: "", size: 0 };
+export const NO_ENGINE_STATUS: EngineStatus = { state: "none", canInstall: false, problem: "", runtimeMissing: false, folder: "", size: 0 };
+
+/** Microsoft's own permanent address for the 64-bit Visual C++ runtime installer (the same as RUNTIME_URL in engine.rs). */
+export const RUNTIME_URL = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
 
 /** The shell's JSON as a status; anything that makes no sense is "no engine, cannot install". */
 export function parseEngineStatus(raw: string): EngineStatus {
@@ -30,6 +35,7 @@ export function parseEngineStatus(raw: string): EngineStatus {
       state,
       canInstall: d["canInstall"] === true,
       problem: typeof d["problem"] === "string" ? d["problem"] : "",
+      runtimeMissing: d["runtimeMissing"] === true,
       folder: typeof d["folder"] === "string" ? d["folder"] : "",
       size: typeof d["size"] === "number" && d["size"] >= 0 ? d["size"] : 0,
     };

@@ -2,21 +2,36 @@
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "OpenStage Author",
     "copyright": "Copyright 2026 Jason S. Wrench and the OpenStage Author contributors",
     "category": "Education",
     "shortDescription": "Make accessible eLearning courses.",
     "longDescription": "OpenStage Author is a free, open-source tool for making accessible eLearning courses: slides, narration, captions, quizzes and screen recordings, published as SCORM 1.2 for a learning management system.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "licenseFile": "../../LICENSE",
     "resources": {},
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English"],
-        "displayLanguageSelector": false
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false,
+        "customLanguageFiles": {
+          "English": "installer/English.nsh"
+        }
       }
     }
   }

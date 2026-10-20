@@ -1838,13 +1838,24 @@ struct EngineStatus {
     can_install: bool,
     /// Why it cannot be installed here, when it cannot.
     problem: String,
+    /// Microsoft's Visual C++ runtime, which the voice needs, is not on this computer (the page offers to open Microsoft's download).
+    #[serde(rename = "runtimeMissing")]
+    runtime_missing: bool,
     folder: String,
     /// The bytes the installed engine takes (0 if none).
     size: u64,
 }
 
+/// Windows' own System32 folder.
+fn system_dir() -> PathBuf {
+    PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("System32")
+}
+
 fn engine_install_problem() -> String {
     let Some(python) = bundled_python() else { return NO_BUNDLED_PYTHON.to_string() };
+    if !engine::runtime_missing(&system_dir()).is_empty() {
+        return format!("The narration voice needs Microsoft's Visual C++ runtime, which is not on this computer. Install it from Microsoft ({}), then try again.", engine::RUNTIME_URL);
+    }
     let pip = python.parent().map(|p| p.join("Lib").join("site-packages").join("pip")).filter(|p| p.is_dir());
     if pip.is_none() {
         return "The Python that came with this copy has no pip, so the narration voice cannot be installed from here.".to_string();
@@ -1858,6 +1869,75 @@ fn engine_install_problem() -> String {
     String::new()
 }
 
+/// What the About window shows: the version and where things are. Words and paths only: no key, nothing from a course.
+#[derive(Serialize)]
+struct AboutInfo {
+    version: String,
+    installed: bool,
+    program: String,
+    #[serde(rename = "guidesFile")]
+    guides_file: String,
+    python: String,
+    node: String,
+    recorder: String,
+    recogniser: String,
+    data: String,
+    settings: String,
+    engine: String,
+    webview: String,
+    windows: String,
+    arch: String,
+}
+
+/// The Windows version as `ver` says it ("Microsoft Windows [Version 10.0.26200.1]"), or "unknown".
+fn windows_version() -> String {
+    let mut cmd = Command::new("cmd");
+    cmd.args(["/C", "ver"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    cmd.output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).filter(|s| !s.is_empty()).unwrap_or_else(|| "unknown".into())
+}
+
+/// A helper's place for the About window: the one that is set or found, or what would be used.
+fn about_where(found: Option<PathBuf>, otherwise: &str) -> String {
+    found.map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| otherwise.to_string())
+}
+
+#[tauri::command]
+fn about_info(app: tauri::AppHandle) -> Result<String, String> {
+    let program = std::env::current_exe().ok();
+    let python = std::env::var("OPENSTAGE_PYTHON").ok().map(PathBuf::from);
+    let node = std::env::var("OPENSTAGE_NODE").ok().map(PathBuf::from);
+    let guides = find_repo_file("docs/narration-setup.md");
+    let engine = if engine_setting().is_some() {
+        "The one you set up yourself (OPENSTAGE_KOKORO_PYTHON)".to_string()
+    } else if managed_engine().is_some() {
+        "Installed by OpenStage Author".to_string()
+    } else {
+        "Not installed".to_string()
+    };
+    let info = AboutInfo {
+        version: app.package_info().version.to_string(),
+        installed: bundled_python().is_some(),
+        program: about_where(program, "unknown"),
+        guides_file: guides.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        python: about_where(python, "python, found on the PATH"),
+        node: about_where(node, "node, found on the PATH"),
+        recorder: capture_program().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "not found".into()),
+        recogniser: speech_program().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "not found".into()),
+        data: app.path().app_local_data_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".into()),
+        settings: settings_file(&app).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".into()),
+        engine,
+        webview: tauri::webview_version().unwrap_or_else(|_| "unknown".into()),
+        windows: windows_version(),
+        arch: std::env::consts::ARCH.to_string(),
+    };
+    serde_json::to_string(&info).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn engine_status() -> Result<String, String> {
     let layout = engine_layout();
@@ -1867,6 +1947,7 @@ fn engine_status() -> Result<String, String> {
     serde_json::to_string(&EngineStatus {
         state,
         can_install: problem.is_empty(),
+        runtime_missing: bundled_python().is_some() && !engine::runtime_missing(&system_dir()).is_empty(),
         problem,
         folder: layout.map(|l| l.root.to_string_lossy().into_owned()).unwrap_or_default(),
         size,
@@ -2831,6 +2912,10 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             if let Ok(dir) = app.path().app_local_data_dir() {
+                // The Python that travels with the editor keeps its compiled copies of modules in the editor's data folder, not in its own, so nothing is written into the install folder that the uninstaller does not know of.
+                if bundled_python().is_some() && std::env::var_os("PYTHONPYCACHEPREFIX").is_none() {
+                    std::env::set_var("PYTHONPYCACHEPREFIX", dir.join("pycache"));
+                }
                 let _ = DATA_DIR.set(dir);
             }
             Ok(())
@@ -2838,7 +2923,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3782,6 +3867,12 @@ mod tests {
         assert!(read_narration_audio_at(&project, &"e".repeat(64)).is_err(), "a key with no audio");
         assert!(read_narration_audio_at(&std::env::temp_dir(), &key).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_place_for_the_about_window_is_the_one_found_or_what_would_be_used() {
+        assert_eq!(about_where(Some(PathBuf::from("C:/x/python.exe")), "python, found on the PATH"), "C:/x/python.exe");
+        assert_eq!(about_where(None, "python, found on the PATH"), "python, found on the PATH");
     }
 
     #[test]

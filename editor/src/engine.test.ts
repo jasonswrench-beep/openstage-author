@@ -2,33 +2,35 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatBytes } from "./narration.ts";
-import { DISK_MEGABYTES, DOWNLOAD_MEGABYTES, TEMPORARY_MEGABYTES, engineLine, installQuestion, parseEngineStatus, progressDetail, removeQuestion, stepText } from "./engine.ts";
+import { RUNTIME_URL, DISK_MEGABYTES, DOWNLOAD_MEGABYTES, TEMPORARY_MEGABYTES, engineLine, installQuestion, parseEngineStatus, progressDetail, removeQuestion, stepText } from "./engine.ts";
 
 test("the shell's status is read, and nonsense is no engine that cannot be installed", () => {
-  const s = parseEngineStatus(JSON.stringify({ state: "installed", canInstall: false, problem: "", folder: "C:/x/narration-engine", size: 1_500_000_000 }));
+  const s = parseEngineStatus(JSON.stringify({ state: "installed", canInstall: false, problem: "", runtimeMissing: false, folder: "C:/x/narration-engine", size: 1_500_000_000 }));
   assert.deepEqual([s.state, s.size, s.folder], ["installed", 1_500_000_000, "C:/x/narration-engine"]);
   const bad = parseEngineStatus("garbage");
   assert.deepEqual([bad.state, bad.canInstall], ["none", false]);
   assert.match(bad.problem, /could not be read/);
   assert.equal(parseEngineStatus(JSON.stringify({ state: "weird", size: -5, canInstall: "yes" })).state, "none");
   assert.equal(parseEngineStatus(JSON.stringify({ state: "none", size: -5 })).size, 0);
+  assert.equal(parseEngineStatus(JSON.stringify({ state: "none", runtimeMissing: true })).runtimeMissing, true);
+  assert.equal(parseEngineStatus(JSON.stringify({ state: "none", runtimeMissing: "yes" })).runtimeMissing, false, "only a real yes counts");
 });
 
 test("each state says what it is and which button makes sense", () => {
-  const none = engineLine({ state: "none", canInstall: true, problem: "", folder: "", size: 0 });
+  const none = engineLine({ state: "none", canInstall: true, problem: "", runtimeMissing: false, folder: "", size: 0 });
   assert.match(none.text, /not installed on this computer, so audio cannot be made with it\. You can install it here: about 670 MB/);
   assert.match(none.text, /Voices from a service or a plugin do not need it\./);
   assert.deepEqual([none.canInstall, none.canRemove], [true, false]);
-  const half = engineLine({ state: "none", canInstall: true, problem: "", folder: "", size: 800_000_000 });
+  const half = engineLine({ state: "none", canInstall: true, problem: "", runtimeMissing: false, folder: "", size: 800_000_000 });
   assert.match(half.text, new RegExp(`A half-finished install is using ${formatBytes(800_000_000).replace(".", "\\.")}: installing again replaces it, or you can remove it\\.$`));
   assert.deepEqual([half.canInstall, half.canRemove], [true, true], "a half-finished install can be removed to free the room");
-  const installed = engineLine({ state: "installed", canInstall: false, problem: "", folder: "", size: 1_234_000_000 });
+  const installed = engineLine({ state: "installed", canInstall: false, problem: "", runtimeMissing: false, folder: "", size: 1_234_000_000 });
   assert.equal(installed.text, `The narration voice (Kokoro) is installed on this computer, and takes ${formatBytes(1_234_000_000)}.`);
   assert.deepEqual([installed.canInstall, installed.canRemove], [false, true]);
-  const own = engineLine({ state: "setting", canInstall: false, problem: "", folder: "", size: 0 });
+  const own = engineLine({ state: "setting", canInstall: false, problem: "", runtimeMissing: false, folder: "", size: 0 });
   assert.match(own.text, /OPENSTAGE_KOKORO_PYTHON\. The editor leaves it alone\./);
   assert.deepEqual([own.canInstall, own.canRemove], [false, false], "the author's own engine is never touched");
-  const cannot = engineLine({ state: "none", canInstall: false, problem: "This copy has no Python of its own.", folder: "", size: 0 });
+  const cannot = engineLine({ state: "none", canInstall: false, problem: "This copy has no Python of its own.", runtimeMissing: false, folder: "", size: 0 });
   assert.equal(cannot.text, "The narration voice (Kokoro) is not installed on this computer. This copy has no Python of its own.");
   assert.equal(cannot.canInstall, false);
 });
@@ -39,6 +41,13 @@ test("the question says what, from where, how much, where it goes, and that part
     assert.ok(q.includes(part), part);
   }
   assert.ok(q.endsWith("Go on?"));
+});
+
+test("the Visual C++ runtime download is Microsoft's own address, and a computer without it is told what to do", () => {
+  assert.equal(RUNTIME_URL, "https://aka.ms/vs/17/release/vc_redist.x64.exe");
+  const line = engineLine({ state: "none", canInstall: false, problem: `The narration voice needs Microsoft's Visual C++ runtime, which is not on this computer. Install it from Microsoft (${RUNTIME_URL}), then try again.`, runtimeMissing: true, folder: "", size: 0 });
+  assert.match(line.text, /needs Microsoft's Visual C\+\+ runtime, which is not on this computer\. Install it from Microsoft \(https:\/\/aka\.ms\//);
+  assert.equal(line.canInstall, false);
 });
 
 test("removing says what is kept and how much is freed", () => {

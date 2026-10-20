@@ -41,6 +41,7 @@ import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
+import { openAbout } from "./aboutdialog.ts";
 import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
@@ -162,6 +163,7 @@ export class App {
   private readonly pptxBtn: HTMLButtonElement;
   private readonly variablesBtn: HTMLButtonElement;
   private readonly narrationBtn: HTMLButtonElement;
+  private readonly aboutBtn: HTMLButtonElement;
   private readonly aiBtn: HTMLButtonElement;
   private readonly recorderBtn: HTMLButtonElement;
   /** Holds a recording, so it goes on when the dialog is closed. */
@@ -252,7 +254,8 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
+    this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.aboutBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -727,6 +730,12 @@ export class App {
     this.announce(open ? "Timeline shown below the canvas." : "Timeline hidden.");
     if (open) this.timelinePanel.element.querySelector<HTMLElement>(".tl-grip, .tl-name")?.focus();
     else this.timelineBtn.focus();
+  }
+
+  /** The About window: the version, and where things are on this computer. */
+  private async openAboutDialog(): Promise<void> {
+    await openAbout({ backend, announce: (msg) => this.announce(msg) });
+    this.aboutBtn.focus();
   }
 
   /** The Narration dialog: all the narration in the course, and making its audio. */

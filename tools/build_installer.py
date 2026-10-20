@@ -6,6 +6,7 @@
   python tools/build_installer.py --trial    a copy with its own name and identifier ("OpenStage Author Trial"), so installing it
                                              to try it touches none of the real program's settings, models or shortcuts
   python tools/build_installer.py --stage-only   only gather the files, into dist/installer-staging/payload (no installer)
+  python tools/build_installer.py --version 0.1.1   a different version number, to try installing one version over another
 
 What goes into the installer is described in docs/decisions/0004-packaging-and-narration.md. In short: the editor program, the recorder, the speech
 recogniser (built earlier by BUILD SPEECH RECOGNISER.bat), the course tools, the player, a copy of Python with jsonschema, a copy of Node, and the
@@ -202,6 +203,17 @@ def stage():
     if not (node / "node.exe").is_file():
         fail("node.exe was not found in the Node download.")
 
+    # The guides the program points to ("see docs/narration-setup.md"), without the internal notes.
+    copy_tree(ROOT / "docs", PAYLOAD / "docs", skip=("handoff", "capture"))
+    for name in ("START-HERE.md", "README.md"):
+        shutil.copy2(ROOT / name, PAYLOAD / name)
+
+    # The programs must not need Microsoft's Visual C++ runtime, which a computer that has only had Windows installed may lack (the Python carries its own copy of the two files it needs).
+    checked = [PAYLOAD / "openstage-capture.exe", PAYLOAD / "node" / "node.exe", *sorted((PAYLOAD / "speech").glob("*.exe")), *sorted((PAYLOAD / "speech").glob("*.dll"))]
+    done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_imports.py"), *map(str, checked)], capture_output=True, text=True, encoding="utf-8")
+    if done.returncode != 0:
+        fail("a program asks for Microsoft's Visual C++ runtime:" + chr(10) + done.stdout + done.stderr)
+
     # Licences and the lists of what is inside, written last so they include the Python packages that were just put in.
     say("  writing the licence texts")
     done = subprocess.run(
@@ -221,12 +233,14 @@ def resources():
     return {os.path.relpath(PAYLOAD, TAURI).replace("\\", "/") + "/": ""}
 
 
-def build(trial):
+def build(trial, version=None):
     say("Building the installer (the first time, Tauri downloads its installer maker)...")
     base = json.loads((TAURI / "tauri.installer.conf.json").read_text(encoding="utf-8"))
     base["bundle"]["resources"] = resources()
     if trial:
         base.update(TRIAL)
+    if version:
+        base["version"] = version
     config = STAGING / "tauri.build.conf.json"
     config.write_text(json.dumps(base, indent=2), encoding="utf-8")
     say("  web side")
@@ -240,6 +254,9 @@ def build(trial):
     found = sorted((TAURI / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe"), key=lambda p: p.stat().st_mtime)
     if not found:
         fail("the installer maker finished, but no setup file was made.")
+    done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_imports.py"), str(TAURI / "target" / "release" / "openstage-editor.exe")], capture_output=True, text=True, encoding="utf-8")
+    if done.returncode != 0:
+        fail("the editor program asks for Microsoft's Visual C++ runtime:" + chr(10) + done.stdout + done.stderr)
     OUT.mkdir(parents=True, exist_ok=True)
     result = OUT / (found[-1].name if not trial else found[-1].name.replace("-setup", "-trial-setup"))
     shutil.copy2(found[-1], result)
@@ -251,11 +268,12 @@ def build(trial):
 
 def main():
     trial = "--trial" in sys.argv
+    version = sys.argv[sys.argv.index("--version") + 1] if "--version" in sys.argv else None
     stage()
     if "--stage-only" in sys.argv:
         say(f"\nThe files are in {PAYLOAD}")
         return 0
-    build(trial)
+    build(trial, version)
     return 0
 
 

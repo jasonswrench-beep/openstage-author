@@ -15,6 +15,8 @@ downloaded (about 670 MB, from pypi.org and huggingface.co), how much room it ta
 folder (`%LOCALAPPDATA%\com.openstageauthor.editor\narration-engine`), a step at a time, with Cancel. **Remove the narration voice...** takes it away again and frees the room. If you have named your own
 engine (below), the editor leaves yours alone and offers neither button. Run from the source folder (not installed) there is no Python of its own to install with, and the section says so.
 
+If the computer does not have Microsoft's Visual C++ runtime (a Windows that has only just been installed may not), the section says so and has a button, **Get Microsoft's Visual C++ runtime...**, that opens Microsoft's own download page. Install that, then press **Install the narration voice**.
+
 ## How OpenStage finds one you set up yourself
 
 The editor and the `.bat` files look for an environment variable, `OPENSTAGE_KOKORO_PYTHON`: the full path of a `python.exe` that has Kokoro installed.

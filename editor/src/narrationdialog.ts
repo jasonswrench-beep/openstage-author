@@ -7,7 +7,7 @@
 import { audioPlan, availability, servicesToAsk, type AiSettings, type PluginInfo, type ServiceId } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
 import { clockText, type Model, type NarratedObject } from "./model.ts";
-import { NO_ENGINE_STATUS, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
+import { NO_ENGINE_STATUS, RUNTIME_URL, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
 import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -67,8 +67,9 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     const engineText = h("p", { class: "note", id: "nr-engine-text" });
     const installBtn = h("button", { type: "button", id: "nr-engine-install", text: "Install the narration voice..." });
     const removeBtn = h("button", { type: "button", id: "nr-engine-remove", text: "Remove the narration voice..." });
+    const runtimeBtn = h("button", { type: "button", id: "nr-engine-runtime", text: "Get Microsoft's Visual C++ runtime...", hidden: true });
     const engineDetail = h("p", { class: "note", id: "nr-engine-detail" });
-    const engineBox = h("div", { class: "nr-engine", role: "group", "aria-labelledby": "nr-engine-title" }, h("h3", { id: "nr-engine-title", text: "Narration voice on this computer" }), engineText, h("div", { class: "btn-row" }, installBtn, removeBtn), engineDetail);
+    const engineBox = h("div", { class: "nr-engine", role: "group", "aria-labelledby": "nr-engine-title" }, h("h3", { id: "nr-engine-title", text: "Narration voice on this computer" }), engineText, h("div", { class: "btn-row" }, installBtn, removeBtn, runtimeBtn), engineDetail);
 
     const say = (text: string) => { status.textContent = text; };
 
@@ -77,6 +78,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       engineText.textContent = line.text;
       installBtn.hidden = !line.canInstall;
       removeBtn.hidden = !line.canRemove;
+      runtimeBtn.hidden = !engineStatus.runtimeMissing;
       for (const b2 of [installBtn, removeBtn]) {
         if (running) b2.setAttribute("aria-disabled", "true");
         else b2.removeAttribute("aria-disabled");
@@ -229,6 +231,13 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       }
     };
     installBtn.addEventListener("click", () => void installEngine());
+    runtimeBtn.addEventListener("click", () => {
+      failure.textContent = "";
+      b.openUrl(RUNTIME_URL).then(
+        () => say("Microsoft's page for the Visual C++ runtime is open in your browser. Install it, then press Install the narration voice."),
+        (err) => { failure.textContent = errorText(err); },
+      );
+    });
     removeBtn.addEventListener("click", async () => {
       if (running || removeBtn.getAttribute("aria-disabled") === "true") return;
       failure.textContent = "";

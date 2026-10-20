@@ -61,7 +61,7 @@ speech recogniser (`BUILD SPEECH RECOGNISER.bat`) to be built already. It makes 
 Double-click that file to install OpenStage Author for your own Windows account (no administrator password). It has its own Python and Node, so nothing else has to be installed, and it appears in the Start menu;
 Settings, Apps removes it. It is not signed yet, so Windows shows "Windows protected your PC": choose **More info**, then **Run anyway**. To try an installer without touching the real program (its own name, its own
 settings), use `BUILD INSTALLER.bat trial`. The narration voice is not in the installer: open **Narration** in the editor and press **Install the narration voice**; it asks first, downloads about 670 MB and takes about 2.1 GB.
-The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`.
+The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`. The last button in the editor's toolbar, **About**, shows the version and where things are on the computer, to copy into a message when you ask for help.
 
 ## Publishing a course
 

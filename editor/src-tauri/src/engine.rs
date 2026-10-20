@@ -16,6 +16,17 @@ pub const MARKER: &str = "engine.json";
 /// The voice model, from its publisher on Hugging Face (Apache-2.0).
 pub const MODEL_REPO: &str = "hexgrad/Kokoro-82M";
 
+/// What PyTorch (the part of the voice that makes the sound) needs from Microsoft's Visual C++ runtime and the Python that travels with the editor does not carry: a computer that has
+/// only had Windows installed may lack it. (The Python carries vcruntime140.dll and vcruntime140_1.dll itself.) It is not carried by the editor either: Microsoft's own installer is the way.
+pub const RUNTIME_FILES: [&str; 1] = ["msvcp140.dll"];
+/// Microsoft's own permanent address for the 64-bit runtime installer.
+pub const RUNTIME_URL: &str = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
+
+/// Which of the runtime's files are not in `system_dir` (Windows' System32).
+pub fn runtime_missing(system_dir: &Path) -> Vec<&'static str> {
+    RUNTIME_FILES.iter().copied().filter(|f| !system_dir.join(f).is_file()).collect()
+}
+
 /// Where the pieces of an engine are, under one root.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
@@ -68,6 +79,8 @@ pub fn environment(layout: &Layout, existing_pythonpath: Option<&str>) -> Vec<(S
         ("HF_HOME".into(), layout.home.to_string_lossy().into_owned()),
         ("PYTHONUTF8".into(), "1".into()),
         ("HF_HUB_DISABLE_TELEMETRY".into(), "1".into()),
+        // Python's compiled copies of the engine's modules (torch alone is hundreds of megabytes of them) are kept in the engine's own folder, so removing the engine removes them.
+        ("PYTHONPYCACHEPREFIX".into(), layout.root.join("pycache").to_string_lossy().into_owned()),
     ]
 }
 
@@ -235,6 +248,7 @@ mod tests {
         assert_eq!(env["PYTHONPATH"], layout.site.to_string_lossy());
         assert_eq!(env["HF_HOME"], layout.home.to_string_lossy());
         assert_eq!(env["PYTHONUTF8"], "1");
+        assert_eq!(env["PYTHONPYCACHEPREFIX"], layout.root.join("pycache").to_string_lossy());
         let kept: std::collections::HashMap<_, _> = environment(&layout, Some("C:/mine")).into_iter().collect();
         assert!(kept["PYTHONPATH"].ends_with(";C:/mine") && kept["PYTHONPATH"].starts_with(&*layout.site.to_string_lossy()), "{}", kept["PYTHONPATH"]);
         let blank: std::collections::HashMap<_, _> = environment(&layout, Some("  ")).into_iter().collect();
@@ -261,6 +275,16 @@ mod tests {
         assert!(list[1].args[1].contains("snapshot_download") && list[1].args[1].contains(MODEL_REPO));
         assert!(list[2].args[1].contains("KPipeline") && list[2].args[1].contains("assert"));
         assert!(list.iter().all(|s| !s.label.is_empty()));
+    }
+
+    #[test]
+    fn the_visual_cpp_runtime_is_looked_for_in_the_system_folder() {
+        let dir = temp("runtime");
+        assert_eq!(runtime_missing(&dir), vec!["msvcp140.dll"], "an empty folder has none of it");
+        std::fs::write(dir.join("msvcp140.dll"), "x").unwrap();
+        assert!(runtime_missing(&dir).is_empty());
+        assert!(RUNTIME_URL.starts_with("https://aka.ms/"), "Microsoft's own address");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

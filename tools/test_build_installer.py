@@ -33,6 +33,15 @@ class Pieces(unittest.TestCase):
         for name in b.EXAMPLES:
             self.assertTrue((b.ROOT / "examples" / name).is_dir(), name)
 
+    def test_what_the_uninstall_screen_offers_to_delete_is_named(self):
+        text = (b.TAURI / "installer" / "English.nsh").read_text(encoding="utf-8-sig")
+        self.assertIn('LangString deleteAppData ${LANG_ENGLISH} "Also delete my settings, models and narration voice"', text)
+        import json
+        conf = json.loads((b.TAURI / "tauri.installer.conf.json").read_text(encoding="utf-8"))
+        self.assertEqual(conf["bundle"]["windows"]["nsis"]["customLanguageFiles"], {"English": "installer/English.nsh"})
+        # Tauri puts its own byte order mark on a custom language file; a second one makes the installer maker fail ("Invalid command").
+        self.assertNotEqual((b.TAURI / "installer" / "English.nsh").read_bytes()[:3], b"\xef\xbb\xbf")
+
     def test_the_trial_has_its_own_name_and_identifier_and_the_real_one_is_not_touched(self):
         import json
         self.assertNotEqual(b.TRIAL["identifier"], json.loads((b.TAURI / "tauri.conf.json").read_text(encoding="utf-8"))["identifier"])

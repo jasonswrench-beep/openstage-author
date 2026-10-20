@@ -16,6 +16,7 @@ import { parsePublishResult, type PublishResult } from "./publishing.ts";
 import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
 import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
+import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -103,6 +104,8 @@ export interface Backend {
   revealInFolder(path: string): Promise<void>;
   /** Whether a speech engine is set up on this computer, so narration audio can be made. */
   narrationEngine(): Promise<boolean>;
+  /** The version, and where things are on this computer, for the About window. */
+  aboutInfo(): Promise<AboutInfo>;
   /** What the editor knows about the narration engine: the author's own, one it installed, or none, and whether it can install one. */
   engineStatus(): Promise<EngineStatus>;
   /** Install the narration engine into the editor's own folder (packages from PyPI, the voice model from Hugging Face). Progress comes through `onEngineProgress`; `cancelJob` stops it. */
@@ -307,6 +310,9 @@ const tauriBackend: Backend = {
   openInBrowser: (path) => invoke<void>("open_in_browser", { path }),
   revealInFolder: (path) => revealItemInDir(path),
   narrationEngine: () => invoke<boolean>("narration_engine"),
+  async aboutInfo() {
+    return parseAbout(await invoke<string>("about_info"));
+  },
   async engineStatus() {
     return parseEngineStatus(await invoke<string>("engine_status"));
   },
@@ -484,6 +490,9 @@ const previewBackend: Backend = {
   },
   async narrationEngine() {
     return false;
+  },
+  async aboutInfo() {
+    return { ...UNKNOWN_ABOUT, version: "(the page shown in a web browser, not the desktop program)" };
   },
   async engineStatus() {
     return { ...NO_ENGINE_STATUS, problem: "Installing the narration voice needs the desktop app." };
