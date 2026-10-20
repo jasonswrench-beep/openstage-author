@@ -140,13 +140,13 @@
           "id": "side",
           "file": "_LE516iUmWVq",
           "label": "Seen from the side",
-          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen from the side, standing."
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen from the side, standing, facing right."
         },
         {
           "id": "side-2",
           "file": "_uR6fiDjfUJu",
           "label": "Seen in profile",
-          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen in profile, standing and looking ahead."
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen in profile, standing, facing right."
         }
       ]
     },
@@ -264,14 +264,14 @@
         {
           "id": "side",
           "file": "_QZhZZEYHVVm",
-          "label": "Seen from the side, facing left",
-          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing left."
+          "label": "Seen from the side",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing right."
         },
         {
           "id": "side-2",
           "file": "_u1gmuCAKVa2",
-          "label": "Seen from the side, facing right",
-          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing right."
+          "label": "Seen at an angle",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen at an angle from the side, standing, facing right."
         }
       ]
     },
@@ -436,7 +436,7 @@
           "id": "present-left-2",
           "file": "_aIDySJiYXhG",
           "label": "Presenting, arm out wide to the left",
-          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left, palm up, with the other hand open at the waist."
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left, palm up, with the other hand held in front."
         },
         {
           "id": "point",
