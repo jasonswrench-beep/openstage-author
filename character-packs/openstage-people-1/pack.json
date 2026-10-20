@@ -3,7 +3,7 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Eight people in everyday work and casual clothes, each in many poses: Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa and Salma. The pictures were made with Ideogram from written descriptions.",
+  "description": "Eleven people in everyday work and casual clothes, each in many poses: Aisyah, Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa, Malina, Mei and Salma. The pictures were made with Ideogram from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
@@ -11,6 +11,154 @@
     "url": "https://openstageauthor.com"
   },
   "people": [
+    {
+      "id": "aisyah",
+      "name": "Aisyah",
+      "role": "",
+      "voice": "female",
+      "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "aisyah/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "aisyah/neutral-2.png",
+          "label": "Standing, calm",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-3",
+          "file": "aisyah/neutral-3.png",
+          "label": "Standing, turned slightly",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned slightly, with arms down, smiling."
+        },
+        {
+          "id": "neutral-4",
+          "file": "aisyah/neutral-4.png",
+          "label": "Standing, turned slightly, calm",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned slightly, with arms down, looking calm."
+        },
+        {
+          "id": "neutral-5",
+          "file": "aisyah/neutral-5.png",
+          "label": "Standing, turned, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned to one side, with arms down, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "aisyah/welcome.png",
+          "label": "Waving hello",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "aisyah/welcome-2.png",
+          "label": "Waving, turned slightly",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, waving with one hand raised, turned slightly."
+        },
+        {
+          "id": "explain",
+          "file": "aisyah/explain.png",
+          "label": "Explaining, both hands open",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with both hands open."
+        },
+        {
+          "id": "explain-2",
+          "file": "aisyah/explain-2.png",
+          "label": "Explaining, hands out wide",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with both hands held out wide."
+        },
+        {
+          "id": "explain-3",
+          "file": "aisyah/explain-3.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with one hand raised near the chest, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "aisyah/offer.png",
+          "label": "Offering, hand raised, palm up",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand up in front of the chest, palm up, smiling."
+        },
+        {
+          "id": "present-right",
+          "file": "aisyah/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "aisyah/present-right-2.png",
+          "label": "Presenting, hand out to the right, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "aisyah/present-left.png",
+          "label": "Presenting, both hands out to the left",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding both hands out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "aisyah/present-left-2.png",
+          "label": "Presenting, hand out to the left",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand out to the left, palm up, with the other hand raised near the chest."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "aisyah/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "aisyah/arms-crossed-2.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "aisyah/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "aisyah/think-2.png",
+          "label": "Thinking, hand to chin, another look",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, resting a hand on the chin with the head tilted, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "aisyah/emphasis.png",
+          "label": "Making a point, fist raised",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "aisyah/emphasis-2.png",
+          "label": "Making a point, fist raised, turned",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, smiling, turned slightly, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "side",
+          "file": "aisyah/side.png",
+          "label": "Seen from the side",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "aisyah/side-2.png",
+          "label": "Seen at an angle",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "aisyah/head.png"
+    },
     {
       "id": "daryl",
       "name": "Daryl",
@@ -842,6 +990,266 @@
         }
       ],
       "head": "lisa/head.png"
+    },
+    {
+      "id": "malina",
+      "name": "Malina",
+      "role": "",
+      "voice": "female",
+      "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "malina/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "malina/neutral-2.png",
+          "label": "Standing, calm",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "hands-together",
+          "file": "malina/hands-together.png",
+          "label": "Hands together",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with hands clasped in front, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "malina/welcome.png",
+          "label": "Waving hello",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving hello, smiling, with the other hand in a pocket."
+        },
+        {
+          "id": "welcome-2",
+          "file": "malina/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "welcome-3",
+          "file": "malina/welcome-3.png",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "malina/explain.png",
+          "label": "Explaining, hands together",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands held together in front, standing with one foot out."
+        },
+        {
+          "id": "explain-2",
+          "file": "malina/explain-2.png",
+          "label": "Explaining, hands raised",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands raised near the chest, smiling."
+        },
+        {
+          "id": "explain-3",
+          "file": "malina/explain-3.png",
+          "label": "Explaining, turned slightly",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands raised near the chest, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "malina/offer.png",
+          "label": "Offering, hand out, palm up",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one hand out in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "malina/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "malina/present-right-2.png",
+          "label": "Presenting, hand out to the right, leaning",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, leaning a little and holding one hand out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "malina/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "malina/present-left-2.png",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out wide to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "malina/arms-crossed.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "malina/arms-crossed-2.png",
+          "label": "Arms crossed, serious",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms crossed, looking serious."
+        },
+        {
+          "id": "think",
+          "file": "malina/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "malina/think-2.png",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "malina/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "malina/side.png",
+          "label": "Seen from the side",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "malina/side-2.png",
+          "label": "Seen in profile",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, seen in profile, standing, facing right."
+        }
+      ],
+      "head": "malina/head.png"
+    },
+    {
+      "id": "mei",
+      "name": "Mei",
+      "role": "",
+      "voice": "female",
+      "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "mei/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "mei/neutral-2.png",
+          "label": "Standing, hands at sides",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with hands at the sides, looking calm."
+        },
+        {
+          "id": "hands-together",
+          "file": "mei/hands-together.png",
+          "label": "Hands together",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing turned slightly, with hands together in front."
+        },
+        {
+          "id": "welcome",
+          "file": "mei/welcome.png",
+          "label": "Waving hello",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "mei/welcome-2.png",
+          "label": "Waving, hand held up",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, waving with one hand held up, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "mei/explain.png",
+          "label": "Explaining, both hands raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, explaining with both hands raised."
+        },
+        {
+          "id": "explain-2",
+          "file": "mei/explain-2.png",
+          "label": "Explaining, hands open",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, explaining with both hands open in front of the chest."
+        },
+        {
+          "id": "offer",
+          "file": "mei/offer.png",
+          "label": "Offering, hand raised, palm up",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one hand up beside the shoulder, palm up, looking serious."
+        },
+        {
+          "id": "present-right",
+          "file": "mei/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "mei/present-right-2.png",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one hand up and out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "mei/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one arm out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "mei/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "mei/arms-crossed-2.png",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing turned slightly with arms crossed, with a slight smile."
+        },
+        {
+          "id": "think",
+          "file": "mei/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "mei/think-2.png",
+          "label": "Thinking, hand to chin, smiling",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, resting a hand on the chin, with a slight smile, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "mei/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "emphasis",
+          "file": "mei/emphasis.png",
+          "label": "Making a point, both fists raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, smiling, with both hands raised in loose fists near the chest."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "mei/emphasis-2.png",
+          "label": "Making a point, fist raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, smiling, turned slightly, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "side",
+          "file": "mei/side.png",
+          "label": "Seen from the side",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, seen from the side, standing, facing right."
+        }
+      ],
+      "head": "mei/head.png"
     },
     {
       "id": "salma",

@@ -4682,7 +4682,7 @@ mod tests {
         assert_eq!(packs.len(), 1, "{listed}");
         assert_eq!(packs[0]["id"], "openstage-people-1");
         assert_eq!(packs[0]["source"], "bundled");
-        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 8);
+        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 11);
         assert!(v["broken"].as_array().unwrap().is_empty(), "{listed}");
         // The page may then ask for a picture of that pack, and only of it.
         let folder = packs[0]["folder"].as_str().unwrap();

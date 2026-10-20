@@ -21,7 +21,7 @@ The cast of a course had a picture maker: a cartoon person drawn from a few choi
 
 ## The first pack
 
-`character-packs/openstage-people-1` holds Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa and Salma, from Jason's eight sets (about 150 pictures after leaving out the ones named below; Daryl, Gerry and Salma came later, the same day), made smaller and cut to a common frame by `tools/make_character_pack.py` from the source file `character-packs-src/openstage-people-1.json`. It is 19 MB (PNG: a pure-Python tool cannot write WebP, which would be about a quarter of that; this can change without changing the format, which allows both).
+`character-packs/openstage-people-1` holds Aisyah, Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa, Malina, Mei and Salma, from Jason's eleven sets (about 220 pictures after leaving out the ones named below; the last six sets came later, the same day), made smaller and cut to a common frame by `tools/make_character_pack.py` from the source file `character-packs-src/openstage-people-1.json`. It is 26 MB (PNG: a pure-Python tool cannot write WebP, which would be about a quarter of that; this can change without changing the format, which allows both).
 
 Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's zip and a white-background reference picture in Kathy's, which were reference material and not output (Jason confirmed they were put in the zips by mistake and that no picture was uploaded to Ideogram: a couple were put through another tool to get a plain description to base two of the characters on); a copy saved twice in David's zip and in Jacob's; one picture in Lisa's zip that is the same as another, and one in Gerry's.
 
