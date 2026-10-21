@@ -6,6 +6,7 @@ import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
 import { isBubbleKind, isBubbleTail } from "../../player/src/bubble.ts";
 import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
 import { referencesVariable, renameReferences } from "./values.ts";
+import { importSlides, peopleProblem, type SetRead } from "./slidesets.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
@@ -1215,6 +1216,73 @@ export class Model {
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
     return { slides: built.slides, notes };
+  }
+
+  /**
+   * Add the slides of a set (slides handed over as one file; see slidesets.ts) after the slide being edited, as one undo step. Their pictures have already been copied into
+   * the project (`pictures` says where each one went). The slides get ids of their own and the set's variables become new variables here, so a set added twice does not share
+   * what it remembers; the set's people are added unless the course already has them; where it came from is kept in the credits. Returns the slides and what to tell the
+   * author, or words if the set cannot be added (nothing is changed then).
+   */
+  addSlideSet(read: SetRead, pictures: ReadonlyMap<string, string>): { slides: Slide[]; notes: string[] } | string {
+    const problem = peopleProblem(read, this.characters);
+    if (problem) return problem;
+    this.record("");
+    let imported;
+    try {
+      const alloc = this.allocator(emptySlide("", ""));
+      imported = importSlides(read, {
+        slide: this.slideIdMaker(),
+        object: () => alloc.object(),
+        variable: (type, name, initial) => {
+          const id = this.makeVariable(type, name);
+          const made = this.project.variables.find((v) => v.id === id)!;
+          made.initial = initial;
+          return id;
+        },
+        nameOf: (id) => this.variableName(id),
+      }, pictures);
+    } catch (err) {
+      const before = this.undoStack.pop();
+      if (before !== undefined) this.restore(before);
+      return err instanceof Error ? err.message : String(err);
+    }
+    const notes: string[] = [];
+    const have = new Set(this.characters.map((c) => c.id));
+    const people = imported.characters.filter((c) => !have.has(c.id));
+    if (people.length > 0) {
+      this.project.characters = [...this.characters, ...people];
+      notes.push(`${people.length === 1 ? "One person was" : `${people.length} people were`} added to the cast: ${people.map((p) => p.name).join(", ")}.`);
+    }
+    for (const c of imported.credits) {
+      const at = this.assets.findIndex((a) => a.path === c.path);
+      if (at === -1) this.assets.push(c); else this.assets[at] = c;
+    }
+    if (imported.credits.some((c) => c.source.requiresCredit) && !this.project.credits) {
+      this.project.credits = true;
+      notes.push("The course now shows a credits page, because some of the set's pictures or sounds need to be credited.");
+    }
+    if (read.set.completion === "last" && this.completion === "all") {
+      this.project.completion = { slides: "last" };
+      notes.push("The course now counts as complete when the learner reaches the last slide and has finished every quiz, because this set sends learners to its slides in any order. You can change this in the course settings.");
+    }
+    const stage = this.project.stage;
+    if (read.set.stage.width !== stage.width || read.set.stage.height !== stage.height) {
+      notes.push(`These slides were made for a stage ${read.set.stage.width} by ${read.set.stage.height} and this course's is ${stage.width} by ${stage.height}, so they may not fit it. Check each slide.`);
+    }
+    if (read.migrated) notes.push("The set was made with an older version of the format, and has been brought up to date.");
+    if (imported.renamed.length > 0) notes.push(`${imported.renamed.length === 1 ? "A variable was" : `${imported.renamed.length} variables were`} renamed because the course already had one with that name: ${imported.renamed.map(([a, b]) => `${a} is now ${b}`).join("; ")}.`);
+    notes.push(...read.notes);
+    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
+    const at = scene.slides.indexOf(this.sel.slideId);
+    scene.slides.splice(at === -1 ? scene.slides.length : at + 1, 0, ...imported.slides.map((s) => s.id));
+    for (const slide of imported.slides) this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    this.syncDocOrder();
+    const first = imported.slides[0]!;
+    this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    return { slides: imported.slides, notes };
   }
 
   addQuiz(type: QuizType, opts: { imageSrc?: string } = {}): OSObject | null {

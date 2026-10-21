@@ -173,7 +173,7 @@ A text can now show a value that changes (`{{$score}}`: the points earned so far
   games a running score and fix the names that go stale), a timer that can be extended or turned off, and shuffling with question banks. Say which first, or whether to commit what is here before going on.
 - **Decided by the author, 2026-10-21: no elimination.** People should be able to go to the end of any game, and there is a score total and feedback slide at the end (the results slide every game already ends with). So finding 5 stands as built, and nothing needs designing for a game over.
 - ~~Where the videos are.~~ Four arrived on 2026-10-21 (see the next section).
-- **Decided by the author, 2026-10-21: yes, a game (or any set of slides) can be shared as a file** with another person who uses OpenStage Author, because it is all open and sharing is best. This is built as its own feature, not as reusable components: see `docs/slide-sets.md` once it exists.
+- **Decided by the author, 2026-10-21: yes, a game (or any set of slides) can be shared as a file** with another person who uses OpenStage Author, because it is all open and sharing is best. This is built as its own feature, not as reusable components: see `docs/slide-sets.md` (built 2026-10-21: **Share slides...** and **Add slides from a file...**).
 
 ## What the four example videos show (looked at 2026-10-21)
 

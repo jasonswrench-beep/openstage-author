@@ -6,7 +6,7 @@ import { DOWNLOAD_EXTENSIONS } from "../../player/src/downloads.ts";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { confirm as confirmDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
+import { confirm as confirmDialog, open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { parseMade, parsePlugins, parseServiceAnswer, type MadeAnswer, type PluginList, type ServiceAnswer, type ServiceId } from "./aiservices.ts";
 import type { FileText, OpenedProject } from "./model.ts";
@@ -18,6 +18,7 @@ import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
 import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
 import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
+import { parseSetMade, parseSetRead, type SetAnswer, type SetMade, type SetRead } from "./slidesets.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -121,6 +122,18 @@ export interface Backend {
   packPictureUrl(source: PackSource, folder: string, path: string): Promise<string>;
   /** Copy a picture of a pack into the project's images, and give its project-relative path. */
   packUsePicture(dir: string, source: PackSource, folder: string, path: string, nameHint: string): Promise<string>;
+  /** Ask for a set of slides (a file ending .osset) with a file dialog. Null if the author cancelled. */
+  pickSetFile(): Promise<string | null>;
+  /** Ask where to save a set of slides, with a file dialog. Null if the author cancelled. */
+  pickSetSave(name: string): Promise<string | null>;
+  /** Check a set of slides and unpack it into a folder of its own; the answer says what is in it, or why it cannot be used. */
+  setRead(source: string): Promise<SetAnswer<SetRead>>;
+  /** Copy one file of an unpacked set into the project, and give its project-relative path. */
+  setUseAsset(stage: string, dir: string, path: string): Promise<string>;
+  /** Take away the folder a set was unpacked into. */
+  setDiscard(stage: string): Promise<void>;
+  /** Make a set from slides of the saved project and write it to `out`. */
+  setMake(dir: string, input: { slides: string[]; title: string; author: string; licence: string; description: string }, out: string): Promise<SetAnswer<SetMade>>;
   /** What the editor knows about the narration engine: the author's own, one it installed, or none, and whether it can install one. */
   engineStatus(): Promise<EngineStatus>;
   /** Install the narration engine into the editor's own folder (packages from PyPI, the voice model from Hugging Face). Progress comes through `onEngineProgress`; `cancelJob` stops it. */
@@ -258,7 +271,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | "setfile" | "setsave" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
 /** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
 const testConfirm = (message: string): boolean | undefined =>
@@ -340,6 +353,28 @@ const tauriBackend: Backend = {
   },
   async packInstall(source) {
     return parsePackAnswer(await invoke<string>("pack_install", { source }));
+  },
+  async pickSetFile() {
+    const forced = testPick("setfile");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a set of slides", filters: [{ name: "Sets of slides", extensions: ["osset"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async pickSetSave(name) {
+    const forced = testPick("setsave");
+    if (forced !== undefined) return forced;
+    const picked = await saveDialog({ title: "Save the set of slides", defaultPath: name, filters: [{ name: "Sets of slides", extensions: ["osset"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async setRead(source) {
+    return parseSetRead(await invoke<string>("set_read", { source }));
+  },
+  setUseAsset: (stage, dir, path) => invoke<string>("set_use_asset", { stage, dir, path }),
+  async setDiscard(stage) {
+    await invoke("set_discard", { stage });
+  },
+  async setMake(dir, input, out) {
+    return parseSetMade(await invoke<string>("set_make", { dir, slides: input.slides, title: input.title, author: input.author, licence: input.licence, description: input.description, out }));
   },
   async packRemove(id) {
     return parsePackAnswer(await invoke<string>("pack_remove", { id }));
@@ -540,6 +575,24 @@ const previewBackend: Backend = {
   },
   async packInstall() {
     return { ok: false, message: "Adding a character pack needs the desktop app." };
+  },
+  async pickSetFile() {
+    return null;
+  },
+  async pickSetSave() {
+    return null;
+  },
+  async setRead() {
+    return { ok: false, message: "Taking in a set of slides needs the desktop app." };
+  },
+  async setUseAsset() {
+    throw new Error("Taking in a set of slides needs the desktop app.");
+  },
+  async setDiscard() {
+    return undefined;
+  },
+  async setMake() {
+    return { ok: false, message: "Sharing slides needs the desktop app." };
   },
   async packRemove() {
     return { ok: false, message: "Removing a character pack needs the desktop app." };

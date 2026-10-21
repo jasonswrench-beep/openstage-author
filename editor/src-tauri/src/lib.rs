@@ -1666,7 +1666,12 @@ fn copy_pack_picture_at(project: &Path, pack: &Path, rel: &str, name_hint: &str)
 
 /// Run tools/charpack.py and return its one line of JSON.
 fn run_charpack(args: &[&str]) -> Result<String, String> {
-    let tool = find_tool("charpack.py").ok_or("Could not find tools/charpack.py.")?;
+    run_json_tool("charpack.py", args)
+}
+
+/// Run one of the course tools (a Python file in tools/) and return the last line of what it printed that is JSON.
+fn run_json_tool(name: &str, args: &[&str]) -> Result<String, String> {
+    let tool = find_tool(name).ok_or_else(|| format!("Could not find tools/{name}."))?;
     let mut cmd = Command::new(tools_python());
     cmd.arg(&tool).args(args);
     #[cfg(windows)]
@@ -1744,6 +1749,105 @@ fn pack_picture_url(source: String, folder: String, path: String) -> Result<Stri
 #[tauri::command]
 fn pack_use_picture(dir: String, source: String, folder: String, path: String, name_hint: String) -> Result<String, String> {
     copy_pack_picture_at(Path::new(&dir), &pack_dir(&source, &folder)?, &path, &name_hint)
+}
+
+// ---- slide sets: slides handed to someone else as one file (docs/slide-sets.md; tools/slideset.py decides what a good set is)
+
+/// Where a set that is being taken in is unpacked while the author looks at it. Each one gets a folder of its own, and it is emptied when the author has chosen.
+fn sets_stage_root() -> PathBuf {
+    std::env::temp_dir().join("openstage-set-import")
+}
+
+/// A folder of an unpacked set: it must be a folder made by `set_read`, directly inside `sets_stage_root()`, and nothing else.
+fn set_stage_dir(stage: &str) -> Result<PathBuf, String> {
+    let dir = fs::canonicalize(stage).map_err(|_| "That set is no longer unpacked.".to_string())?;
+    let root = fs::canonicalize(sets_stage_root()).map_err(|_| "That set is no longer unpacked.".to_string())?;
+    if dir.parent() != Some(root.as_path()) || !dir.is_dir() {
+        return Err("That is not a set that was unpacked by this program.".into());
+    }
+    Ok(dir)
+}
+
+/// Copy a picture, sound, video or captions file of an unpacked set into the project, under a name that is not already used there, and return its project-relative path.
+fn copy_set_asset_at(stage: &Path, project: &Path, rel: &str) -> Result<String, String> {
+    if !project.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let parts: Vec<&str> = rel.split('/').collect();
+    let plain = parts.len() >= 3
+        && parts[0] == "assets"
+        && matches!(parts[1], "images" | "audio" | "video" | "captions")
+        && parts.iter().all(|p| !p.is_empty() && !p.starts_with('.') && !p.contains("..") && p.chars().all(|c| !c.is_control() && !matches!(c, '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')));
+    if !plain {
+        return Err("That is not a place inside a set.".into());
+    }
+    let ext = Path::new(rel).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+    if !["png", "webp", "jpg", "jpeg", "gif", "mp3", "wav", "ogg", "m4a", "mp4", "webm", "vtt"].contains(&ext.as_str()) {
+        return Err("A set holds only pictures, sounds, video and captions.".into());
+    }
+    let source = fs::canonicalize(stage.join(rel)).map_err(|_| "That file is not in the set.".to_string())?;
+    if !source.starts_with(stage) || !source.is_file() {
+        return Err("That file is not in the set.".into());
+    }
+    let folder = project.join("assets").join(parts[1]);
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let stem = safe_stem(Path::new(parts[parts.len() - 1]).file_stem().and_then(|x| x.to_str()).unwrap_or("file"), "file");
+    let name = unique_name(&folder, &stem, &ext);
+    fs::copy(&source, folder.join(&name)).map_err(|e| format!("Could not save the file: {e}"))?;
+    Ok(format!("assets/{}/{}", parts[1], name))
+}
+
+/// Read a set of slides (a file ending .osset): check all of it, unpack it into a folder of its own, and say what is in it. A set that is not good is refused in words.
+#[tauri::command]
+async fn set_read(source: String) -> Result<String, String> {
+    let zip = PathBuf::from(&source);
+    if !zip.is_file() {
+        return Ok(serde_json::json!({ "ok": false, "message": "That file is not there." }).to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+        let stage = sets_stage_root().join(format!("{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&stage).map_err(|e| format!("Could not make a folder to unpack the set in: {e}"))?;
+        let answer = run_json_tool("slideset.py", &["read", &source, "--stage", &stage.to_string_lossy()]);
+        // A set that was refused leaves nothing behind (the tool takes its folder away); one that could not even be asked about does too.
+        if answer.is_err() {
+            let _ = fs::remove_dir_all(&stage);
+        }
+        answer
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Copy one file of an unpacked set into the project, and return where it is now.
+#[tauri::command]
+fn set_use_asset(stage: String, dir: String, path: String) -> Result<String, String> {
+    copy_set_asset_at(&set_stage_dir(&stage)?, Path::new(&dir), &path)
+}
+
+/// The author has chosen: take away the folder the set was unpacked into.
+#[tauri::command]
+fn set_discard(stage: String) -> Result<(), String> {
+    let dir = set_stage_dir(&stage)?;
+    fs::remove_dir_all(dir).map_err(|e| format!("Could not take away the unpacked set: {e}"))
+}
+
+/// Make a set from slides of the project (which must be saved) and write it to `out`, a file ending .osset.
+#[tauri::command]
+async fn set_make(dir: String, slides: Vec<String>, title: String, author: String, licence: String, description: String, out: String) -> Result<String, String> {
+    let target = PathBuf::from(&out);
+    if !target.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("osset")) {
+        return Ok(serde_json::json!({ "ok": false, "message": "A set of slides is saved as a file that ends .osset." }).to_string());
+    }
+    if !Path::new(&dir).join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let ids = slides.join(",");
+    tauri::async_runtime::spawn_blocking(move || {
+        run_json_tool("slideset.py", &["make", &dir, "--slides", &ids, "--out", &out, "--title", &title, "--author", &author, "--licence", &licence, "--description", &description])
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn read_asset_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
@@ -3071,7 +3175,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -4668,6 +4772,95 @@ mod tests {
         fs::write(pack.join("ann").join("big.png"), vec![0x89u8; (PACK_PICTURE_MAX + 1) as usize]).unwrap();
         assert!(read_pack_picture_at(&pack, "ann/big.png").unwrap_err().contains("larger"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    fn temp_set_project(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("openstage-test-set-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("project.json"), "{}").unwrap();
+        dir
+    }
+
+    fn temp_stage(name: &str) -> PathBuf {
+        let stage = sets_stage_root().join(format!("test-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&stage);
+        fs::create_dir_all(stage.join("assets").join("images")).unwrap();
+        fs::write(stage.join("assets").join("images").join("room.png"), b"png bytes").unwrap();
+        fs::create_dir_all(stage.join("assets").join("captions")).unwrap();
+        fs::write(stage.join("assets").join("captions").join("talk.vtt"), b"WEBVTT").unwrap();
+        stage
+    }
+
+    #[test]
+    fn a_file_of_an_unpacked_set_is_copied_into_the_project_under_a_name_not_taken_and_nothing_else_is() {
+        let project = temp_set_project("copy");
+        let stage = temp_stage("copy");
+        let canon = fs::canonicalize(&stage).unwrap();
+        assert_eq!(copy_set_asset_at(&canon, &project, "assets/images/room.png").unwrap(), "assets/images/room.png");
+        assert_eq!(copy_set_asset_at(&canon, &project, "assets/images/room.png").unwrap(), "assets/images/room-2.png", "never over a file that is there");
+        assert_eq!(copy_set_asset_at(&canon, &project, "assets/captions/talk.vtt").unwrap(), "assets/captions/talk.vtt");
+        assert_eq!(fs::read(project.join("assets").join("images").join("room-2.png")).unwrap(), b"png bytes");
+        for bad in ["assets/images/../../x.png", "assets/other/room.png", "images/room.png", "assets/images/.hidden.png", "assets/images/room.exe", "assets/images/missing.png", "/etc/x.png", "assets\\images\\room.png", ""] {
+            assert!(copy_set_asset_at(&canon, &project, bad).is_err(), "{bad}");
+        }
+        assert!(copy_set_asset_at(&canon, &stage, "assets/images/room.png").is_err(), "not a project");
+        let _ = fs::remove_dir_all(&stage);
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn only_a_folder_made_for_a_set_can_be_named_as_where_it_was_unpacked_and_taken_away() {
+        let stage = temp_stage("discard");
+        assert!(set_stage_dir(&stage.to_string_lossy()).is_ok());
+        let elsewhere = std::env::temp_dir().join(format!("openstage-test-elsewhere-{}", std::process::id()));
+        fs::create_dir_all(&elsewhere).unwrap();
+        assert!(set_stage_dir(&elsewhere.to_string_lossy()).is_err(), "a folder that is not in the stage folder");
+        assert!(set_stage_dir(&sets_stage_root().to_string_lossy()).is_err(), "the stage folder itself");
+        assert!(set_stage_dir(&stage.join("assets").to_string_lossy()).is_err(), "a folder inside one");
+        assert!(set_stage_dir("C:/Windows").is_err());
+        set_discard(stage.to_string_lossy().into_owned()).unwrap();
+        assert!(!stage.exists());
+        assert!(elsewhere.exists(), "and nothing else was touched");
+        let _ = fs::remove_dir_all(&elsewhere);
+    }
+
+    #[test]
+    fn the_real_tool_makes_a_set_from_an_example_and_reads_it_back_and_a_bad_file_is_refused_in_words() {
+        if Command::new(tools_python()).arg("--version").output().is_err() {
+            eprintln!("skipped: no Python to run tools/slideset.py");
+            return;
+        }
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+        let out = std::env::temp_dir().join(format!("openstage-test-set-{}.osset", std::process::id()));
+        let _ = fs::remove_file(&out);
+        let example = repo.join("examples").join("conversation.osproj");
+        let made = run_json_tool("slideset.py", &["make", &example.to_string_lossy(), "--slides", "slide-001,slide-002", "--out", &out.to_string_lossy(), "--title", "Test set", "--licence", "Free to use"]).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&made).unwrap();
+        assert_eq!(v["ok"], true, "{made}");
+        assert_eq!(v["assets"].as_array().unwrap().len(), 5);
+        let stage = sets_stage_root().join(format!("test-read-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&stage);
+        fs::create_dir_all(&stage).unwrap();
+        let read = run_json_tool("slideset.py", &["read", &out.to_string_lossy(), "--stage", &stage.to_string_lossy()]).unwrap();
+        let r: serde_json::Value = serde_json::from_str(&read).unwrap();
+        assert_eq!(r["ok"], true, "{read}");
+        assert_eq!(r["slides"].as_array().unwrap().len(), 2);
+        let project = temp_set_project("real");
+        let first = r["assets"][0]["path"].as_str().unwrap();
+        let copied = copy_set_asset_at(&fs::canonicalize(&stage).unwrap(), &project, first).unwrap();
+        assert!(project.join(&copied).is_file());
+        let junk = std::env::temp_dir().join(format!("openstage-test-junk-{}.osset", std::process::id()));
+        fs::write(&junk, b"not a zip file").unwrap();
+        let bad = run_json_tool("slideset.py", &["check", &junk.to_string_lossy()]).unwrap();
+        let b: serde_json::Value = serde_json::from_str(&bad).unwrap();
+        assert_eq!(b["ok"], false);
+        assert!(b["message"].as_str().unwrap().contains("not a zip file"));
+        for p in [&out, &junk] {
+            let _ = fs::remove_file(p);
+        }
+        let _ = fs::remove_dir_all(&stage);
+        let _ = fs::remove_dir_all(&project);
     }
 
     #[test]

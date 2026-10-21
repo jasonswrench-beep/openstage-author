@@ -68,6 +68,8 @@ import { chooseFromLibrary } from "./packdialog.ts";
 import { choosePoses as choosePosesDialog } from "./posedialog.ts";
 import { creditForBackground, creditForPicture, creditForSlidePicture, slidePictures } from "./packs.ts";
 import { insertReference, valueChoices } from "./values.ts";
+import { askAddSet, askShare } from "./setdialog.ts";
+import { sizeWords } from "./slidesets.ts";
 import { referencesIn } from "../../player/src/valuetext.ts";
 import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
@@ -193,6 +195,8 @@ export class App {
   private readonly changeLayoutBtn: HTMLButtonElement;
   private readonly deleteSlideBtn: HTMLButtonElement;
   private readonly duplicateSlideBtn: HTMLButtonElement;
+  private readonly shareSlidesBtn: HTMLButtonElement;
+  private readonly slidesFromFileBtn: HTMLButtonElement;
   private readonly slideUpBtn: HTMLButtonElement;
   private readonly slideDownBtn: HTMLButtonElement;
   private readonly layerSelect: HTMLSelectElement;
@@ -272,11 +276,14 @@ export class App {
     this.changeLayoutBtn = this.small("Change layout", "Choose a different layout for this slide", () => void this.changeLayout());
     this.deleteSlideBtn = this.small("Delete slide", "Delete this slide (Delete key in the list)", () => this.deleteSlide());
     this.duplicateSlideBtn = this.small("Duplicate slide", "Make a copy of this slide straight after it (Ctrl+D in the list)", () => this.duplicateSlide());
+    this.shareSlidesBtn = this.small("Share slides...", "Save slides, with what they need, as one file to give to someone else", () => void this.shareSlides());
+    this.slidesFromFileBtn = this.small("Add slides from a file...", "Add slides someone gave you as one file after this slide", () => void this.addSlidesFromFile());
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("h2", { id: "slides-h", text: "Slides" }),
       h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
+      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
       this.slideList);
 
     // Canvas and layers
@@ -791,6 +798,85 @@ export class App {
       document.getElementById(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : goTo.cue ? `p-desc-${goTo.cue.id}-narration-script` : goTo.line ? `p-sc-line-${goTo.line.id}-narration-script` : "p-narration-script")?.focus();
     } else {
       this.narrationBtn.focus();
+    }
+  }
+
+  /** Save slides, with what they need, as one file to give to someone else (see docs/slide-sets.md). */
+  private async shareSlides(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const choice = await askShare({ slides: m.slides.map((s) => ({ id: s.id, name: s.name })), current: m.slide?.id ?? "", author: m.project.meta.author });
+    this.shareSlidesBtn.focus();
+    if (!choice) return;
+    try {
+      const out = await backend.pickSetSave(`${choice.title.replace(/[^A-Za-z0-9 _-]+/g, "").trim() || "slides"}.osset`);
+      if (!out) return;
+      // The set is made from what is saved, so what is on the screen is saved first.
+      if ((await this.writeChanges()) === null) return;
+      const made = await backend.setMake(m.dir, { slides: choice.slides, title: choice.title, author: choice.author, licence: choice.licence, description: choice.description }, out);
+      if (!made.ok) {
+        this.announce(`The set could not be made. ${made.message}`);
+        window.alert(`The set could not be made.
+
+${made.message}`);
+        return;
+      }
+      const v = made.value;
+      this.announce(`Saved ${v.slides} ${v.slides === 1 ? "slide" : "slides"}${v.assets > 0 ? ` and ${v.assets} ${v.assets === 1 ? "file" : "files"}` : ""} as a set, ${sizeWords(v.bytes)}, in ${out}.${v.dropped > 0 ? ` ${v.dropped} ${v.dropped === 1 ? "way" : "ways"} to a slide you did not choose ${v.dropped === 1 ? "was" : "were"} left out.` : ""} Give that one file to someone else, who adds it with Add slides from a file.`);
+    } catch (err) {
+      this.announce(`The set could not be made. ${errorText(err)}`);
+      window.alert(`The set could not be made.
+
+${errorText(err)}`);
+    }
+  }
+
+  /** Add slides someone gave you as one file, after the slide being edited. Everything is checked first. */
+  private async addSlidesFromFile(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    let stage = "";
+    try {
+      const file = await backend.pickSetFile();
+      if (!file) {
+        this.slidesFromFileBtn.focus();
+        return;
+      }
+      this.announce("Checking the set...");
+      const read = await backend.setRead(file);
+      if (!read.ok) {
+        this.announce(`That set cannot be added. ${read.message}`);
+        window.alert(`That set cannot be added.
+
+${read.message}`);
+        this.slidesFromFileBtn.focus();
+        return;
+      }
+      stage = read.value.stage;
+      const yes = await askAddSet(read.value, m.slide?.name ?? "");
+      if (!yes) {
+        this.slidesFromFileBtn.focus();
+        return;
+      }
+      const pictures = new Map<string, string>();
+      for (const a of read.value.assets) pictures.set(a.path, await backend.setUseAsset(stage, m.dir, a.path));
+      const made = m.addSlideSet(read.value, pictures);
+      if (typeof made === "string") {
+        this.announce(`That set cannot be added. ${made}`);
+        window.alert(`That set cannot be added.
+
+${made}`);
+        return;
+      }
+      this.announce(`Added ${read.value.set.title}: ${made.slides.length} ${made.slides.length === 1 ? "slide" : "slides"}, starting with ${made.slides[0]!.name}. ${made.notes.join(" ")} Press Control Z to undo it all at once.`);
+      this.refocus(`slide:${made.slides[0]!.id}`);
+    } catch (err) {
+      this.announce(`That set could not be added. ${errorText(err)}`);
+      window.alert(`That set could not be added.
+
+${errorText(err)}`);
+    } finally {
+      if (stage) void backend.setDiscard(stage).catch(() => undefined);
     }
   }
 
@@ -2025,6 +2111,8 @@ export class App {
     this.setEnabled(this.slideDownBtn, !!m && idx >= 0 && idx < m.slides.length - 1);
     this.setEnabled(this.deleteLayerBtn, !!m && m.sel.layerId !== m.slide?.baseLayer.id);
     this.setEnabled(this.duplicateSlideBtn, !!m);
+    this.setEnabled(this.shareSlidesBtn, !!m);
+    this.setEnabled(this.slidesFromFileBtn, !!m);
     this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
     const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
     this.setEnabled(this.layerEarlierBtn, layerAt > 0);
