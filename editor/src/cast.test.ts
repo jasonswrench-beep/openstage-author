@@ -22,7 +22,7 @@ function fresh(): Model {
 }
 
 /** Kathy, as the pack that comes with the program describes her, with her head picture copied in under a made-up project path. */
-function kathy(src = "assets/images/kathy.png") {
+function kathy(src = "assets/images/kathy.webp") {
   const pack = JSON.parse(readFileSync(path.join(BUNDLED, "openstage-people-1", "pack.json"), "utf-8")) as Record<string, unknown>;
   const listed = parsePackList(JSON.stringify({ packs: [{ ...pack, source: "bundled", folder: "openstage-people-1" }], broken: [] })).packs[0]!;
   const person = listed.people.find((p) => p.id === "kathy")!;
@@ -83,7 +83,7 @@ test("a cast and its credit pass the real validator, and the credit is complete"
     mkdirSync(path.join(dir, "slides"));
     mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
     for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
-    copyFileSync(path.join(BUNDLED, "openstage-people-1", "kathy", "head.png"), path.join(dir, "assets", "images", "kathy.png"));
+    copyFileSync(path.join(BUNDLED, "openstage-people-1", "kathy", "head.webp"), path.join(dir, "assets", "images", "kathy.webp"));
     const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
     const found = JSON.parse(r.stdout) as { severity: string; rule: string }[];
     assert.deepEqual(found.filter((f) => f.severity === "error"), []);
@@ -96,8 +96,8 @@ test("a cast and its credit pass the real validator, and the credit is complete"
 // ---- poses (format 0.29.0)
 
 const POSES = [
-  { id: "welcome", label: "Waving hello", src: "assets/images/kathy-welcome.png" },
-  { id: "think", label: "Thinking, hand to chin", src: "assets/images/kathy-think.png" },
+  { id: "welcome", label: "Waving hello", src: "assets/images/kathy-welcome.webp" },
+  { id: "think", label: "Thinking, hand to chin", src: "assets/images/kathy-think.webp" },
 ];
 
 /** A project with Kathy (with two poses) and Ken (with none), and one scenario. */
@@ -214,7 +214,7 @@ test("a project with poses passes the real validator, and a line's pose that is 
     mkdirSync(path.join(dir, "slides"));
     mkdirSync(path.join(dir, "assets", "images"), { recursive: true });
     for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
-    for (const name of ["kathy.png", "kathy-welcome.png", "kathy-think.png"]) copyFileSync(path.join(BUNDLED, "openstage-people-1", "kathy", "head.png"), path.join(dir, "assets", "images", name));
+    for (const name of ["kathy.webp", "kathy-welcome.webp", "kathy-think.webp"]) copyFileSync(path.join(BUNDLED, "openstage-people-1", "kathy", "head.webp"), path.join(dir, "assets", "images", name));
     assert.deepEqual(validate().filter((f) => f.severity === "error"), []);
     // Break it by hand: the line asks for a pose Kathy does not have.
     (c().nodes[0]!.lines[0]! as { pose?: string }).pose = "dancing";

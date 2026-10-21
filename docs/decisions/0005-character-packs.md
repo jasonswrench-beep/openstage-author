@@ -21,7 +21,7 @@ The cast of a course had a picture maker: a cartoon person drawn from a few choi
 
 ## The first pack
 
-`character-packs/openstage-people-1` holds Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf, from Jason's fifteen sets (about 300 pictures after leaving out the ones named below; the last ten sets came later, the same day; Jason sent the final four together as "the last four"), made smaller and cut to a common frame by `tools/make_character_pack.py` from the source file `character-packs-src/openstage-people-1.json`. It is 36 MB (PNG: a pure-Python tool cannot write WebP, which would be about a quarter of that; this can change without changing the format, which allows both).
+`character-packs/openstage-people-1` holds Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf, from Jason's fifteen sets (about 300 pictures after leaving out the ones named below; the last ten sets came later, the same day; Jason sent the final four together as "the last four"), made smaller and cut to a common frame by `tools/make_character_pack.py` from the source file `character-packs-src/openstage-people-1.json`. It is 8 MB (WebP, made with FFmpeg at quality 85, which a person cannot tell from the PNG at this size; as PNG it was 36 MB and the installer 78 MB. The tool writes PNG with nothing but Python, and WebP when FFmpeg is on the computer (`--webp`). FFmpeg is used only at the moment the pack's files are made, as a tool; the files are plain WebP and nothing of it is in the program or its installer, so the rule that FFmpeg is not part of the product holds.)
 
 Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's zip and a white-background reference picture in Kathy's, which were reference material and not output (Jason confirmed they were put in the zips by mistake and that no picture was uploaded to Ideogram: a couple were put through another tool to get a plain description to base two of the characters on); a copy saved twice in David's zip and in Jacob's; one picture in Lisa's zip that is the same as another, and one in Gerry's.
 
@@ -37,5 +37,4 @@ Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's
 * A line spoken by "you" cannot be given a pose in the editor (who the learner chose is only known when the course is played). The format allows it.
 * Downloading a pack from the web. The zip file is the way in until there is a place to download from.
 * The full-length picture on a slide from the library (poses give it).
-* WebP pictures in a pack: allowed by the format and the checks, not made by the tool.
 * A screen reader pass over the library dialog (`docs/screen-reader-pass.md` names it; it needs a person with NVDA or Narrator).

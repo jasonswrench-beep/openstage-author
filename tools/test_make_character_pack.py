@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the tool that makes a character pack from a folder of pictures."""
 import json
+import os
 import pathlib
+import random
 import shutil
 import sys
 import tempfile
@@ -145,6 +147,103 @@ class Making(unittest.TestCase):
         self.source["people"][0]["id"] = "Bad Id"
         self.write()
         self.assertEqual(m.main([str(self.path), "--out", str(self.out), "--jobs", "0"]), 1)
+
+
+@unittest.skipUnless(m.find_ffmpeg(), "needs FFmpeg on this computer")
+class MakingWebP(Making):
+    """The same pack, written as WebP pictures by FFmpeg."""
+
+    def test_the_pictures_are_real_webp_and_smaller_and_the_pack_passes_the_check(self):
+        # A flat block squeezes to nothing either way; a person is made of fine detail, so the pictures here are noisy (the same every time).
+        rng = random.Random(7)
+        for name, box in (("_aaa111_x_cover.png", (40, 20, 80, 180)), ("_bbb222_y_cover.png", (30, 20, 100, 180)), ("_ccc333_z_cover.png", (40, 10, 80, 180))):
+            px = bytearray(W * H * 4)
+            for y in range(box[1], box[3]):
+                for x in range(box[0], box[2]):
+                    px[(y * W + x) * 4:(y * W + x) * 4 + 4] = bytes((rng.randrange(256), rng.randrange(256), rng.randrange(256), 255))
+            (self.dir / "raw" / "Ann" / name).write_bytes(pngio.write_png(W, H, px))
+        shutil.copyfile(self.dir / "raw" / "Ann" / "_ccc333_z_cover.png", self.dir / "raw" / "Ann" / "_ccc333_z_cover (1).png")
+        png_out, _ = self.make()
+        png_total = sum(f.stat().st_size for f in png_out.rglob("*.png"))
+        shutil.rmtree(self.out)
+        out, lines = self.make(pictures="webp")
+        manifest = charpack.check_pack(out)
+        files = [f for f in (out / "ann").iterdir()]
+        self.assertEqual(sorted(f.name for f in files), ["head.webp", "neutral.webp", "present-right.webp", "welcome.webp"])
+        for f in files:
+            data = f.read_bytes()
+            self.assertEqual((data[:4], data[8:12]), (b"RIFF", b"WEBP"), f.name)
+        self.assertEqual([x["file"] for x in manifest["people"][0]["poses"]], ["ann/neutral.webp", "ann/present-right.webp", "ann/welcome.webp"])
+        self.assertEqual(manifest["people"][0]["head"], "ann/head.webp")
+        self.assertEqual(charpack.picture_size("x.webp", (out / "ann" / "neutral.webp").read_bytes()[:64]), (45, 100))
+        self.assertEqual(charpack.picture_size("x.webp", (out / "ann" / "head.webp").read_bytes()[:64]), (32, 32))
+        self.assertLess(sum(f.stat().st_size for f in out.rglob("*.webp")), png_total, "WebP is smaller")
+
+    def test_a_picture_keeps_its_clear_background(self):
+        out, _ = self.make(pictures="webp")
+        data = (out / "ann" / "neutral.webp").read_bytes()
+        self.assertIn(b"VP8X", data[:16], "an extended WebP, the kind that holds clear points")
+        self.assertIn(b"ALPH", data, "and it has its clear points")
+
+    def test_changing_the_kind_of_picture_leaves_none_of_the_old_ones_behind(self):
+        self.make()
+        out, _ = self.make(pictures="webp")
+        self.assertEqual([f.suffix for f in (out / "ann").iterdir()], [".webp"] * 4)
+        out, _ = self.make(pictures="png")
+        self.assertEqual([f.suffix for f in (out / "ann").iterdir()], [".png"] * 4)
+        self.assertEqual(charpack.check_pack(out)["people"][0]["head"], "ann/head.png")
+
+    def test_the_source_file_can_ask_for_webp_and_the_command_line_can_say_png_instead(self):
+        self.source["pictures"] = "webp"
+        self.source["webpQuality"] = 70
+        self.write()
+        out, _ = self.make()
+        self.assertTrue((out / "ann" / "head.webp").is_file())
+        self.assertNotIn("pictures", json.loads((out / "pack.json").read_text(encoding="utf-8")), "a word for this tool is not in the pack")
+        out, _ = self.make(pictures="png")
+        self.assertTrue((out / "ann" / "head.png").is_file())
+        self.assertFalse((out / "ann" / "head.webp").exists())
+
+
+class WebPNeedsFFmpeg(unittest.TestCase):
+    def setUp(self):
+        self.dir = pathlib.Path(tempfile.mkdtemp(prefix="openstage-make-"))
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        raw = self.dir / "raw" / "Ann"
+        raw.mkdir(parents=True)
+        (raw / "_aaa111_x_cover.png").write_bytes(figure(40, 20, 80, 180))
+        self.path = self.dir / "src.json"
+        self.path.write_text(json.dumps({
+            "id": "made-people", "title": "Made people", "version": "1.0.0", "folder": "raw", "poseHeight": 100, "headSize": 32,
+            "credit": {"creator": "A. Maker", "licence": "Free to use", "url": "https://example.org"},
+            "people": [{"id": "ann", "name": "Ann", "alt": "Ann.", "folder": "Ann", "poses": [{"id": "neutral", "file": "_aaa", "label": "Standing", "alt": "Ann standing."}]}],
+        }), encoding="utf-8")
+
+    def test_without_ffmpeg_it_says_so_and_png_still_works(self):
+        saved = os.environ.pop("OPENSTAGE_FFMPEG", None)
+        self.addCleanup(lambda: os.environ.__setitem__("OPENSTAGE_FFMPEG", saved) if saved else None)
+        original = m.find_ffmpeg
+        m.find_ffmpeg = lambda: None
+        self.addCleanup(setattr, m, "find_ffmpeg", original)
+        with self.assertRaises(m.MakeError) as ctx:
+            m.make(self.path, self.dir / "out", say=lambda _: None, pictures="webp")
+        self.assertIn("needs FFmpeg", str(ctx.exception))
+        self.assertIn("Leave out --webp", str(ctx.exception))
+        m.make(self.path, self.dir / "out", say=lambda _: None, pictures="png")
+        self.assertTrue((self.dir / "out" / "ann" / "head.png").is_file())
+
+    def test_a_program_that_is_not_ffmpeg_is_not_taken_for_it(self):
+        saved = os.environ.get("OPENSTAGE_FFMPEG")
+        os.environ["OPENSTAGE_FFMPEG"] = sys.executable
+        self.addCleanup(lambda: os.environ.pop("OPENSTAGE_FFMPEG", None) if saved is None else os.environ.__setitem__("OPENSTAGE_FFMPEG", saved))
+        with self.assertRaises(m.MakeError) as ctx:
+            m.make(self.path, self.dir / "out", say=lambda _: None, pictures="webp")
+        self.assertIn("did not make a WebP picture", str(ctx.exception))
+
+    def test_a_kind_of_picture_that_does_not_exist_is_refused(self):
+        with self.assertRaises(m.MakeError) as ctx:
+            m.make(self.path, self.dir / "out", say=lambda _: None, pictures="gif")
+        self.assertIn("png", str(ctx.exception))
 
 
 if __name__ == "__main__":

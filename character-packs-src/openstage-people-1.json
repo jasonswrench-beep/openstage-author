@@ -12,6 +12,8 @@
   "folder": "raw",
   "poseHeight": 560,
   "headSize": 256,
+  "pictures": "webp",
+  "webpQuality": 85,
   "people": [
     {
       "id": "aisyah",

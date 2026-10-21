@@ -52,9 +52,9 @@ A pack is a folder (or a zip file holding that folder, or its contents):
 openstage-people-1/
   pack.json
   kathy/
-    head.png          the head and shoulders, square
-    neutral.png       a pose: the whole person, every pose of a person cut to the same frame
-    welcome.png
+    head.webp         the head and shoulders, square
+    neutral.webp      a pose: the whole person, every pose of a person cut to the same frame
+    welcome.webp
     ...
   ken/
     ...
@@ -82,9 +82,9 @@ openstage-people-1/
       "role": "",
       "voice": "female",
       "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair.",
-      "head": "kathy/head.png",
+      "head": "kathy/head.webp",
       "poses": [
-        { "id": "neutral", "label": "Seated, relaxed", "alt": "Kathy, ..., seated with hands together in the lap, smiling.", "file": "kathy/neutral.png" }
+        { "id": "neutral", "label": "Seated, relaxed", "alt": "Kathy, ..., seated with hands together in the lap, smiling.", "file": "kathy/neutral.webp" }
       ]
     }
   ]
@@ -107,7 +107,7 @@ openstage-people-1/
 | person `head` | The square head-and-shoulders picture, a place inside the pack. |
 | person `poses` | 0 to 40 poses. A pose has an `id` (unique for the person), a `label` (what a menu says, up to 60 letters), an `alt` (the person in that pose, in words, starting with who they are) and a `file`. |
 
-Pictures are PNG or WebP, with a clear background (a cut-out), and every pose of one person has the same size and is cut to the same frame, so that changing pose does not make them jump. Places inside the pack are up to three plain names joined by `/`.
+Pictures are PNG or WebP, with a clear background (a cut-out), and every pose of one person has the same size and is cut to the same frame, so that changing pose does not make them jump. The pack that comes with the program is WebP, about a quarter of the size of the same pictures as PNG and the same to the eye. Places inside the pack are up to three plain names joined by `/`.
 
 ### Pose names
 
@@ -128,11 +128,11 @@ A pack may name its poses as it likes, but the same words mean the same thing fr
 
 ## Making a pack of your own
 
-You need a folder for each person with one PNG for each pose: the person on a **transparent background**, all the same size, which is what a picture service gives you if you ask for a cut-out. `tools/make_character_pack.py` does the rest. It needs nothing but Python.
+You need a folder for each person with one PNG for each pose: the person on a **transparent background**, all the same size, which is what a picture service gives you if you ask for a cut-out. `tools/make_character_pack.py` does the rest. It needs nothing but Python for PNG pictures; for WebP pictures (`--webp`, much smaller) it also uses FFmpeg, which has to be on the computer already (on the PATH, or named in the `OPENSTAGE_FFMPEG` setting). FFmpeg is only used to make the files: what comes out is plain WebP, and nothing of FFmpeg is part of OpenStage Author.
 
 1. Put each person's pictures in a folder named for them, and all those folders in one folder.
 2. Write a source file: a `pack.json` as above, with the words for every person and pose, plus a few lines for the tool. In each pose, `file` is the **start of the picture's file name**, enough to tell it from the others, instead of a place in the finished pack. `character-packs-src/openstage-people-1.json` is the real example.
-   * top level: `folder` (where the people's folders are, written from the source file's folder; or give `--raw` on the command line), `poseHeight` (how tall a pose is made, in points; default 560) and `headSize` (the head picture's size; default 256).
+   * top level: `folder` (where the people's folders are, written from the source file's folder; or give `--raw` on the command line), `poseHeight` (how tall a pose is made, in points; default 560) `headSize` (the head picture's size; default 256), `pictures` (`png`, the default, or `webp`; `--webp` and `--png` on the command line say it instead) and `webpQuality` (1 to 100; default 85).
    * each person: `folder` (default their `id`), `default` (the pose the head picture is cut from; default `neutral`) and optionally `headBox`, `[left, top, size]` in points of the original picture, to say exactly where the head picture is cut from.
 3. Run it:
 

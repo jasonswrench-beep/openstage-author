@@ -4619,6 +4619,9 @@ mod tests {
         let mut png = vec![0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
         png.extend_from_slice(b"not really a picture, but it starts like one");
         fs::write(pack.join("ann").join("head.png"), &png).unwrap();
+        let mut webp = b"RIFF    WEBPVP8X".to_vec();
+        webp.extend_from_slice(b"not really a picture, but it starts like one");
+        fs::write(pack.join("ann").join("pose.webp"), &webp).unwrap();
         fs::write(pack.join("ann").join("fake.png"), b"<script>alert(1)</script>").unwrap();
         fs::write(pack.join("secret.txt"), "not a picture").unwrap();
         (root, pack)
@@ -4654,6 +4657,8 @@ mod tests {
         assert_eq!(mime, "image/png");
         assert!(bytes.starts_with(&[0x89, 0x50]));
         assert!(pack_picture_data_url(&pack, "ann/head.png").unwrap().starts_with("data:image/png;base64,"));
+        assert_eq!(read_pack_picture_at(&pack, "ann/pose.webp").unwrap().1, "image/webp");
+        assert!(pack_picture_data_url(&pack, "ann/pose.webp").unwrap().starts_with("data:image/webp;base64,"));
         for bad in [
             "", "ann", "ann/", "../people/ann/head.png", "ann/../ann/head.png", "/ann/head.png", "ann\\head.png", "C:/x.png", "ann/.head.png",
             "ann/head.gif", "secret.txt", "ann/fake.png", "ann/missing.png", "a/b/c/d.png", "ann/head.png/",
@@ -4687,7 +4692,7 @@ mod tests {
         // The page may then ask for a picture of that pack, and only of it.
         let folder = packs[0]["folder"].as_str().unwrap();
         let head = packs[0]["people"][0]["head"].as_str().unwrap();
-        assert!(pack_picture_data_url(&bundled.join(folder), head).unwrap().starts_with("data:image/png;base64,"));
+        assert!(pack_picture_data_url(&bundled.join(folder), head).unwrap().starts_with("data:image/webp;base64,"), "the pack that comes with the program is WebP");
         // Something that is not a zip file is refused in words, and nothing is made.
         let fake = std::env::temp_dir().join(format!("openstage-test-fake-{}.zip", std::process::id()));
         fs::write(&fake, "not a zip").unwrap();
@@ -4710,6 +4715,7 @@ mod tests {
         let second = copy_pack_picture_at(&project, &pack, "ann/head.png", "Ann Lee").unwrap();
         assert_eq!(second, "assets/images/Ann-Lee-2.png");
         assert_eq!(copy_pack_picture_at(&project, &pack, "ann/head.png", "../../x").unwrap(), "assets/images/x.png");
+        assert_eq!(copy_pack_picture_at(&project, &pack, "ann/pose.webp", "Ann Lee").unwrap(), "assets/images/Ann-Lee.webp", "a WebP picture keeps being WebP");
         assert!(copy_pack_picture_at(&project, &pack, "ann/fake.png", "x").is_err());
         assert!(copy_pack_picture_at(&root, &pack, "ann/head.png", "x").is_err(), "not a project");
         let _ = fs::remove_dir_all(&root);
