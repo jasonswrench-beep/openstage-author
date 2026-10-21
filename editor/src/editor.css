@@ -91,6 +91,45 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .dialog h2 { margin: 0 0 10px; font-size: 18px; }
 .dialog .field { grid-template-columns: 11em 1fr; margin: 8px 0; }
 .dialog-actions { display: flex; gap: 10px; margin-top: 14px; }
+.recording-editor { width: min(1400px, 98vw); height: 96vh; max-height: 96vh; overflow: auto; }
+.recording-editor[open] { display: flex; flex-direction: column; }
+.recording-editor > p { margin: 4px 0; font-size: 0.875rem; }
+.recording-editor .re-host { margin-top: 4px; flex: 1; min-height: 34rem; }
+.recording-editor .re-host .os-ed { --os-ed-height: 100%; height: 100%; }
+.recording-editor [hidden] { display: none !important; }
+/* The editor gives every dialog button a roomy padding and a plain font size; the editing screens tool bar is meant to be compact. */
+.recording-editor button.os-tl-tool { padding: 0.2rem 0.5rem; font-size: 0.875rem; }
+.recorder-dialog [hidden] { display: none !important; }
+.recorder-dialog fieldset { margin: 10px 0; border: 1px solid #cfd4db; padding: 6px 12px 10px; }
+.recorder-dialog legend { font-weight: 600; padding: 0 6px; }
+.recorder-dialog h3 { margin: 14px 0 6px; font-size: 16px; }
+.recorder-dialog h4 { margin: 10px 0 4px; font-size: 14px; }
+.recorder-dialog .rc-list { list-style: none; margin: 8px 0; padding: 0; }
+.recorder-dialog .rc-list li { padding: 6px 0; border-top: 1px solid #cfd4db; }
+.recorder-dialog .rc-pass { color: #1e6b2f; }
+.recorder-dialog .rc-problem { color: #8a1c1c; }
+.recorder-dialog #rc-status { font-weight: 600; margin: 10px 0 4px; }
+.captions-dialog [hidden] { display: none !important; }
+.captions-dialog fieldset { margin: 10px 0; border: 1px solid #cfd4db; padding: 6px 12px 10px; }
+.captions-dialog legend { font-weight: 600; padding: 0 6px; }
+.captions-dialog h3 { margin: 14px 0 6px; font-size: 16px; }
+.captions-dialog .cap-player video, .captions-dialog .cap-player audio { display: block; width: 100%; max-height: 40vh; background: #000; }
+.captions-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.captions-dialog .cap-warn { color: #8a1c1c; margin: 4px 0; }
+.captions-dialog .rc-list { list-style: none; margin: 8px 0; padding: 0; color: #8a1c1c; }
+.captions-dialog .cap-estimated { border-left: 4px solid #8a5a00; padding: 4px 10px; background: #fff7e6; color: #1a1a1a; }
+.steps-dialog [hidden] { display: none !important; }
+.steps-dialog fieldset { margin: 10px 0; border: 1px solid #cfd4db; padding: 6px 12px 10px; }
+.steps-dialog legend { font-weight: 600; padding: 0 6px; }
+.steps-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.steps-dialog .rc-list { list-style: none; margin: 8px 0; padding: 0; }
+.steps-dialog .field.check { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.steps-dialog .step-frame { position: relative; display: inline-block; max-width: 100%; margin: 6px 0; border: 1px solid #5c6470; line-height: 0; touch-action: none; }
+.steps-dialog .step-picture { display: block; max-width: 100%; max-height: 50vh; height: auto; }
+.steps-dialog .step-box { position: absolute; box-sizing: border-box; border: 3px solid #d4002a; background: rgba(212, 0, 42, .12); cursor: move; }
+.steps-dialog .step-box:focus { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.steps-dialog #st-status { font-weight: 600; margin: 10px 0 4px; }
+.captions-dialog #cap-status { font-weight: 600; margin: 10px 0 4px; }
 .dialog button, .welcome button { font: inherit; padding: 6px 16px; cursor: pointer; }
 .error-text { color: #8c1d18; font-weight: 600; min-height: 1.4em; margin: 8px 0 0; }
 
@@ -149,10 +188,29 @@ button.small:hover { background: #e3e6eb; }
 .cd-pic-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
 .cd-pic { flex: none; width: 72px; height: 72px; object-fit: cover; border-radius: 50%; border: 1px solid #c9ced6; background: #fff; }
 .cd-notes:empty { display: none; }
-.avatar-dialog { max-height: 92vh; overflow: auto; }
-.av-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; align-items: start; }
-.av-preview svg { width: 200px; height: 200px; border-radius: 50%; border: 1px solid #c9ced6; display: block; }
-.av-words { margin: 8px 0 0; font-weight: 600; max-width: 220px; }
+.library-dialog { max-height: 92vh; overflow: auto; }
+.lib-pack { margin: 14px 0; }
+.lib-people { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.lib-person { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #c9ced6; border-radius: 8px; padding: 10px; background: #fff; color: #1a1a1a; }
+.lib-pic { flex: none; width: 88px; height: 88px; object-fit: cover; object-position: top; border-radius: 50%; border: 1px solid #c9ced6; background: #fff; }
+.lib-body p { margin: 0 0 6px; }
+.lib-alt { font-size: 14px; }
+.lib-broken li { margin: 4px 0; }
+.bg-list { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.bg-card { display: flex; flex-direction: column; gap: 8px; border: 1px solid #c9ced6; border-radius: 8px; padding: 10px; background: #fff; color: #1a1a1a; min-width: 0; }
+.bg-pic { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid #c9ced6; background: #f0f1f4; }
+.cd-pose-list { margin: 4px 0 8px; padding-left: 1.4em; }
+.cd-pose-list li { margin: 4px 0; }
+.po-group { border: 1px solid #c9ced6; border-radius: 6px; padding: 8px 12px; margin: 10px 0; min-width: 0; }
+.po-group legend { font-weight: 600; padding: 0 4px; }
+.po-list { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.po-item { position: relative; display: flex; border: 1px solid #c9ced6; border-radius: 8px; background: #fff; color: #1a1a1a; }
+.po-item label { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 8px 8px 30px; width: 100%; cursor: pointer; }
+.po-item input { position: absolute; left: 8px; top: 10px; }
+.po-item:has(input:checked:not(:disabled)) { border-color: #1d3f8f; box-shadow: inset 0 0 0 2px #1d3f8f; }
+.po-pic { width: 130px; height: 112px; object-fit: cover; object-position: top center; border-radius: 6px; background: #f0f1f4; }
+.po-label { font-size: 14px; text-align: center; }
+.pose-dialog { max-height: 92vh; overflow: auto; }
 .ic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin: 8px 0; }
 .ic-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border: 1px solid #c9ced6; border-radius: 6px; background: #fff; color: #1a1a1a; font-size: 12px; cursor: pointer; }
 .ic-cell svg { width: 30px; height: 30px; }
@@ -178,7 +236,8 @@ button.small:hover { background: #e3e6eb; }
 .layout-card:hover .card-body { border-color: #1d2530; }
 .layout-card input:checked + .card-body { border-color: #0b3fb3; border-width: 3px; padding: 7px; background: #eef3ff; }
 .layout-card input:focus-visible + .card-body { outline: 3px solid #0b3fb3; outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
-.layout-card input:checked + .card-body .card-title::before { content: "\2713  "; color: #0b3fb3; }
+/* The tick is for the eye. The second content gives it no words of its own, so a screen reader does not read "check mark" as part of the name. */
+.layout-card input:checked + .card-body .card-title::before { content: "\2713  "; content: "\2713  " / ""; color: #0b3fb3; }
 
 .dialog.wide { max-height: 92vh; overflow: auto; scroll-padding-bottom: 80px; }
 .layout-group { font-size: 14px; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #8c929b; }
@@ -348,12 +407,11 @@ button.small:hover { background: #e3e6eb; }
   .dialog .field, .field { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .field.check { grid-template-columns: auto minmax(0, 1fr); }
   .layout-grid, .choice-grid, .theme-grid { grid-template-columns: minmax(0, 1fr); }
-  .as-split, .av-layout { grid-template-columns: minmax(0, 1fr); }
+  .as-split, .lib-people, .bg-list { grid-template-columns: minmax(0, 1fr); }
   .as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .as-toolbar input[type="search"] { min-width: 0; width: 100%; }
   .vr-row, .nr-row, .te-colour { grid-template-columns: minmax(0, 1fr); }
   .te-colours { grid-template-columns: minmax(0, 1fr); }
   .pron-row { grid-template-columns: minmax(0, 1fr); }
   .tl-row { grid-template-columns: 7em minmax(0, 1fr); }
-  .av-preview svg { width: 160px; height: 160px; }
 }

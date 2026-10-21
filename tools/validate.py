@@ -33,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 26, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 30, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -115,8 +115,12 @@ def _schema_findings(kind, rel, data):
         where = "/".join(str(p) for p in path) or "(top level)"
 
         if err.validator == "pattern" and tail == "altText":
+            waiting = ((obj or {}).get("accessibility") or {}).get("altSuggestion")
+            detail = ""
+            if isinstance(waiting, dict) and waiting.get("text"):
+                detail = f'A suggested description is waiting for you to check: "{str(waiting["text"])[:160]}". Use it, or write your own.'
             findings.append(Finding(ERROR, rel, oid, "alt-text-missing",
-                                    "Object needs alt text, or must be marked decorative"))
+                                    "Object needs alt text, or must be marked decorative", detail))
         elif err.validator == "maxLength" and tail == "altText":
             findings.append(Finding(ERROR, rel, oid, "alt-text-on-decorative",
                                     "Decorative objects should not carry alt text"))
@@ -435,6 +439,7 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
 
     for layer, obj in _objects(slide):
         oid = obj["id"]
+        _alt_suggestion(rel, obj, add)
         _hotspot(rel, obj, add)
         _click_needs_key(rel, obj, add)
         _contrast(rel, obj, add, theme, slide_bg)
@@ -452,6 +457,41 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _download(rel, obj, add)
         _description(rel, obj, add)
         _narration(rel, obj, add)
+        _bubble(rel, obj, add)
+
+
+BUBBLE_KINDS = ("speech", "thought")
+BUBBLE_TAILS = ("left", "right")
+
+
+def _bubble(rel, obj, add):
+    """A speech or thought bubble is a `shape` whose form is one (an empty bubble) or a `text` with a `bubble` (a bubble with words in it). Its tail, if it names one, is on
+    the left or the right. The player draws anything else as it would draw the plain version, so this is a mistake to correct rather than a broken course."""
+    content = obj["content"]
+    if obj["type"] == "text":
+        kind = content.get("bubble")
+        if "bubble" in content and kind not in BUBBLE_KINDS:
+            add(ERROR, rel, obj["id"], "bubble-invalid", "A text bubble is neither a speech nor a thought bubble",
+                f"Its bubble is {json.dumps(kind)}; it can be \"speech\" or \"thought\". Leave it out to have plain text.")
+            return
+        is_bubble = "bubble" in content
+    elif obj["type"] == "shape":
+        is_bubble = content.get("shape") in BUBBLE_KINDS
+    else:
+        return
+    if is_bubble and "tail" in content and content["tail"] not in BUBBLE_TAILS:
+        add(ERROR, rel, obj["id"], "bubble-invalid", "A bubble's tail is on neither side",
+            f"Its tail is {json.dumps(content['tail'])}; it can be \"left\" or \"right\".")
+
+
+def _alt_suggestion(rel, obj, add):
+    """A suggested description (format 0.28.0) is only ever a suggestion: the course ignores it, and a missing alt text is still an error. Once the object has its own
+    alt text, or is decorative, a suggestion that is still attached is left over, so it is reported to be tidied away."""
+    a = obj.get("accessibility") or {}
+    if a.get("altSuggestion") and (a.get("decorative") or (a.get("altText") or "").strip()):
+        add(WARNING, rel, obj["id"], "alt-suggestion-unused",
+            "A suggested description is still attached to an object that does not need one",
+            "Remove the suggestion, or clear the alt text if you would rather use it.")
 
 
 def _tab_order(rel, layer, add):
@@ -1005,7 +1045,8 @@ def _download(rel, obj, add):
 def _credits(project, assets_data, slides, asset_root, add):
     """The record of where assets came from. Entries are checked against the files and against the project's own setting."""
     entries = assets_data["assets"]
-    used = json.dumps(slides)
+    # A file is used if a slide names it, or a person in the cast has it as their picture (no slide names that).
+    used = json.dumps(slides) + json.dumps(project.get("characters") or [])
     seen = set()
     for e in entries:
         rel = "assets.json"
@@ -1164,6 +1205,15 @@ def _scenario(rel, obj, variables, cast, chosen, add):
         if speaker is not None and speaker != YOU and speaker not in cast:
             add(ERROR, rel, oid, "scenario-speaker-unknown", "A line is spoken by someone who is not in the cast",
                 f"The {where} is spoken by '{speaker}', who is not in the project's cast.")
+        pose = line.get("pose")
+        if pose is not None:
+            if speaker is None:
+                add(ERROR, rel, oid, "scenario-pose-narrator", "A line told by the narrator has a pose",
+                    f"The {where} is told by the narrator, who has no pictures. A pose belongs to a person in the cast.")
+            elif speaker in cast and pose not in {p["id"] for p in cast[speaker].get("poses", [])}:
+                add(ERROR, rel, oid, "scenario-pose-unknown", "A line shows its speaker in a pose they do not have",
+                    f"The {where} shows {cast[speaker]['name']} in the pose '{pose}', which {cast[speaker]['name']} does not have. Choose one of their poses, or none.")
+            # A line spoken by "you" shows the pose in the person the learner chose, if they have it; who that will be is not known here.
         voice = (line["narration"] or {}).get("voice")
         if voice and speaker in cast and cast[speaker]["voice"] != voice:
             add(WARNING, rel, oid, "scenario-voice-differs", "A line is not read in its speaker's voice",
@@ -1240,6 +1290,13 @@ def _characters(project, asset_root, add):
             target = (asset_root / picture["src"]).resolve()
             if asset_root.resolve() not in target.parents or not target.is_file():
                 add(ERROR, rel, pid, "asset-missing", "Asset missing", f"{picture['src']} does not exist in the project.")
+        pose_ids = [x["id"] for x in person.get("poses", [])]
+        for dup in sorted({i for i in pose_ids if pose_ids.count(i) > 1}):
+            add(ERROR, rel, pid, "character-pose-duplicate", "Two poses of one person have the same id", f"{person['name']} has more than one pose with the id '{dup}'.")
+        for pose in person.get("poses", []):
+            target = (asset_root / pose["src"]).resolve()
+            if asset_root.resolve() not in target.parents or not target.is_file():
+                add(ERROR, rel, pid, "asset-missing", "Asset missing", f"{pose['src']} does not exist in the project (the pose '{pose['id']}' of {person['name']}).")
 
 
 def _narration(rel, obj, add):

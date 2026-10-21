@@ -1,0 +1,69 @@
+{
+  "assets": [
+    {
+      "path": "assets/images/open-plan-1.webp",
+      "title": "Open-plan office, long desks and a window wall (background picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Made with Ideogram (AI-generated), in the public domain",
+        "requiresCredit": true
+      }
+    },
+    {
+      "path": "assets/images/lisa-explain-2.webp",
+      "title": "Lisa, explaining, hands raised (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Made with Ideogram (AI-generated), in the public domain",
+        "requiresCredit": true
+      }
+    },
+    {
+      "path": "assets/images/ken-think.webp",
+      "title": "Ken, thinking, hand to chin (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Made with Ideogram (AI-generated), in the public domain",
+        "requiresCredit": true
+      }
+    },
+    {
+      "path": "assets/images/lisa-think.webp",
+      "title": "Lisa, thinking, hand to chin (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Made with Ideogram (AI-generated), in the public domain",
+        "requiresCredit": true
+      }
+    },
+    {
+      "path": "assets/images/ken-explain.webp",
+      "title": "Ken, explaining, hands at the chest (character picture)",
+      "kind": "image",
+      "source": {
+        "provider": "other",
+        "url": "https://openstageauthor.com",
+        "creator": "Jason S. Wrench",
+        "creatorUrl": "https://openstageauthor.com",
+        "licence": "Made with Ideogram (AI-generated), in the public domain",
+        "requiresCredit": true
+      }
+    }
+  ]
+}

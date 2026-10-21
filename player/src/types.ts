@@ -67,6 +67,15 @@ export interface IconContent {
   shapes: IconShape[];
 }
 
+/** One more picture of a person, in a pose, to show with a line of a scenario. */
+export interface CharacterPose {
+  id: string;
+  /** What a menu says. */
+  label: string;
+  /** A file under assets/. */
+  src: string;
+}
+
 /** A person in the project's cast. See docs/format-spec.md. */
 export interface Character {
   id: string;
@@ -76,6 +85,10 @@ export interface Character {
   /** The narration voice that reads their lines. */
   voice: string;
   picture: { src: string; alt: string; decorative: boolean } | null;
+  /** More pictures of them, each in a pose. Absent means none. */
+  poses?: CharacterPose[];
+  /** Where they came from in the library of people (a character pack and a person in it), so the editor can offer more poses. The course never uses it. */
+  library?: { pack: string; person: string };
 }
 
 export type EventName =
@@ -344,6 +357,8 @@ export interface TableContent {
 export interface ScenarioLine {
   id: string;
   speaker: string | null;
+  /** The id of one of the speaker's poses, to show them in it instead of their picture. Absent or null means their picture. */
+  pose?: string | null;
   /** Plain text. */
   text: string;
   /** What the learner hears with the line. Its audio is found under itemNarrationKey (the object's id and the line's id). */
@@ -444,6 +459,13 @@ export interface ObjectAnimation {
   exit: Effect;
 }
 
+/** A description the computer worked out that the author has not approved (format 0.28.0). The course never uses it; the editor offers it to the author. */
+export interface AltSuggestion {
+  text: string;
+  /** What it was worked out from, in words the author can read. */
+  basis: string;
+}
+
 export interface OSObject {
   id: string;
   type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon";
@@ -451,7 +473,7 @@ export interface OSObject {
   geometry: { x: number; y: number; width: number; height: number; rotation: number; z: number };
   content: Record<string, unknown>;
   style: Style;
-  accessibility: { altText: string; role: string; tabOrder: number | null; decorative: boolean };
+  accessibility: { altText: string; role: string; tabOrder: number | null; decorative: boolean; altSuggestion?: AltSuggestion };
   states: Record<string, ObjectState>;
   triggers: Trigger[];
   timing: Timing;
@@ -539,6 +561,15 @@ export interface CaptureProvenance {
   sourceCapture: string;
   stepId: string;
   capturedAt?: string;
+  /** On a slide: what the Capture module made, so a lesson can be brought up to date. The player ignores it. */
+  base?: CaptureBase;
+}
+
+/** What the Capture module made for a step's slide: its name, the picture, and an id, layer and a fingerprint of each field for each thing made, by its part. */
+export interface CaptureBase {
+  name: string;
+  picture: { src: string; width: number; height: number; take: number; shotMs: number } | null;
+  objects: Record<string, { id: string; layer: string; fields: Record<string, string> }>;
 }
 
 export interface Slide {

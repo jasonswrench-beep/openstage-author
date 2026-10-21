@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.26.0",
+  "schemaVersion": "0.30.0",
   "meta": {
     "title": "A Missed Deadline",
     "author": "OpenStage examples",
@@ -44,8 +44,8 @@
       "role": "Team lead",
       "voice": "af_heart",
       "picture": {
-        "src": "assets/images/maya.svg",
-        "alt": "Maya, a woman with short dark hair in a green jacket",
+        "src": "assets/images/maya.png",
+        "alt": "Maya, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse.",
         "decorative": false
       }
     },
@@ -55,8 +55,8 @@
       "role": "Analyst on Maya's team",
       "voice": "am_adam",
       "picture": {
-        "src": "assets/images/alex.svg",
-        "alt": "Alex, a man with glasses in a yellow shirt",
+        "src": "assets/images/alex.png",
+        "alt": "Alex, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie.",
         "decorative": false
       }
     },
@@ -66,8 +66,8 @@
       "role": "Analyst on Maya's team",
       "voice": "af_sarah",
       "picture": {
-        "src": "assets/images/jordan.svg",
-        "alt": "Jordan, a person with short black hair in a blue shirt",
+        "src": "assets/images/jordan.png",
+        "alt": "Jordan, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair.",
         "decorative": false
       }
     }
@@ -75,7 +75,7 @@
   "theme": {
     "ref": "theme.json"
   },
-  "credits": false,
+  "credits": true,
   "completion": {
     "slides": "all"
   },

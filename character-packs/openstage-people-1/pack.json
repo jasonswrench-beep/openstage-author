@@ -1,0 +1,1923 @@
+{
+  "packVersion": 1,
+  "id": "openstage-people-1",
+  "title": "OpenStage people, set 1",
+  "version": "1.0.0",
+  "description": "Fifteen people in everyday work and casual clothes, each in many poses: Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf. The pictures were made with Ideogram from written descriptions.",
+  "credit": {
+    "creator": "Jason S. Wrench",
+    "creatorUrl": "https://openstageauthor.com",
+    "licence": "Made with Ideogram (AI-generated), in the public domain",
+    "url": "https://openstageauthor.com"
+  },
+  "people": [
+    {
+      "id": "aisyah",
+      "name": "Aisyah",
+      "role": "",
+      "voice": "female",
+      "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "aisyah/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "aisyah/neutral-2.webp",
+          "label": "Standing, calm",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-3",
+          "file": "aisyah/neutral-3.webp",
+          "label": "Standing, turned slightly",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned slightly, with arms down, smiling."
+        },
+        {
+          "id": "neutral-4",
+          "file": "aisyah/neutral-4.webp",
+          "label": "Standing, turned slightly, calm",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned slightly, with arms down, looking calm."
+        },
+        {
+          "id": "neutral-5",
+          "file": "aisyah/neutral-5.webp",
+          "label": "Standing, turned, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing turned to one side, with arms down, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "aisyah/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "aisyah/welcome-2.webp",
+          "label": "Waving, turned slightly",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, waving with one hand raised, turned slightly."
+        },
+        {
+          "id": "explain",
+          "file": "aisyah/explain.webp",
+          "label": "Explaining, both hands open",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with both hands open."
+        },
+        {
+          "id": "explain-2",
+          "file": "aisyah/explain-2.webp",
+          "label": "Explaining, hands out wide",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with both hands held out wide."
+        },
+        {
+          "id": "explain-3",
+          "file": "aisyah/explain-3.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, explaining with one hand raised near the chest, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "aisyah/offer.webp",
+          "label": "Offering, hand raised, palm up",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand up in front of the chest, palm up, smiling."
+        },
+        {
+          "id": "present-right",
+          "file": "aisyah/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "aisyah/present-right-2.webp",
+          "label": "Presenting, hand out to the right, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "aisyah/present-left.webp",
+          "label": "Presenting, both hands out to the left",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding both hands out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "aisyah/present-left-2.webp",
+          "label": "Presenting, hand out to the left",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, holding one hand out to the left, palm up, with the other hand raised near the chest."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "aisyah/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "aisyah/arms-crossed-2.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "aisyah/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "aisyah/think-2.webp",
+          "label": "Thinking, hand to chin, another look",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, resting a hand on the chin with the head tilted, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "aisyah/emphasis.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "aisyah/emphasis-2.webp",
+          "label": "Making a point, fist raised, turned",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, smiling, turned slightly, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "side",
+          "file": "aisyah/side.webp",
+          "label": "Seen from the side",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "aisyah/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Aisyah, a young woman with medium brown skin and long dark wavy hair, wearing a dark green blouse, black trousers and black loafers, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "aisyah/head.webp"
+    },
+    {
+      "id": "blayne",
+      "name": "Blayne",
+      "role": "",
+      "voice": "male",
+      "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "blayne/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "blayne/neutral-2.webp",
+          "label": "Standing, turned slightly",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing turned slightly, with arms down, smiling."
+        },
+        {
+          "id": "hand-in-pocket",
+          "file": "blayne/hand-in-pocket.webp",
+          "label": "Hand in pocket",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing turned slightly with one hand in a pocket, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "blayne/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "blayne/welcome-2.webp",
+          "label": "Waving, hand held up",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, waving with one hand held up, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "blayne/explain.webp",
+          "label": "Explaining, hands in front",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with both hands held in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "blayne/explain-2.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with one hand raised in front of the chest."
+        },
+        {
+          "id": "explain-3",
+          "file": "blayne/explain-3.webp",
+          "label": "Explaining, turned slightly",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with both hands out in front, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "blayne/offer.webp",
+          "label": "Offering, hand open",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "blayne/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "blayne/present-right-2.webp",
+          "label": "Presenting, arm out wide to the right",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "blayne/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out to the left, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "blayne/present-left-2.webp",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out wide to the left, palm up, pointing across with the other hand, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "blayne/arms-crossed.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "blayne/arms-crossed-2.webp",
+          "label": "Arms crossed, relaxed",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms crossed, looking relaxed."
+        },
+        {
+          "id": "think",
+          "file": "blayne/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "blayne/think-2.webp",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "blayne/emphasis.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "blayne/emphasis-2.webp",
+          "label": "Making a point, fist raised, leaning",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, smiling, leaning a little, with one hand raised in a loose fist."
+        },
+        {
+          "id": "side",
+          "file": "blayne/side.webp",
+          "label": "Turned away, looking back",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, turned away to one side, looking back over the shoulder."
+        },
+        {
+          "id": "side-2",
+          "file": "blayne/side-2.webp",
+          "label": "Seen from the side",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, seen from the side, standing, looking toward the viewer."
+        }
+      ],
+      "head": "blayne/head.webp"
+    },
+    {
+      "id": "daryl",
+      "name": "Daryl",
+      "role": "",
+      "voice": "male",
+      "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "daryl/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "daryl/neutral-2.webp",
+          "label": "Standing, hands at sides",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with hands at the sides, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "daryl/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "daryl/welcome-2.webp",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "daryl/explain.webp",
+          "label": "Explaining, both hands raised",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with both hands raised."
+        },
+        {
+          "id": "explain-2",
+          "file": "daryl/explain-2.webp",
+          "label": "Explaining, hands in front",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with both hands held in front of the chest."
+        },
+        {
+          "id": "explain-3",
+          "file": "daryl/explain-3.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, explaining with one hand raised near the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "daryl/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "daryl/present-right-2.webp",
+          "label": "Presenting, hand out wide to the right",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one hand out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "daryl/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one arm out to the left, palm up, as if presenting."
+        },
+        {
+          "id": "present-left-2",
+          "file": "daryl/present-left-2.webp",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding one hand out low to the left, palm up."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "daryl/arms-crossed.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "daryl/arms-crossed-2.webp",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, standing at a slight angle with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "daryl/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "daryl/think-2.webp",
+          "label": "Thinking, elbow out",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, resting a hand on the chin, elbow out, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "daryl/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "thumbs-up",
+          "file": "daryl/thumbs-up.webp",
+          "label": "Thumbs up",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, giving a thumbs up, smiling."
+        },
+        {
+          "id": "thumbs-up-2",
+          "file": "daryl/thumbs-up-2.webp",
+          "label": "Thumb up at the chest",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, holding a thumb up at the chest, smiling."
+        },
+        {
+          "id": "side",
+          "file": "daryl/side.webp",
+          "label": "Seen from the side",
+          "alt": "Daryl, a young man with light skin, short ginger hair and round glasses, wearing a teal striped polo shirt, blue jeans and white sneakers, seen from the side, standing, facing right."
+        }
+      ],
+      "head": "daryl/head.webp"
+    },
+    {
+      "id": "david",
+      "name": "David",
+      "role": "",
+      "voice": "male",
+      "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "david/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms down."
+        },
+        {
+          "id": "neutral-2",
+          "file": "david/neutral-2.webp",
+          "label": "Standing, smiling",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms down, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "david/welcome.webp",
+          "label": "Waving hello",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "david/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, waving with one hand held high."
+        },
+        {
+          "id": "explain",
+          "file": "david/explain.webp",
+          "label": "Explaining, one hand open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with one hand open."
+        },
+        {
+          "id": "explain-2",
+          "file": "david/explain-2.webp",
+          "label": "Explaining, both hands open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open."
+        },
+        {
+          "id": "explain-3",
+          "file": "david/explain-3.webp",
+          "label": "Explaining, hands close together",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open in front of the chest."
+        },
+        {
+          "id": "explain-4",
+          "file": "david/explain-4.webp",
+          "label": "Explaining, hands wide apart",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, explaining with both hands open and held wide apart."
+        },
+        {
+          "id": "laughing",
+          "file": "david/laughing.webp",
+          "label": "Laughing, one hand open",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, laughing, with one hand open at the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "david/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding one arm out to the right as if presenting."
+        },
+        {
+          "id": "present-left",
+          "file": "david/present-left.webp",
+          "label": "Presenting, arms out to the left",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding both arms out to the left as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "david/present-right-2.webp",
+          "label": "Presenting, hand out low to the right",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding one hand out to the right at waist height."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "david/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "david/arms-crossed-2.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with arms crossed, smiling."
+        },
+        {
+          "id": "hands-together",
+          "file": "david/hands-together.webp",
+          "label": "Hands together",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, standing with hands clasped in front."
+        },
+        {
+          "id": "think",
+          "file": "david/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "david/think-2.webp",
+          "label": "Thinking, turned slightly",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, turned slightly, with a hand at the chin as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "david/emphasis.webp",
+          "label": "Making a point, hand raised",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, raising one hand, loosely closed, to make a point."
+        },
+        {
+          "id": "stop",
+          "file": "david/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, holding up one hand, palm out."
+        },
+        {
+          "id": "side",
+          "file": "david/side.webp",
+          "label": "Seen from the side",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "david/side-2.webp",
+          "label": "Seen in profile",
+          "alt": "David, a man with light skin, short black hair and glasses, wearing a dark grey checked suit, a white shirt and a dark red tie, seen in profile, standing, facing right."
+        }
+      ],
+      "head": "david/head.webp"
+    },
+    {
+      "id": "gerry",
+      "name": "Gerry",
+      "role": "",
+      "voice": "male",
+      "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "gerry/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "gerry/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "gerry/welcome-2.webp",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "gerry/explain.webp",
+          "label": "Explaining, hands open across the chest",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with both hands open and held across the chest, smiling."
+        },
+        {
+          "id": "explain-2",
+          "file": "gerry/explain-2.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with one hand at the chest and the other raised."
+        },
+        {
+          "id": "explain-3",
+          "file": "gerry/explain-3.webp",
+          "label": "Explaining, looking up",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, explaining with both hands open, looking up and to the side."
+        },
+        {
+          "id": "offer",
+          "file": "gerry/offer.webp",
+          "label": "Offering, hand out, palm up",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding one hand out in front, palm up, smiling."
+        },
+        {
+          "id": "present-right",
+          "file": "gerry/present-right.webp",
+          "label": "Presenting, arms out to the right",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding both hands out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "gerry/present-right-2.webp",
+          "label": "Presenting, both arms out wide to the right",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding both arms out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "gerry/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding one arm out to the left as if presenting, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "gerry/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "gerry/arms-crossed-2.webp",
+          "label": "Arms crossed, calm",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "gerry/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "gerry/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "stop-2",
+          "file": "gerry/stop-2.webp",
+          "label": "Hand up beside the chest",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, holding up one hand beside the chest, palm out, looking serious."
+        },
+        {
+          "id": "point",
+          "file": "gerry/point.webp",
+          "label": "Pointing",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, pointing with one hand held up beside the shoulder, smiling."
+        },
+        {
+          "id": "side",
+          "file": "gerry/side.webp",
+          "label": "Seen from the side",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, seen from the side, standing, facing right, looking up."
+        },
+        {
+          "id": "side-2",
+          "file": "gerry/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Gerry, a man with dark skin and very short hair, wearing a pink polo shirt, khaki trousers and pink sneakers, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "gerry/head.webp"
+    },
+    {
+      "id": "harold",
+      "name": "Harold",
+      "role": "",
+      "voice": "male",
+      "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "harold/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "harold/neutral-2.webp",
+          "label": "Standing, calm",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms down, looking calm and slightly smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "harold/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "harold/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "welcome-3",
+          "file": "harold/welcome-3.webp",
+          "label": "Waving, small wave",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, giving a small wave with one hand raised, smiling."
+        },
+        {
+          "id": "welcome-4",
+          "file": "harold/welcome-4.webp",
+          "label": "Waving, wearing glasses",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, wearing glasses and waving with one hand raised, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "harold/explain.webp",
+          "label": "Explaining, both hands out",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, explaining with both hands held out, with feet apart."
+        },
+        {
+          "id": "explain-2",
+          "file": "harold/explain-2.webp",
+          "label": "Explaining, hands low",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, explaining with both hands held low in front."
+        },
+        {
+          "id": "offer",
+          "file": "harold/offer.webp",
+          "label": "Offering, hand open",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one hand open in front of the chest, palm up, looking serious."
+        },
+        {
+          "id": "offer-2",
+          "file": "harold/offer-2.webp",
+          "label": "Offering, hand open, facing front",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing facing front and holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "harold/present-right.webp",
+          "label": "Presenting, hands out to the right",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding both hands out to the right, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "harold/present-right-2.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one arm out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "harold/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one arm out to the left, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "harold/present-left-2.webp",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, turned slightly and holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "harold/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "harold/arms-crossed-2.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "think",
+          "file": "harold/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "harold/think-2.webp",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "harold/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding up one hand, palm out, smiling."
+        },
+        {
+          "id": "side",
+          "file": "harold/side.webp",
+          "label": "Seen from the side",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "harold/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "harold/head.webp"
+    },
+    {
+      "id": "jacob",
+      "name": "Jacob",
+      "role": "",
+      "voice": "male",
+      "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "jacob/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "jacob/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "jacob/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "jacob/explain.webp",
+          "label": "Explaining, both hands open",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, explaining with both hands open."
+        },
+        {
+          "id": "explain-2",
+          "file": "jacob/explain-2.webp",
+          "label": "Explaining, hands in front",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, explaining with both hands held out in front of the chest."
+        },
+        {
+          "id": "present-right",
+          "file": "jacob/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out to the right as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "jacob/present-right-2.webp",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one hand up and out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "jacob/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out to the left as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "jacob/present-left-2.webp",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding one arm out wide to the left, feet apart, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "jacob/arms-crossed.webp",
+          "label": "Arms crossed, serious",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms crossed, looking serious."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "jacob/arms-crossed-2.webp",
+          "label": "Arms crossed, calm",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "jacob/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "jacob/think-2.webp",
+          "label": "Thinking, arms crossed, hand to chin",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "jacob/emphasis.webp",
+          "label": "Making a point, hand at the chest",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding a loosely closed hand to the chest, smiling."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "jacob/emphasis-2.webp",
+          "label": "Making a point, hand raised",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding a loosely closed hand up near the shoulder, smiling."
+        },
+        {
+          "id": "stop",
+          "file": "jacob/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "stop-2",
+          "file": "jacob/stop-2.webp",
+          "label": "Hand up beside the shoulder",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, holding up one hand beside the shoulder, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "jacob/side.webp",
+          "label": "Seen from the side",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "jacob/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Jacob, a young man with light skin and short dark brown hair, wearing a light grey suit, a white shirt and a black tie, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "jacob/head.webp"
+    },
+    {
+      "id": "kathy",
+      "name": "Kathy",
+      "role": "",
+      "voice": "female",
+      "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "kathy/neutral.webp",
+          "label": "Seated, relaxed",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with hands together in the lap, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "kathy/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and waving hello."
+        },
+        {
+          "id": "explain",
+          "file": "kathy/explain.webp",
+          "label": "Explaining, both hands raised",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and explaining with both hands raised and open."
+        },
+        {
+          "id": "explain-2",
+          "file": "kathy/explain-2.webp",
+          "label": "Explaining, one hand held out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and explaining with open hands, one held out to the right."
+        },
+        {
+          "id": "present-right",
+          "file": "kathy/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "kathy/present-right-2.webp",
+          "label": "Presenting, hand out low to the right",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated, holding one hand out to the right, palm up."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "kathy/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "kathy/arms-crossed-2.webp",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated at a slight angle with arms crossed."
+        },
+        {
+          "id": "think",
+          "file": "kathy/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a hand at the chin, smiling as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "kathy/think-2.webp",
+          "label": "Thinking, head tilted",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a hand at the chin and the head tilted, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "kathy/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and holding up one hand, palm out."
+        },
+        {
+          "id": "emphasis",
+          "file": "kathy/emphasis.webp",
+          "label": "Making a point, hand raised",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated and smiling, with one hand raised at the side."
+        },
+        {
+          "id": "concerned",
+          "file": "kathy/concerned.webp",
+          "label": "Concerned, hand out",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seated with a worried look, one hand held out."
+        },
+        {
+          "id": "side",
+          "file": "kathy/side.webp",
+          "label": "Seen from the side",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seen from the side, seated, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "kathy/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Kathy, a woman with light skin and long red hair, wearing a navy jacket over a blue top and dark trousers, seated in a wheelchair, seen at an angle, seated, facing right."
+        }
+      ],
+      "head": "kathy/head.webp"
+    },
+    {
+      "id": "ken",
+      "name": "Ken",
+      "role": "",
+      "voice": "male",
+      "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "ken/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms down."
+        },
+        {
+          "id": "neutral-2",
+          "file": "ken/neutral-2.webp",
+          "label": "Standing, arms at sides",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms at the sides, looking ahead."
+        },
+        {
+          "id": "welcome",
+          "file": "ken/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "ken/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, waving with one hand held high."
+        },
+        {
+          "id": "explain",
+          "file": "ken/explain.webp",
+          "label": "Explaining, hands at the chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, explaining with both hands raised in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "ken/explain-2.webp",
+          "label": "Explaining, feet apart",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, explaining with both hands raised and open, standing with feet apart."
+        },
+        {
+          "id": "present-left",
+          "file": "ken/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left as if presenting."
+        },
+        {
+          "id": "present-left-2",
+          "file": "ken/present-left-2.webp",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding one arm out to the left, palm up, with the other hand held in front."
+        },
+        {
+          "id": "point",
+          "file": "ken/point.webp",
+          "label": "Pointing",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, pointing with one hand and gesturing up and to the right with the other."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "ken/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, standing with arms crossed."
+        },
+        {
+          "id": "think",
+          "file": "ken/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "ken/think-2.webp",
+          "label": "Thinking, arms crossed, hand to chin",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "ken/emphasis.webp",
+          "label": "Making a point, hand at the chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding a loosely closed hand to the chest, smiling."
+        },
+        {
+          "id": "hand-on-chest",
+          "file": "ken/hand-on-chest.webp",
+          "label": "Hand on chest",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding a hand to the chest, smiling."
+        },
+        {
+          "id": "stop",
+          "file": "ken/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, holding up one hand, palm out."
+        },
+        {
+          "id": "stop-2",
+          "file": "ken/stop-2.webp",
+          "label": "Hand raised, serious",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, raising one hand, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "ken/side.webp",
+          "label": "Seen from the side, facing left",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, seen from the side, standing, facing left."
+        },
+        {
+          "id": "side-2",
+          "file": "ken/side-2.webp",
+          "label": "Looking back over the shoulder",
+          "alt": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, turned away at an angle, looking back over the shoulder."
+        }
+      ],
+      "head": "ken/head.webp"
+    },
+    {
+      "id": "lisa",
+      "name": "Lisa",
+      "role": "",
+      "voice": "female",
+      "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "lisa/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms down."
+        },
+        {
+          "id": "welcome",
+          "file": "lisa/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, waving hello."
+        },
+        {
+          "id": "welcome-2",
+          "file": "lisa/welcome-2.webp",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, waving gently with one hand near the shoulder."
+        },
+        {
+          "id": "explain",
+          "file": "lisa/explain.webp",
+          "label": "Explaining, hands at the waist",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, explaining with both hands held out in front at waist height."
+        },
+        {
+          "id": "explain-2",
+          "file": "lisa/explain-2.webp",
+          "label": "Explaining, hands raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, explaining with both hands raised and open, turned slightly."
+        },
+        {
+          "id": "present-right",
+          "file": "lisa/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one arm out to the right, palm up, as if presenting."
+        },
+        {
+          "id": "present-right-2",
+          "file": "lisa/present-right-2.webp",
+          "label": "Presenting, hand out, other hand at the chest",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out to the right, palm up, with the other hand at the chest."
+        },
+        {
+          "id": "present-right-3",
+          "file": "lisa/present-right-3.webp",
+          "label": "Presenting, hand out low to the right",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out to the right at waist height, palm up."
+        },
+        {
+          "id": "present-left",
+          "file": "lisa/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one arm out to the left, palm up, as if presenting."
+        },
+        {
+          "id": "offer",
+          "file": "lisa/offer.webp",
+          "label": "Offering, hand out, palm up",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding one hand out in front at waist height, palm up."
+        },
+        {
+          "id": "think",
+          "file": "lisa/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "lisa/think-2.webp",
+          "label": "Thinking, serious",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, resting a hand on the chin, looking serious."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "lisa/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms crossed."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "lisa/arms-crossed-2.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, standing with arms crossed, smiling."
+        },
+        {
+          "id": "emphasis",
+          "file": "lisa/emphasis.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "lisa/emphasis-2.webp",
+          "label": "Making a point, other fist raised",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, smiling, with the other hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "stop",
+          "file": "lisa/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, holding up one hand, palm out, looking serious."
+        }
+      ],
+      "head": "lisa/head.webp"
+    },
+    {
+      "id": "makoa",
+      "name": "Makoa",
+      "role": "",
+      "voice": "male",
+      "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "makoa/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "makoa/neutral-2.webp",
+          "label": "Standing, smiling",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms down, with a slight smile."
+        },
+        {
+          "id": "neutral-3",
+          "file": "makoa/neutral-3.webp",
+          "label": "Standing, hands at sides",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with hands at the sides, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "makoa/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "makoa/welcome-2.webp",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "makoa/explain.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with one hand raised in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "makoa/explain-2.webp",
+          "label": "Explaining, hands out",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands held out in front, smiling."
+        },
+        {
+          "id": "explain-3",
+          "file": "makoa/explain-3.webp",
+          "label": "Explaining, hands together",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands held together near the chest."
+        },
+        {
+          "id": "explain-4",
+          "file": "makoa/explain-4.webp",
+          "label": "Explaining, feet apart",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands out, standing with feet apart."
+        },
+        {
+          "id": "offer",
+          "file": "makoa/offer.webp",
+          "label": "Offering, hand open",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand open at the waist, palm up, turned slightly."
+        },
+        {
+          "id": "present-right",
+          "file": "makoa/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one arm out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "makoa/present-right-2.webp",
+          "label": "Presenting, hand out to the right, other hand across",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand out to the right, palm up, with the other hand across the chest, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "makoa/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "makoa/present-left-2.webp",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "makoa/arms-crossed.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "makoa/arms-crossed-2.webp",
+          "label": "Arms crossed, calm",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "makoa/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, resting a hand on the chin with the other hand in a pocket, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "makoa/think-2.webp",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "makoa/emphasis.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, smiling, with one hand raised in a loose fist near the chest."
+        },
+        {
+          "id": "side",
+          "file": "makoa/side.webp",
+          "label": "Turned away, looking back",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, turned away to one side, looking back over the shoulder."
+        },
+        {
+          "id": "side-2",
+          "file": "makoa/side-2.webp",
+          "label": "Turned slightly, looking back",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, turned slightly to one side, looking back over the shoulder."
+        }
+      ],
+      "head": "makoa/head.webp"
+    },
+    {
+      "id": "malina",
+      "name": "Malina",
+      "role": "",
+      "voice": "female",
+      "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "malina/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "malina/neutral-2.webp",
+          "label": "Standing, calm",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "hands-together",
+          "file": "malina/hands-together.webp",
+          "label": "Hands together",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with hands clasped in front, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "malina/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving hello, smiling, with the other hand in a pocket."
+        },
+        {
+          "id": "welcome-2",
+          "file": "malina/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "welcome-3",
+          "file": "malina/welcome-3.webp",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "malina/explain.webp",
+          "label": "Explaining, hands together",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands held together in front, standing with one foot out."
+        },
+        {
+          "id": "explain-2",
+          "file": "malina/explain-2.webp",
+          "label": "Explaining, hands raised",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands raised near the chest, smiling."
+        },
+        {
+          "id": "explain-3",
+          "file": "malina/explain-3.webp",
+          "label": "Explaining, turned slightly",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, explaining with both hands raised near the chest, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "malina/offer.webp",
+          "label": "Offering, hand out, palm up",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one hand out in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "malina/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "malina/present-right-2.webp",
+          "label": "Presenting, hand out to the right, leaning",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, leaning a little and holding one hand out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "malina/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "malina/present-left-2.webp",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding one arm out wide to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "malina/arms-crossed.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "malina/arms-crossed-2.webp",
+          "label": "Arms crossed, serious",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, standing with arms crossed, looking serious."
+        },
+        {
+          "id": "think",
+          "file": "malina/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "malina/think-2.webp",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "malina/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "side",
+          "file": "malina/side.webp",
+          "label": "Seen from the side",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "malina/side-2.webp",
+          "label": "Seen in profile",
+          "alt": "Malina, an older woman with light skin and shoulder-length grey hair, wearing a teal cardigan over a cream top, black trousers and grey-brown flat shoes, seen in profile, standing, facing right."
+        }
+      ],
+      "head": "malina/head.webp"
+    },
+    {
+      "id": "mei",
+      "name": "Mei",
+      "role": "",
+      "voice": "female",
+      "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "mei/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "mei/neutral-2.webp",
+          "label": "Standing, hands at sides",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with hands at the sides, looking calm."
+        },
+        {
+          "id": "hands-together",
+          "file": "mei/hands-together.webp",
+          "label": "Hands together",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing turned slightly, with hands together in front."
+        },
+        {
+          "id": "welcome",
+          "file": "mei/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "mei/welcome-2.webp",
+          "label": "Waving, hand held up",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, waving with one hand held up, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "mei/explain.webp",
+          "label": "Explaining, both hands raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, explaining with both hands raised."
+        },
+        {
+          "id": "explain-2",
+          "file": "mei/explain-2.webp",
+          "label": "Explaining, hands open",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, explaining with both hands open in front of the chest."
+        },
+        {
+          "id": "offer",
+          "file": "mei/offer.webp",
+          "label": "Offering, hand raised, palm up",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one hand up beside the shoulder, palm up, looking serious."
+        },
+        {
+          "id": "present-right",
+          "file": "mei/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one arm out to the right, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "mei/present-right-2.webp",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one hand up and out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "mei/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding one arm out to the left, palm up, as if presenting, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "mei/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "mei/arms-crossed-2.webp",
+          "label": "Arms crossed, turned slightly",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, standing turned slightly with arms crossed, with a slight smile."
+        },
+        {
+          "id": "think",
+          "file": "mei/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "mei/think-2.webp",
+          "label": "Thinking, hand to chin, smiling",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, resting a hand on the chin, with a slight smile, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "mei/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "emphasis",
+          "file": "mei/emphasis.webp",
+          "label": "Making a point, both fists raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, smiling, with both hands raised in loose fists near the chest."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "mei/emphasis-2.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, smiling, turned slightly, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "side",
+          "file": "mei/side.webp",
+          "label": "Seen from the side",
+          "alt": "Mei, a woman with light skin and a black chin-length bob, wearing a coral red blazer over a white top, navy trousers and navy shoes, seen from the side, standing, facing right."
+        }
+      ],
+      "head": "mei/head.webp"
+    },
+    {
+      "id": "salma",
+      "name": "Salma",
+      "role": "",
+      "voice": "female",
+      "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "salma/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "salma/neutral-2.webp",
+          "label": "Standing, calm",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms down, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "salma/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "salma/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "salma/explain.webp",
+          "label": "Explaining, both hands raised",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, explaining with both hands raised."
+        },
+        {
+          "id": "offer",
+          "file": "salma/offer.webp",
+          "label": "Offering, hand open, palm up",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "salma/present-right.webp",
+          "label": "Presenting, hand raised to the right",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand up and out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "salma/present-right-2.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one arm out to the right, palm up, with the other hand across the body."
+        },
+        {
+          "id": "present-right-3",
+          "file": "salma/present-right-3.webp",
+          "label": "Presenting, hand out to the right, smiling",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one hand out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "salma/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "salma/present-left-2.webp",
+          "label": "Presenting, hand out wide to the left, stepping",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, stepping forward and holding one hand out wide to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "salma/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "salma/arms-crossed-2.webp",
+          "label": "Arms crossed, hands tucked",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, standing with arms crossed and hands tucked in, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "salma/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "salma/think-2.webp",
+          "label": "Thinking, hand to chin, another look",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "salma/stop.webp",
+          "label": "Hand up, palm out",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, holding up one hand, palm out, looking serious."
+        },
+        {
+          "id": "emphasis",
+          "file": "salma/emphasis.webp",
+          "label": "Making a point, fist raised",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "salma/emphasis-2.webp",
+          "label": "Making a point, fist near the face",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, smiling, with one hand raised in a loose fist near the face."
+        },
+        {
+          "id": "side",
+          "file": "salma/side.webp",
+          "label": "Seen from the side",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, seen from the side, standing, facing left."
+        },
+        {
+          "id": "side-2",
+          "file": "salma/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Salma, a woman with medium skin, long dark wavy hair and glasses, wearing a plum purple top with three-quarter sleeves, white trousers and tan sandals, seen at an angle from the side, standing, facing left."
+        }
+      ],
+      "head": "salma/head.webp"
+    },
+    {
+      "id": "yusuf",
+      "name": "Yusuf",
+      "role": "",
+      "voice": "male",
+      "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "yusuf/neutral.webp",
+          "label": "Standing, relaxed",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing turned slightly, with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "yusuf/neutral-2.webp",
+          "label": "Standing, facing front",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing facing front with arms down, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "yusuf/welcome.webp",
+          "label": "Waving hello",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "yusuf/welcome-2.webp",
+          "label": "Waving, hand held high",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "yusuf/explain.webp",
+          "label": "Explaining, one hand raised",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with one hand raised in front of the chest, smiling."
+        },
+        {
+          "id": "explain-2",
+          "file": "yusuf/explain-2.webp",
+          "label": "Explaining, hands together",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with both hands held together at the waist, turned slightly."
+        },
+        {
+          "id": "explain-3",
+          "file": "yusuf/explain-3.webp",
+          "label": "Explaining, hands at the chest",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with both hands at the chest, one pointing up."
+        },
+        {
+          "id": "offer",
+          "file": "yusuf/offer.webp",
+          "label": "Offering, hand open",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "offer-2",
+          "file": "yusuf/offer-2.webp",
+          "label": "Offering, hand open at the waist",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand open at the waist, palm up, looking calm."
+        },
+        {
+          "id": "present-right",
+          "file": "yusuf/present-right.webp",
+          "label": "Presenting, arm out to the right",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one arm out to the right, palm up, with the other hand at the chest, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "yusuf/present-right-2.webp",
+          "label": "Presenting, pointing across, arm out to the right",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, pointing across the body with one hand and holding the other arm out to the right, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "yusuf/present-left.webp",
+          "label": "Presenting, arm out to the left",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "yusuf/present-left-2.webp",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "yusuf/arms-crossed.webp",
+          "label": "Arms crossed",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "yusuf/arms-crossed-2.webp",
+          "label": "Arms crossed, smiling",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing turned slightly with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "yusuf/think.webp",
+          "label": "Thinking, hand to chin",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "yusuf/think-2.webp",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "yusuf/emphasis.webp",
+          "label": "Making a point, stepping",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, stepping to one side with one hand raised near the chest, smiling."
+        },
+        {
+          "id": "side",
+          "file": "yusuf/side.webp",
+          "label": "Seen from the side",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "yusuf/side-2.webp",
+          "label": "Seen at an angle",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "yusuf/head.webp"
+    }
+  ]
+}

@@ -50,6 +50,12 @@ Properties boxes, the Timing list). The slide canvas is hidden from assistive te
 - **The recorded patterns 1 to 10** in `docs/screen-reader-pass.md`, with the expected results updated for this pass.
 - **VoiceOver / macOS**, and **touch**.
 
+## The learner's accessibility panel (2026-10-18)
+
+The published player gained a learner accessibility panel (`docs/learner-accessibility.md`). Checked in a real browser, without a screen reader: it is reached with Tab and opened with Enter; focus moves to the panel, then through labelled controls; Escape closes it and focus goes back to its button; every control is a native one with a label
+and the notes are tied to them; every change is announced in words; the panel's text is at least 9.7 to 1 against its background, and the dark, high contrast and yellow modes are 8.2 to 1 or better for every pair (most above 11 to 1); on a phone-sized window it is a sheet no taller than 62 percent of the screen; larger text and wider spacing put the slide in one column so nothing is cut off (WCAG 1.4.4, 1.4.10, 1.4.12);
+nothing speaks without being asked, and reading aloud refuses while narration plays. Not checked: a screen reader (`docs/screen-reader-pass.md`, patterns 12 and 13).
+
 ## Running the audit again
 
 For any new panel or dialog, run the script. It is a developer tool and is not packaged.

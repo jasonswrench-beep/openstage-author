@@ -32,11 +32,9 @@ if not errorlevel 1 (
   )
 )
 
-REM Narration is made by Kokoro, which lives in the Audiobook Studio Python on this PC.
-REM If it is not found, Publish still works: the course has transcripts but no new audio.
-if not defined OPENSTAGE_KOKORO_PYTHON (
-  if exist "D:\Claude Audio Test\.venv\Scripts\python.exe" set "OPENSTAGE_KOKORO_PYTHON=D:\Claude Audio Test\.venv\Scripts\python.exe"
-)
+REM Narration is made by Kokoro, a speech engine that is installed separately (see docs/narration-setup.md).
+REM Where it is on this computer is written once in local-settings.bat (local-settings.example.bat shows how). If it is not there, Publish still works: the course has transcripts but no new audio.
+if exist "%~dp0local-settings.bat" call "%~dp0local-settings.bat"
 
 set "EXE=%~dp0editor\src-tauri\target\release\openstage-editor.exe"
 
@@ -80,6 +78,7 @@ if not exist "%EXE%" (
   pause
   exit /b 1
 )
+call :build_recorder
 start "" "%EXE%"
 exit /b 0
 
@@ -90,3 +89,34 @@ echo Something failed. Scroll up to see what.
 echo.
 pause
 exit /b 1
+
+:build_recorder
+REM OpenScreen, the screen recorder, is a separate program that the editor starts. It is built from the capture folder,
+REM and the editor looks for it in capture\target\release. The editor opens whether or not this works.
+if not exist "%~dp0capture\Cargo.toml" exit /b 0
+set "REC=%~dp0capture\target\release\openstage-capture.exe"
+if exist "%REC%" (
+  powershell -NoProfile -Command "$e=(Get-Item -LiteralPath $env:REC).LastWriteTime; $n=(Get-ChildItem capture\crates,capture\Cargo.toml,capture\Cargo.lock -Recurse -File | Measure-Object -Property LastWriteTime -Maximum).Maximum; if ($n -gt $e) { exit 1 }"
+  if not errorlevel 1 exit /b 0
+  echo The screen recorder has changed since it was last built, so it is being built again. This takes a few minutes.
+) else (
+  echo Building the screen recorder for the first time. This takes a few minutes.
+)
+echo.
+call "%~dp0capture\rust-setup.bat"
+if errorlevel 1 (
+  echo Rust was not found, so the screen recorder was not built. The editor opens anyway, and recording will say the recorder is not installed.
+  echo.
+  exit /b 0
+)
+if exist "%~dp0capture\build-log.txt" del "%~dp0capture\build-log.txt"
+pushd "%~dp0capture"
+call "%~dp0capture\cargo-run.bat" "%~dp0capture\build-log.txt" build --release -p openstage-capture-cli
+set "REC_RESULT=%errorlevel%"
+popd
+if not "%REC_RESULT%"=="0" (
+  echo The screen recorder could not be built, so recording is not available this time. The editor opens anyway.
+  echo What went wrong is written in capture\build-log.txt.
+  echo.
+)
+exit /b 0

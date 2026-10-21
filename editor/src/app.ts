@@ -15,6 +15,7 @@ import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
 import { Canvas } from "./canvas.ts";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
+import { isBubbleKind, tailOf } from "../../player/src/bubble.ts";
 import { backgroundColors, isThemeRef, resolveValue } from "../../player/src/theme.ts";
 import { COLOR_ROLES, colorRef } from "./colors.ts";
 import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, isCourseAction, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
@@ -27,8 +28,8 @@ import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
 import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
 import type { Style } from "../../player/src/types.ts";
-import { askChoice, interactionPreview, shapePreview } from "./choicepicker.ts";
-import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
+import { askChoice, bubblePreview, interactionPreview, shapePreview } from "./choicepicker.ts";
+import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
 import { GAME_PREFIX, gameById } from "./gamesets.ts";
@@ -43,9 +44,18 @@ import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
-import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { openAbout } from "./aboutdialog.ts";
+import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
+import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
+import { RecorderController } from "./capturecontroller.ts";
+import { openRecordingEditor } from "./editrecording.ts";
+import { openCaptions } from "./captionsdialog.ts";
+import { hintFor, hintSourcesOf } from "./recognition.ts";
+import { openSteps } from "./stepsdialog.ts";
+import type { Extra } from "./captions.ts";
+import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
@@ -54,12 +64,15 @@ import { newProjectFiles } from "./template.ts";
 import { askTheme } from "./themepicker.ts";
 import { editTheme as editThemeDialog } from "./themeeditor.ts";
 import { editCast } from "./castdialog.ts";
-import { makeAvatar } from "./avatardialog.ts";
+import { chooseFromLibrary } from "./packdialog.ts";
+import { choosePoses as choosePosesDialog } from "./posedialog.ts";
+import { creditForBackground, creditForPicture, creditForSlidePicture, slidePictures } from "./packs.ts";
+import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
 import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
 import { BUTTON_LOOKS, CUSTOM_LOOK } from "./buttonlooks.ts";
-import { castUse, YOU } from "./characters.ts";
+import { castUse, poseUse, YOU } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
 import { logoFromImage } from "./themeedit.ts";
 import { BUILT_IN_THEMES, COLOR_ROLE_NAMES } from "./themes.ts";
@@ -79,7 +92,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
 }
 
 const VALIDATE_DELAY_MS = 600;
-const SHAPE_LABELS: Record<(typeof SHAPE_KINDS)[number], string> = { rectangle: "Rectangle", rounded: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle", diamond: "Diamond", arrow: "Arrow" };
+const SHAPE_LABELS: Record<(typeof SHAPE_KINDS)[number], string> = { rectangle: "Rectangle", rounded: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle", diamond: "Diamond", arrow: "Arrow", speech: "Speech bubble", thought: "Thought bubble" };
 const BLOCK_LABELS: Record<TextBlock, string> = { p: "Paragraph", h1: "Heading 1", h2: "Heading 2", h3: "Heading 3", h4: "Heading 4", h5: "Heading 5", h6: "Heading 6" };
 
 /** What decides whether an input's panel has to be rebuilt: its parts, and the variables it can choose between. */
@@ -133,9 +146,9 @@ function announceNoteText(look: string, said: string, uses: number): string {
  */
 function scenarioShape(o: OSObject, m: Model, selected: string): string {
   const c = o.content as unknown as ScenarioContent;
-  const lines = (list: ScenarioLine[]) => list.map((l) => `${l.id}:${l.speaker ?? "-"}:${l.narration ? `s${((l.narration as Narration).pronunciations ?? []).length}` : "n"}`).join(",");
+  const lines = (list: ScenarioLine[]) => list.map((l) => `${l.id}:${l.speaker ?? "-"}:${l.pose ?? "-"}:${l.narration ? `s${((l.narration as Narration).pronunciations ?? []).length}` : "n"}`).join(",");
   const nodes = c.nodes.map((n) => `${n.id}[${lines(n.lines)}|${n.choices.map((ch) => `${ch.id}>${ch.next}(${ch.effects.map((e) => e.variable).join("+")})<${lines(ch.response)}>`).join(";")}]`).join(" ");
-  return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}`).join(",")}`;
+  return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}${(p.poses ?? []).map((x) => `${x.id}${x.label}`).join("+")}${p.library ? "L" : ""}`).join(",")}`;
 }
 
 export class App {
@@ -156,7 +169,14 @@ export class App {
   private readonly pptxBtn: HTMLButtonElement;
   private readonly variablesBtn: HTMLButtonElement;
   private readonly narrationBtn: HTMLButtonElement;
+  private readonly aboutBtn: HTMLButtonElement;
   private readonly aiBtn: HTMLButtonElement;
+  private readonly recorderBtn: HTMLButtonElement;
+  /** Holds a recording, so it goes on when the dialog is closed. */
+  private readonly recorder = new RecorderController(backend);
+  private recorderSettings: RecordSettings = defaultSettings();
+  /** What is known about videos made from a recording this session, by their path in the course: what is on the screen, and how long they are. For their transcripts. */
+  private readonly madeVideos = new Map<string, { extras: Extra[]; lengthMs: number }>();
   private readonly timingBtn: HTMLButtonElement;
   private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
@@ -222,6 +242,8 @@ export class App {
     this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
     this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
     this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
+    this.recorderBtn = this.tool("OpenScreen", "Record the screen, and check that this computer is ready to record", () => void this.openRecorderDialog());
+    this.watchRecorder();
     this.aiBtn = this.tool("AI services", "A key for OpenAI, to make voices and pictures with it, and voice plugins", () => void this.openAiServicesDialog());
     this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
     this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
@@ -238,7 +260,8 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn);
+    this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.aboutBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -304,12 +327,24 @@ export class App {
     this.workspace = h("div", { class: "workspace" }, slidesNav, main, this.timelinePanel.element, props, h("div", { class: "bottom" }, objects, problems));
     this.welcome = h("main", { class: "welcome", "aria-labelledby": "welcome-h" },
       h("h2", { id: "welcome-h", text: "Open a project to begin" }),
-      h("p", { text: "A project is a folder containing project.json. The examples folder in the OpenStage repository has two to try." }));
+      h("p", { id: "welcome-text", text: "A project is a folder containing project.json. Make a new one, or open one you have made." }));
     const newWelcome = h("button", { type: "button", text: "New project" });
     newWelcome.addEventListener("click", () => void this.newProject());
     const openWelcome = h("button", { type: "button", text: "Open project" });
     openWelcome.addEventListener("click", () => void this.open());
     this.welcome.append(newWelcome, " ", openWelcome);
+    // Example projects come with the program: say so and show where they are, so a first-time author is not left to look for them.
+    const showExamples = h("button", { type: "button", id: "welcome-examples", text: "Show the examples", hidden: true });
+    this.welcome.append(" ", showExamples);
+    void backend.examplesFolder().then((folder) => {
+      if (folder === "") return;
+      const note = this.welcome.querySelector("#welcome-text");
+      if (note) note.textContent = "A project is a folder containing project.json. Make a new one, open one you have made, or look at the example projects that came with the program: press Show the examples, then Open project and choose one of them.";
+      showExamples.hidden = false;
+      showExamples.addEventListener("click", () => {
+        backend.revealInFolder(folder).then(() => this.announce("Showing the example projects."), (err) => this.announce(errorText(err)));
+      });
+    }, () => undefined);
 
     this.statusSave = h("span");
     this.statusSlide = h("span");
@@ -564,6 +599,78 @@ export class App {
     if (this.model) this.renderProps();
   }
 
+  /** The screen recorder (OpenScreen): choose what to record, record, and check that this computer is ready. */
+  private async openRecorderDialog(): Promise<void> {
+    const m = this.model;
+    await openRecorder({
+      backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
+      keepSettings: (s) => { this.recorderSettings = s; },
+      editRecording: async (name, newestTake) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, newestTake: newestTake === true, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
+      makeSteps: async (name) => {
+        if (!m) return;
+        const said = await openSteps({
+          backend, dir: m.dir, name,
+          planLesson: (lesson, steps) => m.planStepLesson({ recording: name, lesson, steps, pictures: new Map() }),
+          makeSlides: (lesson, steps, pictures) => m.makeStepSlides({ recording: name, lesson, steps, pictures, capturedAt: new Date().toISOString(), removeGone: true }).message,
+        });
+        if (said !== "") this.announce(said);
+      },
+      excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
+    });
+    this.recorderBtn.focus();
+  }
+
+  /** Put a finished recording, already copied into the course, on the slide the author is on. It starts with no description and no captions: the author writes them. */
+  private putVideoOnSlide(m: Model, src: string, facts?: { extras: Extra[]; lengthMs: number }): string {
+    const o = m.addMedia("video", src);
+    if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the video again.";
+    if (facts) this.madeVideos.set(src, facts);
+    return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and captions. Write the captions with the button below, or find them in the Properties panel. Both are listed in the Problems panel.`;
+  }
+
+  /** Put what a recording shows on its screen into the selected video's audio description, each with a voice. Says what to do about a missing speech engine. */
+  private describeScreenOfVideo(m: Model, extras: Extra[]): string {
+    const o = m.object;
+    if (!o || o.type !== "video") return "Select the video on the slide first, then describe what is on the screen.";
+    const r = m.describeScreen(o.id, extras);
+    const engine = r.added > 0 && !this.narrationEngineReady ? " Kokoro, the speech engine on this computer, is not set up yet, so they have words but no sound until it is. Everything else keeps working." : "";
+    return `${r.message}${engine}`;
+  }
+
+  /**
+   * Write, time and check the captions of the video or audio clip that is selected, and make its transcript. Resolves with what to tell the author:
+   * the Properties button speaks it through the editor; the recording editor, which is a dialog of its own, shows it in its own words.
+   */
+  private async openCaptionsDialog(): Promise<string> {
+    const m = this.model;
+    const o = m?.object;
+    if (!m || !o || (o.type !== "video" && o.type !== "audio")) return "Select a video or audio clip on the slide first, then write its captions.";
+    const src = String(o.content["src"] ?? "");
+    const captions = typeof o.content["captions"] === "string" && o.content["captions"] !== "" ? String(o.content["captions"]) : null;
+    const facts = this.madeVideos.get(src);
+    const said = await openCaptions({
+      backend, dir: m.dir, kind: o.type, mediaPath: src, captions,
+      transcript: parseBody(String(o.content["transcript"] ?? "")),
+      extras: facts?.extras ?? [], lengthMs: facts?.lengthMs ?? null,
+      hint: hintFor(hintSourcesOf(m.project, m.slides)),
+      apply: (path, transcript) => {
+        m.setMediaCaptions(o.id, path);
+        if (transcript !== null) m.setMediaTranscript(o.id, transcript);
+      },
+    });
+    return said;
+  }
+
+  /** The toolbar button says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
+  private watchRecorder(): void {
+    const short: Partial<Record<RecordPhase, string>> = { starting: "starting", countdown: "counting down", recording: "recording", paused: "paused", stopping: "stopping" };
+    this.recorder.subscribe((session, say) => {
+      const word = short[session.phase];
+      this.recorderBtn.textContent = word ? `OpenScreen (${word})` : "OpenScreen";
+      if (say.length > 0 && !recorderDialogOpen()) this.announce(say.join(" "));
+    });
+  }
+
   private async openAiServicesDialog(): Promise<void> {
     const result = await openAiServices({ backend, plugins: this.plugins, announce: (msg) => this.announce(msg) });
     if (result.settings) {
@@ -610,6 +717,21 @@ export class App {
     }
   }
 
+  /**
+   * The language of a script was changed. The language is part of what names the audio, so the audio would have to be made again; but for a voice that sounds the same in every
+   * language (OpenAI's) the sound is the same, so the audio already made is kept under the new name instead, and nothing is paid for twice. Only audio that is there is copied.
+   */
+  private async keepAudioForNewLanguage(m: Model, before: Narration, lang: string): Promise<void> {
+    if (!soundIgnoresLanguage(before.voice)) return;
+    const from = keyOf(before);
+    const to = keyOf({ ...before, lang });
+    if (from === to || this.narrationCache.has(to) || !this.narrationCache.has(from)) return;
+    const copied = await backend.reuseNarrationAudio(m.dir, from, to).catch(() => false);
+    if (!copied || this.model !== m) return;
+    await this.refreshNarration();
+    this.announce("The audio you already had is kept for the new language, because this voice sounds the same in every language. Nothing needs to be made again, so nothing is charged.");
+  }
+
   /** How long an object's narration lasts in milliseconds, if its audio has been made. The timeline lines things up with it. */
   private narrationMs(o: OSObject): number | null {
     const n = (o.narration as Narration | null) ?? null;
@@ -626,6 +748,12 @@ export class App {
     this.announce(open ? "Timeline shown below the canvas." : "Timeline hidden.");
     if (open) this.timelinePanel.element.querySelector<HTMLElement>(".tl-grip, .tl-name")?.focus();
     else this.timelineBtn.focus();
+  }
+
+  /** The About window: the version, and where things are on this computer. */
+  private async openAboutDialog(): Promise<void> {
+    await openAbout({ backend, announce: (msg) => this.announce(msg) });
+    this.aboutBtn.focus();
   }
 
   /** The Narration dialog: all the narration in the course, and making its audio. */
@@ -664,6 +792,56 @@ export class App {
     }
   }
 
+  /** Put a person from the library on the slide: choose who, then which picture (their head and shoulders, or a pose). */
+  private async addPerson(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    try {
+      const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
+      if (!chosen) {
+        this.addKind.focus();
+        return;
+      }
+      const { pack, person } = chosen;
+      const picked = await choosePosesDialog({ backend, pack, person: { ...person, poses: slidePictures(person) }, have: new Set(), single: true, announce: (msg) => this.announce(msg) });
+      this.addKind.focus();
+      const pose = picked?.[0];
+      if (!pose) return;
+      // A picture the course already has is used again, not copied again.
+      const title = creditForSlidePicture(pack, person, pose, "").title;
+      const src = m.pathOfCredit(title) ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, pose.file, `${person.id}-${pose.id}`);
+      const size = await this.measure(m.dir, src);
+      const o = m.addPackPicture({ src, ...(size ? { size } : {}), name: `${person.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, alt: pose.alt, credit: creditForSlidePicture(pack, person, pose, src) });
+      if (o) {
+        this.announce(`Added ${o.name}. The description from the library is its alt text: read it, and change it if it is not right, or mark the picture decorative if it only decorates.`);
+        document.getElementById("p-alt")?.focus();
+      }
+    } catch (err) {
+      this.announce(`Could not add the person. ${errorText(err)}`);
+    }
+  }
+
+  /** Choose a picture from the packs to put behind everything on a slide. */
+  private async chooseBackground(slideId: string): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const chosen = await chooseBackgroundPicture({ backend, announce: (msg) => this.announce(msg) });
+    document.getElementById("bg-pick")?.focus();
+    if (!chosen) return;
+    const { pack, background } = chosen;
+    try {
+      // A picture the course already has is used again, not copied again.
+      const known = m.pathOfCredit(creditForBackground(pack, background, "").title);
+      const src = known ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, background.file, background.id);
+      const color = await averageColourOf(await backend.packPictureUrl(pack.source, pack.folder, background.file));
+      const msg = m.setBackgroundPicture(slideId, { src, color, credit: creditForBackground(pack, background, src) });
+      if (msg) this.announce(`${background.name}. ${msg}${color ? " Text that follows the theme was changed to stay readable on it." : ""} Press Control Z to undo.`);
+      document.getElementById("bg-pick")?.focus();
+    } catch (err) {
+      this.announce(`The background picture could not be added. ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   /** The cast: the people a scenario can show and a learner can choose to be. */
   private async openCast(): Promise<void> {
     const m = this.model;
@@ -671,22 +849,50 @@ export class App {
     const next = await editCast({
       current: m.characters,
       uses: castUse(m.slides),
+      poseUses: poseUse(m.slides),
       choosePicture: async () => {
         const picked = await backend.pickImage();
         return picked ? backend.importImage(m.dir, picked) : null;
       },
-      makePicture: async (name) => {
-        const made = await makeAvatar({ name, announce: (msg) => this.announce(msg) });
-        if (!made) return null;
-        const src = await backend.saveGeneratedImage(m.dir, name || "person", made.svg);
-        return { src, description: made.description };
+      chooseFromLibrary: async () => {
+        const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
+        if (!chosen) return null;
+        const { pack, person } = chosen;
+        // The picture is copied into the project at once, as a picture chosen from the computer is, so the cast dialog can show it.
+        const src = await backend.packUsePicture(m.dir, pack.source, pack.folder, person.head, person.id);
+        return { src, alt: person.alt, name: person.name, role: person.role, voice: person.voice, credit: creditForPicture(pack, person, src), library: { pack: pack.id, person: person.id } };
+      },
+      choosePoses: async (character) => {
+        const link = character.library;
+        if (!link) return null;
+        const found = (await backend.packsList()).packs.find((x) => x.id === link.pack);
+        const who = found?.people.find((x) => x.id === link.person);
+        if (!found || !who) {
+          this.announce(`The pack "${link.pack}" is not on this computer, so more poses of ${character.name || "this person"} cannot be added. The poses the course has are kept. Add the pack from the library to get more.`);
+          return null;
+        }
+        if (who.poses.length === 0) {
+          this.announce(`${who.name} has no poses in the pack "${found.title}".`);
+          return null;
+        }
+        const chosen = await choosePosesDialog({ backend, pack: found, person: who, have: new Set((character.poses ?? []).map((x) => x.id)), announce: (msg) => this.announce(msg) });
+        if (!chosen || chosen.length === 0) return null;
+        const poses = [];
+        const credits = [];
+        for (const pose of chosen) {
+          const src = await backend.packUsePicture(m.dir, found.source, found.folder, pose.file, `${character.id}-${pose.id}`);
+          poses.push({ id: pose.id, label: pose.label, src });
+          credits.push(creditForPicture(found, who, src));
+        }
+        return { poses, credits };
       },
       imageUrl: (src) => backend.assetUrl(m.dir, src),
+      discardPicture: (src) => backend.deleteAsset(m.dir, src),
       announce: (msg) => this.announce(msg),
     });
     this.castBtn.focus();
     if (!next) return;
-    const msg = m.setCharacters(next);
+    const msg = m.setCharacters(next.cast, next.credits);
     this.announce(msg ? `${msg} Press Control Z to undo.` : "The cast is as it was.");
   }
 
@@ -839,7 +1045,12 @@ export class App {
         const lang = h("select", { id: `p-${prefix}-lang` }, ...languageOptions(n.lang).map((l) => h("option", { value: l.lang, text: l.name })));
         lang.value = n.lang;
         lang.dataset["key"] = `prop:${prefix}-lang`;
-        lang.addEventListener("change", () => { const msg = m.setNarrationLang(key, lang.value); if (msg) this.announce(msg); });
+        lang.addEventListener("change", () => {
+          const msg = m.setNarrationLang(key, lang.value);
+          if (!msg) return;
+          this.announce(msg);
+          void this.keepAudioForNewLanguage(m, n, lang.value);
+        });
         parts.push(h("div", { class: "field" }, h("label", { for: `p-${prefix}-lang`, text: "Language of the script" }), lang));
       }
       parts.push(this.field(`${prefix}-speed`, "Speed (1 is normal)", n.speed, (v) => {
@@ -1143,6 +1354,7 @@ export class App {
             { value: "download", label: "File to download", description: "A PDF, Word document or other file learners can save to their own device. You describe what it is, and confirm it is accessible.", group: "From your computer" },
             { value: "youtube", label: "YouTube video", description: "Plays from YouTube. You confirm the captions and add a transcript.", group: "From the web" },
             { value: "vimeo", label: "Vimeo video", description: "Plays from Vimeo. You confirm the captions and add a transcript.", group: "From the web" },
+            { value: "person", label: "A person from the library", description: "A picture of a person from a character pack, waving, thinking, presenting. Its description becomes the alt text, for you to check.", group: "Assets" },
             { value: "icon", label: "Icon", description: "A simple line picture from the Lucide set, drawn in a colour you choose. Search by what it means.", group: "Assets" },
             { value: "library", label: "Browse the assets", description: "The project's own files, and stock images to add to it.", group: "Assets" },
           ],
@@ -1154,6 +1366,7 @@ export class App {
         if (pick === "download") return this.addDownloadFile();
         if (pick === "library") return this.openAssetsDialog();
         if (pick === "icon") return this.addIcon();
+        if (pick === "person") return this.addPerson();
         return this.addEmbedVideo(pick as "youtube" | "vimeo");
       }
       if (group === "question") {
@@ -1231,7 +1444,16 @@ export class App {
         return;
       }
       const picked = await askChoice(group === "shape"
-        ? { heading: "Add a shape", legend: "Shape", confirm: "Add shape", choices: groupOptions("shape").map((c) => ({ ...c, preview: shapePreview(c.value.slice(6)) })) }
+        ? {
+          heading: "Add a shape or a bubble", legend: "Shape or bubble", confirm: "Add",
+          choices: [
+            ...groupOptions("shape").map((c) => ({ ...c, group: "Shapes", preview: shapePreview(c.value.slice(6)) })),
+            { value: "bubble:text-speech", label: "Speech bubble, with words", description: "A speech bubble you type in, to say what someone is saying.", group: "Speech and thought bubbles", preview: bubblePreview("speech", true) },
+            { value: "bubble:text-thought", label: "Thought bubble, with words", description: "A thought bubble you type in, to say what someone is thinking.", group: "Speech and thought bubbles", preview: bubblePreview("thought", true) },
+            { value: "bubble:shape-speech", label: "Speech bubble, empty", description: "A plain speech bubble with no words in it, to put your own words or a picture over.", group: "Speech and thought bubbles", preview: bubblePreview("speech", false) },
+            { value: "bubble:shape-thought", label: "Thought bubble, empty", description: "A plain thought bubble with no words in it.", group: "Speech and thought bubbles", preview: bubblePreview("thought", false) },
+          ],
+        }
         : { heading: "Add a quiz question", legend: "Kind of question", confirm: "Add question", choices: groupOptions("quiz").map((c) => ({ ...c, description: c.value === "quiz:tf" ? "A statement the learner marks true or false." : "One correct answer among several choices." })) });
       this.addKind.focus();
       if (!picked) return;
@@ -1242,6 +1464,10 @@ export class App {
       if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
       return;
     }
+    if (choice.startsWith("bubble:")) {
+      this.addBubble(m, choice);
+      return;
+    }
     const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "button" | "hotspot");
     if (o && o.type === "hotspot") {
       this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
@@ -1249,6 +1475,20 @@ export class App {
       const n = o.accessibility.tabOrder ?? 0;
       this.announce(`Added ${o.name}${n >= 1 ? `, number ${n} in reading order` : ", decorative"}. Its properties are in the Properties panel.`);
     }
+  }
+
+  /** Add a speech or thought bubble, with words to type in or empty. */
+  private addBubble(m: Model, choice: string): void {
+    const wanted = bubbleChoice(choice);
+    if (!wanted) return;
+    const { how, which } = wanted;
+    const made = how === "text" ? m.addObject("text", { bubble: which }) : m.addObject("shape", { shape: which });
+    if (!made) return;
+    const n = made.accessibility.tabOrder ?? 0;
+    const who = which === "speech" ? "speaking" : "thinking";
+    this.announce(how === "text"
+      ? `Added a ${which} bubble with words, number ${n} in reading order. Type what it says in the Text box in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`
+      : `Added an empty ${which} bubble, decorative. Choose its fill and outline in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`);
   }
 
   /** A hotspot question is about a picture, so the author chooses it first. */
@@ -1391,6 +1631,11 @@ export class App {
   /** The video or audio clip's captions and transcript. */
   private mediaFields(m: Model, o: OSObject): HTMLElement[] {
     const captions = typeof o.content["captions"] === "string" ? String(o.content["captions"]) : "";
+    const write = this.small("Write captions...", "Write, time and check the captions here, or start from a script or a caption file", () => void this.openCaptionsDialog().then((said) => {
+      if (said !== "") this.announce(said);
+      document.getElementById("p-write-captions")?.focus();
+    }));
+    write.id = "p-write-captions";
     const choose = this.small("Choose captions file...", "Choose a .vtt captions file from your computer", () => void this.chooseCaptions(o.id));
     const remove = this.small("Remove captions", "Stop using the captions file", () => { const msg = m.setMediaCaptions(o.id, null); if (msg) this.announce(msg); });
     this.setEnabled(remove, captions !== "");
@@ -1398,7 +1643,7 @@ export class App {
     return [h("fieldset", {}, h("legend", { text: o.type === "video" ? "Video" : "Audio" }),
       h("p", { class: "note", text: `File: ${String(o.content["src"] ?? "")}` }),
       h("p", { class: "note", id: "caption-state", text: captions ? `Captions: ${captions}` : "Captions: none" }),
-      h("div", { class: "btn-row" }, choose, remove),
+      h("div", { class: "btn-row" }, write, choose, remove),
       transcript === null
         ? h("p", { class: "note", text: "This transcript has formatting the editor cannot edit yet, so it is left as it is." })
         : this.field("transcript", "Transcript (shown under the player)", transcript, (v) => { const msg = m.setMediaTranscript(o.id, v); if (msg) this.announce(msg); }, { area: true, rows: 5 }),
@@ -1876,7 +2121,7 @@ export class App {
       this.objectList.replaceChildren(
         ...m.objects.map((o) => {
           const t = o.accessibility.tabOrder ?? 0;
-          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${o.type === "video" && m.descriptionOf(o.id).length > 0 ? ", described" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""}${o.group ? `, in a group of ${m.groupSize(o.id)}` : ""})`;
+          const label = `${t >= 1 ? `${t}.` : "-"} ${o.name} (${o.type}${o.accessibility.decorative ? ", decorative" : ""}${o.accessibility.altSuggestion ? ", description suggested" : ""}${o.type === "video" && m.descriptionOf(o.id).length > 0 ? ", described" : ""}${t >= 1 ? "" : ", not in tab order"}${isStartingTiming(o.timing) ? "" : ", timed"}${isStartingAnimation(o.animation) ? "" : ", animated"}${o.locked ? ", locked" : ""}${o.group ? `, in a group of ${m.groupSize(o.id)}` : ""})`;
           const li = this.item(`object:${o.id}`, label, o.id === m.sel.objectId, (e) => this.pickObject(o.id, e));
           if (several) li.querySelector("button")!.setAttribute("aria-pressed", String(picked.has(o.id)));
           return li;
@@ -2003,7 +2248,8 @@ export class App {
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
     const shape = !o ? "" : o.type === "button" ? `${m.activationOf(o).kind}|${o.content["icon"] ? "icon" : ""}`
-      : o.type === "text" ? (parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw")
+      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}`
+      : o.type === "shape" ? (isBubbleKind(o.content["shape"]) ? "bubble" : "")
       : o.type === "interaction" ? interactionShape(o)
       : o.type === "video" || o.type === "audio" ? `${String(o.content["captions"] ?? "")}|${parseBody(String(o.content["transcript"] ?? "")) === null}`
       : o.type === "embed" ? `${(o.content as unknown as EmbedContent).provider}|${parseBody((o.content as unknown as EmbedContent).transcript) === null}`
@@ -2023,7 +2269,7 @@ export class App {
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -2252,6 +2498,15 @@ export class App {
     });
     this.setEnabled(reset, !!layout);
 
+    const pick = this.small("Background picture...", "Choose a picture to put behind everything on this slide", () => void this.chooseBackground(slide.id));
+    pick.id = "bg-pick";
+    const drop = this.small("Remove background picture", "Take this slide's background picture away", () => {
+      if (drop.getAttribute("aria-disabled") === "true") return;
+      const msg = m.removeBackgroundPicture(slide.id);
+      if (msg) this.announce(`${msg} Press Control Z to undo.`);
+    });
+    this.setEnabled(drop, m.backgroundPictureOf(slide.id) !== null);
+
     const background = this.selectField("slide-bg", "Background", [
       { value: "default", label: "Theme default" },
       { value: "dark", label: "Theme: dark" },
@@ -2267,6 +2522,8 @@ export class App {
       h("p", { class: "note", text: layout ? `Layout: ${layout.label}. ${layout.description}` : "Layout: none. This slide was arranged by hand." }),
       h("div", { class: "btn-row" }, change, reset),
       background,
+      h("div", { class: "btn-row" }, pick, drop),
+      ...(m.backgroundPictureOf(slide.id) ? [h("p", { class: "note", text: "This slide has a background picture. It is locked, so clicking the slide does not move it: it is in the Objects list as Background picture, and Unlock lets you move or resize it. The background colour above is the picture's average colour." })] : []),
       ...(kind === "custom" ? [this.field("slide-bg-hex", "Background colour (hex)", custom, (v) => {
         const hx = normalizeHex(v);
         if (!hx) { this.announce("A colour must be a hex code such as #1a1a1a."); (document.getElementById("p-slide-bg-hex") as HTMLInputElement).value = custom; return; }
@@ -2277,6 +2534,31 @@ export class App {
   }
 
   /** Update the values of the open panel without rebuilding it. */
+  /**
+   * The description the computer suggested for the object (from a recording, say), shown beside the alt text it would fill: what it says, what it was worked out from, and
+   * two buttons. It is only a suggestion: the course does not use it, and the checker still asks for alt text, until the author uses it or writes their own.
+   */
+  private altSuggestionBlock(m: Model, o: OSObject): HTMLElement {
+    const s = o.accessibility.altSuggestion!;
+    const use = h("button", { type: "button", id: "alt-suggestion-use", text: "Use this description" });
+    const drop = h("button", { type: "button", id: "alt-suggestion-drop", text: "Throw the suggestion away" });
+    use.addEventListener("click", () => {
+      const said = m.useAltSuggestion(o.id);
+      if (said) this.announce(said);
+      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+    });
+    drop.addEventListener("click", () => {
+      const said = m.dismissAltSuggestion(o.id);
+      if (said) this.announce(said);
+      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+    });
+    return h("div", { id: "alt-suggestion", class: "alt-suggestion", role: "group", "aria-labelledby": "alt-suggestion-title" },
+      h("p", { id: "alt-suggestion-title", class: "alt-suggestion-title", text: "A description has been suggested, and not checked yet" }),
+      h("p", { id: "alt-suggestion-text", text: s.text }),
+      h("p", { class: "note", text: `Worked out from: ${s.basis} It is only a suggestion. The course does not use it, and the Problems panel still asks for alt text, until you use it or write your own. Read it against the picture first.` }),
+      h("div", { class: "btn-row" }, use, drop));
+  }
+
   private fillValues(o: OSObject): void {
     const set = (id: string, v: string | number | null) => {
       const input = this.propsBody.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#p-${id}`);
@@ -2314,6 +2596,9 @@ export class App {
     set("opacity", typeof o.style["opacity"] === "number" ? percentOf(o.style["opacity"]) : "");
     this.fillLooks(o);
     set("shape", String(o.content["shape"] ?? "rectangle"));
+    set("bubble", isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "");
+    set("align", o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? String(o.style["textAlign"]) : "left");
+    set("tail", tailOf(o.content["tail"]));
     this.updateContrast(o);
     if (o.type === "quizQuestion") this.fillQuiz(o);
     if (o.type === "interaction") this.fillInteraction(o);
@@ -2383,7 +2668,7 @@ export class App {
 
     this.colorUpdaters.clear();
     const content: HTMLElement[] = [];
-    if (o.type === "text") content.push(...this.textFields(m, o));
+    if (o.type === "text") content.push(...this.textFields(m, o), ...this.bubbleFields(m, o));
     if (o.type === "button") content.push(this.field("label", "Button label", String(o.content["label"] ?? ""), (v) => {
       const msg = m.setLabel(o.id, v);
       if (msg) this.announce(msg); else this.fillValues(o);
@@ -2392,7 +2677,21 @@ export class App {
     const looks: HTMLElement[] = [];
     if (o.type === "text" || o.type === "button") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true), this.colorField(m, o, "color", "Text colour", "Default"),
+        ...(o.type === "text" ? [this.selectField("align", "Words sit", [{ value: "left", label: "On the left" }, { value: "center", label: "In the centre" }, { value: "right", label: "On the right" }], String(o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? o.style["textAlign"] : "left"), (v) => {
+          const msg = m.setTextAlign(o.id, v);
+          if (msg) this.announce(msg);
+        })] : []),
         h("p", { id: "contrast-note", class: "note" }));
+    }
+    if (o.type === "text" && isBubbleKind(o.content["bubble"])) {
+      looks.push(
+        this.colorField(m, o, "fill", "Bubble colour", "No fill"),
+        this.colorField(m, o, "stroke", "Outline colour", "No outline"),
+        this.field("stroke-width", "Outline width", o.style["strokeWidth"] ?? "", (v) => {
+          const r = m.setStyle(o.id, "strokeWidth", v);
+          if (!r.ok) { this.announce(r.message); this.fillValues(o); } else if (r.message) this.announce(r.message);
+        }, { number: true }),
+      );
     }
     if (o.type === "button") looks.unshift(...this.buttonLookFields(m, o));
     if (o.type === "button") looks.push(this.colorField(m, o, "fill", "Button colour", "Default"));
@@ -2423,6 +2722,7 @@ export class App {
           const msg = m.setShape(o.id, v);
           if (msg) this.announce(msg);
         }),
+        ...(isBubbleKind(o.content["shape"]) ? [this.tailField(m, o)] : []),
         this.colorField(m, o, "fill", "Fill colour", "No fill"),
         this.colorField(m, o, "stroke", "Outline colour", "No outline"),
         this.field("stroke-width", "Outline width", o.style["strokeWidth"] ?? "", (v) => {
@@ -2493,6 +2793,7 @@ export class App {
           : o.type === "quizQuestion"
           ? "This is the name a screen reader gives the group of answers. The question itself is the heading before it, so keep that clear."
           : "Required unless the object is decorative. Decorative objects must have no alt text. A screen reader reads a text object's own words, so for text this is kept for tools and checks." }),
+        ...(a.altSuggestion ? [this.altSuggestionBlock(m, o)] : []),
         this.field("role", "Role", a.role, (v) => { m.setAccessibility(o.id, { role: v }); }),
         this.field("tab", "Tab order (blank for none)", a.tabOrder, (v) => {
           const n = v.trim() === "" ? null : Number(v);
@@ -3307,8 +3608,20 @@ export class App {
           return d;
         })()
         : h("p", { class: "note", text: "Not spoken: this line can only be read. A learner who cannot read the screen will not hear it. Tick Spoken aloud to give it a voice." });
+      // The pose of the person who says it: a picture shown beside the line instead of their face. Only a person from the cast has poses.
+      const who = line.speaker && line.speaker !== YOU ? cast.find((p) => p.id === line.speaker) : undefined;
+      const poseField = who && (who.poses?.length ?? 0) > 0
+        ? this.selectField(`${k}-pose`, "Pose beside the line", [
+          { value: "", label: `${who.name}'s picture` },
+          ...who.poses!.map((x) => ({ value: x.id, label: x.label })),
+          ...(line.pose && !who.poses!.some((x) => x.id === line.pose) ? [{ value: line.pose, label: `${line.pose} (not one of their poses)`, disabled: true }] : []),
+        ], line.pose ?? "", (v) => say(m.setScenarioLinePose(o.id, line.id, v === "" ? null : v)))
+        : who?.library
+          ? h("p", { class: "note", text: `${who.name} has no poses yet. Add some in Characters, then choose one here.` })
+          : null;
       return h("fieldset", {}, h("legend", { text: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${index + 1} of ${list.length}` }),
         this.selectField(`${k}-speaker`, "Said by", speakers, line.speaker ?? "", (v) => say(m.setScenarioLineSpeaker(o.id, line.id, v === "" ? null : v))),
+        ...(poseField ? [poseField] : []),
         this.stacked(this.field(`${k}-text`, "Words", line.text, (v) => say(m.setScenarioLineText(o.id, line.id, v)), { area: true, rows: 3 })),
         check(`${k}-spoken`, "Spoken aloud", said !== null, (on) => say(m.setScenarioLineSpoken(o.id, line.id, on))),
         voiceBox,
@@ -3419,6 +3732,7 @@ export class App {
       const said = (line.narration as Narration | null) ?? null;
       set(`${k}-text`, line.text);
       set(`${k}-speaker`, line.speaker ?? "");
+      set(`${k}-pose`, line.pose ?? "");
       tick(`${k}-spoken`, said !== null);
       if (said) { set(`${k}-narration-script`, said.script); set(`${k}-narration-voice`, said.voice); set(`${k}-narration-speed`, said.speed); }
     }
@@ -3767,6 +4081,28 @@ export class App {
     ];
   }
 
+  /** For text: whether the words sit in a speech or thought bubble, and which side the tail is on. */
+  private bubbleFields(m: Model, o: OSObject): HTMLElement[] {
+    const kind = isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "";
+    return [
+      this.selectField("bubble", "Bubble", [
+        { value: "", label: "None (plain text)" }, { value: "speech", label: "Speech bubble" }, { value: "thought", label: "Thought bubble" },
+      ], kind, (v) => {
+        const msg = m.setTextBubble(o.id, v);
+        if (msg) this.announce(msg);
+      }),
+      ...(kind ? [this.tailField(m, o)] : []),
+    ];
+  }
+
+  /** Which side of a bubble its tail is on. The tail always hangs below, pointing at whoever is speaking or thinking. */
+  private tailField(m: Model, o: OSObject): HTMLElement {
+    return this.selectField("tail", "Tail", [{ value: "left", label: "On the left" }, { value: "right", label: "On the right" }], tailOf(o.content["tail"]), (v) => {
+      const msg = m.setBubbleTail(o.id, v);
+      if (msg) this.announce(msg);
+    });
+  }
+
   /**
    * The rules an object holds: when something happens, do something, if some conditions hold. Rules run
    * in order, and one that goes to another slide ends the list. A rule can belong to any object; for
@@ -3890,6 +4226,8 @@ export class App {
 
   private onGlobalKey(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
+    // Editing a recording has keys of its own (Ctrl+S saves the edit, Ctrl+Z undoes it, F6 moves between its parts). None of them is for the course.
+    if (target.closest(".recording-editor") || target.closest(".captions-dialog")) return;
     const typing = target.matches("input:not([type=checkbox]), textarea, select");
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); void this.save(); }

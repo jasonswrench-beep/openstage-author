@@ -38,7 +38,17 @@
         "altText": { "type": "string" },
         "role": { "type": "string", "minLength": 1 },
         "tabOrder": { "type": ["integer", "null"], "minimum": 0 },
-        "decorative": { "type": "boolean" }
+        "decorative": { "type": "boolean" },
+        "altSuggestion": {
+          "description": "Optional, editor and Capture only. A description the computer worked out (for example from the name of what was clicked in a recording) that the author has not approved. The course never uses it: the object still has no alt text, and the checker still asks for it, until the author uses the suggestion (it becomes altText and this is removed) or writes their own.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "basis"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+            "basis": { "description": "What the suggestion was worked out from, in words the author can read.", "type": "string", "minLength": 1, "maxLength": 300 }
+          }
+        }
       }
     },
     "states": {
@@ -326,7 +336,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["html"],
-      "properties": { "html": { "type": "string", "minLength": 1 } }
+      "properties": {
+        "html": { "type": "string", "minLength": 1 },
+        "bubble": { "type": "string", "minLength": 1 },
+        "tail": { "type": "string", "minLength": 1 }
+      }
     },
     "contentImage": {
       "type": "object",
@@ -336,7 +350,10 @@
     "contentShape": {
       "type": "object",
       "required": ["shape"],
-      "properties": { "shape": { "type": "string", "minLength": 1 } }
+      "properties": {
+        "shape": { "type": "string", "minLength": 1 },
+        "tail": { "type": "string", "minLength": 1 }
+      }
     },
     "contentButton": {
       "type": "object",
@@ -477,6 +494,10 @@
       "properties": {
         "id": { "$ref": "project.schema.json#/$defs/id" },
         "speaker": { "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }] },
+        "pose": {
+          "$comment": "Optional. The id of one of the speaker's poses, to show them in it instead of their picture. Absent or null means their picture.",
+          "oneOf": [{ "type": "null" }, { "$ref": "project.schema.json#/$defs/id" }]
+        },
         "text": { "type": "string", "maxLength": 2000 },
         "narration": {
           "$comment": "What the learner hears when this line is shown. Same shape as an object's narration. Null means the line can only be read.",
@@ -944,7 +965,55 @@
       "properties": {
         "sourceCapture": { "type": "string", "minLength": 1 },
         "stepId": { "type": "string", "minLength": 1 },
-        "capturedAt": { "type": "string", "format": "date-time" }
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "base": {
+          "description": "Optional, on a slide. What the Capture module made for this step, so that when the steps change the slide can be brought up to date without losing what the author changed: the slide's name, the picture it was made with, and for each thing it made (by its part, such as 'words' or 'layer-hint/message') the object's id, its layer, and a fingerprint of each part of the object as made.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "picture", "objects"],
+          "properties": {
+            "name": { "type": "string" },
+            "picture": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["src", "width", "height", "take", "shotMs"],
+                  "properties": {
+                    "src": { "$ref": "#/$defs/assetPath" },
+                    "width": { "type": "integer", "minimum": 1 },
+                    "height": { "type": "integer", "minimum": 1 },
+                    "take": { "type": "integer", "minimum": 1 },
+                    "shotMs": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              ]
+            },
+            "objects": {
+              "type": "object",
+              "maxProperties": 60,
+              "propertyNames": { "pattern": "^[a-z][a-z0-9:/-]*$", "maxLength": 60 },
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "layer", "fields"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "layer": { "type": "string", "minLength": 1 },
+                  "fields": {
+                    "description": "A fingerprint of each part of the object as made (its name, geometry, content, style, accessibility, states, triggers, timing, animation and narration), so a change the author made to one part does not stop another part being brought up to date.",
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 20,
+                    "propertyNames": { "pattern": "^[a-z]+$", "maxLength": 20 },
+                    "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 40 }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
 

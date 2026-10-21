@@ -60,9 +60,10 @@ Apache License 2.0. See [LICENSE](LICENSE).
 Third-party components keep their own licences. [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M),
 used for narration, is Apache 2.0.
 
-Spoken narration also needs a speech engine that you install separately. Parts of that
-engine may be under the GNU General Public License (for example phonemizer-fork and
-espeak-ng). OpenStage Author does not include, bundle, or host them.
+Spoken narration also needs a speech engine, which the editor can install on your computer when
+you press a button in its Narration dialog (it asks first). Parts of that engine are under the GNU
+General Public License (for example phonemizer-fork and espeak-ng). OpenStage Author does not
+include, bundle, or host them: they are downloaded from their own publishers onto your computer.
 
 ## Contributing
 

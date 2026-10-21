@@ -8,7 +8,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { contrastRatio } from "./content.ts";
-import { NEW_OPTIONS, SLIDE_LAYOUTS, toneOf } from "./factory.ts";
+import { bubbleChoice, NEW_OPTIONS, SLIDE_LAYOUTS, toneOf } from "./factory.ts";
 import { Model } from "./model.ts";
 import { newProjectFiles } from "./template.ts";
 import { BUILT_IN_THEMES } from "./themes.ts";
@@ -110,6 +110,11 @@ test("things added by hand follow the theme too", () => {
     if (o.value.startsWith("quiz:")) m.addQuiz(o.value.slice(5) as "mc" | "tf");
     else if (o.value.startsWith("shape:")) m.addObject("shape", { shape: o.value.slice(6) });
     else if (o.value.startsWith("content:")) m.addObject(o.value.slice(8) as "table" | "scrollingText");
+    else if (o.value.startsWith("bubble:")) {
+      const { how, which } = bubbleChoice(o.value)!;
+      if (how === "text") m.addObject("text", { bubble: which });
+      else m.addObject("shape", { shape: which });
+    }
     else m.addObject(o.value as "text" | "button");
   }
   for (const { o, s } of styles(m)) {

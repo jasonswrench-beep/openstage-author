@@ -14,6 +14,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
+mod engine;
+mod speech;
 mod stream;
 
 /// Tests that use the one job slot, or the recorder slot, take turns, because both are shared by the whole program.
@@ -215,9 +217,6 @@ fn import_image_at(dir: &Path, source: &Path) -> Result<String, String> {
     import_asset_at(dir, source, "image")
 }
 
-/// The most a picture the editor drew itself may weigh. A drawn person is a few kilobytes.
-const GENERATED_SVG_MAX: usize = 200 * 1024;
-
 /// The biggest picture taken out of a PowerPoint deck that is saved.
 const DECK_PICTURE_MAX: usize = 50 * 1024 * 1024;
 
@@ -260,41 +259,27 @@ fn save_deck_picture_at(dir: &Path, name: &str, bytes: &[u8]) -> Result<String, 
     Ok(format!("assets/images/{name}"))
 }
 
-/// Save a picture the editor drew itself (a person made in the avatar maker) as an SVG in the project's images, and return its
-/// project-relative path. Only a plain drawing is accepted: nothing that can run, load another page or file, or reach out. The name is
-/// made safe, and an existing file is never overwritten.
-fn save_generated_svg_at(dir: &Path, name_hint: &str, svg: &str) -> Result<String, String> {
+/// Save a picture taken from a recording (the picture of a step) as a PNG in the project's images, and return its project-relative path. The bytes have to be a
+/// real PNG, and not enormous. The name is made safe from `name_hint`, and a file that is already there is never overwritten (a new name is made).
+fn save_step_picture_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
-    if svg.len() > GENERATED_SVG_MAX {
-        return Err("That picture is larger than it should be.".into());
+    if bytes.len() > DECK_PICTURE_MAX {
+        return Err("That picture is bigger than it should be.".into());
     }
-    let lower = svg.to_ascii_lowercase();
-    if !lower.trim_start().starts_with("<svg") {
-        return Err("That is not a picture the editor drew.".into());
+    if !picture_matches("png", bytes) {
+        return Err("That is not a PNG picture.".into());
     }
-    for bad in ["<script", "javascript:", "<foreignobject", "<iframe", "<image", "<use", "<style", "<!entity", "<!doctype", "href=", "xlink:", "@import", "url("] {
-        if lower.contains(bad) {
-            return Err(format!("A drawn picture cannot contain {bad}."));
-        }
-    }
-    // Any attribute that starts with "on" is an event handler.
-    for (at, _) in lower.match_indices("on") {
-        let before = lower[..at].chars().next_back();
-        if !matches!(before, Some(c) if c.is_whitespace() || c == '"' || c == '\'') {
-            continue;
-        }
-        let word: String = lower[at..].chars().take_while(|c| c.is_ascii_alphabetic()).collect();
-        if lower[at + word.len()..].trim_start().starts_with('=') {
-            return Err("A drawn picture cannot contain an event handler.".into());
-        }
-    }
-    let stem = safe_stem(name_hint, "picture");
     let folder = dir.join("assets").join("images");
     fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let name = unique_name(&folder, &stem, "svg");
-    fs::write(folder.join(&name), svg).map_err(|e| format!("Could not save the picture: {e}"))?;
+    let name = unique_name(&folder, &safe_stem(name_hint, "step"), "png");
+    let temp = folder.join(format!("{name}.tmp"));
+    fs::write(&temp, bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
+    fs::rename(&temp, folder.join(&name)).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not save the picture: {e}")
+    })?;
     Ok(format!("assets/images/{name}"))
 }
 
@@ -737,6 +722,66 @@ fn cancel_job_now() -> bool {
     true
 }
 
+/// Run a command to the end, handing every line it prints to `on_line`, as it prints it. Both streams are read, and a carriage return ends a line as well as a new line,
+/// because progress bars rewrite one line with them. Cancelling the job stops it.
+fn run_streaming(mut cmd: Command, mut on_line: impl FnMut(&str)) -> Result<std::process::ExitStatus, JobError> {
+    cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window flashing up
+    }
+    let mut child = cmd.spawn().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound { JobError::Missing } else { JobError::Failed(e.to_string()) }
+    })?;
+    let pid = child.id();
+    *job_pid() = Some(pid);
+    if JOB_CANCELLED.load(Ordering::SeqCst) {
+        kill_tree(pid); // cancelled in the instant before it started
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    fn reader<R: Read + Send + 'static>(mut stream: R, tx: std::sync::mpsc::Sender<String>) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let mut pending: Vec<u8> = Vec::new();
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = stream.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+                for &b in &buf[..n] {
+                    if b == b'\n' || b == b'\r' {
+                        let line = String::from_utf8_lossy(&pending).trim().to_string();
+                        pending.clear();
+                        if !line.is_empty() && tx.send(line).is_err() {
+                            return;
+                        }
+                    } else {
+                        pending.push(b);
+                    }
+                }
+            }
+            let line = String::from_utf8_lossy(&pending).trim().to_string();
+            if !line.is_empty() {
+                let _ = tx.send(line);
+            }
+        })
+    }
+    let readers: Vec<_> = [child.stdout.take().map(|s| reader(s, tx.clone())), child.stderr.take().map(|s| reader(s, tx.clone()))].into_iter().flatten().collect();
+    drop(tx);
+    for line in rx {
+        on_line(&line);
+    }
+    for r in readers {
+        let _ = r.join();
+    }
+    let status = child.wait().map_err(|e| JobError::Failed(e.to_string()))?;
+    *job_pid() = None;
+    if JOB_CANCELLED.swap(false, Ordering::SeqCst) {
+        return Err(JobError::Cancelled);
+    }
+    Ok(status)
+}
+
 /// Without the \\?\ that Windows puts on a fully resolved path, which not every program understands.
 fn plain_path(p: PathBuf) -> PathBuf {
     match p.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
@@ -758,6 +803,11 @@ fn run_publish_tool(project: &Path, out: &Path, preview: bool) -> Result<String,
     let node = std::env::var("OPENSTAGE_NODE").unwrap_or_else(|_| "node".into());
     let mut cmd = Command::new(node);
     cmd.current_dir(player).arg(&script).arg(project).arg(out).arg("--json");
+    // Publishing makes missing narration audio with the speech engine, so it is told which one (the editor's own, if the author has not named another).
+    if let Some((python, _)) = managed_engine() {
+        cmd.env("OPENSTAGE_KOKORO_PYTHON", python);
+        apply_engine_env(&mut cmd);
+    }
     if preview {
         cmd.arg("--preview");
     }
@@ -927,11 +977,51 @@ fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
 // The editor never makes audio itself. tools/narrate.py makes it, in the speech engine's own Python (the one named by
 // OPENSTAGE_KOKORO_PYTHON), and keeps it in the project's .cache/narration, each file named by a hash of what was said.
 
-const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. OPEN EDITOR.bat looks for the speech engine in the Audiobook Studio folder; if yours is somewhere else, set OPENSTAGE_KOKORO_PYTHON to the Python that has Kokoro installed, then open OpenStage Author again.";
+const NO_ENGINE: &str = "No speech engine is set up on this computer, so audio cannot be made here. Transcripts and captions still work. Install the narration voice with the button in the Narration dialog, then try again. (If you set up Kokoro yourself, name its Python in a file called local-settings.bat next to OPEN EDITOR.bat: docs/narration-setup.md says how.)";
 
-/// The speech engine's Python, if one is set up.
-fn engine_path() -> Option<PathBuf> {
+/// The editor's own data folder on this computer (where the speech models and the narration engine are kept), as soon as the program has started.
+static DATA_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// The narration engine this editor installs, if there is a data folder to put it in.
+fn engine_layout() -> Option<engine::Layout> {
+    DATA_DIR.get().map(|dir| engine::Layout::in_data_dir(dir))
+}
+
+/// The Python that travels with an installed editor, if this is one.
+fn bundled_python() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    bundled_helper_in(exe.parent()?, "python", "python.exe")
+}
+
+/// The Python the author named for Kokoro (OPENSTAGE_KOKORO_PYTHON), if it is there. It wins over everything else.
+fn engine_setting() -> Option<PathBuf> {
     std::env::var("OPENSTAGE_KOKORO_PYTHON").ok().map(PathBuf::from).filter(|p| p.is_file())
+}
+
+/// The engine the editor installed itself: the Python that came with it, and where the packages and the model are. None if the author has named their own, or none is installed.
+fn managed_engine() -> Option<(PathBuf, engine::Layout)> {
+    if engine_setting().is_some() {
+        return None;
+    }
+    let layout = engine_layout()?;
+    if !engine::installed(&layout) {
+        return None;
+    }
+    Some((bundled_python()?, layout))
+}
+
+/// The speech engine's Python, if one is set up: the author's own (OPENSTAGE_KOKORO_PYTHON), or the one the editor installed.
+fn engine_path() -> Option<PathBuf> {
+    engine_setting().or_else(|| managed_engine().map(|(python, _)| python))
+}
+
+/// Give a command what the engine the editor installed needs to run (where its packages and its model are). Does nothing for an engine the author set up.
+fn apply_engine_env(cmd: &mut Command) {
+    if let Some((_, layout)) = managed_engine() {
+        for (name, value) in engine::environment(&layout, std::env::var("PYTHONPATH").ok().as_deref()) {
+            cmd.env(name, value);
+        }
+    }
 }
 
 /// A narration cache key: the 64 hex digits of a SHA-256. Anything else is refused before it can name a file.
@@ -1000,6 +1090,38 @@ fn delete_narration_audio_at(dir: &Path, keys: &[String]) -> Result<usize, Strin
         }
     }
     Ok(removed)
+}
+
+/// Keep audio that was made for one key under another, because the two keys name the same sound (the language of a script said by a voice that does not change with it). The sound
+/// and its timings are copied, not moved, so the old key still has its audio, and the timings' own `hash` is made to say the new key. Returns whether anything was copied: false when
+/// the old audio is not there or the new key already has its own. Only real keys name files, and only inside the project's own .cache/narration.
+fn reuse_narration_audio_at(dir: &Path, from: &str, to: &str) -> Result<bool, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !is_cache_key(from) || !is_cache_key(to) {
+        return Err("That is not narration audio.".into());
+    }
+    let folder = dir.join(".cache").join("narration");
+    let (from_wav, from_json) = (folder.join(format!("{from}.wav")), folder.join(format!("{from}.json")));
+    let (to_wav, to_json) = (folder.join(format!("{to}.wav")), folder.join(format!("{to}.json")));
+    if from == to || (to_wav.is_file() && to_json.is_file()) || !from_wav.is_file() || !from_json.is_file() {
+        return Ok(false);
+    }
+    let text = fs::read_to_string(&from_json).map_err(|e| format!("Could not read the audio's timings: {e}"))?;
+    let mut meta: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("The audio's timings could not be read: {e}"))?;
+    let Some(object) = meta.as_object_mut() else { return Err("The audio's timings could not be read.".into()) };
+    object.insert("hash".into(), serde_json::Value::String(format!("sha256:{to}")));
+    // The sound first, under a temporary name; the timings last, because the audio only counts as made when both are there.
+    let part = folder.join(format!("{to}.wav.part"));
+    fs::copy(&from_wav, &part).map_err(|e| format!("Could not keep the audio: {e}"))?;
+    fs::rename(&part, &to_wav).map_err(|e| {
+        let _ = fs::remove_file(&part);
+        format!("Could not keep the audio: {e}")
+    })?;
+    let out = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
+    fs::write(&to_json, out).map_err(|e| format!("Could not keep the audio's timings: {e}"))?;
+    Ok(true)
 }
 
 fn read_narration_audio_at(dir: &Path, key: &str) -> Result<Vec<u8>, String> {
@@ -1074,6 +1196,9 @@ fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[F
         cmd.arg(&tool).arg(&temp).arg("--json").arg("--cache-root").arg(dir);
         if !ids.is_empty() {
             cmd.arg("--only").arg(ids.join(","));
+        }
+        if kokoro_ready {
+            apply_engine_env(&mut cmd);
         }
         apply_ai(&mut cmd, ai, plugins);
         match run_job(cmd) {
@@ -1378,6 +1503,9 @@ fn voice_sample_blocking(engine: &Path, voice: &str, lang: &str, cache: &Path, a
     cmd.arg(&tool).arg("--cache-dir").arg(cache);
     apply_ai(&mut cmd, ai, plugins);
     let kokoro = !voice.contains(':');
+    if kokoro {
+        apply_engine_env(&mut cmd);
+    }
     let request = serde_json::json!({ "voice": voice, "lang": lang }).to_string().into_bytes();
     match run_job_input(cmd, Some(request)) {
         Ok(out) if out.status.success() => {
@@ -1433,6 +1561,191 @@ async fn voice_sample(app: tauri::AppHandle, voice: String, lang: String) -> Res
         .map_err(|e| e.to_string())?
 }
 
+// ---- Character packs
+//
+// A character pack is a folder of pictures of people with a pack.json that describes them (docs/character-packs.md). The packs that came with the
+// program are in the `character-packs` folder beside it; the ones the author adds are kept in the editor's data folder. tools/charpack.py decides
+// what a good pack is and installs one from a zip file; this side finds the two folders, passes the request on, and reads a picture only from
+// inside a pack, by a name that cannot climb out of it.
+
+/// The most a picture inside a pack may weigh. tools/charpack.py refuses a bigger one, and so does this.
+const PACK_PICTURE_MAX: u64 = 3 * 1024 * 1024;
+
+/// The folder of the packs that came with the program, if this copy has one (it has a README.txt that marks it).
+fn packs_bundled_dir() -> Option<PathBuf> {
+    find_repo_file("character-packs/README.txt").and_then(|f| f.parent().map(Path::to_path_buf))
+}
+
+/// The folder of the packs the author has added: in the editor's data folder, so removing the program with its data removes them too.
+fn packs_yours_dir() -> Option<PathBuf> {
+    DATA_DIR.get().map(|d| d.join("character-packs"))
+}
+
+/// The name of a pack's folder as the page gives it back: one plain name, which cannot lead anywhere else.
+fn pack_folder_ok(name: &str) -> bool {
+    !name.is_empty()
+        && name.chars().count() <= 100
+        && !name.starts_with('.')
+        && !name.contains("..")
+        && name.chars().all(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+}
+
+/// The folder of a pack that is on this computer: `source` says which of the two places it is in.
+fn pack_dir_in(bundled: Option<&Path>, yours: Option<&Path>, source: &str, folder: &str) -> Result<PathBuf, String> {
+    let root = match source {
+        "bundled" => bundled,
+        "yours" => yours,
+        _ => None,
+    }
+    .ok_or("That pack is not on this computer.")?;
+    if !pack_folder_ok(folder) {
+        return Err("That is not the name of a pack.".into());
+    }
+    let dir = root.join(folder);
+    if !dir.join("pack.json").is_file() {
+        return Err("That pack is not on this computer.".into());
+    }
+    Ok(dir)
+}
+
+fn pack_dir(source: &str, folder: &str) -> Result<PathBuf, String> {
+    pack_dir_in(packs_bundled_dir().as_deref(), packs_yours_dir().as_deref(), source, folder)
+}
+
+/// A picture of a pack, by its place inside the pack (up to three plain names joined by `/`, ending `.png` or `.webp`), read whole. Anything else is refused.
+fn read_pack_picture_at(pack: &Path, rel: &str) -> Result<(Vec<u8>, &'static str), String> {
+    let parts: Vec<&str> = rel.split('/').collect();
+    let ext = rel.rsplit('.').next().map(str::to_ascii_lowercase).unwrap_or_default();
+    let kind = match ext.as_str() {
+        "png" => "png",
+        "webp" => "webp",
+        _ => return Err("A pack holds only PNG and WebP pictures.".into()),
+    };
+    let plain = !rel.is_empty()
+        && parts.len() <= 3
+        && parts.iter().all(|p| !p.is_empty() && !p.starts_with('.') && !p.contains("..") && p.chars().all(|c| !c.is_control() && !matches!(c, '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')))
+        && Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
+    if !plain {
+        return Err("That is not a place inside a pack.".into());
+    }
+    let file = pack.join(rel);
+    let meta = fs::metadata(&file).map_err(|_| "That picture is not in the pack.".to_string())?;
+    if !meta.is_file() {
+        return Err("That picture is not in the pack.".into());
+    }
+    if meta.len() > PACK_PICTURE_MAX {
+        return Err("That picture is larger than a picture in a pack may be.".into());
+    }
+    let bytes = fs::read(&file).map_err(|e| format!("Could not read the picture: {e}"))?;
+    if !picture_matches(kind, &bytes) {
+        return Err("That is not a picture of the kind its name says.".into());
+    }
+    Ok((bytes, if kind == "png" { "image/png" } else { "image/webp" }))
+}
+
+/// A picture of a pack as a data URL, for the page to show.
+fn pack_picture_data_url(pack: &Path, rel: &str) -> Result<String, String> {
+    use base64::Engine;
+    let (bytes, mime) = read_pack_picture_at(pack, rel)?;
+    Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Copy a picture of a pack into the project's images, and return its project-relative path. A file already there is never overwritten (a new name is made).
+fn copy_pack_picture_at(project: &Path, pack: &Path, rel: &str, name_hint: &str) -> Result<String, String> {
+    if !project.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let (bytes, mime) = read_pack_picture_at(pack, rel)?;
+    let ext = if mime == "image/png" { "png" } else { "webp" };
+    let folder = project.join("assets").join("images");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let name = unique_name(&folder, &safe_stem(name_hint, "person"), ext);
+    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the picture: {e}"))?;
+    Ok(format!("assets/images/{name}"))
+}
+
+/// Run tools/charpack.py and return its one line of JSON.
+fn run_charpack(args: &[&str]) -> Result<String, String> {
+    let tool = find_tool("charpack.py").ok_or("Could not find tools/charpack.py.")?;
+    let mut cmd = Command::new(tools_python());
+    cmd.arg(&tool).args(args);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window flashing up
+    }
+    let out = cmd.output().map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { NO_PYTHON.to_string() } else { format!("Could not run the tool: {e}") })?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    match text.lines().rev().find(|l| l.trim_start().starts_with('{')) {
+        Some(line) => Ok(line.to_string()),
+        None => {
+            let tail: Vec<String> = String::from_utf8_lossy(&out.stderr).lines().map(str::trim).filter(|l| !l.is_empty()).rev().take(3).map(str::to_string).collect();
+            Err(format!("The tool stopped before it finished. {}", tail.into_iter().rev().collect::<Vec<_>>().join(" ")).trim().to_string())
+        }
+    }
+}
+
+fn packs_args(yours: &Path) -> (String, String) {
+    (packs_bundled_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(), yours.to_string_lossy().into_owned())
+}
+
+/// Every character pack on this computer: the good ones, and the folders that look like packs but cannot be used, with why.
+#[tauri::command]
+async fn packs_list() -> Result<String, String> {
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bundled, yours) = packs_args(&yours);
+        run_charpack(&["list", "--bundled", &bundled, "--yours", &yours])
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The folder the author's own packs are kept in, made if it is not there yet.
+#[tauri::command]
+fn packs_folder() -> Result<String, String> {
+    let dir = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not make the packs folder: {e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Install a character pack from a zip file. Everything is checked first (docs/character-packs.md says how); a pack that is not good is not kept.
+#[tauri::command]
+async fn pack_install(source: String) -> Result<String, String> {
+    let zip = PathBuf::from(&source);
+    if !zip.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("zip")) || !zip.is_file() {
+        return Ok(serde_json::json!({ "ok": false, "message": "That is not a zip file." }).to_string());
+    }
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bundled, yours) = packs_args(&yours);
+        run_charpack(&["install", &source, "--bundled", &bundled, "--yours", &yours])
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Take away a pack the author added. One that came with the program is not touched.
+#[tauri::command]
+async fn pack_remove(id: String) -> Result<String, String> {
+    let yours = packs_yours_dir().ok_or("The editor's data folder is not ready yet.")?;
+    tauri::async_runtime::spawn_blocking(move || run_charpack(&["remove", &id, "--yours", &yours.to_string_lossy()]))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// A picture of a pack, as a data URL the page can show. `source` is "bundled" or "yours", and `folder` the pack's folder, as the list gave them.
+#[tauri::command]
+fn pack_picture_url(source: String, folder: String, path: String) -> Result<String, String> {
+    pack_picture_data_url(&pack_dir(&source, &folder)?, &path)
+}
+
+/// Copy a picture of a pack into the project, and return where it is now.
+#[tauri::command]
+fn pack_use_picture(dir: String, source: String, folder: String, path: String, name_hint: String) -> Result<String, String> {
+    copy_pack_picture_at(Path::new(&dir), &pack_dir(&source, &folder)?, &path, &name_hint)
+}
+
 fn read_asset_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
     let rel_path = Path::new(rel);
     let clean = rel.starts_with("assets/")
@@ -1481,12 +1794,15 @@ fn save_files(dir: String, files: Vec<FileText>, remove: Vec<String>) -> Result<
     write_files(Path::new(&dir), &files, &remove)
 }
 
+/// A picture from a PowerPoint deck. It arrives as base64 text, because raw bytes do not travel well through the page.
+/// The picture of a step, taken from a recording in the page. It arrives as base64 text, because raw bytes do not travel well through the page.
 #[tauri::command]
-fn save_generated_image(dir: String, name: String, svg: String) -> Result<String, String> {
-    save_generated_svg_at(Path::new(&dir), &name, &svg)
+fn save_step_picture(dir: String, name_hint: String, data: String) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| "That picture could not be read.".to_string())?;
+    save_step_picture_at(Path::new(&dir), &name_hint, &bytes)
 }
 
-/// A picture from a PowerPoint deck. It arrives as base64 text, because raw bytes do not travel well through the page.
 #[tauri::command]
 fn save_deck_picture(dir: String, name: String, data: String) -> Result<String, String> {
     use base64::Engine;
@@ -1602,6 +1918,12 @@ fn read_narration_audio(dir: String, hash: String) -> Result<String, String> {
     read_narration_audio_at(Path::new(&dir), &hash).map(|bytes| base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
+/// Keep the audio of one key under another, when they name the same sound. See `reuse_narration_audio_at`.
+#[tauri::command]
+fn reuse_narration_audio(dir: String, from: String, to: String) -> Result<bool, String> {
+    reuse_narration_audio_at(Path::new(&dir), &from, &to)
+}
+
 /// Delete the narration audio the editor says nothing uses any more.
 #[tauri::command]
 fn delete_narration_audio(dir: String, keys: Vec<String>) -> Result<usize, String> {
@@ -1621,6 +1943,252 @@ async fn make_narration(app: tauri::AppHandle, dir: String, files: Vec<FileText>
     tauri::async_runtime::spawn_blocking(move || make_narration_with(&engine, kokoro_ready, Path::new(&dir), &files, &ids, &ai, plugins.as_deref()))
         .await
         .map_err(|e| e.to_string())?
+}
+
+// ---- the narration engine, installed from a button
+//
+// The pure parts (where it lives, the environment, the commands) are in engine.rs. This runs them with progress and Stop, as one job.
+
+const NO_BUNDLED_PYTHON: &str = "This copy of OpenStage Author has no Python of its own to install the narration voice with (it is being run from the source folder). Set OPENSTAGE_KOKORO_PYTHON to a Python that has Kokoro installed, as docs/narration-setup.md says.";
+
+/// The time as ISO 8601 in UTC, from seconds since 1970, without a library for it.
+fn iso_utc(secs: u64) -> String {
+    let days = (secs / 86_400) as i64;
+    let rest = secs % 86_400;
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rest / 3600, rest % 3600 / 60, rest % 60)
+}
+
+/// What the page needs to know to offer the engine: whether there is one, whose it is, whether the editor can install one, and how much room it takes.
+#[derive(Serialize)]
+struct EngineStatus {
+    /// "setting" (the author named a Python), "installed" (the editor's own), or "none".
+    state: &'static str,
+    #[serde(rename = "canInstall")]
+    can_install: bool,
+    /// Why it cannot be installed here, when it cannot.
+    problem: String,
+    /// Microsoft's Visual C++ runtime, which the voice needs, is not on this computer (the page offers to open Microsoft's download).
+    #[serde(rename = "runtimeMissing")]
+    runtime_missing: bool,
+    folder: String,
+    /// The bytes the installed engine takes (0 if none).
+    size: u64,
+}
+
+/// Windows' own System32 folder.
+fn system_dir() -> PathBuf {
+    PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("System32")
+}
+
+fn engine_install_problem() -> String {
+    let Some(python) = bundled_python() else { return NO_BUNDLED_PYTHON.to_string() };
+    if !engine::runtime_missing(&system_dir()).is_empty() {
+        return format!("The narration voice needs Microsoft's Visual C++ runtime, which is not on this computer. Install it from Microsoft ({}), then try again.", engine::RUNTIME_URL);
+    }
+    let pip = python.parent().map(|p| p.join("Lib").join("site-packages").join("pip")).filter(|p| p.is_dir());
+    if pip.is_none() {
+        return "The Python that came with this copy has no pip, so the narration voice cannot be installed from here.".to_string();
+    }
+    if engine_layout().is_none() {
+        return "The editor has no data folder to install the narration voice into.".to_string();
+    }
+    if find_tool("narration-requirements.txt").is_none() {
+        return "The list of what the narration voice needs (tools/narration-requirements.txt) is missing from this copy.".to_string();
+    }
+    String::new()
+}
+
+/// What the About window shows: the version and where things are. Words and paths only: no key, nothing from a course.
+#[derive(Serialize)]
+struct AboutInfo {
+    version: String,
+    installed: bool,
+    program: String,
+    #[serde(rename = "guidesFile")]
+    guides_file: String,
+    python: String,
+    node: String,
+    recorder: String,
+    recogniser: String,
+    data: String,
+    settings: String,
+    engine: String,
+    webview: String,
+    windows: String,
+    arch: String,
+}
+
+/// The Windows version as `ver` says it ("Microsoft Windows [Version 10.0.26200.1]"), or "unknown".
+fn windows_version() -> String {
+    let mut cmd = Command::new("cmd");
+    cmd.args(["/C", "ver"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    cmd.output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).filter(|s| !s.is_empty()).unwrap_or_else(|| "unknown".into())
+}
+
+/// A helper's place for the About window: the one that is set or found, or what would be used.
+fn about_where(found: Option<PathBuf>, otherwise: &str) -> String {
+    found.map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| otherwise.to_string())
+}
+
+/// The example project to show first (a folder), so the welcome page can show where the examples that came with the program are. Empty if there are none.
+#[tauri::command]
+fn examples_folder() -> String {
+    find_repo_file("examples/minimal.osproj/project.json")
+        .and_then(|file| file.parent().map(Path::to_path_buf))
+        .map(|dir| dir.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn about_info(app: tauri::AppHandle) -> Result<String, String> {
+    let program = std::env::current_exe().ok();
+    let python = std::env::var("OPENSTAGE_PYTHON").ok().map(PathBuf::from);
+    let node = std::env::var("OPENSTAGE_NODE").ok().map(PathBuf::from);
+    let guides = find_repo_file("docs/narration-setup.md");
+    let engine = if engine_setting().is_some() {
+        "The one you set up yourself (OPENSTAGE_KOKORO_PYTHON)".to_string()
+    } else if managed_engine().is_some() {
+        "Installed by OpenStage Author".to_string()
+    } else {
+        "Not installed".to_string()
+    };
+    let info = AboutInfo {
+        version: app.package_info().version.to_string(),
+        installed: bundled_python().is_some(),
+        program: about_where(program, "unknown"),
+        guides_file: guides.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        python: about_where(python, "python, found on the PATH"),
+        node: about_where(node, "node, found on the PATH"),
+        recorder: capture_program().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "not found".into()),
+        recogniser: speech_program().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "not found".into()),
+        data: app.path().app_local_data_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".into()),
+        settings: settings_file(&app).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".into()),
+        engine,
+        webview: tauri::webview_version().unwrap_or_else(|_| "unknown".into()),
+        windows: windows_version(),
+        arch: std::env::consts::ARCH.to_string(),
+    };
+    serde_json::to_string(&info).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn engine_status() -> Result<String, String> {
+    let layout = engine_layout();
+    let problem = engine_install_problem();
+    let state = if engine_setting().is_some() { "setting" } else if managed_engine().is_some() { "installed" } else { "none" };
+    let size = layout.as_ref().map(|l| engine::folder_size(&l.root)).unwrap_or(0);
+    serde_json::to_string(&EngineStatus {
+        state,
+        can_install: problem.is_empty(),
+        runtime_missing: bundled_python().is_some() && !engine::runtime_missing(&system_dir()).is_empty(),
+        problem,
+        folder: layout.map(|l| l.root.to_string_lossy().into_owned()).unwrap_or_default(),
+        size,
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Run the install steps one after another. `progress(step, steps, label, line)` hears what each prints (not more than a few times a second). Returns the lines of the last step on failure.
+fn engine_install_blocking(python: &Path, layout: &engine::Layout, requirements: &Path, mut progress: impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    fs::create_dir_all(&layout.site).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    fs::create_dir_all(&layout.home).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    let _ = fs::remove_dir_all(&layout.tmp);
+    fs::create_dir_all(&layout.tmp).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
+    let _ = fs::remove_file(layout.marker()); // until it has all gone well, it is not installed
+    let result = engine_install_steps(python, layout, requirements, &mut progress);
+    let _ = fs::remove_dir_all(&layout.tmp); // pip's workings, whether it finished, failed or was stopped
+    result
+}
+
+fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &Path, progress: &mut impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    let steps = engine::steps(layout, requirements);
+    for (i, step) in steps.iter().enumerate() {
+        progress(i + 1, steps.len(), &step.label, "");
+        let mut cmd = Command::new(python);
+        cmd.args(&step.args).current_dir(&layout.root);
+        for (name, value) in engine::install_environment(layout, std::env::var("PYTHONPATH").ok().as_deref()) {
+            cmd.env(name, value);
+        }
+        let mut tail: Vec<String> = Vec::new();
+        let mut last = std::time::Instant::now() - Duration::from_secs(1);
+        let outcome = run_streaming(cmd, |line| {
+            tail.push(line.to_string());
+            if tail.len() > 6 {
+                tail.remove(0);
+            }
+            if last.elapsed() >= Duration::from_millis(250) {
+                last = std::time::Instant::now();
+                progress(i + 1, steps.len(), &step.label, line);
+            }
+        });
+        match outcome {
+            Ok(status) if status.success() => {}
+            Ok(_) => return Err(format!("{} did not finish. It said: {}", step.label, tail.iter().rev().take(2).rev().cloned().collect::<Vec<_>>().join(" "))),
+            Err(JobError::Cancelled) => return Err("Installing the narration voice was stopped. Pressing the button again installs it from the start.".into()),
+            Err(JobError::Missing) => return Err("The Python that came with this copy could not be started.".into()),
+            Err(JobError::Failed(e)) => return Err(format!("Could not run {}: {e}", step.label)),
+        }
+    }
+    let when = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let list = fs::read_to_string(requirements).unwrap_or_default();
+    fs::write(layout.marker(), engine::marker_json(&iso_utc(when), &list)).map_err(|e| format!("Could not write down that the narration voice is installed: {e}"))?;
+    Ok(())
+}
+
+/// Install the narration engine into the editor's own folder: the packages from PyPI and the voice model from Hugging Face, with the Python that came with the editor. Progress
+/// reaches the page as `engine-progress` events ({ step, steps, label, line }). It takes the one job slot (it does not run beside a preview, a publish or a recording), and Cancel stops it.
+#[tauri::command]
+async fn engine_install(app: tauri::AppHandle) -> Result<(), String> {
+    if engine_setting().is_some() {
+        return Err("You have named your own narration engine (OPENSTAGE_KOKORO_PYTHON), so the editor leaves it alone and installs nothing.".into());
+    }
+    let problem = engine_install_problem();
+    if !problem.is_empty() {
+        return Err(problem);
+    }
+    let (python, layout, requirements) = (bundled_python().ok_or(NO_BUNDLED_PYTHON)?, engine_layout().ok_or("No data folder.")?, find_tool("narration-requirements.txt").ok_or("No list of packages.")?);
+    tauri::async_runtime::spawn_blocking(move || {
+        let _slot = JobSlot::take()?;
+        engine_install_blocking(&python, &layout, &requirements, |step, steps, label, line| {
+            let _ = app.emit("engine-progress", serde_json::json!({ "step": step, "steps": steps, "label": label, "line": line }));
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Take the editor's own narration engine away (and its model). Only that folder; never the author's own engine. Returns how many bytes it freed.
+#[tauri::command]
+async fn engine_remove() -> Result<u64, String> {
+    let layout = engine_layout().ok_or("No data folder.")?;
+    if !engine::is_engine_folder(&layout.root) {
+        return Err("That is not the narration engine's folder.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let _slot = JobSlot::take()?;
+        let size = engine::folder_size(&layout.root);
+        if layout.root.exists() {
+            engine::remove_tree(&layout.root).map_err(|e| format!("Could not remove all of the narration voice. {e} If something is using it, close that and try again."))?;
+        }
+        Ok(size)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Stop a running preview or publish. Returns whether there was one.
@@ -1823,6 +2391,307 @@ fn allow_project_media(app: tauri::AppHandle, dir: String) -> Result<(), String>
     app.asset_protocol_scope().allow_directory(&assets, true).map_err(|e| e.to_string())
 }
 
+// ---- the recordings of a course (OpenScreen)
+//
+// A recording is a folder `<course>/captures/<name>.capture` that the recorder made. The editing screens read its small JSON files, write
+// `edit.json` back into it, and play its videos. Every command here takes the course's folder and the recording's folder NAME, never a path, so
+// nothing outside the course's `captures` folder can be reached: a name is one plain folder name ending in `.capture`, a path inside a recording
+// is plain names joined by `/`, only `.json` files are read as text, and the only file ever written is `edit.json`.
+
+/// The most text read from, or written to, a recording's JSON file. An edit of a long recording is far smaller than this.
+const MAX_RECORDING_TEXT: u64 = 8 * 1024 * 1024;
+
+/// The most a take's interaction log may weigh when it is read. The cursor is noted about thirty times a second, so an hour is a few megabytes.
+const MAX_INTERACTION_LOG: u64 = 32 * 1024 * 1024;
+
+/// Whether a place inside a recording is a take's interaction log: `takes/take-001/events.jsonl`, and nothing else.
+fn is_interaction_log(rel: &Path) -> bool {
+    let parts: Vec<&str> = rel.iter().filter_map(|p| p.to_str()).collect();
+    parts.len() == 3
+        && parts[0] == "takes"
+        && parts[1].len() > 5
+        && parts[1].starts_with("take-")
+        && parts[1][5..].chars().all(|c| c.is_ascii_digit())
+        && parts[2] == "events.jsonl"
+}
+
+/// A recording's folder name: something, then `.capture`, with no way to name another folder or a drive.
+fn recording_name_ok(name: &str) -> bool {
+    let named = name.strip_suffix(".capture").is_some_and(|stem| !stem.trim().is_empty());
+    named
+        && name.chars().count() <= 100
+        && !name.contains("..")
+        && name.chars().all(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+}
+
+/// A path inside a recording, as the page writes it: plain names joined by `/` (empty means the recording's own folder).
+fn recording_rel(rel: &str) -> Result<PathBuf, String> {
+    let mut out = PathBuf::new();
+    if rel.is_empty() {
+        return Ok(out);
+    }
+    let parts: Vec<&str> = rel.split('/').collect();
+    if parts.len() > 6 {
+        return Err("That is not a place inside a recording.".into());
+    }
+    for part in parts {
+        let plain = !part.is_empty() && part != "." && part != ".." && part.chars().count() <= 100 && part.chars().all(|c| !c.is_control() && !matches!(c, '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'));
+        if !plain {
+            return Err("That is not a place inside a recording.".into());
+        }
+        out.push(part);
+    }
+    Ok(out)
+}
+
+/// The folder of one recording of a course, if the course is a project and the recording is really inside its `captures` folder.
+fn recording_at(dir: &Path, name: &str) -> Result<PathBuf, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !recording_name_ok(name) {
+        return Err("That is not the name of a recording.".into());
+    }
+    let captures = dir.join("captures");
+    let folder = captures.join(name);
+    if !folder.join("capture.json").is_file() {
+        return Err("That recording was not found in this course's captures folder.".into());
+    }
+    // A folder that is really a link to somewhere else is not followed out of captures.
+    let base = captures.canonicalize().map_err(|e| e.to_string())?;
+    let real = folder.canonicalize().map_err(|e| e.to_string())?;
+    if !real.starts_with(&base) {
+        return Err("That recording is not inside this course's captures folder.".into());
+    }
+    Ok(plain_path(real))
+}
+
+/// The recordings in a course's `captures` folder, by folder name.
+fn list_recordings_at(dir: &Path) -> Result<Vec<String>, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let Ok(entries) = fs::read_dir(dir.join("captures")) else { return Ok(Vec::new()) };
+    let mut out: Vec<String> = entries
+        .flatten()
+        .filter(|e| e.path().join("capture.json").is_file())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|n| recording_name_ok(n))
+        .collect();
+    out.sort();
+    out.truncate(500);
+    Ok(out)
+}
+
+/// The text of a `.json` file inside a recording, or None if there is no such file.
+fn read_recording_text_at(dir: &Path, name: &str, rel: &str) -> Result<Option<String>, String> {
+    let base = recording_at(dir, name)?;
+    let rel = recording_rel(rel)?;
+    let log = is_interaction_log(&rel);
+    if rel.extension().and_then(|e| e.to_str()) != Some("json") && !log {
+        return Err("Only the recording's .json files and its interaction logs can be read as text.".into());
+    }
+    let file = base.join(rel);
+    let Ok(meta) = fs::metadata(&file) else { return Ok(None) };
+    if !meta.is_file() {
+        return Ok(None);
+    }
+    if meta.len() > if log { MAX_INTERACTION_LOG } else { MAX_RECORDING_TEXT } {
+        return Err("That file is larger than a recording's notes should be.".into());
+    }
+    fs::read_to_string(&file).map(Some).map_err(|e| format!("Could not read the file: {e}"))
+}
+
+/// The names of the folders directly inside a place in a recording.
+fn recording_folders_at(dir: &Path, name: &str, rel: &str) -> Result<Vec<String>, String> {
+    let base = recording_at(dir, name)?;
+    let place = base.join(recording_rel(rel)?);
+    let Ok(entries) = fs::read_dir(&place) else { return Ok(Vec::new()) };
+    let mut out: Vec<String> = entries.flatten().filter(|e| e.path().is_dir()).filter_map(|e| e.file_name().into_string().ok()).collect();
+    out.sort();
+    out.truncate(2000);
+    Ok(out)
+}
+
+/// Write one of the two files the editor keeps in a recording, `edit.json` (the edit) or `steps.json` (the steps made from what the author did), and nothing
+/// else ever. It has to be a JSON object, and it is put in place whole or not at all.
+fn write_recording_json_at(dir: &Path, name: &str, file: &str, what: &str, text: &str) -> Result<(), String> {
+    let base = recording_at(dir, name)?;
+    if file != "edit.json" && file != "steps.json" {
+        return Err("Only the edit and the steps can be saved in a recording.".into());
+    }
+    if text.len() as u64 > MAX_RECORDING_TEXT {
+        return Err(format!("That {what} is larger than a {what} should be."));
+    }
+    if !serde_json::from_str::<serde_json::Value>(text).map(|v| v.is_object()).unwrap_or(false) {
+        return Err(format!("The {what} is not in a form that can be saved."));
+    }
+    let temp = base.join(format!("{file}.tmp"));
+    fs::write(&temp, text).map_err(|e| format!("Could not save the {what}: {e}"))?;
+    fs::rename(&temp, base.join(file)).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not save the {what}: {e}")
+    })
+}
+
+/// Write `edit.json` into a recording.
+fn write_recording_edit_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
+    write_recording_json_at(dir, name, "edit.json", "edit", text)
+}
+
+/// Write `steps.json` into a recording.
+fn write_recording_steps_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
+    write_recording_json_at(dir, name, "steps.json", "list of steps", text)
+}
+
+/// The recordings in this course, by folder name.
+#[tauri::command]
+fn list_recordings(dir: String) -> Result<Vec<String>, String> {
+    list_recordings_at(Path::new(&dir))
+}
+
+/// The text of a `.json` file inside a recording (`capture.json`, `edit.json`, a take's `take.json`), or null if there is none.
+#[tauri::command]
+fn recording_read(dir: String, name: String, rel: String) -> Result<Option<String>, String> {
+    read_recording_text_at(Path::new(&dir), &name, &rel)
+}
+
+/// The folders directly inside a place in a recording.
+#[tauri::command]
+fn recording_folders(dir: String, name: String, rel: String) -> Result<Vec<String>, String> {
+    recording_folders_at(Path::new(&dir), &name, &rel)
+}
+
+/// Save the edit of a recording as its `edit.json`.
+#[tauri::command]
+fn recording_write_edit(dir: String, name: String, text: String) -> Result<(), String> {
+    write_recording_edit_at(Path::new(&dir), &name, &text)
+}
+
+/// Save the steps made from a recording as its `steps.json`.
+#[tauri::command]
+fn recording_write_steps(dir: String, name: String, text: String) -> Result<(), String> {
+    write_recording_steps_at(Path::new(&dir), &name, &text)
+}
+
+/// Let the page play the videos and sounds of one recording straight from disk, with seeking. Only that recording's `takes` folder is opened up, for
+/// the rest of the session, and only after the recording has been found inside the course's `captures` folder.
+#[tauri::command]
+fn allow_recording_media(app: tauri::AppHandle, dir: String, name: String) -> Result<(), String> {
+    let takes = recording_at(Path::new(&dir), &name)?.join("takes");
+    if !takes.is_dir() {
+        return Ok(());
+    }
+    app.asset_protocol_scope().allow_directory(&takes, true).map_err(|e| e.to_string())
+}
+
+// ---- captions
+//
+// A course keeps its captions as WebVTT files in assets/captions. The page decides what the words are; these commands only read and write the files
+// safely: one plain name under assets/captions, text only, never larger than a caption file should be, and put in place whole or not at all.
+
+const MAX_CAPTION_FILE: u64 = 5 * 1024 * 1024;
+
+/// A caption file's name: one plain name ending in `.vtt`, nothing that climbs out of the folder.
+fn caption_name_ok(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(".vtt") else { return false };
+    !stem.is_empty()
+        && !stem.starts_with('.')
+        && name.chars().count() <= 100
+        && !name.contains("..")
+        && name.chars().all(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+}
+
+/// Where a caption file is, from the path the page keeps (`assets/captions/<name>.vtt`), if the course is a project and the path is really that.
+fn captions_path_at(dir: &Path, rel: &str) -> Result<PathBuf, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let name = rel.strip_prefix("assets/captions/").unwrap_or("");
+    if !caption_name_ok(name) {
+        return Err("That is not the path of a caption file in this course.".into());
+    }
+    Ok(dir.join("assets").join("captions").join(name))
+}
+
+fn read_caption_text(file: &Path) -> Result<String, String> {
+    let meta = fs::metadata(file).map_err(|e| format!("Could not read the caption file: {e}"))?;
+    if !meta.is_file() {
+        return Err("That is not a file.".into());
+    }
+    if meta.len() > MAX_CAPTION_FILE {
+        return Err(format!("That caption file is larger than {} MB.", MAX_CAPTION_FILE / (1024 * 1024)));
+    }
+    let bytes = fs::read(file).map_err(|e| format!("Could not read the caption file: {e}"))?;
+    String::from_utf8(bytes).map_err(|_| "That caption file is not saved as UTF-8 text. Open it in Notepad, choose Save As, and set Encoding to UTF-8.".to_string())
+}
+
+/// The text of a caption file already in the course, or None if there is no such file.
+fn read_captions_at(dir: &Path, rel: &str) -> Result<Option<String>, String> {
+    let file = captions_path_at(dir, rel)?;
+    if !file.is_file() {
+        return Ok(None);
+    }
+    read_caption_text(&file).map(Some)
+}
+
+/// The text of a caption file the author picked from anywhere (`.vtt` or `.srt`), to be read and turned into captions. Nothing is copied or kept.
+fn read_caption_source_at(source: &Path) -> Result<String, String> {
+    let ext = source.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if ext != "vtt" && ext != "srt" {
+        return Err("Caption files must be .vtt or .srt files.".into());
+    }
+    read_caption_text(source)
+}
+
+/// Save captions as a WebVTT file in the course. With `existing` (the path of a caption file already in the course) that file is replaced; otherwise a
+/// new file is made from `name_hint`, and nothing already there is overwritten. Returns the course-relative path.
+fn write_captions_at(dir: &Path, name_hint: &str, existing: Option<&str>, text: &str) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if text.len() as u64 > MAX_CAPTION_FILE {
+        return Err(format!("Those captions are larger than {} MB.", MAX_CAPTION_FILE / (1024 * 1024)));
+    }
+    if !text.starts_with("WEBVTT") {
+        return Err("The captions are not in the WebVTT form (the first line has to be WEBVTT).".into());
+    }
+    let folder = dir.join("assets").join("captions");
+    let target = match existing {
+        Some(rel) if captions_path_at(dir, rel)?.is_file() => captions_path_at(dir, rel)?,
+        _ => {
+            fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+            folder.join(unique_name(&folder, &safe_stem(name_hint, "captions"), "vtt"))
+        }
+    };
+    let temp = target.with_extension("vtt.tmp");
+    fs::write(&temp, text).map_err(|e| format!("Could not save the captions: {e}"))?;
+    fs::rename(&temp, &target).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not save the captions: {e}")
+    })?;
+    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("captions.vtt");
+    Ok(format!("assets/captions/{name}"))
+}
+
+/// The text of a caption file in this course (`assets/captions/<name>.vtt`), or null if there is none.
+#[tauri::command]
+fn captions_read(dir: String, rel: String) -> Result<Option<String>, String> {
+    read_captions_at(Path::new(&dir), &rel)
+}
+
+/// The text of a `.vtt` or `.srt` file the author chose, to read it into the captions dialog.
+#[tauri::command]
+fn caption_source_read(source: String) -> Result<String, String> {
+    read_caption_source_at(Path::new(&source))
+}
+
+/// Save WebVTT captions in the course and return their path.
+#[tauri::command]
+fn captions_write(dir: String, name_hint: String, existing: Option<String>, text: String) -> Result<String, String> {
+    write_captions_at(Path::new(&dir), &name_hint, existing.as_deref(), &text)
+}
+
 // ---- the Capture recorder
 //
 // OpenStage Capture is a separate program that the editor starts and talks to (see stream.rs). Nothing here records anything.
@@ -1915,12 +2784,294 @@ async fn stream_stop(stop_line: Option<String>) -> Result<bool, String> {
         .map_err(|e| e.to_string())?
 }
 
+// ---- speech recognition (story D3: captions from a recorded voice)
+//
+// The recogniser is a separate program, whisper.cpp's whisper-cli, that this starts and reads the answer of (see speech.rs). The page reads the sound of a video into a plain
+// WAV file and hands it over; the models are downloaded only when the author presses the button, from one address written in speech.rs, and checked.
+
+/// Where the recogniser is: OPENSTAGE_WHISPER if it is set, otherwise the `speech` folder beside the editor or in the repository, found the way the other helpers are.
+/// The Err is a message for the author.
+fn speech_program_in(setting: Option<&str>, starts: &[PathBuf]) -> Result<PathBuf, String> {
+    if let Some(p) = setting.map(str::trim).filter(|p| !p.is_empty()) {
+        let path = PathBuf::from(p);
+        return if path.is_file() {
+            Ok(path)
+        } else {
+            Err(format!("OPENSTAGE_WHISPER is set to {}, but there is no program there. Set it to the full path of whisper-cli.exe, or remove it so the editor looks in the speech folder.", path.display()))
+        };
+    }
+    let name = if cfg!(windows) { "whisper-cli.exe" } else { "whisper-cli" };
+    for rel in [format!("speech/{name}"), name.to_string()] {
+        if let Some(found) = find_in(starts, &rel) {
+            return Ok(plain_path(found));
+        }
+    }
+    Err(speech::NO_RECOGNISER.into())
+}
+
+fn speech_program() -> Result<PathBuf, String> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(repo) = std::env::var("OPENSTAGE_REPO") {
+        starts.push(PathBuf::from(repo));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        starts.push(exe);
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        starts.push(cwd);
+    }
+    speech_program_in(std::env::var("OPENSTAGE_WHISPER").ok().as_deref(), &starts)
+}
+
+/// Where the speech models are kept: the editor's own folder on this computer, never a course.
+fn speech_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("speech-models"))
+}
+
+/// The folder the sound being listened to is kept in for as long as it takes.
+fn speech_temp_dir() -> PathBuf {
+    std::env::temp_dir().join("openstage-speech")
+}
+
+static SPEECH_DOWNLOADING: AtomicBool = AtomicBool::new(false);
+static SPEECH_DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the recogniser is there and which models are downloaded, as JSON for the page.
+#[tauri::command]
+fn speech_status(app: tauri::AppHandle) -> Result<String, String> {
+    let folder = speech_models_dir(&app)?;
+    serde_json::to_string(&speech::status(speech_program(), &folder)).map_err(|e| e.to_string())
+}
+
+/// Download a model the author asked for. Progress reaches the page as `speech-download` events ({ id, done, total }). Only a model in the table in speech.rs can be asked for, and
+/// it is fetched from the address written there, not from anything the page says.
+#[tauri::command]
+async fn speech_download(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let spec = speech::model(&id).ok_or("That is not a speech model OpenStage knows.")?;
+    let folder = speech_models_dir(&app)?;
+    if SPEECH_DOWNLOADING.swap(true, Ordering::SeqCst) {
+        return Err("A model is already being downloaded.".into());
+    }
+    SPEECH_DOWNLOAD_CANCELLED.store(false, Ordering::SeqCst);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let model_id = spec.id;
+        speech::download(&folder, spec, spec.url, &SPEECH_DOWNLOAD_CANCELLED, &mut |done, total| {
+            let _ = app.emit("speech-download", serde_json::json!({ "id": model_id, "done": done, "total": total }));
+        })
+    })
+    .await
+    .map_err(|e| e.to_string());
+    SPEECH_DOWNLOADING.store(false, Ordering::SeqCst);
+    result?
+}
+
+/// Keep the sound the page made (a 16 kHz mono 16-bit WAV, sent as the raw body of the request, so a long clip is not turned into text on the way). Returns the name to listen to it by.
+#[tauri::command]
+fn speech_audio_put(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("The sound could not be passed to the recogniser: the window did not send it as bytes.".into());
+    };
+    speech::check_wav(bytes)?;
+    let dir = speech_temp_dir();
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not make a place to keep the sound: {e}"))?;
+    // Sounds left by a run that was cut short are cleared away after a day.
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|age| age > Duration::from_secs(24 * 3600)).unwrap_or(false);
+            if old {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let name = format!("speech-{}-{stamp}.wav", std::process::id());
+    fs::write(dir.join(&name), bytes).map_err(|e| format!("Could not keep the sound: {e}"))?;
+    Ok(name)
+}
+
+/// Let go of a sound that was kept.
+#[tauri::command]
+fn speech_drop(audio: String) {
+    if speech::audio_name_ok(&audio) {
+        let dir = speech_temp_dir();
+        let _ = fs::remove_file(dir.join(&audio));
+        let _ = fs::remove_file(dir.join(audio.trim_end_matches(".wav")).with_extension("json"));
+    }
+}
+
+/// Listen to a sound that was kept and return the recogniser's answer (its full JSON). Progress reaches the page as `speech-progress` events (a percent). It takes the one job
+/// slot, so it does not run beside a preview, a publish, or an unpaused recording, and Cancel stops it.
+#[tauri::command]
+async fn speech_listen(app: tauri::AppHandle, audio: String, model: String, hint: String) -> Result<String, String> {
+    if !speech::audio_name_ok(&audio) {
+        return Err("That is not a sound that was kept for listening.".into());
+    }
+    let spec = speech::model(&model).ok_or("That is not a speech model OpenStage knows.")?;
+    let program = speech_program()?;
+    let folder = speech_models_dir(&app)?;
+    if !speech::installed(&folder, spec) {
+        return Err(format!("The speech model {} is not downloaded yet.", spec.id));
+    }
+    let wav = speech_temp_dir().join(&audio);
+    if !wav.is_file() {
+        return Err("The sound to listen to is not there any more. Try again.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let _slot = JobSlot::take()?;
+        let out_base = speech_temp_dir().join(audio.trim_end_matches(".wav"));
+        let args = speech::listen_args(&speech::model_path(&folder, spec), &wav, &out_base, spec.id, &hint, speech::threads());
+        let mut cmd = Command::new(&program);
+        cmd.args(&args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+        if let Some(dir) = program.parent() {
+            cmd.current_dir(dir);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // no console window flashing up
+        }
+        let mut child = cmd.spawn().map_err(|e| format!("The speech recogniser could not be started: {e}"))?;
+        *job_pid() = Some(child.id());
+        if JOB_CANCELLED.load(Ordering::SeqCst) {
+            kill_tree(child.id()); // cancelled in the instant before it started
+        }
+        let stderr = child.stderr.take();
+        let events = app.clone();
+        let reader = std::thread::spawn(move || {
+            let mut tail: Vec<String> = Vec::new();
+            if let Some(mut s) = stderr {
+                let mut pending: Vec<u8> = Vec::new();
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = s.read(&mut buf) {
+                    if n == 0 {
+                        break;
+                    }
+                    for &b in &buf[..n] {
+                        if b == b'\n' || b == b'\r' {
+                            let line = String::from_utf8_lossy(&pending).trim().to_string();
+                            pending.clear();
+                            if line.is_empty() {
+                                continue;
+                            }
+                            if let Some(p) = speech::progress_of(&line) {
+                                let _ = events.emit("speech-progress", p);
+                            } else {
+                                tail.push(line);
+                                if tail.len() > 12 {
+                                    tail.remove(0);
+                                }
+                            }
+                        } else {
+                            pending.push(b);
+                        }
+                    }
+                }
+            }
+            tail
+        });
+        let status = child.wait().map_err(|e| e.to_string());
+        let tail = reader.join().unwrap_or_default();
+        *job_pid() = None;
+        let json_path = out_base.with_extension("json");
+        let finish = |outcome: Result<String, String>| {
+            let _ = fs::remove_file(&json_path);
+            outcome
+        };
+        if JOB_CANCELLED.swap(false, Ordering::SeqCst) {
+            return finish(Err("Listening was stopped.".into()));
+        }
+        let status = status?;
+        if !status.success() {
+            let said = tail.iter().rev().take(3).rev().cloned().collect::<Vec<_>>().join(" ");
+            return finish(Err(format!("The speech recogniser stopped with an error.{}", if said.is_empty() { String::new() } else { format!(" It said: {said}") })));
+        }
+        let text = match fs::metadata(&json_path) {
+            Ok(m) if m.len() <= 128 * 1024 * 1024 => fs::read_to_string(&json_path).map_err(|e| format!("Could not read what the recogniser heard: {e}")),
+            Ok(_) => Err("What the recogniser heard is too large to use.".to_string()),
+            Err(_) => Err("The speech recogniser finished but wrote nothing.".to_string()),
+        };
+        finish(text)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Stop a download or a listening that is going on. Returns whether there was one.
+#[tauri::command]
+fn speech_cancel() -> bool {
+    let downloading = SPEECH_DOWNLOADING.load(Ordering::SeqCst);
+    if downloading {
+        SPEECH_DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
+    }
+    cancel_job_now() || downloading
+}
+
+/// The bytes of a video or audio file in the course's assets, so the page can decode its sound. One plain file name directly in assets/video or assets/audio, of a kind a course
+/// holds, and no larger than the course would take. Sent back raw, not as text.
+fn read_media_at(dir: &Path, rel: &str) -> Result<Vec<u8>, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let parts: Vec<&str> = rel.split('/').collect();
+    let (kind, name) = match parts.as_slice() {
+        ["assets", "video", name] => ("video", *name),
+        ["assets", "audio", name] => ("audio", *name),
+        _ => return Err("That file is not a video or sound in the course's assets.".into()),
+    };
+    let k = asset_kind(kind)?;
+    let ext = name.rsplit('.').next().map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if name.starts_with('.') || name.contains(['\\', ':']) || name.contains("..") || !k.exts.contains(&ext.as_str()) {
+        return Err("That file is not a video or sound in the course's assets.".into());
+    }
+    let path = dir.join("assets").join(k.folder).join(name);
+    let size = fs::metadata(&path).map_err(|_| format!("{rel} is not in the course."))?.len();
+    if size > k.max + 100 * 1024 * 1024 {
+        return Err("That file is too large to listen to.".into());
+    }
+    fs::read(&path).map_err(|e| format!("Could not read {rel}: {e}"))
+}
+
+#[tauri::command]
+fn read_media_bytes(dir: String, path: String) -> Result<tauri::ipc::Response, String> {
+    read_media_at(Path::new(&dir), &path).map(tauri::ipc::Response::new)
+}
+
+/// The file `file` in the folder `folder` beside the program, if it is there: where an installed OpenStage Author keeps the Python and Node that travel with it.
+fn bundled_helper_in(exe_dir: &Path, folder: &str, file: &str) -> Option<PathBuf> {
+    let path = exe_dir.join(folder).join(file);
+    path.is_file().then_some(path)
+}
+
+/// An installed OpenStage Author carries its own Python and Node (the `python` and `node` folders beside the program), so nothing has to be installed first. They are used
+/// unless the author has named others with OPENSTAGE_PYTHON or OPENSTAGE_NODE. Run from the repository there are no such folders, and the ones on the PATH are used as before.
+fn use_bundled_helpers() {
+    let Some(dir) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_path_buf)) else { return };
+    for (setting, folder, file) in [("OPENSTAGE_PYTHON", "python", "python.exe"), ("OPENSTAGE_NODE", "node", "node.exe")] {
+        if std::env::var_os(setting).is_none() {
+            if let Some(path) = bundled_helper_in(&dir, folder, file) {
+                std::env::set_var(setting, path);
+            }
+        }
+    }
+}
+
 pub fn run() {
+    use_bundled_helpers();
     tauri::Builder::default()
+        .setup(|app| {
+            if let Ok(dir) = app.path().app_local_data_dir() {
+                // The Python that travels with the editor keeps its compiled copies of modules in the editor's data folder, not in its own, so nothing is written into the install folder that the uninstaller does not know of.
+                if bundled_python().is_some() && std::env::var_os("PYTHONPYCACHEPREFIX").is_none() {
+                    std::env::set_var("PYTHONPYCACHEPREFIX", dir.join("pycache"));
+                }
+                let _ = DATA_DIR.set(dir);
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_generated_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -2148,52 +3299,6 @@ mod tests {
     }
 
     #[test]
-    fn a_picture_the_editor_drew_is_saved_in_the_images_and_never_overwrites() {
-        let dir = temp_project("generated-svg");
-        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#cfe8d6"/><circle cx="100" cy="88" r="40" fill="#d9a273"/></svg>"##;
-        let first = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
-        assert_eq!(first, "assets/images/Maya-Reyes.svg");
-        let second = save_generated_svg_at(&dir, "Maya Reyes", svg).unwrap();
-        assert_eq!(second, "assets/images/Maya-Reyes-2.svg");
-        assert_eq!(fs::read_to_string(dir.join(&first)).unwrap(), svg);
-        assert_eq!(save_generated_svg_at(&dir, "../../evil", svg).unwrap(), "assets/images/evil.svg", "the name cannot climb out of the folder");
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn a_drawn_picture_that_could_run_or_reach_out_is_refused() {
-        let dir = temp_project("generated-svg-bad");
-        let bad = [
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect onclick = "x"/></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com"><rect/></a></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><image href="x.png"/></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div/></foreignObject></svg>"##,
-            r##"<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:url(http://x)"/></svg>"##,
-            r##"<html><body>not a picture</body></html>"##,
-        ];
-        for svg in bad {
-            assert!(save_generated_svg_at(&dir, "x", svg).is_err(), "{svg}");
-        }
-        assert!(save_generated_svg_at(&dir, "x", &format!("<svg>{}</svg>", "a".repeat(GENERATED_SVG_MAX))).is_err(), "too big");
-        assert!(!dir.join("assets/images").exists() || fs::read_dir(dir.join("assets/images")).unwrap().count() == 0, "nothing was written");
-        let elsewhere = std::env::temp_dir().join(format!("openstage-test-notproj3-{}", std::process::id()));
-        fs::create_dir_all(&elsewhere).unwrap();
-        assert!(save_generated_svg_at(&elsewhere, "x", "<svg></svg>").is_err(), "not a project");
-        let _ = fs::remove_dir_all(dir);
-        let _ = fs::remove_dir_all(elsewhere);
-    }
-
-    #[test]
-    fn an_attribute_that_only_contains_on_is_not_an_event_handler() {
-        let dir = temp_project("generated-svg-on");
-        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 200 200"><path stroke-linejoin="round" d="M0 0"/></svg>"##;
-        assert!(save_generated_svg_at(&dir, "ok", svg).is_ok());
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[test]
     fn an_asset_comes_back_as_a_data_url_with_the_right_type() {
         let dir = temp_project("dataurl");
         fs::create_dir_all(dir.join("assets/images")).unwrap();
@@ -2248,9 +3353,9 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.26.0");
+        assert_eq!(report["to"], "0.30.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.26.0\""));
+        assert!(opened.project.contains("\"0.30.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.
@@ -2680,6 +3785,51 @@ mod tests {
     }
 
     #[test]
+    fn the_speech_recogniser_is_found_by_the_setting_then_in_the_speech_folder_and_a_missing_one_says_what_to_do() {
+        let dir = std::env::temp_dir().join(format!("openstage-speechfind-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let name = if cfg!(windows) { "whisper-cli.exe" } else { "whisper-cli" };
+        fs::create_dir_all(dir.join("repo/speech")).unwrap();
+        fs::create_dir_all(dir.join("repo/editor/src-tauri/target/release")).unwrap();
+        let editor = dir.join("repo/editor/src-tauri/target/release/openstage-editor.exe");
+        // nothing built: the message says how to build it
+        let missing = speech_program_in(None, &[editor.clone()]).unwrap_err();
+        assert!(missing.contains("BUILD SPEECH RECOGNISER.bat") && missing.contains("OPENSTAGE_WHISPER"), "{missing}");
+        // built into the speech folder of the repository, found by looking upward from the editor
+        fs::write(dir.join("repo/speech").join(name), b"x").unwrap();
+        assert_eq!(speech_program_in(None, &[editor.clone()]), Ok(dir.join("repo/speech").join(name)));
+        // an empty setting is none; a setting wins wherever it points; one that points at nothing is an error that names it
+        assert_eq!(speech_program_in(Some(" "), &[editor.clone()]), Ok(dir.join("repo/speech").join(name)));
+        fs::write(dir.join("elsewhere.exe"), b"x").unwrap();
+        assert_eq!(speech_program_in(Some(dir.join("elsewhere.exe").to_str().unwrap()), &[editor.clone()]), Ok(dir.join("elsewhere.exe")));
+        let bad = speech_program_in(Some(dir.join("nope.exe").to_str().unwrap()), &[editor]).unwrap_err();
+        assert!(bad.starts_with("OPENSTAGE_WHISPER is set to") && bad.contains("nope.exe"), "{bad}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_a_video_or_a_sound_directly_in_the_courses_assets_can_be_read_for_listening() {
+        let dir = temp_project("listen-read");
+        fs::create_dir_all(dir.join("assets/video")).unwrap();
+        fs::create_dir_all(dir.join("assets/audio")).unwrap();
+        fs::create_dir_all(dir.join("assets/images")).unwrap();
+        fs::write(dir.join("assets/video/Lesson.MP4"), [1u8, 2, 3]).unwrap();
+        fs::write(dir.join("assets/audio/voice.wav"), [9u8]).unwrap();
+        fs::write(dir.join("assets/images/pic.png"), [5u8]).unwrap();
+        fs::write(dir.join("assets/video/notes.txt"), [5u8]).unwrap();
+        assert_eq!(read_media_at(&dir, "assets/video/Lesson.MP4").unwrap(), vec![1, 2, 3]);
+        assert_eq!(read_media_at(&dir, "assets/audio/voice.wav").unwrap(), vec![9]);
+        for bad in [
+            "assets/images/pic.png", "assets/video/notes.txt", "assets/video/../../project.json", "assets/video/sub/Lesson.MP4", "project.json", "../x.mp4",
+            "assets/video/..\\Lesson.MP4", "assets/video/C:Lesson.mp4", "assets/video/.hidden.mp4", "assets/video/missing.mp4", "assets\\video\\Lesson.MP4", "",
+        ] {
+            assert!(read_media_at(&dir, bad).is_err(), "{bad}");
+        }
+        assert!(read_media_at(&std::env::temp_dir(), "assets/video/Lesson.MP4").unwrap_err().contains("not an OpenStage project"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn the_recorder_is_found_by_the_setting_then_beside_the_editor_and_a_missing_one_says_what_to_do() {
         let dir = std::env::temp_dir().join(format!("openstage-test-capture-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -2818,6 +3968,100 @@ mod tests {
         }
         assert!(read_narration_audio_at(&project, &"e".repeat(64)).is_err(), "a key with no audio");
         assert!(read_narration_audio_at(&std::env::temp_dir(), &key).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_place_for_the_about_window_is_the_one_found_or_what_would_be_used() {
+        assert_eq!(about_where(Some(PathBuf::from("C:/x/python.exe")), "python, found on the PATH"), "C:/x/python.exe");
+        assert_eq!(about_where(None, "python, found on the PATH"), "python, found on the PATH");
+    }
+
+    #[test]
+    fn the_time_is_written_as_iso_in_utc() {
+        assert_eq!(iso_utc(0), "1970-01-01T00:00:00Z");
+        assert_eq!(iso_utc(1_700_000_000), "2023-11-14T22:13:20Z");
+        assert_eq!(iso_utc(951_782_400), "2000-02-29T00:00:00Z", "a leap day");
+        assert_eq!(iso_utc(1_792_000_000), "2026-10-14T17:46:40Z");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_command_is_read_line_by_line_from_both_streams_and_a_failure_is_seen() {
+        let _guard = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let _slot = JobSlot::take().expect("a free slot");
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "echo one& echo two 1>&2& echo three& exit 3"]);
+        let mut lines = Vec::new();
+        let status = run_streaming(cmd, |l| lines.push(l.to_string())).ok().expect("it ran");
+        lines.sort();
+        assert_eq!(lines, vec!["one", "three", "two"]);
+        assert_eq!(status.code(), Some(3));
+        let missing = run_streaming(Command::new("openstage-no-such-program-xyz"), |_| {});
+        assert!(matches!(missing, Err(JobError::Missing)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn stopping_a_streamed_command_stops_it() {
+        let _guard = JOB_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let _slot = JobSlot::take().expect("a free slot");
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "ping -n 30 127.0.0.1"]);
+        let stopper = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(800));
+            cancel_job_now();
+        });
+        let started = std::time::Instant::now();
+        let outcome = run_streaming(cmd, |_| {});
+        stopper.join().unwrap();
+        assert!(matches!(outcome, Err(JobError::Cancelled)), "cancelled");
+        assert!(started.elapsed() < Duration::from_secs(15), "it did not run to the end");
+    }
+
+    #[test]
+    fn python_and_node_that_travel_with_the_program_are_found_beside_it() {
+        let dir = std::env::temp_dir().join(format!("openstage-bundled-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("python")).unwrap();
+        assert!(bundled_helper_in(&dir, "python", "python.exe").is_none(), "an empty folder holds nothing");
+        fs::write(dir.join("python").join("python.exe"), b"x").unwrap();
+        assert_eq!(bundled_helper_in(&dir, "python", "python.exe"), Some(dir.join("python").join("python.exe")));
+        assert!(bundled_helper_in(&dir, "node", "node.exe").is_none(), "no node folder");
+        fs::create_dir_all(dir.join("node").join("node.exe")).unwrap();
+        assert!(bundled_helper_in(&dir, "node", "node.exe").is_none(), "a folder is not a program");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn audio_is_kept_under_a_second_key_when_the_two_name_the_same_sound() {
+        let project = temp_project("narr-reuse");
+        let folder = project.join(".cache").join("narration");
+        fs::create_dir_all(&folder).unwrap();
+        let (a, b) = ("a".repeat(64), "b".repeat(64));
+        fs::write(folder.join(format!("{a}.wav")), [9u8, 8, 7]).unwrap();
+        fs::write(folder.join(format!("{a}.json")), format!(r#"{{"hash": "sha256:{a}", "duration": 3.5, "exactTimings": false, "cues": [{{"text": "Hi"}}]}}"#)).unwrap();
+        assert!(reuse_narration_audio_at(&project, &a, &b).unwrap(), "copied");
+        assert_eq!(fs::read(folder.join(format!("{b}.wav"))).unwrap(), vec![9, 8, 7]);
+        assert!(folder.join(format!("{a}.wav")).is_file(), "the first is still there");
+        let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(folder.join(format!("{b}.json"))).unwrap()).unwrap();
+        assert_eq!(meta["hash"], format!("sha256:{b}"), "the copy names itself");
+        assert_eq!(meta["duration"], 3.5);
+        assert_eq!(meta["cues"][0]["text"], "Hi");
+        let listed = narration_cache_at(&project).unwrap();
+        assert_eq!(listed.iter().map(|n| n.hash.clone()).collect::<Vec<_>>(), vec![a.clone(), b.clone()]);
+        assert!(!folder.join(format!("{b}.wav.part")).exists(), "no temporary file is left");
+        // Nothing is overwritten, and nothing is copied that is not there.
+        fs::write(folder.join(format!("{b}.wav")), [1u8]).unwrap();
+        assert!(!reuse_narration_audio_at(&project, &a, &b).unwrap(), "the new key already has its own audio");
+        assert_eq!(fs::read(folder.join(format!("{b}.wav"))).unwrap(), vec![1]);
+        assert!(!reuse_narration_audio_at(&project, &"c".repeat(64), &"d".repeat(64)).unwrap(), "no audio for the old key");
+        assert!(!reuse_narration_audio_at(&project, &a, &a).unwrap(), "the same key");
+        for bad in ["", "../x", &"A".repeat(64), &format!("{a}.wav")] {
+            assert!(reuse_narration_audio_at(&project, bad, &b).is_err(), "{bad}");
+            assert!(reuse_narration_audio_at(&project, &a, bad).is_err(), "{bad}");
+        }
+        assert!(reuse_narration_audio_at(&std::env::temp_dir(), &a, &b).is_err(), "not a project");
         let _ = fs::remove_dir_all(&project);
     }
 
@@ -3178,5 +4422,309 @@ mod tests {
         assert!(voice_sample_blocking(Path::new(&python), "bad\nvoice", "en-US", &cache, &ai, None).is_err());
         assert!(voice_sample_blocking(Path::new(&python), "af_heart", "en US", &cache, &ai, None).is_err());
         let _ = fs::remove_dir_all(cache.parent().unwrap());
+    }
+
+    fn recording_in(project: &Path, name: &str) -> PathBuf {
+        let folder = project.join("captures").join(name);
+        fs::create_dir_all(folder.join("takes").join("take-001")).unwrap();
+        fs::write(folder.join("capture.json"), "{\"format\":\"openstage-capture-project\",\"title\":\"Demo\"}").unwrap();
+        fs::write(folder.join("takes").join("take-001").join("take.json"), "{\"id\":1}").unwrap();
+        fs::write(folder.join("takes").join("take-001").join("screen.mp4"), [0u8, 1, 2]).unwrap();
+        folder
+    }
+
+    #[test]
+    fn a_recording_is_named_by_one_plain_folder_name() {
+        for good in ["Demo.capture", "Week 3 demo.capture", "Caf\u{e9}.capture", "a-b_c.capture"] {
+            assert!(recording_name_ok(good), "{good}");
+        }
+        for bad in ["", ".capture", " .capture", "Demo", "Demo.capture.txt", "../Demo.capture", "a/b.capture", "a\\b.capture", "C:.capture", "x..y.capture", "bad\u{0}.capture", "a*b.capture", &format!("{}.capture", "x".repeat(100))] {
+            assert!(!recording_name_ok(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_place_inside_a_recording_is_plain_names_and_nothing_that_climbs_out() {
+        assert_eq!(recording_rel("").unwrap(), PathBuf::new());
+        assert_eq!(recording_rel("takes/take-001/take.json").unwrap(), PathBuf::from("takes").join("take-001").join("take.json"));
+        for bad in ["/takes", "takes/", "takes//x", "..", "../x", "takes/../x", "./x", "a\\b", "C:/x", "takes/x:y", "a/b/c/d/e/f/g", "x\u{0}y"] {
+            assert!(recording_rel(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn the_recordings_of_a_course_are_listed_and_read_and_nothing_else_is_reachable() {
+        let project = temp_project("recordings");
+        assert_eq!(list_recordings_at(&project).unwrap(), Vec::<String>::new(), "no captures folder yet");
+        recording_in(&project, "B demo.capture");
+        recording_in(&project, "A demo.capture");
+        fs::create_dir_all(project.join("captures").join("not a recording")).unwrap();
+        fs::create_dir_all(project.join("captures").join("empty.capture")).unwrap();
+        assert_eq!(list_recordings_at(&project).unwrap(), vec!["A demo.capture".to_string(), "B demo.capture".to_string()], "only real recordings, in order");
+
+        assert!(read_recording_text_at(&project, "A demo.capture", "capture.json").unwrap().unwrap().contains("openstage-capture-project"));
+        assert_eq!(read_recording_text_at(&project, "A demo.capture", "takes/take-001/take.json").unwrap().as_deref(), Some("{\"id\":1}"));
+        assert_eq!(read_recording_text_at(&project, "A demo.capture", "edit.json").unwrap(), None, "no edit yet");
+        assert_eq!(recording_folders_at(&project, "A demo.capture", "takes").unwrap(), vec!["take-001".to_string()]);
+        assert_eq!(recording_folders_at(&project, "A demo.capture", "nothing").unwrap(), Vec::<String>::new());
+
+        assert!(read_recording_text_at(&project, "A demo.capture", "takes/take-001/screen.mp4").is_err(), "a video is not text");
+        assert!(read_recording_text_at(&project, "A demo.capture", "../../project.json").is_err(), "cannot climb out");
+        assert!(read_recording_text_at(&project, "../x.capture", "capture.json").is_err(), "a name is not a path");
+        assert!(read_recording_text_at(&project, "Missing.capture", "capture.json").is_err());
+        assert!(read_recording_text_at(&std::env::temp_dir(), "A demo.capture", "capture.json").is_err(), "not a project");
+        assert!(list_recordings_at(&std::env::temp_dir()).is_err());
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_takes_interaction_log_can_be_read_as_text_and_no_other_file_that_is_not_json() {
+        let project = temp_project("interaction-log");
+        let folder = recording_in(&project, "Demo.capture");
+        let log = "{\"t\":0,\"type\":\"window\",\"title\":\"x\",\"process\":\"x.exe\"}\n";
+        fs::write(folder.join("takes").join("take-001").join("events.jsonl"), log).unwrap();
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/events.jsonl").unwrap().as_deref(), Some(log));
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "takes/take-002/events.jsonl").unwrap(), None, "no such take, no log");
+        for bad in ["events.jsonl", "takes/events.jsonl", "takes/take-001/other.jsonl", "takes/take-/events.jsonl", "takes/take-1a/events.jsonl", "takes/take-001/sub/events.jsonl", "takes/take-001/screen.mp4", "takes/take-001/mic.wav"] {
+            assert!(read_recording_text_at(&project, "Demo.capture", bad).is_err() || read_recording_text_at(&project, "Demo.capture", bad).unwrap().is_none(), "{bad:?}");
+        }
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/screen.mp4").is_err(), "a video is still not text");
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/other.jsonl").is_err(), "only the interaction log");
+        assert!(read_recording_text_at(&project, "Demo.capture", "takes/take-001/../take-001/events.jsonl").is_err(), "no climbing");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_picture_of_a_step_is_saved_as_a_real_png_under_a_safe_name_and_nothing_is_overwritten() {
+        let project = temp_project("step-picture");
+        let png: Vec<u8> = [&[0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][..], &[0u8; 40][..]].concat();
+        let first = save_step_picture_at(&project, "Sample lesson step-3!", &png).unwrap();
+        assert_eq!(first, "assets/images/Sample-lesson-step-3.png");
+        assert_eq!(fs::read(project.join(&first)).unwrap(), png);
+        let second = save_step_picture_at(&project, "Sample lesson step-3!", &png).unwrap();
+        assert_eq!(second, "assets/images/Sample-lesson-step-3-2.png", "a name that is taken is never overwritten");
+        assert_eq!(save_step_picture_at(&project, "///", &png).unwrap(), "assets/images/step.png", "a hint with nothing usable still gets a name");
+        let names: Vec<String> = fs::read_dir(project.join("assets").join("images")).unwrap().flatten().filter_map(|e| e.file_name().into_string().ok()).collect();
+        assert!(names.iter().all(|n| n.ends_with(".png")), "no half-written file is left: {names:?}");
+        for bad in [&b"GIF89a......"[..], &b"\x89PNG"[..], &b""[..], &[0xffu8, 0xd8, 0xff, 0xe0][..], &b"<svg></svg>"[..]] {
+            assert!(save_step_picture_at(&project, "x", bad).is_err(), "{bad:?}");
+        }
+        let huge = [&png[..8], &vec![0u8; DECK_PICTURE_MAX + 1][..]].concat();
+        assert!(save_step_picture_at(&project, "x", &huge).is_err(), "too large");
+        assert!(save_step_picture_at(&std::env::temp_dir(), "x", &png).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn steps_are_saved_whole_into_steps_json_and_only_the_edit_and_the_steps_are_ever_written() {
+        let project = temp_project("recording-steps");
+        let folder = recording_in(&project, "Demo.capture");
+        write_recording_steps_at(&project, "Demo.capture", "{\"steps\":[]}").unwrap();
+        assert_eq!(fs::read_to_string(folder.join("steps.json")).unwrap(), "{\"steps\":[]}");
+        write_recording_steps_at(&project, "Demo.capture", "{\"steps\":[1]}").unwrap();
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "steps.json").unwrap().as_deref(), Some("{\"steps\":[1]}"), "replaced");
+        assert!(!folder.join("steps.json.tmp").exists(), "no half-written file is left");
+        for bad in ["", "not json", "[1,2]", "{\"unfinished\":"] {
+            assert!(write_recording_steps_at(&project, "Demo.capture", bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(fs::read_to_string(folder.join("steps.json")).unwrap(), "{\"steps\":[1]}", "a refused list changes nothing");
+        assert!(write_recording_steps_at(&project, "../Demo.capture", "{}").is_err());
+        assert!(write_recording_steps_at(&project, "Missing.capture", "{}").is_err());
+        for bad_file in ["capture.json", "../edit.json", "edit.json.tmp", "takes/take-001/take.json", ""] {
+            assert!(write_recording_json_at(&project, "Demo.capture", bad_file, "x", "{}").is_err(), "{bad_file:?}");
+        }
+        assert_eq!(fs::read_to_string(folder.join("capture.json")).unwrap(), "{\"format\":\"openstage-capture-project\",\"title\":\"Demo\"}", "nothing else was touched");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn an_edit_is_saved_whole_into_edit_json_and_nothing_else_is_written() {
+        let project = temp_project("recording-edit");
+        let folder = recording_in(&project, "Demo.capture");
+        write_recording_edit_at(&project, "Demo.capture", "{\"version\":1,\"tracks\":[]}").unwrap();
+        assert_eq!(fs::read_to_string(folder.join("edit.json")).unwrap(), "{\"version\":1,\"tracks\":[]}");
+        write_recording_edit_at(&project, "Demo.capture", "{\"version\":2}").unwrap();
+        assert_eq!(read_recording_text_at(&project, "Demo.capture", "edit.json").unwrap().as_deref(), Some("{\"version\":2}"), "replaced");
+        assert!(!folder.join("edit.json.tmp").exists(), "no half-written file is left");
+        for bad in ["", "not json", "[1,2]", "5", "{\"unfinished\":"] {
+            assert!(write_recording_edit_at(&project, "Demo.capture", bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(fs::read_to_string(folder.join("edit.json")).unwrap(), "{\"version\":2}", "a refused edit changes nothing");
+        assert!(write_recording_edit_at(&project, "../Demo.capture", "{}").is_err());
+        assert!(write_recording_edit_at(&project, "Missing.capture", "{}").is_err());
+        assert!(write_recording_edit_at(&project, "Demo.capture", &format!("{{\"x\":\"{}\"}}", "a".repeat(9 * 1024 * 1024))).is_err(), "too large");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn captions_are_saved_as_webvtt_under_assets_captions_and_nothing_else_is_reachable() {
+        let project = temp_project("captions");
+        let text = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello\n";
+        let first = write_captions_at(&project, "My lesson!", None, text).unwrap();
+        assert_eq!(first, "assets/captions/My-lesson.vtt");
+        assert_eq!(read_captions_at(&project, &first).unwrap().as_deref(), Some(text));
+        let second = write_captions_at(&project, "My lesson!", None, text).unwrap();
+        assert_eq!(second, "assets/captions/My-lesson-2.vtt", "a new file never overwrites one that is there");
+        let changed = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nChanged\n";
+        assert_eq!(write_captions_at(&project, "ignored", Some(&first), changed).unwrap(), first, "an existing file is replaced in place");
+        assert_eq!(read_captions_at(&project, &first).unwrap().as_deref(), Some(changed));
+        assert_eq!(read_captions_at(&project, &second).unwrap().as_deref(), Some(text), "the other file is untouched");
+        let gone = write_captions_at(&project, "fresh", Some("assets/captions/gone.vtt"), text).unwrap();
+        assert_eq!(gone, "assets/captions/fresh.vtt", "an existing path that is not there makes a new file instead");
+        assert_eq!(read_captions_at(&project, "assets/captions/none.vtt").unwrap(), None);
+        let names: Vec<String> = fs::read_dir(project.join("assets").join("captions")).unwrap().flatten().filter_map(|e| e.file_name().into_string().ok()).collect();
+        assert!(names.iter().all(|n| n.ends_with(".vtt")), "no half-written file is left: {names:?}");
+
+        for bad in ["", "not captions", "wEBVTT\n", " WEBVTT\n", "1\n00:00:00,000 --> 00:00:01,000\nHi\n"] {
+            assert!(write_captions_at(&project, "x", None, bad).is_err(), "{bad:?}");
+        }
+        assert!(write_captions_at(&project, "x", None, &format!("WEBVTT\n\n{}", "a".repeat(6 * 1024 * 1024))).is_err(), "too large");
+        for bad in ["", "assets/captions/", "assets/captions/.vtt", "assets/captions/../project.json", "assets/captions/a/b.vtt", "assets/captions/a.srt", "assets/images/a.vtt", "../assets/captions/a.vtt", "assets\\captions\\a.vtt", "assets/captions/a:b.vtt", "/assets/captions/a.vtt"] {
+            assert!(read_captions_at(&project, bad).is_err(), "{bad:?}");
+            assert!(write_captions_at(&project, "x", Some(bad), text).is_err(), "{bad:?}");
+        }
+        assert!(read_captions_at(&std::env::temp_dir(), &first).is_err(), "not a project");
+        assert!(write_captions_at(&std::env::temp_dir(), "x", None, text).is_err(), "not a project");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_caption_file_the_author_picked_is_read_as_text_and_only_if_it_is_one() {
+        let dir = std::env::temp_dir().join(format!("openstage-test-caption-source-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.srt"), "1\n00:00:01,000 --> 00:00:02,000\nHi\n").unwrap();
+        fs::write(dir.join("b.VTT"), "WEBVTT\n").unwrap();
+        fs::write(dir.join("c.txt"), "WEBVTT\n").unwrap();
+        fs::write(dir.join("d.srt"), [0x31u8, 0x0a, 0xe9, 0xff]).unwrap();
+        fs::create_dir_all(dir.join("e.vtt")).unwrap();
+        assert!(read_caption_source_at(&dir.join("a.srt")).unwrap().contains("Hi"));
+        assert_eq!(read_caption_source_at(&dir.join("b.VTT")).unwrap(), "WEBVTT\n");
+        assert!(read_caption_source_at(&dir.join("c.txt")).is_err(), "only .vtt and .srt");
+        let e = read_caption_source_at(&dir.join("d.srt")).unwrap_err();
+        assert!(e.contains("UTF-8"), "{e}");
+        assert!(read_caption_source_at(&dir.join("e.vtt")).is_err(), "a folder is not a file");
+        assert!(read_caption_source_at(&dir.join("missing.vtt")).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ---- character packs
+
+    fn temp_pack(name: &str) -> (PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!("openstage-test-pack-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let pack = root.join("people");
+        fs::create_dir_all(pack.join("ann")).unwrap();
+        fs::write(pack.join("pack.json"), "{}").unwrap();
+        let mut png = vec![0x89u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+        png.extend_from_slice(b"not really a picture, but it starts like one");
+        fs::write(pack.join("ann").join("head.png"), &png).unwrap();
+        let mut webp = b"RIFF    WEBPVP8X".to_vec();
+        webp.extend_from_slice(b"not really a picture, but it starts like one");
+        fs::write(pack.join("ann").join("pose.webp"), &webp).unwrap();
+        fs::write(pack.join("ann").join("fake.png"), b"<script>alert(1)</script>").unwrap();
+        fs::write(pack.join("secret.txt"), "not a picture").unwrap();
+        (root, pack)
+    }
+
+    #[test]
+    fn a_pack_folder_is_one_plain_name() {
+        for good in ["openstage-people-1", "my pack", "Pack_2.0"] {
+            assert!(pack_folder_ok(good), "{good}");
+        }
+        for bad in ["", ".hidden", "..", "a/b", "a\\b", "C:x", "a..b", "x\u{0}y", &"a".repeat(101)] {
+            assert!(!pack_folder_ok(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_pack_is_found_only_in_the_two_places_and_only_if_it_has_a_pack_json() {
+        let (root, _) = temp_pack("find");
+        assert_eq!(pack_dir_in(Some(&root), None, "bundled", "people").unwrap(), root.join("people"));
+        assert_eq!(pack_dir_in(None, Some(&root), "yours", "people").unwrap(), root.join("people"));
+        assert!(pack_dir_in(Some(&root), None, "yours", "people").is_err(), "the wrong place");
+        assert!(pack_dir_in(Some(&root), None, "elsewhere", "people").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "../people").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "missing").is_err());
+        assert!(pack_dir_in(Some(&root), None, "bundled", "").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_picture_is_read_from_inside_a_pack_and_nowhere_else() {
+        let (root, pack) = temp_pack("read");
+        let (bytes, mime) = read_pack_picture_at(&pack, "ann/head.png").unwrap();
+        assert_eq!(mime, "image/png");
+        assert!(bytes.starts_with(&[0x89, 0x50]));
+        assert!(pack_picture_data_url(&pack, "ann/head.png").unwrap().starts_with("data:image/png;base64,"));
+        assert_eq!(read_pack_picture_at(&pack, "ann/pose.webp").unwrap().1, "image/webp");
+        assert!(pack_picture_data_url(&pack, "ann/pose.webp").unwrap().starts_with("data:image/webp;base64,"));
+        for bad in [
+            "", "ann", "ann/", "../people/ann/head.png", "ann/../ann/head.png", "/ann/head.png", "ann\\head.png", "C:/x.png", "ann/.head.png",
+            "ann/head.gif", "secret.txt", "ann/fake.png", "ann/missing.png", "a/b/c/d.png", "ann/head.png/",
+        ] {
+            assert!(read_pack_picture_at(&pack, bad).is_err(), "{bad:?}");
+        }
+        fs::write(pack.join("ann").join("big.png"), vec![0x89u8; (PACK_PICTURE_MAX + 1) as usize]).unwrap();
+        assert!(read_pack_picture_at(&pack, "ann/big.png").unwrap_err().contains("larger"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_real_tool_lists_the_pack_that_comes_with_the_program_and_refuses_what_is_not_a_pack() {
+        if Command::new(tools_python()).arg("--version").output().is_err() {
+            eprintln!("skipped: no Python to run tools/charpack.py");
+            return;
+        }
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+        let bundled = repo.join("character-packs");
+        let yours = std::env::temp_dir().join(format!("openstage-test-yours-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&yours);
+        let listed = run_charpack(&["list", "--bundled", &bundled.to_string_lossy(), "--yours", &yours.to_string_lossy()]).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&listed).unwrap();
+        assert_eq!(v["ok"], true);
+        let packs = v["packs"].as_array().unwrap();
+        assert_eq!(packs.len(), 2, "{listed}");
+        let ids: Vec<&str> = packs.iter().map(|p| p["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["openstage-offices-1", "openstage-people-1"], "{listed}");
+        assert!(packs.iter().all(|p| p["source"] == "bundled"));
+        assert_eq!(packs[0]["backgrounds"].as_array().unwrap().len(), 58);
+        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 0);
+        assert_eq!(packs[1]["people"].as_array().unwrap().len(), 15);
+        assert!(v["broken"].as_array().unwrap().is_empty(), "{listed}");
+        // The page may then ask for a picture of a pack, and only of it.
+        let folder = packs[1]["folder"].as_str().unwrap();
+        let head = packs[1]["people"][0]["head"].as_str().unwrap();
+        assert!(pack_picture_data_url(&bundled.join(folder), head).unwrap().starts_with("data:image/webp;base64,"), "the pack that comes with the program is WebP");
+        let room_folder = packs[0]["folder"].as_str().unwrap();
+        let room = packs[0]["backgrounds"][0]["file"].as_str().unwrap();
+        assert!(pack_picture_data_url(&bundled.join(room_folder), room).unwrap().starts_with("data:image/webp;base64,"), "a background is a picture of a pack too");
+        // Something that is not a zip file is refused in words, and nothing is made.
+        let fake = std::env::temp_dir().join(format!("openstage-test-fake-{}.zip", std::process::id()));
+        fs::write(&fake, "not a zip").unwrap();
+        let refused = run_charpack(&["install", &fake.to_string_lossy(), "--bundled", &bundled.to_string_lossy(), "--yours", &yours.to_string_lossy()]).unwrap();
+        let r: serde_json::Value = serde_json::from_str(&refused).unwrap();
+        assert_eq!(r["ok"], false);
+        assert!(r["message"].as_str().unwrap().contains("zip"), "{refused}");
+        assert!(!yours.join("openstage-people-1").exists());
+        let _ = fs::remove_file(&fake);
+        let _ = fs::remove_dir_all(&yours);
+    }
+
+    #[test]
+    fn a_picture_of_a_pack_is_copied_into_the_project_without_overwriting_anything() {
+        let (root, pack) = temp_pack("copy");
+        let project = temp_project("copy-into-project");
+        let first = copy_pack_picture_at(&project, &pack, "ann/head.png", "Ann Lee").unwrap();
+        assert_eq!(first, "assets/images/Ann-Lee.png");
+        assert!(project.join(&first).is_file());
+        let second = copy_pack_picture_at(&project, &pack, "ann/head.png", "Ann Lee").unwrap();
+        assert_eq!(second, "assets/images/Ann-Lee-2.png");
+        assert_eq!(copy_pack_picture_at(&project, &pack, "ann/head.png", "../../x").unwrap(), "assets/images/x.png");
+        assert_eq!(copy_pack_picture_at(&project, &pack, "ann/pose.webp", "Ann Lee").unwrap(), "assets/images/Ann-Lee.webp", "a WebP picture keeps being WebP");
+        assert!(copy_pack_picture_at(&project, &pack, "ann/fake.png", "x").is_err());
+        assert!(copy_pack_picture_at(&root, &pack, "ann/head.png", "x").is_err(), "not a project");
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&project);
     }
 }

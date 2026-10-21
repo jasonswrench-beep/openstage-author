@@ -3,12 +3,15 @@
 
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
+import { isBubbleKind, isBubbleTail } from "../../player/src/bubble.ts";
+import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
-import type { Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
+import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
+import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -16,6 +19,10 @@ import type { Deck } from "./pptx/deck.ts";
 import type { Tones } from "./pptx/convert.ts";
 import type { Pkg } from "./pptx/package.ts";
 import { prepareImport, type PreparedImport } from "./pptx/import.ts";
+import { type StepPicture } from "./stepslides.ts";
+import { buildLessonSlide, lessonCapture, LESSON_WORDS, type Lesson, type LessonOptions } from "./steplessons.ts";
+import { baseFrom, baseOf, mergeSlide, untouched, type Merge } from "./stepbase.ts";
+import type { Step } from "./steps.ts";
 import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
 import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
@@ -27,12 +34,15 @@ import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { gameById, gameOptions } from "./gamesets.ts";
 import { templateById } from "./templates.ts";
-import { castUse, cloneCast, draftProblems as castProblems, voiceChanges } from "./characters.ts";
+import { castUse, cloneCast, draftProblems as castProblems, poseUse, tidyPerson, voiceChanges } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.26.0";
+export const FORMAT_VERSION = "0.30.0";
+
+/** A shape that is a speech or thought bubble, or text that sits in one. */
+const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
 
 export interface OpenedProject {
   dir: string;
@@ -101,6 +111,56 @@ export function canonical(value: unknown): string {
 const MAX_HISTORY = 200;
 /** The most audio descriptions one video can have (the format's limit). */
 export const DESCRIPTION_LIMIT = 60;
+
+/** What making or bringing up to date a lesson of a recording is asked to do. */
+export interface LessonInput {
+  recording: string;
+  lesson?: Lesson;
+  steps: readonly Step[];
+  /** Pictures just taken and saved, by step id (for steps with no slide, and steps whose picture moment changed). */
+  pictures: ReadonlyMap<string, StepPicture>;
+  capturedAt?: string;
+  /** Whether a slide for a step that is gone, which the author never changed, is taken away. It is not, unless this is true: the author is asked first. */
+  removeGone?: boolean;
+}
+
+/** What it would come to, for the author to read before saying yes. */
+export interface LessonPlan {
+  /** The steps that need a new picture taken: those with no slide, and those whose picture moment changed. */
+  needPictures: string[];
+  make: number;
+  update: number;
+  remove: number;
+  /** Slides with a part the author changed that the steps would also change: the author's stays. */
+  kept: number;
+  summary: string;
+  /** Updating or taking away slides asks first; making slides that are missing does not. */
+  needsConfirm: boolean;
+}
+
+interface LessonWork {
+  lesson: Lesson;
+  capture: string;
+  make: { step: Step; index: number; slide: Slide; roles: Record<string, string>; picture: CaptureBase["picture"] }[];
+  update: { slide: Slide; step: Step; index: number; merge: Merge }[];
+  remove: Slide[];
+  goneKept: Slide[];
+  untracked: Slide[];
+  needPictures: string[];
+  /** How many steps already had a slide. */
+  existing: number;
+}
+
+/** What changed on the slides that were brought up to date, in a few words. */
+function changeWords(merges: Merge[]): string {
+  const count = (parts: string[]): number => merges.filter((m) => [...m.replaced, ...m.added, ...m.removed].some((r) => parts.includes(r))).length;
+  const out: string[] = [];
+  for (const [parts, what] of [[["words"], "the words"], [["picture"], "the picture"], [["frame", "target", "elsewhere", "question", "answer"], "the place to point at"], [["heading"], "the heading"]] as const) {
+    const n = count([...parts]);
+    if (n > 0) out.push(`${what} on ${n}`);
+  }
+  return out.join(", ");
+}
 
 /** A time in a video as people write it: 1:05. */
 export function clockText(ms: number): string {
@@ -629,11 +689,39 @@ export class Model {
     if (!obj) return null;
     const next = { ...obj.accessibility, ...patch };
     if (next.tabOrder !== null && (!Number.isInteger(next.tabOrder) || next.tabOrder < 0)) return null;
+    // A suggested description is only waiting for the author to decide. Once they write their own, or say the object is decorative, it has done its job.
+    if (next.altSuggestion !== undefined && patch.altSuggestion === undefined && (next.decorative || next.altText.trim() !== "")) delete next.altSuggestion;
     if (JSON.stringify(next) === JSON.stringify(obj.accessibility)) return null;
     this.record(`a11y:${objectId}:${Object.keys(patch).join(",")}`);
     obj.accessibility = next;
     this.emit({ kind: "content", objectId });
     return `${obj.name} updated`;
+  }
+
+  /**
+   * Use the description that was suggested for an object (worked out from a recording, never approved) as its alt text. The suggestion is taken away, because it has been used.
+   * The sentence tells the author to read it against the picture: it is the author's only once they have.
+   */
+  useAltSuggestion(objectId: string): string | null {
+    const obj = this.find(objectId);
+    const suggestion = obj?.accessibility.altSuggestion;
+    if (!obj || !suggestion) return null;
+    this.record(`a11y:${objectId}:use-suggestion`);
+    const { altSuggestion: _used, ...rest } = obj.accessibility;
+    obj.accessibility = { ...rest, altText: suggestion.text, decorative: false };
+    this.emit({ kind: "content", objectId });
+    return `Used the suggested description for ${obj.name}. Read it against the picture and change it if it is wrong. Press Control Z to undo.`;
+  }
+
+  /** Throw away the suggested description of an object. Its alt text is as it was, which is still asked for if it is empty. */
+  dismissAltSuggestion(objectId: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || !obj.accessibility.altSuggestion) return null;
+    this.record(`a11y:${objectId}:dismiss-suggestion`);
+    const { altSuggestion: _gone, ...rest } = obj.accessibility;
+    obj.accessibility = rest;
+    this.emit({ kind: "content", objectId });
+    return `Threw away the suggested description for ${obj.name}.${obj.accessibility.altText.trim() === "" && !obj.accessibility.decorative ? " It still needs alt text, or to be marked decorative." : ""}`;
   }
 
   setName(objectId: string, name: string): string | null {
@@ -681,9 +769,61 @@ export class Model {
     const obj = this.find(objectId);
     if (!obj || obj.type !== "shape" || !SHAPE_KINDS.includes(shape as (typeof SHAPE_KINDS)[number]) || obj.content["shape"] === shape) return null;
     this.record(`shape:${objectId}`);
-    obj.content = { ...obj.content, shape };
+    // A tail goes with a bubble: a shape made into one has its tail on the left, and one made into anything else has no tail.
+    const { tail: oldTail, ...rest } = obj.content;
+    obj.content = isBubbleKind(shape) ? { ...rest, shape, tail: isBubbleTail(oldTail) ? oldTail : "left" } : { ...rest, shape };
     this.emit({ kind: "structure", objectId });
     return `Shape changed to ${shape}`;
+  }
+
+  /** Where the words of a text object sit across its box: "left" (how text starts, so it is not written down), "center" or "right". Justified text is not offered, because the uneven spaces are hard to read. */
+  setTextAlign(objectId: string, value: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text" || !["left", "center", "right"].includes(value)) return null;
+    const now = obj.style["textAlign"] ?? "left";
+    if (now === value) return null;
+    this.record(`align:${objectId}`);
+    const { textAlign: _was, ...rest } = obj.style;
+    obj.style = value === "left" ? rest : { ...rest, textAlign: value };
+    this.emit({ kind: "content", objectId });
+    return value === "left" ? "Words on the left" : value === "center" ? "Words in the centre" : "Words on the right";
+  }
+
+  /** Which side of a bubble (a speech or thought bubble shape, or text in a bubble) its tail is on. */
+  setBubbleTail(objectId: string, tail: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || !isBubbleTail(tail) || !isBubbleObject(obj) || obj.content["tail"] === tail) return null;
+    this.record(`tail:${objectId}`);
+    obj.content = { ...obj.content, tail };
+    this.emit({ kind: "content", objectId });
+    return `Tail on the ${tail}`;
+  }
+
+  /**
+   * Put the words of a text object in a speech or thought bubble, or take them out ("" is not a bubble). Making one gives it the panel colour and outline a new bubble has and
+   * the theme's text colour, unless it has colours of its own; taking it out takes those colours away, so the words are plain text again.
+   */
+  setTextBubble(objectId: string, kind: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text") return null;
+    const now = isBubbleKind(obj.content["bubble"]) ? obj.content["bubble"] : "";
+    if (kind === now || (kind !== "" && !isBubbleKind(kind))) return null;
+    this.record(`bubble:${objectId}`);
+    const { bubble: _bubble, tail: _tail, ...rest } = obj.content;
+    if (kind === "") {
+      obj.content = rest;
+      const { fill: _fill, stroke: _stroke, strokeWidth: _width, ...style } = obj.style;
+      obj.style = style;
+      this.emit({ kind: "structure", objectId });
+      return "Plain text again, without the bubble";
+    }
+    obj.content = { ...rest, bubble: kind, tail: isBubbleTail(obj.content["tail"]) ? obj.content["tail"] : "left" };
+    if (now === "") {
+      const own = obj.style;
+      obj.style = { ...own, fill: own["fill"] ?? BUBBLE_LOOK.fill, stroke: own["stroke"] ?? BUBBLE_LOOK.stroke, strokeWidth: own["strokeWidth"] ?? BUBBLE_LOOK.strokeWidth, textAlign: own["textAlign"] ?? "center", ...(own["fill"] === undefined ? { color: BUBBLE_TEXT_COLOR } : {}) };
+    }
+    this.emit({ kind: "structure", objectId });
+    return kind === "speech" ? "In a speech bubble" : "In a thought bubble";
   }
 
   /** Replace the HTML of a text object directly, for text with formatting the simple editor cannot handle. */
@@ -979,12 +1119,31 @@ export class Model {
   }
 
   /** Add an object to the layer being edited, and select it. */
-  addObject(kind: NewKind, opts: { imageSrc?: string; size?: { w: number; h: number }; shape?: string } = {}): OSObject | null {
+  addObject(kind: NewKind, opts: { imageSrc?: string; size?: { w: number; h: number }; shape?: string; bubble?: "speech" | "thought" } = {}): OSObject | null {
     const layer = this.layer;
     if (!layer) return null;
     const obj = newObject(kind, this.placement(this.allocator().object()), opts);
     this.record("");
     layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /**
+   * Put a picture from a character pack on the slide as an image, with the pack's words for it as the alt text (the author is told to read them, and can change them or mark the
+   * picture decorative) and a record of where it came from. One undo step. `size` is the picture's own size, so it is placed in proportion.
+   */
+  addPackPicture(picture: { src: string; size?: { w: number; h: number }; name: string; alt: string; credit: CreditEntry }): OSObject | null {
+    const layer = this.layer;
+    if (!layer || !picture.src.startsWith("assets/")) return null;
+    const obj = newObject("image", this.placement(this.allocator().object()), { imageSrc: picture.src, ...(picture.size ? { size: picture.size } : {}) });
+    obj.name = picture.name;
+    obj.accessibility = { ...obj.accessibility, altText: picture.alt };
+    this.record("");
+    layer.objects.push(obj);
+    const at = this.assets.findIndex((a) => a.path === picture.credit.path);
+    if (at === -1) this.assets.push(picture.credit); else this.assets[at] = picture.credit;
     this.sel = { ...this.sel, objectId: obj.id };
     this.emit({ kind: "structure", objectId: obj.id });
     return obj;
@@ -1121,6 +1280,219 @@ export class Model {
     return `Brought in ${prepared.slides.length} ${prepared.slides.length === 1 ? "slide" : "slides"} from ${prepared.source.name}. Press Control Z to undo.`;
   }
 
+  // ---- slides made from the steps of a recording
+
+  /** The ids of the steps of a recording (named by its folder) that already have a slide in this course. */
+  stepsWithSlides(recording: string): Set<string> {
+    return new Set(this.slides.flatMap((s) => { const p = s.provenance; return p && "sourceCapture" in p && p.sourceCapture === recording ? [p.stepId] : []; }));
+  }
+
+  /** The number variable that counts a learner's wrong tries in the Practice lesson, if there is one. */
+  private existingTries(): string | undefined {
+    return this.project.variables.find((v) => v.type === "number" && v.name === "practice tries")?.id;
+  }
+
+  /** The number variable that counts a learner's wrong tries in the Practice lesson: the one that is there, or a new one. */
+  private triesVariable(): string {
+    return this.existingTries() ?? this.makeVariable("number", "practice tries");
+  }
+
+  /**
+   * What making or bringing up to date a lesson comes to, worked out without changing anything: which steps have no slide, which slides the steps have changed
+   * (and which of those the author has also changed), which belong to steps that are gone, and which were made before a lesson could be brought up to date.
+   * `tries` is the Practice counter's id, or a stand-in when only a plan is wanted.
+   */
+  private lessonWork(input: LessonInput, tries: string): LessonWork {
+    const lesson = input.lesson ?? "watch";
+    const capture = lessonCapture(input.recording, lesson);
+    const mine = this.slides.flatMap((slide) => { const p = slide.provenance; return p && "sourceCapture" in p && p.sourceCapture === capture ? [{ slide, stepId: p.stepId, base: baseFrom(slide) }] : []; });
+    const have = new Map(mine.map((m) => [m.stepId, m]));
+    const known = new Map(input.steps.map((st) => [st.id, st]));
+    const newTriggerId = this.triggerAllocator();
+    const alloc = this.allocator();
+    const newSlideId = this.slideIdMaker();
+    let like = this.narratedObjects().at(-1)?.narration;
+    const shotOf = (st: Step): number => Math.round(st.shotMs);
+    const optionsFor = (slideId: () => string, roles: Record<string, string>, existing: Record<string, string>, picture: StepPicture | null): LessonOptions => ({
+      recording: capture, total: input.steps.length, stage: this.project.stage, ...(input.capturedAt === undefined ? {} : { capturedAt: input.capturedAt }),
+      newSlideId: slideId, newObjectId: () => alloc.object(), newTriggerId, tries, existing, roles,
+      narration: (script) => { like = newNarration(script, like); return like; },
+    });
+    const work: LessonWork = { lesson, capture, make: [], update: [], remove: [], goneKept: [], untracked: [], needPictures: [], existing: input.steps.filter((st) => have.has(st.id)).length };
+
+    for (const [index, step] of input.steps.entries()) {
+      if (have.has(step.id)) continue;
+      work.needPictures.push(step.id);
+      const picture = input.pictures.get(step.id) ?? null;
+      const roles: Record<string, string> = {};
+      const slide = buildLessonSlide(lesson, step, index, picture, optionsFor(newSlideId, roles, {}, picture));
+      work.make.push({ step, index, slide, roles, picture: picture === null ? null : { src: picture.path, width: picture.width, height: picture.height, take: step.take, shotMs: shotOf(step) } });
+    }
+    for (const { slide, stepId, base } of mine) {
+      const step = known.get(stepId);
+      if (base === null) { work.untracked.push(slide); continue; }
+      if (step === undefined) { (untouched(slide, base) ? work.remove : work.goneKept).push(slide); continue; }
+      const index = input.steps.indexOf(step);
+      const was = base.picture;
+      const same = was !== null && was.take === step.take && was.shotMs === shotOf(step);
+      let picture: StepPicture | null = was === null ? null : { path: was.src, width: was.width, height: was.height };
+      let freshPicture = was;
+      if (was !== null && !same) {
+        work.needPictures.push(step.id);
+        // Until the new picture is taken and saved, the slide keeps the picture it has, and says so.
+        const taken = input.pictures.get(step.id);
+        if (taken !== undefined) {
+          picture = taken;
+          freshPicture = { src: taken.path, width: taken.width, height: taken.height, take: step.take, shotMs: shotOf(step) };
+        }
+      }
+      const roles: Record<string, string> = {};
+      const existing = Object.fromEntries(Object.entries(base.objects).map(([role, o]) => [role, o.id]));
+      const fresh = buildLessonSlide(lesson, step, index, picture, optionsFor(() => slide.id, roles, existing, picture));
+      work.update.push({ slide, step, index, merge: mergeSlide(slide, base, fresh, roles, freshPicture) });
+    }
+    return work;
+  }
+
+  /** What bringing a lesson up to date comes to, in words and numbers, without changing anything. */
+  planStepLesson(input: LessonInput): LessonPlan {
+    const work = this.lessonWork(input, this.existingTries() ?? "var-pending");
+    const changed = work.update.filter((u) => u.merge.changed);
+    const removing = work.remove;
+    const sentences = this.lessonSentences(work, "plan");
+    const make = work.make.length === 0 ? [] : [`Make ${work.make.length === 1 ? "1 slide" : `${work.make.length} slides`}.`];
+    return {
+      needPictures: work.needPictures, make: work.make.length, update: changed.length, remove: removing.length,
+      kept: work.update.filter((u) => u.merge.kept.length > 0).length,
+      summary: [...make, ...sentences].join(" "), needsConfirm: changed.length > 0 || removing.length > 0,
+    };
+  }
+
+  /**
+   * Sentences about what is, or would be, changed in a lesson that already has slides: "plan" (what pressing the button will do), "did" (what it did), or "report" (what it did,
+   * when it was not asked to take away slides for steps that are gone, so those are said to be waiting).
+   */
+  private lessonSentences(work: LessonWork, mode: "plan" | "did" | "report"): string[] {
+    const applied = mode !== "plan";
+    const many = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+    const names = (slides: Slide[]): string => `${slides.slice(0, 3).map((x) => `"${x.name}"`).join(", ")}${slides.length > 3 ? ` and ${slides.length - 3} more` : ""}`;
+    const changed = work.update.filter((u) => u.merge.changed);
+    const kept = work.update.filter((u) => u.merge.kept.length > 0);
+    const out: string[] = [];
+    if (changed.length > 0) {
+      const what = changeWords(changed.map((u) => u.merge));
+      out.push(`${applied ? "Brought" : "Bring"} ${many(changed.length, "slide")} up to date${what === "" ? "" : ` (${what})`}.`);
+    }
+    if (work.remove.length > 0) {
+      const n = work.remove.length;
+      if (mode === "report") out.push(`${many(n, "slide")} ${n === 1 ? "is" : "are"} for ${n === 1 ? "a step that is" : "steps that are"} gone, and you have not changed ${n === 1 ? "it" : "them"}: ${names(work.remove)}. ${n === 1 ? "It is" : "They are"} taken away when you ask.`);
+      else out.push(`${applied ? "Took away" : "Take away"} ${many(n, "slide")} for ${n === 1 ? "a step that is" : "steps that are"} gone, which you had not changed: ${names(work.remove)}.`);
+    }
+    if (kept.length > 0) out.push(`Your own changes ${applied ? "were" : "will be"} kept on ${many(kept.length, "slide")}: ${names(kept.map((u) => u.slide))}.`);
+    if (work.goneKept.length > 0) out.push(`${many(work.goneKept.length, "slide")} ${work.goneKept.length === 1 ? "is" : "are"} for ${work.goneKept.length === 1 ? "a step that is" : "steps that are"} gone, but you changed ${work.goneKept.length === 1 ? "it" : "them"}, so ${work.goneKept.length === 1 ? "it stays" : "they stay"}: ${names(work.goneKept)}. Delete ${work.goneKept.length === 1 ? "it" : "them"} if you do not want ${work.goneKept.length === 1 ? "it" : "them"}.`);
+    if (work.untracked.length > 0) out.push(`${many(work.untracked.length, "slide")} ${work.untracked.length === 1 ? "was" : "were"} made before a lesson could be brought up to date, so ${work.untracked.length === 1 ? "it is" : "they are"} left as ${work.untracked.length === 1 ? "it is" : "they are"}: ${names(work.untracked)}. Delete one and make the lesson again to bring its step in.`);
+    return out;
+  }
+
+  /**
+   * Make a slide for each step of a lesson (Watch, Practice or Test) that has none, and bring up to date the slides it already has, as one undo step. The Watch slide is a
+   * heading, the step's words (with narration made from them), the step's picture and a frame round the place to point at; Practice and Test make the slides described in
+   * steplessons.ts. A slide the author never changed is made again from its step; a part the author changed stays as the author left it; what the author added is never touched;
+   * a part the author deleted stays deleted (stepbase.ts). A slide for a step that is gone is taken away only if the author never changed it, and only when `removeGone` is true. A picture's description is used only for a step the author has checked.
+   */
+  makeStepSlides(input: LessonInput): { added: number; skipped: number; updated: number; removed: number; message: string } {
+    const lesson = input.lesson ?? "watch";
+    const lessonName = lesson === "watch" ? "this course" : `the ${LESSON_WORDS[lesson].short} lesson`;
+    // Nothing to do, or nothing but to say: no change is made, and nothing is recorded to undo.
+    const trial = this.lessonWork(input, this.existingTries() ?? "var-pending");
+    const removing = input.removeGone === true;
+    const doing = trial.make.length > 0 || trial.update.some((u) => u.merge.changed) || (removing && trial.remove.length > 0);
+    if (!doing) {
+      const first = input.steps.length === 0 ? "There are no steps to make slides from." : `Every step already has a slide in ${lessonName}.`;
+      return { added: 0, skipped: trial.existing, updated: 0, removed: 0, message: [first, ...this.lessonSentences(trial, removing ? "did" : "report")].join(" ") };
+    }
+
+    this.record("");
+    const tries = lesson === "practice" ? this.triesVariable() : "";
+    const work = this.lessonWork(input, tries);
+    const base = (slide: Slide, roles: Record<string, string>, picture: CaptureBase["picture"]): CaptureBase => baseOf(slide, roles, picture);
+    const withBase = (slide: Slide, b: CaptureBase): void => {
+      slide.provenance = { ...(slide.provenance as CaptureProvenance), base: b };
+    };
+
+    // Slides that the steps changed.
+    let updated = 0;
+    for (const u of work.update) {
+      const doc = this.docs.find((d) => d.id === u.slide.id);
+      if (doc === undefined) continue;
+      const merged = u.merge.slide;
+      withBase(merged, u.merge.base);
+      if (u.merge.changed || JSON.stringify(u.merge.base) !== JSON.stringify(baseFrom(u.slide))) doc.slide = merged;
+      if (u.merge.changed) updated++;
+    }
+
+    // Slides for steps that are gone, if the author never changed them.
+    const gone = removing ? work.remove : [];
+    for (const slide of gone) {
+      for (const scene of this.project.scenes) scene.slides = scene.slides.filter((id) => id !== slide.id);
+      this.docs = this.docs.filter((d) => d.id !== slide.id);
+    }
+    if (!this.docs.some((d) => d.id === this.sel.slideId)) {
+      const next = this.docs[0]!.slide;
+      this.sel = { slideId: next.id, layerId: next.baseLayer.id, objectId: null };
+    }
+
+    // New slides, each in its step's place among the slides the lesson already has: after the slide of the step before it, or before the slide of the first step that
+    // has one. With none yet, they go after the slide being edited.
+    const have = new Map(this.slides.flatMap((sl) => { const p = sl.provenance; return p && "sourceCapture" in p && p.sourceCapture === work.capture ? [[p.stepId, sl.id] as const] : []; }));
+    const madeFor = new Map(work.make.map((m) => [m.step.id, m]));
+    const homeOf = (id: string) => this.project.scenes.find((sc) => sc.slides.includes(id));
+    const firstExisting = input.steps.map((st) => have.get(st.id)).find((id) => id !== undefined);
+    let lastId: string | null = null;
+    const slides: Slide[] = [];
+    for (const step of input.steps) {
+      const existing = have.get(step.id);
+      if (existing !== undefined) { lastId = existing; continue; }
+      const m = madeFor.get(step.id);
+      if (m === undefined) continue;
+      withBase(m.slide, base(m.slide, m.roles, m.picture));
+      if (lastId !== null) {
+        const sc = homeOf(lastId)!;
+        sc.slides.splice(sc.slides.indexOf(lastId) + 1, 0, m.slide.id);
+      } else if (firstExisting !== undefined) {
+        const sc = homeOf(firstExisting)!;
+        sc.slides.splice(sc.slides.indexOf(firstExisting), 0, m.slide.id);
+      } else {
+        const sc = homeOf(this.sel.slideId) ?? this.project.scenes[0]!;
+        const here = sc.slides.indexOf(this.sel.slideId);
+        sc.slides.splice(here === -1 ? sc.slides.length : here + 1, 0, m.slide.id);
+      }
+      this.docs.push({ id: m.slide.id, slide: m.slide, originalText: "", savedCompact: "" });
+      slides.push(m.slide);
+      lastId = m.slide.id;
+    }
+    this.syncDocOrder();
+    const first = slides[0];
+    if (first !== undefined) this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+
+    const noDescription = slides.filter((sl) => sl.baseLayer.objects.some((o) => (o.type === "image" && o.accessibility.altText === "") || (o.type === "quizQuestion" && (o.content["image"] as { alt?: string } | undefined)?.alt === ""))).length;
+    const suggested = slides.filter((sl) => sl.baseLayer.objects.some((o) => o.type === "image" && o.accessibility.altText === "" && o.accessibility.altSuggestion !== undefined)).length;
+    const where = work.existing === 0 ? "after the slide you were on" : "each in its place";
+    const parts: string[] = [];
+    if (slides.length > 0) {
+      parts.push(lesson === "watch" ? `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} from the steps, ${where}.` : `Made ${slides.length} ${slides.length === 1 ? "slide" : "slides"} for the ${LESSON_WORDS[lesson].short} lesson, ${where}.`);
+      const upToDate = work.existing - updated;
+      if (upToDate > 0 && updated === 0) parts.push(`${upToDate} ${upToDate === 1 ? "step already had a slide that is up to date" : "steps already had slides that are up to date"}.`);
+    }
+    parts.push(...this.lessonSentences({ ...work, remove: removing ? gone : work.remove }, removing ? "did" : "report"));
+    if (noDescription > 0) parts.push(`${noDescription} ${noDescription === 1 ? "picture has" : "pictures have"} no description yet, because ${noDescription === 1 ? "its step has" : "their steps have"} not been checked. ${suggested > 0 ? `${suggested === 1 ? "It has a suggestion" : `${suggested} have suggestions`} worked out from the recording, in the Properties panel under Alt text for you to use or change. ` : ""}The Problems panel asks for ${noDescription === 1 ? "it" : "them"}.`);
+    if (lesson === "test" && slides.length > 0) parts.push("Add a results box after the last question to show the learner their score.");
+    parts.push("Press Control Z to undo.");
+    return { added: slides.length, skipped: work.existing, updated, removed: gone.length, message: parts.filter((x) => x !== "").join(" ") };
+  }
+
   /** What a deck would change in the course, worked out without changing anything. Null if the deck is not one the project lists. */
   prepareDeckResync(sourceId: string, deck: Deck, pkg: Pkg, tones?: Tones): ResyncPlan | null {
     const source = this.deckSources.find((d) => d.id === sourceId);
@@ -1179,6 +1551,22 @@ export class Model {
     return slides === "last"
       ? "The course now counts as complete when the learner reaches the last slide and has finished every quiz."
       : "The course now counts as complete when the learner has seen every slide and finished every quiz.";
+  }
+
+  /**
+   * Leave a folder out of the source/ copy of the project that a published package carries (sourceExclude in project.json), unless it is
+   * left out already. Raw recordings and what was noted of an author's mouse and keyboard must never reach learners. This is bookkeeping, not part
+   * of the design, so it is not an undo step; the project just needs saving. Returns whether the list changed. A name that is not a plain
+   * folder name (a slash at the start, a backslash, ..) is refused.
+   */
+  excludeFromPackage(name: string): boolean {
+    const plain = /^[A-Za-z0-9._ -]+(\/[A-Za-z0-9._ -]+)*$/.test(name) && !name.split("/").some((p) => p === ".." || p === ".");
+    if (!plain) return false;
+    const list = this.project.sourceExclude ?? [];
+    if (isExcluded(`${name}/x`, list)) return false;
+    this.project.sourceExclude = [...list, name];
+    this.emit({ kind: "content" });
+    return true;
   }
 
   // ---- assets, credits, video and audio
@@ -1610,17 +1998,23 @@ export class Model {
 
   /**
    * Replace the cast with the one the author made in the dialog, as one undo step. A person who is still used cannot be taken out;
-   * a person whose voice changed has the lines they speak changed to it, so they stay in one voice.
+   * a person whose voice changed has the lines they speak changed to it, so they stay in one voice. `credits` are the records of where
+   * pictures from a character pack came from; they are saved in the same step.
    */
-  setCharacters(draft: Character[]): string | null {
+  setCharacters(draft: Character[], credits: CreditEntry[] = []): string | null {
     const before = this.characters;
-    const problems = castProblems(draft, before, castUse(this.slides));
+    const problems = castProblems(draft, before, castUse(this.slides), poseUse(this.slides));
     if (problems.length > 0) return problems[0]!;
-    const next = cloneCast(draft).map((p) => ({ ...p, name: p.name.trim(), role: p.role.trim() }));
-    if (JSON.stringify(next) === JSON.stringify(before)) return null;
+    const next = cloneCast(draft).map(tidyPerson);
+    const newCredits = credits.filter((c) => JSON.stringify(this.creditOf(c.path)) !== JSON.stringify(c));
+    if (JSON.stringify(next) === JSON.stringify(before) && newCredits.length === 0) return null;
     this.record("");
     if (next.length === 0) delete this.project.characters;
     else this.project.characters = next;
+    for (const c of newCredits) {
+      const at = this.assets.findIndex((a) => a.path === c.path);
+      if (at === -1) this.assets.push(c); else this.assets[at] = c;
+    }
     // A person's lines are read in their voice. Change the voice of every spoken line of someone whose voice changed.
     const changed = voiceChanges(before, next);
     let lines = 0;
@@ -1701,6 +2095,7 @@ export class Model {
   moveScenarioLine(objectId: string, lineId: string, delta: -1 | 1): string | null { return this.editScenario(objectId, (c) => S.moveLine(c, lineId, delta), true); }
   setScenarioLineText(objectId: string, lineId: string, text: string): string | null { return this.editScenario(objectId, (c) => S.setLineText(c, lineId, text)); }
   setScenarioLineSpeaker(objectId: string, lineId: string, speaker: string | null): string | null { return this.editScenario(objectId, (c) => S.setLineSpeaker(c, lineId, speaker, this.characters), true); }
+  setScenarioLinePose(objectId: string, lineId: string, pose: string | null): string | null { return this.editScenario(objectId, (c) => S.setLinePose(c, lineId, pose, this.characters)); }
   setScenarioLineSpoken(objectId: string, lineId: string, on: boolean): string | null {
     const like = this.narratedObjects().at(-1)?.narration;
     return this.editScenario(objectId, (c) => S.setLineSpoken(c, lineId, on, this.characters, like), true);
@@ -1826,6 +2221,42 @@ export class Model {
     }
     this.emit({ kind: "content", objectId });
     return { added: todo.length, message: `Gave ${todo.length} ${todo.length === 1 ? "description" : "descriptions"} a voice that says ${todo.length === 1 ? "its" : "their"} words. Make the audio from the Narration button.` };
+  }
+
+  /**
+   * Add what a recording shows on its screen (the words of its overlays, what its zooms show) to a video as audio descriptions, each with a voice that
+   * says its words, as one undo step. This is the audio route for text a learner reads in a recording (story D7). A description that is already there at
+   * the same time with the same words is skipped, so pressing it twice adds nothing twice, and the list never goes past the limit. The author reads and
+   * changes them afterwards: audio description is for what the voice leaves out, so one the voice already says is theirs to delete.
+   */
+  describeScreen(objectId: string, items: readonly { atMs: number; text: string }[]): { added: number; message: string } {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "video") return { added: 0, message: "Select a video first." };
+    const cues = this.cuesOf(obj);
+    const have = new Set(cues.map((c) => `${c.time}|${c.text.trim()}`));
+    const wanted = items
+      .map((i) => ({ time: Math.min(Math.max(Math.round(i.atMs), 0), 86_400_000), text: i.text.replace(/\s+/g, " ").trim().slice(0, 2000) }))
+      .filter((i) => i.text !== "" && !have.has(`${i.time}|${i.text}`));
+    if (wanted.length === 0) return { added: 0, message: items.length === 0 ? "Nothing on the screen needs describing: no text, described shapes or zooms were added to this recording." : "Everything on the screen is already described." };
+    const room = DESCRIPTION_LIMIT - cues.length;
+    const take = wanted.slice(0, Math.max(room, 0));
+    if (take.length === 0) return { added: 0, message: `A video can have up to ${DESCRIPTION_LIMIT} descriptions.` };
+    this.record("");
+    const ids = cues.map((c) => c.id);
+    let like = this.narratedObjects().at(-1)?.narration;
+    const added: DescriptionCue[] = take.map((i) => {
+      const id = `ad-${nextNumber(ids, "ad-")}`;
+      ids.push(id);
+      like = newNarration(i.text, like);
+      return { id, time: i.time, text: i.text, pause: true, narration: like };
+    });
+    this.writeCues(obj, [...cues, ...added]);
+    this.emit({ kind: "structure", objectId });
+    const left = wanted.length - take.length;
+    return {
+      added: added.length,
+      message: `Added ${added.length} ${added.length === 1 ? "description" : "descriptions"} from what is on the screen, each with a voice that says its words.${left > 0 ? ` ${left} more did not fit, because a video can have up to ${DESCRIPTION_LIMIT}.` : ""} If your own voice already says one of them, delete it. Make the audio from the Narration button.`,
+    };
   }
 
   /**
@@ -3568,6 +3999,74 @@ export class Model {
     this.retone(doc.slide, was, toneOf(value, (hex) => this.lightBackground(hex)));
     this.emit({ kind: "structure" });
     return "Background updated";
+  }
+
+  // ---- a picture behind everything on a slide
+
+  /** The file already in the project that was recorded with this credit title, if any, so a picture chosen again is not copied again. */
+  pathOfCredit(title: string): string | null {
+    return this.assets.find((a) => a.title === title)?.path ?? null;
+  }
+
+  /** The picture behind everything on a slide, if it has one (see backgrounds.ts). */
+  backgroundPictureOf(slideId: string): OSObject | null {
+    return this.docs.find((d) => d.id === slideId)?.slide.baseLayer.objects.find(isBackgroundPicture) ?? null;
+  }
+
+  /**
+   * Put a picture behind everything on a slide, in place of the one that was there. It is a decorative picture the size of the stage at the back of the base layer, locked so
+   * a click on the slide does not move it, and the slide's own background becomes the picture's average colour: the checker judges text against a colour and cannot see a
+   * picture, so this is its best guess. Text that follows the theme takes the colour that suits the new background. `credit` says where the picture came from. One undo step.
+   */
+  setBackgroundPicture(slideId: string, picture: { src: string; color: string | null; credit?: CreditEntry }): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc || !picture.src.startsWith("assets/")) return null;
+    const slide = doc.slide;
+    this.record("");
+    const objects = slide.baseLayer.objects;
+    for (let i = objects.length - 1; i >= 0; i--) {
+      if (isBackgroundPicture(objects[i]!)) objects.splice(i, 1);
+    }
+    // Behind everything is z 0. If something already sits at 0 or below, everything moves up together, so the order they were in does not change.
+    const lowest = objects.reduce((m, o) => Math.min(m, o.geometry.z), Infinity);
+    if (lowest !== Infinity && lowest <= 0) {
+      for (const o of objects) o.geometry = { ...o.geometry, z: o.geometry.z + 1 - lowest };
+    }
+    const stage = this.project.stage;
+    objects.unshift({
+      ...box(this.allocator().object(), 0, 0, stage.width, stage.height, 0), type: "image", name: BACKGROUND_NAME, locked: true,
+      content: { src: picture.src }, style: {},
+      accessibility: { altText: "", role: "presentation", tabOrder: 0, decorative: true },
+    });
+    if (picture.credit) {
+      const at = this.assets.findIndex((a) => a.path === picture.credit!.path);
+      if (at === -1) this.assets.push(picture.credit); else this.assets[at] = picture.credit;
+    }
+    if (picture.color && /^#[0-9a-fA-F]{6}$/.test(picture.color)) {
+      const was = toneOf(slide.background, (hex) => this.lightBackground(hex));
+      slide.background = picture.color;
+      this.retone(slide, was, toneOf(picture.color, (hex) => this.lightBackground(hex)));
+    }
+    this.emit({ kind: "structure" });
+    return "Background picture added behind everything on this slide. It is locked, so clicking the slide does not move it.";
+  }
+
+  /** Take a slide's background picture away. The slide's background goes back to the theme's. One undo step. */
+  removeBackgroundPicture(slideId: string): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    const at = doc ? doc.slide.baseLayer.objects.findIndex(isBackgroundPicture) : -1;
+    if (!doc || at === -1) return null;
+    const slide = doc.slide;
+    this.record("");
+    const [gone] = slide.baseLayer.objects.splice(at, 1);
+    if (gone && this.sel.objectId === gone.id) this.sel = { ...this.sel, objectId: null };
+    if (slide.background !== null) {
+      const was = toneOf(slide.background, (hex) => this.lightBackground(hex));
+      slide.background = null;
+      this.retone(slide, was, toneOf(null, (hex) => this.lightBackground(hex)));
+    }
+    this.emit({ kind: "structure" });
+    return "Background picture removed. The slide's background is the theme's again.";
   }
 
   // ---- history

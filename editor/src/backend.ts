@@ -14,6 +14,10 @@ import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } fro
 import { parseSample, type SampleAnswer } from "./voicesample.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
 import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
+import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
+import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
+import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
+import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -62,8 +66,6 @@ export interface Backend {
   pickImage(): Promise<string | null>;
   /** Copy an image into the project's assets folder. Returns its path inside the project. */
   importImage(dir: string, source: string): Promise<string>;
-  /** Save a picture the editor drew itself (an SVG) in the project's images. Returns its path inside the project. */
-  saveGeneratedImage(dir: string, nameHint: string, svg: string): Promise<string>;
   /**
    * Save a picture that came out of a PowerPoint deck in the project's images. `name` is the file name the importer made from what is in the
    * picture (pptx- and 14 letters and numbers, then the extension); a name that is already there is left as it is. Returns the path in the project.
@@ -101,12 +103,39 @@ export interface Backend {
   revealInFolder(path: string): Promise<void>;
   /** Whether a speech engine is set up on this computer, so narration audio can be made. */
   narrationEngine(): Promise<boolean>;
+  /** The version, and where things are on this computer, for the About window. */
+  aboutInfo(): Promise<AboutInfo>;
+  /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
+  examplesFolder(): Promise<string>;
+  /** The character packs on this computer: the ones that came with the program and the ones the author added, and any folder that looks like a pack but cannot be used. */
+  packsList(): Promise<PackList>;
+  /** The folder the author's own packs are kept in (made if it is not there yet), to show them. */
+  packsFolder(): Promise<string>;
+  /** Ask for a pack's zip file with a file dialog. Null if the author cancelled. */
+  pickPackZip(): Promise<string | null>;
+  /** Install a pack from a zip file. Everything is checked first; the answer says what happened, in words. */
+  packInstall(source: string): Promise<PackAnswer>;
+  /** Take away a pack the author added. */
+  packRemove(id: string): Promise<PackAnswer>;
+  /** A picture inside a pack, as an address the page can show. */
+  packPictureUrl(source: PackSource, folder: string, path: string): Promise<string>;
+  /** Copy a picture of a pack into the project's images, and give its project-relative path. */
+  packUsePicture(dir: string, source: PackSource, folder: string, path: string, nameHint: string): Promise<string>;
+  /** What the editor knows about the narration engine: the author's own, one it installed, or none, and whether it can install one. */
+  engineStatus(): Promise<EngineStatus>;
+  /** Install the narration engine into the editor's own folder (packages from PyPI, the voice model from Hugging Face). Progress comes through `onEngineProgress`; `cancelJob` stops it. */
+  engineInstall(): Promise<void>;
+  onEngineProgress(listener: (p: { step: number; steps: number; label: string; line: string }) => void): Promise<() => void>;
+  /** Take the editor's own narration engine away. Resolves with how many bytes that freed. */
+  engineRemove(): Promise<number>;
   /** The narration audio already made for the project, by cache key. */
   narrationCache(dir: string): Promise<CachedAudio[]>;
   /** One piece of narration audio (a WAV file), by its cache key. */
   readNarrationAudio(dir: string, key: string): Promise<Uint8Array<ArrayBuffer>>;
   /** Delete narration audio by cache key. Returns how many were deleted. Only audio inside the project's own cache can be named. */
   deleteNarrationAudio(dir: string, keys: string[]): Promise<number>;
+  /** Keep the audio made for one key under another key that names the same sound. Resolves with whether anything was copied. */
+  reuseNarrationAudio(dir: string, from: string, to: string): Promise<boolean>;
   /**
    * Make narration audio for the project as it is in the editor now, saved or not. `ids` are the objects to make it
    * for, or none to make everything that is missing. The audio goes into the project's .cache folder.
@@ -134,6 +163,55 @@ export interface Backend {
    * recording of any length can be previewed without reading it into memory.
    */
   mediaUrl(dir: string, path: string): Promise<string>;
+
+  // ---- the recordings of a course (OpenScreen): `<course>/captures/<name>.capture`, reached by the course's folder and the recording's folder name only
+
+  /** The recordings in the course, by folder name. */
+  listRecordings(dir: string): Promise<string[]>;
+  /** The text of a .json file inside a recording (`capture.json`, `edit.json`, `takes/take-001/take.json`), or undefined if there is none. */
+  recordingRead(dir: string, name: string, rel: string): Promise<string | undefined>;
+  /** The folders directly inside a place in a recording. */
+  recordingFolders(dir: string, name: string, rel: string): Promise<string[]>;
+  /** Save the edit of a recording as its edit.json, whole or not at all. The only file ever written in a recording. */
+  recordingWriteEdit(dir: string, name: string, text: string): Promise<void>;
+  /** Save a picture taken from a recording (the picture of a step) as a PNG in the course's images. Returns its path inside the course. */
+  saveStepPicture(dir: string, nameHint: string, bytes: Uint8Array): Promise<string>;
+  /** Save the steps made from a recording as its steps.json, whole or not at all. With edit.json, the only file ever written in a recording. */
+  recordingWriteSteps(dir: string, name: string, text: string): Promise<void>;
+  /** An address a video or audio element can play a file of a take from, straight from disk with seeking. */
+  recordingMediaUrl(dir: string, name: string, rel: string): Promise<string>;
+
+  // ---- captions: WebVTT files in the course's assets/captions (editor/src/captions.ts says what is in them)
+
+  /** Ask the author for a captions file to read into the captions dialog (.vtt or .srt). Null if they cancelled. */
+  pickCaptionSource(): Promise<string | null>;
+  /** The text of a .vtt or .srt file the author picked. Nothing is copied into the course. */
+  captionSourceRead(source: string): Promise<string>;
+  /** The text of a captions file in the course (`assets/captions/<name>.vtt`), or undefined if there is none. */
+  captionsRead(dir: string, path: string): Promise<string | undefined>;
+  /** Save WebVTT captions in the course: in place of `existing` when that file is there, otherwise as a new file named from `nameHint`. Returns the path. */
+  captionsWrite(dir: string, nameHint: string, existing: string | null, text: string): Promise<string>;
+
+  // ---- speech recognition: captions from a recorded voice. The recogniser is a separate program (docs/decisions/0002-speech-recognition.md); nothing is sent anywhere.
+
+  /** Whether the recogniser is installed, where its models are kept, and which are downloaded. */
+  speechStatus(): Promise<SpeechStatus>;
+  /** Download a model the author asked for (by its id, such as `small.en`). Resolves when it is there and its checksum is right. */
+  speechDownload(id: string): Promise<void>;
+  /** Told how much of a model has arrived. Returns a function that stops listening. */
+  onSpeechDownload(listener: (progress: { id: string; done: number; total: number }) => void): Promise<() => void>;
+  /** The bytes of a video or audio file in the course's assets, to read its sound. */
+  mediaBytes(dir: string, path: string): Promise<Uint8Array>;
+  /** Keep a sound (a 16 kHz mono 16-bit WAV) for the recogniser to listen to. Returns the name to listen to it by. */
+  speechAudioPut(wav: Uint8Array): Promise<string>;
+  /** Listen to a kept sound with a model, given a hint of the course's words, and return the recogniser's answer (its JSON). */
+  speechListen(audio: string, model: string, hint: string): Promise<string>;
+  /** Let go of a kept sound. */
+  speechDrop(audio: string): Promise<void>;
+  /** Told how far the listening has got, in percent. Returns a function that stops listening. */
+  onSpeechProgress(listener: (percent: number) => void): Promise<() => void>;
+  /** Stop a download or a listening that is going on. Returns whether there was one. */
+  speechCancel(): Promise<boolean>;
 
   // ---- the Capture recorder: a separate program the editor starts and talks to, one line of JSON at a time
 
@@ -180,8 +258,12 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
+/** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
+const testConfirm = (message: string): boolean | undefined =>
+  (window as unknown as { __openstageTestConfirm?: (message: string) => boolean | undefined }).__openstageTestConfirm?.(message);
+
 const testPick = (kind: PickKind): string | null | undefined =>
   (window as unknown as { __openstageTestPick?: TestPick }).__openstageTestPick?.(kind);
 
@@ -214,7 +296,6 @@ const tauriBackend: Backend = {
     return typeof picked === "string" ? picked : null;
   },
   importImage: (dir, source) => invoke<string>("import_image", { dir, source }),
-  saveGeneratedImage: (dir, name, svg) => invoke<string>("save_generated_image", { dir, name, svg }),
   saveDeckPicture: (dir, name, bytes) => invoke<string>("save_deck_picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     const forced = testPick(kind);
@@ -243,8 +324,37 @@ const tauriBackend: Backend = {
   openInBrowser: (path) => invoke<void>("open_in_browser", { path }),
   revealInFolder: (path) => revealItemInDir(path),
   narrationEngine: () => invoke<boolean>("narration_engine"),
+  async aboutInfo() {
+    return parseAbout(await invoke<string>("about_info"));
+  },
+  examplesFolder: () => invoke<string>("examples_folder"),
+  async packsList() {
+    return parsePackList(await invoke<string>("packs_list"));
+  },
+  packsFolder: () => invoke<string>("packs_folder"),
+  async pickPackZip() {
+    const forced = testPick("packzip");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a character pack (a zip file)", filters: [{ name: "Character packs", extensions: ["zip"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async packInstall(source) {
+    return parsePackAnswer(await invoke<string>("pack_install", { source }));
+  },
+  async packRemove(id) {
+    return parsePackAnswer(await invoke<string>("pack_remove", { id }));
+  },
+  packPictureUrl: (source, folder, path) => invoke<string>("pack_picture_url", { source, folder, path }),
+  packUsePicture: (dir, source, folder, path, nameHint) => invoke<string>("pack_use_picture", { dir, source, folder, path, nameHint }),
+  async engineStatus() {
+    return parseEngineStatus(await invoke<string>("engine_status"));
+  },
+  engineInstall: () => invoke<void>("engine_install"),
+  onEngineProgress: (listener) => listen<{ step: number; steps: number; label: string; line: string }>("engine-progress", (e) => listener(e.payload)),
+  engineRemove: () => invoke<number>("engine_remove"),
   narrationCache: (dir) => invoke<CachedAudio[]>("narration_cache", { dir }),
   deleteNarrationAudio: (dir, keys) => invoke<number>("delete_narration_audio", { dir, keys }),
+  reuseNarrationAudio: (dir, from, to) => invoke<boolean>("reuse_narration_audio", { dir, from, to }),
   async readNarrationAudio(dir, key) {
     return base64ToBytes(await invoke<string>("read_narration_audio", { dir, hash: key }));
   },
@@ -274,6 +384,46 @@ const tauriBackend: Backend = {
     const sep = dir.includes("\\") ? "\\" : "/";
     return convertFileSrc(`${dir.replace(/[\\/]+$/, "")}${sep}${path.split("/").join(sep)}`);
   },
+  listRecordings: (dir) => invoke<string[]>("list_recordings", { dir }),
+  async recordingRead(dir, name, rel) {
+    return (await invoke<string | null>("recording_read", { dir, name, rel })) ?? undefined;
+  },
+  recordingFolders: (dir, name, rel) => invoke<string[]>("recording_folders", { dir, name, rel }),
+  recordingWriteEdit: (dir, name, text) => invoke<void>("recording_write_edit", { dir, name, text }),
+  recordingWriteSteps: (dir, name, text) => invoke<void>("recording_write_steps", { dir, name, text }),
+  saveStepPicture: (dir, nameHint, bytes) => invoke<string>("save_step_picture", { dir, nameHint, data: bytesToBase64(bytes) }),
+  async recordingMediaUrl(dir, name, rel) {
+    // Only the media of a take can be played, and a path that climbs out of it is not a path.
+    if (!/^takes\/take-\d+\/[^/\\]+$/.test(rel)) throw new Error("That file is not in a take of the recording.");
+    await invoke<void>("allow_recording_media", { dir, name });
+    const sep = dir.includes("\\") ? "\\" : "/";
+    return convertFileSrc([dir.replace(/[\\/]+$/, ""), "captures", name, ...rel.split("/")].join(sep));
+  },
+  async pickCaptionSource() {
+    const forced = testPick("captionsource");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a captions file", filters: [{ name: "Captions", extensions: ["vtt", "srt"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  captionSourceRead: (source) => invoke<string>("caption_source_read", { source }),
+  async captionsRead(dir, path) {
+    return (await invoke<string | null>("captions_read", { dir, rel: path })) ?? undefined;
+  },
+  captionsWrite: (dir, nameHint, existing, text) => invoke<string>("captions_write", { dir, nameHint, existing, text }),
+  async speechStatus() {
+    return parseSpeechStatus(await invoke<string>("speech_status"));
+  },
+  speechDownload: (id) => invoke<void>("speech_download", { id }),
+  onSpeechDownload: (listener) => listen<{ id: string; done: number; total: number }>("speech-download", (e) => listener(e.payload)),
+  async mediaBytes(dir, path) {
+    // Raw bytes come back as an ArrayBuffer, so a long video is not turned into text on the way.
+    return new Uint8Array(await invoke<ArrayBuffer>("read_media_bytes", { dir, path }));
+  },
+  speechAudioPut: (wav) => invoke<string>("speech_audio_put", wav),
+  speechListen: (audio, model, hint) => invoke<string>("speech_listen", { audio, model, hint }),
+  speechDrop: (audio) => invoke<void>("speech_drop", { audio }),
+  onSpeechProgress: (listener) => listen<number>("speech-progress", (e) => listener(e.payload)),
+  speechCancel: () => invoke<boolean>("speech_cancel"),
   async captureCheck() {
     try {
       return { ok: true, path: await invoke<string>("capture_check") };
@@ -291,7 +441,7 @@ const tauriBackend: Backend = {
   hotkeysSet: (bindings) => invoke<HotkeyResult[]>("hotkeys_set", { bindings }),
   hotkeysClear: () => invoke<void>("hotkeys_clear"),
   onHotkey: (listener) => listen<string>("hotkey", (e) => listener(e.payload)),
-  confirm: (message) => confirmDialog(message, { title: "OpenStage Author", kind: "warning" }),
+  confirm: async (message) => testConfirm(message) ?? confirmDialog(message, { title: "OpenStage Author", kind: "warning" }),
   setTitle: (title) => getCurrentWindow().setTitle(title),
   guardClose(hasUnsaved) {
     void getCurrentWindow().onCloseRequested(async (event) => {
@@ -326,7 +476,6 @@ const previewBackend: Backend = {
     return new URLSearchParams(location.search).get("image") ?? window.prompt("Path of an image file");
   },
   importImage: (dir, source) => post<string>("/api/import", { dir, source }),
-  saveGeneratedImage: (dir, name, svg) => post<string>("/api/save-generated", { dir, name, svg }),
   saveDeckPicture: (dir, name, bytes) => post<string>("/api/save-deck-picture", { dir, name, data: bytesToBase64(bytes) }),
   async pickFile(kind) {
     return new URLSearchParams(location.search).get(kind) ?? window.prompt(`Path of a ${kind} file`);
@@ -374,6 +523,45 @@ const previewBackend: Backend = {
   async narrationEngine() {
     return false;
   },
+  async aboutInfo() {
+    return { ...UNKNOWN_ABOUT, version: "(the page shown in a web browser, not the desktop program)" };
+  },
+  async examplesFolder() {
+    return "";
+  },
+  async packsList() {
+    return NO_PACKS;
+  },
+  async packsFolder() {
+    throw new Error("Character packs need the desktop app.");
+  },
+  async pickPackZip() {
+    return new URLSearchParams(location.search).get("packzip") ?? window.prompt("Path of a character pack (a zip file)");
+  },
+  async packInstall() {
+    return { ok: false, message: "Adding a character pack needs the desktop app." };
+  },
+  async packRemove() {
+    return { ok: false, message: "Removing a character pack needs the desktop app." };
+  },
+  async packPictureUrl() {
+    throw new Error("Character packs need the desktop app.");
+  },
+  async packUsePicture() {
+    throw new Error("Character packs need the desktop app.");
+  },
+  async engineStatus() {
+    return { ...NO_ENGINE_STATUS, problem: "Installing the narration voice needs the desktop app." };
+  },
+  async engineInstall() {
+    throw new Error("Installing the narration voice needs the desktop app.");
+  },
+  async onEngineProgress() {
+    return () => undefined;
+  },
+  async engineRemove() {
+    throw new Error("Removing the narration voice needs the desktop app.");
+  },
   async narrationCache() {
     return [];
   },
@@ -382,6 +570,9 @@ const previewBackend: Backend = {
   },
   async deleteNarrationAudio() {
     throw new Error("Clearing narration audio needs the desktop app.");
+  },
+  async reuseNarrationAudio() {
+    return false;
   },
   async makeNarration() {
     throw new Error("Making narration audio needs the desktop app.");
@@ -418,6 +609,64 @@ const previewBackend: Backend = {
   },
   async mediaUrl() {
     throw new Error("Playing a large video needs the desktop app.");
+  },
+  async listRecordings() {
+    return [];
+  },
+  async recordingRead() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingFolders() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingWriteEdit() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingWriteSteps() {
+    throw new Error("Making steps from a recording needs the desktop app.");
+  },
+  async saveStepPicture() {
+    throw new Error("Making steps from a recording needs the desktop app.");
+  },
+  async recordingMediaUrl() {
+    throw new Error("Playing a recording needs the desktop app.");
+  },
+  async pickCaptionSource() {
+    return new URLSearchParams(location.search).get("captionsource") ?? window.prompt("Path of a captions file (.vtt or .srt)");
+  },
+  async captionSourceRead() {
+    throw new Error("Reading a captions file needs the desktop app.");
+  },
+  async captionsRead() {
+    throw new Error("Editing captions needs the desktop app.");
+  },
+  async captionsWrite() {
+    throw new Error("Saving captions needs the desktop app.");
+  },
+  async speechStatus() {
+    return { ready: false, problem: "Listening to the voice needs the desktop app.", folder: "", models: [] };
+  },
+  async speechDownload() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async onSpeechDownload() {
+    return () => {};
+  },
+  async mediaBytes() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechAudioPut() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechListen() {
+    throw new Error("Listening to the voice needs the desktop app.");
+  },
+  async speechDrop() {},
+  async onSpeechProgress() {
+    return () => {};
+  },
+  async speechCancel() {
+    return false;
   },
   async captureCheck() {
     return { ok: false, message: "The recorder needs the desktop app." };

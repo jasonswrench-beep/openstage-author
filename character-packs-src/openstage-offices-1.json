@@ -1,0 +1,425 @@
+{
+  "id": "openstage-offices-1",
+  "title": "OpenStage offices and workplaces, set 1",
+  "version": "1.0.0",
+  "description": "Fifty-eight empty places to set a scene in: open-plan offices, private offices, meeting and training rooms, reception areas, lobbies, corridors, kitchens, supply rooms, server rooms, parking garages and outdoor entrances. None has anyone in it, so the people from the character packs can stand in them. The pictures were made with Ideogram from written descriptions.",
+  "credit": {
+    "creator": "Jason S. Wrench",
+    "creatorUrl": "https://openstageauthor.com",
+    "licence": "Made with Ideogram (AI-generated), in the public domain",
+    "url": "https://openstageauthor.com"
+  },
+  "size": [
+    1920,
+    1080
+  ],
+  "webpQuality": 85,
+  "backgrounds": [
+    {
+      "id": "open-plan-1",
+      "name": "Open-plan office, long desks and a window wall",
+      "group": "Open-plan offices",
+      "alt": "An empty open-plan office in daylight: two long rows of pale wooden desks with computers and black chairs, a gray carpet, a window wall on the right and a wooden cabinet with a water cooler on the left.",
+      "source": "high-level-description-a-wide-horizontal_fwXpzdBOXAu9FhFWoSK6mw_IL4FprebTC-i6fWDNU7RvA"
+    },
+    {
+      "id": "open-plan-2",
+      "name": "Open-plan office, wood floor and a large plant",
+      "group": "Open-plan offices",
+      "alt": "An empty open-plan office with a light wood floor, a large fiddle-leaf fig in a white pot on the left, and rows of desks with monitors and black chairs beside a tall window wall on the right.",
+      "source": "high-level-description-a-wide-horizontal_l9FNDbSFX1yG2F1dpwZKRg_IL4FprebTC-i6fWDNU7RvA_cover"
+    },
+    {
+      "id": "open-plan-3",
+      "name": "Open-plan office, desks along the windows",
+      "group": "Open-plan offices",
+      "alt": "A long, bright open-plan office seen from one end: a light wood floor, a row of shared desks with monitors and black chairs along the windows on the right, a plant in the left foreground and glass-walled rooms at the far end.",
+      "source": "high-level-description-shot-on-iphone-a-_C5wzpLtZV1q4em_QdxcEmg_IL4FprebTC-i6fWDNU7RvA"
+    },
+    {
+      "id": "corner-office-1",
+      "name": "Corner office at dusk",
+      "group": "Executive offices",
+      "alt": "A corner office with a glass-topped desk, a black leather chair and a dark rug on a dark wood floor, with floor-to-ceiling windows that look out over a city skyline at dusk.",
+      "source": "high-level-description-a-photorealistic-_AalDSMyaVUCYztjP46skRg_OiCwI7XdQjmApXC95FB2xA"
+    },
+    {
+      "id": "corner-office-2",
+      "name": "Executive office, city view by day",
+      "group": "Executive offices",
+      "alt": "A spacious executive office with a long dark desk, a glass-topped desk and a black leather chair on a dark rug, a sculpture on a shelf, a large plant at the right and tall windows over a hazy city skyline in daylight.",
+      "source": "high-level-description-a-photorealistic-_oX4jneueVsGZoWhAcBmTag_OiCwI7XdQjmApXC95FB2xA"
+    },
+    {
+      "id": "corner-office-3",
+      "name": "Executive office, warm light and curtains",
+      "group": "Executive offices",
+      "alt": "An executive office in warm, low light: a glass-topped desk with two black leather chairs on a dark rug, sheer curtains at tall windows, and a low dark cabinet with a sculpture on the left.",
+      "source": "high-level-description-a-photorealistic-_uaj03lI2Vv69Sl6p_0ymQQ_OiCwI7XdQjmApXC95FB2xA"
+    },
+    {
+      "id": "quiet-desk-1",
+      "name": "Quiet desk by a gray panelled wall",
+      "group": "Private offices and desks",
+      "alt": "A small, calm work corner: a wooden desk with a laptop, a lamp and a gray chair against a wall of gray felt panels, with a potted plant on the left, sheer curtains and a light wood floor.",
+      "source": "high-level-description-a-photograph-of-a_nOuNpui2VASMz6ItOE3I0w_aPvD6zmoS3Cx5XpVz1eFlw"
+    },
+    {
+      "id": "quiet-desk-2",
+      "name": "Quiet desk, seen from the side",
+      "group": "Private offices and desks",
+      "alt": "The same quiet work corner from a slight angle: a wooden desk with a laptop and a lamp against gray felt wall panels, a plant, a gray chair and a curtain at a window.",
+      "source": "high-level-description-a-photograph-of-a_T_m3mhQCUuuDEzBjtmHKCA_aPvD6zmoS3Cx5XpVz1eFlw"
+    },
+    {
+      "id": "quiet-desk-3",
+      "name": "Quiet desk by a window",
+      "group": "Private offices and desks",
+      "alt": "A tidy desk with a laptop and a lamp in a muted room with gray felt wall panels, a tall narrow window with a curtain, a small plant and a light wood floor, in soft shade.",
+      "source": "high-level-description-shot-on-iphone-a-_LYuA8VeZVXaZTEXkCqp9mA_aPvD6zmoS3Cx5XpVz1eFlw_cover"
+    },
+    {
+      "id": "study-1",
+      "name": "Study with a bookshelf wall",
+      "group": "Private offices and desks",
+      "alt": "A home-style office with a wall of wooden bookshelves filled with books, a light wooden desk with a mesh chair, two small plants, a gray rug and a tall window with a curtain on the left.",
+      "source": "high-level-description-interior-design-p_8fRk52AtXdmy5CtD7v4j1A_w-TqYCh9SOafWo25VHy8Og_cover"
+    },
+    {
+      "id": "study-2",
+      "name": "Study with bookshelves and sheer curtains",
+      "group": "Private offices and desks",
+      "alt": "A wide, softly lit office with built-in wooden bookshelves along the back wall, a wooden desk with a laptop and a black chair, a plant at the right and long sheer curtains at the window.",
+      "source": "high-level-description-interior-design-p_eY31JmP3XRWFsyDyxHsfog_w-TqYCh9SOafWo25VHy8Og"
+    },
+    {
+      "id": "study-3",
+      "name": "Study with a desk lamp",
+      "group": "Private offices and desks",
+      "alt": "A close view of a study: tall wooden bookshelves, a light wooden desk with a brass desk lamp and a black mesh chair in front, a pale rug and a window with a curtain on the left.",
+      "source": "high-level-description-interior-design-p_sqA9DIHoWUGXARlYHZ6cDg_w-TqYCh9SOafWo25VHy8Og"
+    },
+    {
+      "id": "boardroom-1",
+      "name": "Boardroom with a long table",
+      "group": "Meeting rooms",
+      "alt": "A long, dark wooden boardroom table with black mesh chairs and a vase of greenery, in a white room with a window wall on the right that looks over a hazy city.",
+      "source": "high-level-description-a-photorealistic-_dnRAz2ckUm-xRhn5HmV9HA_63oNw3s8SPWJFoMorvhO4Q_cover"
+    },
+    {
+      "id": "boardroom-2",
+      "name": "Meeting room with a wall screen",
+      "group": "Meeting rooms",
+      "alt": "A meeting room with a large wooden table and black chairs, a wall-mounted screen at the back, a metal sideboard with a vase on the left and a window wall on the right.",
+      "source": "high-level-description-a-photorealistic-_IHwaAsfKVaqZZUd__9W6Og_63oNw3s8SPWJFoMorvhO4Q"
+    },
+    {
+      "id": "boardroom-3",
+      "name": "Meeting room, table and window wall",
+      "group": "Meeting rooms",
+      "alt": "A white meeting room with a dark wooden table, black mesh chairs and a small vase of greenery, a low cabinet at the back and a window wall on the right over the city.",
+      "source": "high-level-description-a-photorealistic-_rhNayXjkW4qewKSUodsj6g_63oNw3s8SPWJFoMorvhO4Q"
+    },
+    {
+      "id": "training-1",
+      "name": "Training room with white tables and a screen",
+      "group": "Training rooms and lecture halls",
+      "alt": "A bright white training room with rows of white tables, gray mesh chairs, a small lectern, a plant and a projection screen on the back wall, with window blinds on the right.",
+      "source": "high-level-description-a-wide-angle-inte_Jhh7wniMW8CbRXEEYyzscg_HZVYFN0uTrSW9CdvcMWgjQ"
+    },
+    {
+      "id": "training-2",
+      "name": "Training room with a wall screen",
+      "group": "Training rooms and lecture halls",
+      "alt": "A bright white training room with tables in rows, gray mesh chairs in the foreground, a lectern, a plant and a flat wall screen on the back wall.",
+      "source": "high-level-description-a-wide-angle-inte_Km5Jds2FWDG3OMIzccEpiQ_HZVYFN0uTrSW9CdvcMWgjQ"
+    },
+    {
+      "id": "training-3",
+      "name": "Training room with a pull-down screen",
+      "group": "Training rooms and lecture halls",
+      "alt": "A bright, plain training room with a pull-down projection screen, white tables set in rows with gray chairs, a lectern and a plant, with window blinds on the right.",
+      "source": "high-level-description-a-wide-angle-inte_Njd0jxgiVU6egtq62ISETg_HZVYFN0uTrSW9CdvcMWgjQ"
+    },
+    {
+      "id": "lecture-1",
+      "name": "Lecture room with gray walls",
+      "group": "Training rooms and lecture halls",
+      "alt": "A lecture room with dark gray walls, long wooden desks in two blocks with a central aisle, and a large projection screen at the front, lit by long strips of ceiling light.",
+      "source": "high-level-description-a-wide-angle-arch_5VyZAB1iVH2v6MriRGxtaA_hOEcIhn2TMahtTja7zonWQ_cover"
+    },
+    {
+      "id": "lecture-2",
+      "name": "Lecture room in warm wood",
+      "group": "Training rooms and lecture halls",
+      "alt": "A lecture room with long wooden desks and black chairs in two blocks, a front table, a large screen on a wood-panelled wall at the front and glass on the right.",
+      "source": "high-level-description-architectural-pho_j7YN8zKhV9W9KH75TO2RPg_hOEcIhn2TMahtTja7zonWQ"
+    },
+    {
+      "id": "auditorium-1",
+      "name": "Auditorium with a stage",
+      "group": "Training rooms and lecture halls",
+      "alt": "A lecture hall with rows of wooden desks and black seats facing a low stage with a large white screen, dark curtains at its sides, a lighting rail overhead and wood-panelled walls.",
+      "source": "high-level-description-a-wide-angle-arch_vsFiAvjbVEua5RIApPzcpw_hOEcIhn2TMahtTja7zonWQ"
+    },
+    {
+      "id": "auditorium-2",
+      "name": "Auditorium with plain walls",
+      "group": "Training rooms and lecture halls",
+      "alt": "A lecture hall with rows of wooden desks facing a stage with a large white screen, gray curtains, a lighting rail, pale walls and long lines of ceiling lights.",
+      "source": "high-level-description-architectural-pho_oXeSMtyLV2-_GnKhQnL_CQ_hOEcIhn2TMahtTja7zonWQ"
+    },
+    {
+      "id": "reception-1",
+      "name": "Reception with cream armchairs",
+      "group": "Reception and waiting areas",
+      "alt": "A reception area with two cream armchairs and a small round table on a rug, a pale wooden reception desk with a plant at the right, a blank wall and floor-to-ceiling windows on the left.",
+      "source": "high-level-description-architectural-int_0W-chj4hUnCdHBpxF0corQ__BBZfXErRzeH3QUBmABSyA"
+    },
+    {
+      "id": "reception-2",
+      "name": "Waiting lounge with armchairs and a lamp",
+      "group": "Reception and waiting areas",
+      "alt": "A waiting lounge with four cream armchairs around a low table, a brass floor lamp, sheer curtains at tall windows, a framed picture and a wooden reception desk with a monitor at the back right.",
+      "source": "high-level-description-architectural-int_3Zx1N7HSUJWRAopJEOhNmg__BBZfXErRzeH3QUBmABSyA_cover"
+    },
+    {
+      "id": "reception-3",
+      "name": "Waiting lounge, reception desk behind",
+      "group": "Reception and waiting areas",
+      "alt": "A waiting lounge with three cream armchairs around a small table under a floor lamp, a wooden reception desk behind them with a plant, a framed picture on a gray wall and large windows on the left.",
+      "source": "high-level-description-architectural-int_MZ_oCWiUWVGo9Us63cLEMA__BBZfXErRzeH3QUBmABSyA"
+    },
+    {
+      "id": "reception-4",
+      "name": "Reception seen from the doorway",
+      "group": "Reception and waiting areas",
+      "alt": "A wide view of a reception area from the doorway: two cream armchairs on a rug, a floor lamp, a wooden reception desk on the right with a monitor and a plant, and two tall windows with curtains.",
+      "source": "high-level-description-architectural-int_NdX7c-q9V7S2S-N2uPBEtg__BBZfXErRzeH3QUBmABSyA"
+    },
+    {
+      "id": "reception-5",
+      "name": "Reception desk with a wood-slat wall",
+      "group": "Reception and waiting areas",
+      "alt": "A curved white reception desk in front of a warm wood-slat wall lit from above, a large plant on the left, a glass door and a concrete floor.",
+      "source": "high-level-description-shot-on-iphone-a-__vbP_lKIVcWpiInSHtjWWg_uWV7OiMkQKe44-A87NlvFQ"
+    },
+    {
+      "id": "reception-6",
+      "name": "White reception desk, offices behind glass",
+      "group": "Reception and waiting areas",
+      "alt": "A long white reception desk with a wooden top in a white entrance hall, a potted plant at each end and glass-walled offices visible behind it.",
+      "source": "high-level-description-shot-on-iphone-a-_bH8d25A2X42iUEXSINNpQg_uWV7OiMkQKe44-A87NlvFQ"
+    },
+    {
+      "id": "reception-7",
+      "name": "Reception desk beside a tan leather sofa",
+      "group": "Reception and waiting areas",
+      "alt": "A white reception desk with a wooden top and a hanging plant, a tall potted fig on the left, a corner of a tan leather sofa and glass-walled offices behind, beside tall windows.",
+      "source": "high-level-description-shot-on-iphone-a-_LrEil3VEWDSF_bTE46XVdg_uWV7OiMkQKe44-A87NlvFQ"
+    },
+    {
+      "id": "reception-8",
+      "name": "Reception desk in the centre",
+      "group": "Reception and waiting areas",
+      "alt": "A white reception desk with a wooden top in the centre, a tall potted fig to its left and a trailing plant at its right, with glass-walled offices and tall windows behind.",
+      "source": "high-level-description-shot-on-iphone-a-_lunY_OhOVDeVWTFNJ8gTTw_uWV7OiMkQKe44-A87NlvFQ_cover"
+    },
+    {
+      "id": "atrium-1",
+      "name": "Atrium lobby with large plants",
+      "group": "Lobbies and atriums",
+      "alt": "A tall, bright atrium lobby with exposed white beams, a curved wooden reception desk, a staircase at the far end, large potted trees in black pots and a window wall on the right.",
+      "source": "high-level-description-a-photograph-of-a_d0_O95NlUyeB3Bl_nUyHKg_mZKXSa_1RcOCMklMxZfgxw"
+    },
+    {
+      "id": "atrium-2",
+      "name": "Atrium lobby in window light",
+      "group": "Lobbies and atriums",
+      "alt": "A bright atrium lobby with a curved wooden desk, a staircase at the far end, large potted trees and a wall of tall windows on the right over a city.",
+      "source": "high-level-description-a-photograph-of-a_l8HkrYiyUDWIZlzev3diXg_mZKXSa_1RcOCMklMxZfgxw"
+    },
+    {
+      "id": "atrium-3",
+      "name": "Open atrium hall with a polished floor",
+      "group": "Lobbies and atriums",
+      "alt": "A wide, open atrium hall with a polished stone floor, galleries on the left, two potted trees, a glass window wall on the right and a warm wood wall at the back.",
+      "source": "high-level-description-a-wide-architectu_2HcQ1S2_VWqF0zbvlIo8vA_mZKXSa_1RcOCMklMxZfgxw"
+    },
+    {
+      "id": "atrium-4",
+      "name": "Sunlit atrium with a glass staircase",
+      "group": "Lobbies and atriums",
+      "alt": "A sunlit atrium with a polished floor striped by window light, a low cream sofa on the left, a curved wooden reception desk, a glass staircase at the far end and two large potted trees.",
+      "source": "high-level-description-interior-design-p_MkgplNaVWY6tTO8D33RpqA_mZKXSa_1RcOCMklMxZfgxw_cover"
+    },
+    {
+      "id": "corridor-1",
+      "name": "Glass-walled corridor",
+      "group": "Corridors",
+      "alt": "A long, bright corridor with glass-walled rooms on both sides, a pale polished floor, a light strip overhead and a plant at the right edge.",
+      "source": "high-level-description-a-wide-angle-arch_FgUMltTTV2yWnOAsKjhrnA_EXevb6C7Rcazz8cO2xiwaA"
+    },
+    {
+      "id": "corridor-2",
+      "name": "Corridor with a wood wall at the end",
+      "group": "Corridors",
+      "alt": "A long, wide corridor with glass-fronted rooms on the left, white doors on the right, a pale floor, a leafy plant in the left foreground and a wooden wall at the far end.",
+      "source": "high-level-description-architectural-pho_71MsLo8mWWK6wMN4BC2c9g_EXevb6C7Rcazz8cO2xiwaA"
+    },
+    {
+      "id": "corridor-3",
+      "name": "Corridor with a plant on the left",
+      "group": "Corridors",
+      "alt": "A long corridor with glass walls on both sides, a pale floor, a leafy plant in a white pot at the left and a wooden wall with a small niche at the far end.",
+      "source": "high-level-description-architectural-pho_PBWSXvVtXcezo6eYjnNBHw_EXevb6C7Rcazz8cO2xiwaA_cover"
+    },
+    {
+      "id": "corridor-4",
+      "name": "Corridor with cream walls",
+      "group": "Corridors",
+      "alt": "A long corridor with cream walls, glass doors and frosted glass panels, a leafy plant in a white pot at the left and a bright glass door at the far end.",
+      "source": "high-level-description-architectural-pho_XLsoNg5nUhKGKU-1PHD__g_EXevb6C7Rcazz8cO2xiwaA"
+    },
+    {
+      "id": "kitchen-1",
+      "name": "Break room kitchenette",
+      "group": "Break rooms and kitchens",
+      "alt": "A kitchenette with white cabinets, a steel refrigerator, a coffee maker on the counter and a small plant, against wood panelling and a light wood floor.",
+      "source": "high-level-description-a-handheld-phone-_2AhdRRV9UBuiWqEn6XTRJg_YIm6ISZFRMye9GOEkMyqBQ"
+    },
+    {
+      "id": "kitchen-2",
+      "name": "Office kitchen with stools",
+      "group": "Break rooms and kitchens",
+      "alt": "An office kitchen with white cabinets, a steel refrigerator, a built-in microwave, an island with two wooden stools and a coffee maker, beside a glass-walled office.",
+      "source": "high-level-description-a-wide-horizontal_Wmbu-NfjU7y2wROK6bFULw_YIm6ISZFRMye9GOEkMyqBQ_cover"
+    },
+    {
+      "id": "kitchen-3",
+      "name": "Kitchenette with a steel fridge",
+      "group": "Break rooms and kitchens",
+      "alt": "A bright kitchenette with cream cabinets, a steel refrigerator, a microwave, a sink with a coffee maker and a small plant, and the corner of a gray sofa at the right.",
+      "source": "high-level-description-interior-design-p_AGRudZvLXT2gMZQcBMIXpQ_YIm6ISZFRMye9GOEkMyqBQ"
+    },
+    {
+      "id": "coffee-bar-1",
+      "name": "Coffee bar with stools",
+      "group": "Break rooms and kitchens",
+      "alt": "A coffee bar with a white counter, four round wooden stools, an espresso machine on the right, a wooden shelf with jars and cups and black pendant lights over a herringbone wood floor.",
+      "source": "high-level-description-shot-on-iphone-a-_pPfeiRFjU1exGzgfquuXAA_w26syfbfTkq5VcxeTmcJ5g"
+    },
+    {
+      "id": "copy-room-1",
+      "name": "Supply room with a copier",
+      "group": "Copy and supply rooms",
+      "alt": "A white supply room with shelves of white boxes on the left, a large copier and a small plant on a white counter, and a blank wall.",
+      "source": "high-level-description-a-wide-angle-inte_5PkXqyMUWmaiVOd00DcQlA_68UbVvmUS5G2-mvFOl7t2w"
+    },
+    {
+      "id": "copy-room-2",
+      "name": "Copy room with shelves and a copier",
+      "group": "Copy and supply rooms",
+      "alt": "A white copy room with open shelves of white boxes, a large floor-standing copier and a small plant on a counter at the right.",
+      "source": "high-level-description-a-wide-angle-inte_lNm3ll2KW2u9wX61Hlsssw_68UbVvmUS5G2-mvFOl7t2w"
+    },
+    {
+      "id": "copy-room-3",
+      "name": "Copy room with a printer",
+      "group": "Copy and supply rooms",
+      "alt": "A pale blue-gray room with shelves of white boxes at the left, a printer on a white counter and a small plant.",
+      "source": "high-level-description-interior-architec__Kd2rDwJXCWUmwTpNzF4vg_68UbVvmUS5G2-mvFOl7t2w"
+    },
+    {
+      "id": "server-hall-1",
+      "name": "Server hall in blue light",
+      "group": "Server rooms",
+      "alt": "A long corridor between glass-walled server rooms full of racks with small coloured lights, a gray concrete floor with blue floor lighting and a plant at the far end.",
+      "source": "high-level-description-a-handheld-phone-_7jLdf5ziVjORzPpT_RAIZw_Ale6IYBIR5OTV-YP4Z0xTA_cover"
+    },
+    {
+      "id": "server-hall-2",
+      "name": "Server hall with a window at the end",
+      "group": "Server rooms",
+      "alt": "A dim corridor between glass-walled server rooms, with teal floor lighting at the right and a plant and a bright window at the far end.",
+      "source": "high-level-description-a-handheld-phone-_9XR4tZyDXzW51fhu5uq-fQ_Ale6IYBIR5OTV-YP4Z0xTA"
+    },
+    {
+      "id": "server-hall-3",
+      "name": "Server hall with white ceiling lights",
+      "group": "Server rooms",
+      "alt": "A long corridor between glass-walled server rooms with racks on both sides, white ceiling lights, blue strip lights along the floor and a plant at the right.",
+      "source": "high-level-description-a-handheld-phone-_Hbyw52imVtapCihvlVxVGw_Ale6IYBIR5OTV-YP4Z0xTA"
+    },
+    {
+      "id": "plaza-1",
+      "name": "Plaza in front of a glass building",
+      "group": "Outdoors and entrances",
+      "alt": "A paved plaza in daylight with trees, low hedges, benches and planters, and a low glass office building with an entrance in the background.",
+      "source": "high-level-description-a-wide-angle-arch_Kd5_QvkAWzOxmjHgHmBXEA_1dGihlEHTre9fvUeGW4QTw"
+    },
+    {
+      "id": "entrance-1",
+      "name": "Tower entrance with a revolving door",
+      "group": "Outdoors and entrances",
+      "alt": "The base of a glass office tower in sunshine, with a canopy over a revolving door, a Japanese maple and low shrubs, a tree on the left and a pale paved forecourt.",
+      "source": "high-level-description-a-wide-angle-arch_qsegDqnKXU2ToRphoQlIUQ_ZVYozc9mSgiP8VIb1mgiuQ"
+    },
+    {
+      "id": "plaza-2",
+      "name": "Paved plaza, glass building behind",
+      "group": "Outdoors and entrances",
+      "alt": "Pale paving in the foreground of a plaza with trees, a bench and planters, and a glass office building with an open door in the background.",
+      "source": "high-level-description-a-wide-angle-arch_t7LYT1VxXAuHGvcO_Qn9LA_1dGihlEHTre9fvUeGW4QTw"
+    },
+    {
+      "id": "courtyard-1",
+      "name": "Courtyard with benches",
+      "group": "Outdoors and entrances",
+      "alt": "A courtyard of pale paving with two wooden benches on a lawn, a large tree on the left, a red-leaved maple at the right and a pale glass office building behind.",
+      "source": "high-level-description-a-wide-horizontal_9FWlRX-bW7OvgR45xmBrjA_1dGihlEHTre9fvUeGW4QTw"
+    },
+    {
+      "id": "plaza-3",
+      "name": "Plaza with benches and grasses",
+      "group": "Outdoors and entrances",
+      "alt": "A wide, pale paved plaza with benches, shrubs and grasses on the right, a tree on the left and a glass office building behind.",
+      "source": "high-level-description-a-wide-horizontal_QRKlCM6rWrClTncRbClNWA_1dGihlEHTre9fvUeGW4QTw_cover"
+    },
+    {
+      "id": "entrance-2",
+      "name": "Entrance with a canopy and plants",
+      "group": "Outdoors and entrances",
+      "alt": "The entrance of a glass tower with a steel canopy and a revolving door, a paved forecourt with grasses and red-leaved maples, and a city skyline in the haze.",
+      "source": "high-level-description-architectural-pho_syd35kJrUHqeKmntbp3d2w_ZVYozc9mSgiP8VIb1mgiuQ_cover"
+    },
+    {
+      "id": "entrance-3",
+      "name": "Entrance with open white space",
+      "group": "Outdoors and entrances",
+      "alt": "A glass tower entrance with a revolving door and red-leaved shrubs on the left of the picture, and plain white space on the right with part of a tree, leaving room to place words.",
+      "source": "high-level-description-architectural-pho_wQlgmhT2VgS8MNtBo815CQ_ZVYozc9mSgiP8VIb1mgiuQ"
+    },
+    {
+      "id": "entrance-4",
+      "name": "Tower entrance, white space at the right",
+      "group": "Outdoors and entrances",
+      "alt": "A close view of a glass tower entrance with a steel canopy, a revolving door and red-leaved shrubs, and plain white space on the right with a tree at the edge.",
+      "source": "high-level-description-architectural-pho_zxPWOPq9Xn-hIPI-E0bWoA_ZVYozc9mSgiP8VIb1mgiuQ"
+    },
+    {
+      "id": "garage-1",
+      "name": "Parking garage, long view",
+      "group": "Parking garages",
+      "alt": "A long, empty underground parking garage with concrete pillars, painted bays on a gray floor and rows of ceiling lights leading to a bright exit far ahead.",
+      "source": "high-level-description-architectural-int_2ztDVptwWQem8miViUVa1A_JjCRj4SrRci4jPiws7opSg"
+    },
+    {
+      "id": "garage-2",
+      "name": "Parking garage with a ramp",
+      "group": "Parking garages",
+      "alt": "An empty parking garage with square concrete pillars, white-lined bays, a ramp with a metal rail on the right and a yellow arrow on the floor.",
+      "source": "high-level-description-architectural-int_ukjf2Nw2VqmYKbhFY9SKog_JjCRj4SrRci4jPiws7opSg"
+    }
+  ]
+}

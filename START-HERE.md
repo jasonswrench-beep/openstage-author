@@ -49,6 +49,20 @@ two example projects. The minimal one should report no errors and the broken one
 report many. It needs Python installed, and tells you where to get it if you do not have
 it. The first run installs one small Python package (`jsonschema`) for your user account.
 
+## Writing captions by listening to the voice
+
+The captions window (**Write captions...** on a video or audio clip) can listen to the voice and write the captions with their times. It needs a program that listens, built once by double-clicking
+`BUILD SPEECH RECOGNISER.bat`, and a speech model (148 MB or 488 MB) that the captions window downloads when you press its button and say yes. Everything runs on your computer. See `docs/speech-recognition.md`.
+
+## Making an installer, and trying it
+
+Double-click `BUILD INSTALLER.bat`. The first time it downloads Python, Node and the installer maker, which takes some minutes, and it needs the recorder (`OPEN EDITOR.bat` builds it) and the
+speech recogniser (`BUILD SPEECH RECOGNISER.bat`) to be built already. It makes one file, `dist\installer\OpenStage Author_0.1.0_x64-setup.exe` (about 41 MB), with a `.sha256` file beside it.
+Double-click that file to install OpenStage Author for your own Windows account (no administrator password). It has its own Python and Node, so nothing else has to be installed, and it appears in the Start menu;
+Settings, Apps removes it. It is not signed yet, so Windows shows "Windows protected your PC": choose **More info**, then **Run anyway**. To try an installer without touching the real program (its own name, its own
+settings), use `BUILD INSTALLER.bat trial`. The narration voice is not in the installer: open **Narration** in the editor and press **Install the narration voice**; it asks first, downloads about 670 MB and takes about 2.1 GB.
+The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`. The last button in the editor's toolbar, **About**, shows the version and where things are on the computer, to copy into a message when you ask for help.
+
 ## Publishing a course
 
 Open a project in the editor (`OPEN EDITOR.bat`). **Preview** shows the course in your browser as it is now, even

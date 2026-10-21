@@ -35,14 +35,17 @@ values within range, ids well-formed.
 Required on every object: `id`, `type`, `geometry`, `accessibility`.
 Required inside `accessibility`: `altText`, `role`, `tabOrder`, `decorative`.
 
+A suggested description is checked for shape: `altSuggestion` has a non-empty `text` (at most 1000 characters) and a non-empty `basis` (at most 300), and nothing else.
+
 ## Semantic rules
 
 ### Accessibility — all errors
 
 | Rule | Message |
 | --- | --- |
-| An object with `decorative: false` has an empty `altText` | Object needs alt text, or must be marked decorative |
+| An object with `decorative: false` has an empty `altText` | Object needs alt text, or must be marked decorative. When a suggested description is attached (`altSuggestion`, 0.28.0) the detail shows it: "A suggested description is waiting for you to check: ... Use it, or write your own." It is still an error: a suggestion is never used by the course |
 | An object with `decorative: true` has a non-empty `altText` | Decorative objects should not carry alt text |
+| An object has a suggested description (`altSuggestion`) and also has alt text of its own, or is decorative (`alt-suggestion-unused`, a warning, not an error) | A suggested description is still attached to an object that does not need one |
 | Two objects on the same layer share a `tabOrder` | Tab order must be unique within a layer |
 | An interactive object (`button`, `hotspot`, `quizQuestion`) has `tabOrder: 0` or null | Interactive objects must be reachable by keyboard |
 | An interactive object has a `click` trigger with no `keyActivate` equivalent | Interactive objects must be operable by keyboard |
@@ -131,8 +134,20 @@ schema error.
 | A person in the cast has no name (`character-name-empty`) | Error | A person in the cast needs a name |
 | Two people in the cast have the same name (`character-name-duplicate`) | Warning | Two people in the cast have the same name |
 | A person's picture has no alt text and is not decorative, or is decorative with alt text (`character-picture-alt`) | Error | A picture of a person needs alt text, or must be marked decorative |
+| Two poses of one person share an id (`character-pose-duplicate`) | Error | Two poses of one person have the same id |
+| A line names a pose its speaker does not have (`scenario-pose-unknown`) | Error | A line shows its speaker in a pose they do not have |
+| A line told by the narrator names a pose (`scenario-pose-narrator`) | Error | A line told by the narrator has a pose |
 
 A person's voice that does not exist, or a line's narration with one that does not, is `voice-unknown`, like any narration; a picture that is missing is `asset-missing`.
+
+### Speech and thought bubbles
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A text object's `content.bubble` is not `speech` or `thought` (`bubble-invalid`) | Error | A text bubble is neither a speech nor a thought bubble |
+| A bubble's `content.tail` is not `left` or `right` (`bubble-invalid`) | Error | A bubble's tail is on neither side |
+
+The tail of something that is not a bubble is left alone. The words in a text bubble are checked for contrast against the bubble's `fill` by the ordinary `contrast` rule, and an empty bubble is a shape: decorative unless it is given alt text.
 
 ### Icons and the course actions
 
@@ -155,6 +170,9 @@ its list, is a schema error. A `nextSlide`, `previousSlide` or `replaySlide` tri
 
 A deck's entry in `project.sources`, a slide's import provenance and an object's (`slideId`, `sourceHash`, `base`) are schema rules. Everything else about an imported slide is checked like any other slide:
 alt text, contrast (against the slide's background colour, which for a slide with a background picture is the picture's average colour), tab order and the rest.
+
+A slide made from a recorded step may carry `provenance.base` (0.27.0): the record of what was made, used only to bring the lesson up to date. Its shape is a schema rule (a name, a picture or `null`, and
+for each part an `id`, a `layer` and a fingerprint for each field); the validator looks no further into it.
 
 ### Looks (object states)
 

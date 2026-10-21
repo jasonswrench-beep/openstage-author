@@ -76,6 +76,16 @@ export function narrationHash(n: Narration): string {
   return `sha256:${sha256Hex(new TextEncoder().encode(parts.join("\n")))}`;
 }
 
+/**
+ * Whether a voice makes the same sound whatever language the script is said to be in. OpenAI's voices do: the language box is a note (for the person reading, and for
+ * captions), and nothing about it is sent. A voice from a plugin is told the language and may change with it, and a Kokoro voice has its own language, so for those the answer is no.
+ * This matters because the language is part of what names the audio (the key), so a new language is a new name; when the sound is the same, the audio already made is kept under
+ * the new name instead of being made again, which for an online voice is paid for.
+ */
+export function soundIgnoresLanguage(voice: string): boolean {
+  return engineOf(voice) === "openai";
+}
+
 /** The part of the key after `sha256:`, which names the audio file. */
 export const keyOf = (n: Narration): string => narrationHash(n).slice("sha256:".length);
 

@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.26.0",
+  "schemaVersion": "0.30.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -99,6 +99,18 @@ empty. `voice` is the narration voice that reads the person's lines (`voice-unkn
 needs alt text that says what the person looks like, or it is marked `decorative` and then has no alt text (`character-picture-alt`), and the file has to be
 in the project (`asset-missing`). The picture is only a picture of the person: their name is always written beside it, so the picture is hidden from a
 screen reader beside a line (the name is read), and is described once where a learner has to pick a person (see the character input). (Added in 0.21.0.)
+A picture may be one from a character pack (`docs/character-packs.md`): the editor copies it into the project's images, takes its alt text from the pack's description of the person (which the author can change), and records its maker in `assets.json`.
+
+A person may also have **`poses`** (added in 0.29.0): more pictures of them, each in a pose, to show beside a line of a scenario in place of their picture, and a **`library`** that says where they came from, so the editor can offer more of their poses.
+
+```json
+{ "id": "maya", "name": "Maya Reyes", "role": "Team lead", "voice": "af_heart",
+  "picture": { "src": "assets/images/maya.png", "alt": "Maya, a woman with dark skin and short dark hair, wearing a dark grey skirt suit", "decorative": false },
+  "poses": [ { "id": "welcome", "label": "Waving hello", "src": "assets/images/maya-welcome.png" } ],
+  "library": { "pack": "openstage-people-1", "person": "lisa" } }
+```
+
+`poses` has up to 40 entries. A pose's `id` is a plain id, unique for the person (`character-pose-duplicate`); `label` (1 to 60 letters) is what a menu says; `src` is a file in the project (`asset-missing`). The ids a pack uses are the same from one person to the next where the standard names are used (`welcome`, `think`, `present-left`, `arms-crossed`...), so a pose carries over when a line is given to someone else. A pose has no alt text of its own: it is shown only beside the person's name, so a screen reader skips it, as with the picture. `library` is `{ "pack", "person" }`, two ids of a character pack (`docs/character-packs.md`); the course never reads it. A pose that a line uses cannot be taken out of the cast in the editor until the line is changed.
 
 `sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
 course (the cache and the empty `.gitkeep` placeholder files are always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
@@ -234,6 +246,14 @@ validator error is the correct outcome for a missing one, not a warning.
 `decorative: true` is the honest way to say an object needs no alt text. It is not the
 same as an empty `altText`, and the validator treats them differently.
 
+#### A suggested description (0.28.0)
+
+`accessibility` may also hold `altSuggestion`: `{ "text": "...", "basis": "..." }`, a description the computer worked out that the author has not approved (for example, from the name of what was clicked in a recording: "A screenshot of Notepad,
+with the File menu item marked."). `text` is 1 to 1000 characters and `basis` (1 to 300) says what it was worked out from, in words the author can read.
+
+A suggestion is only ever a suggestion. **The course never uses it**: the player ignores it, the object still has no alt text, and a missing alt text is still an error (`alt-text-missing`; its detail now shows the suggestion that is waiting). It becomes the object's alt text only when the author
+uses it in the editor (it is copied into `altText` and removed) or writes their own (which removes it). A suggestion left on an object that has alt text of its own, or is decorative, is a warning (`alt-suggestion-unused`). The rule that alt text is never silently filled in therefore holds: the author's decision is what puts words in front of a learner.
+
 ### Object types in v0.1
 
 `text`, `image`, `shape`, `button`, `hotspot`, `video`, `audio`, `quizQuestion`, `interaction`, `table`, `scrollingText`, `input`, `embed`, `results`, `certificate`, `download`, `scenario`, `icon`.
@@ -263,9 +283,9 @@ group's objects is not grouped. (Added in 0.17.0.)
 
 | Type | `content` |
 | --- | --- |
-| `text` | `html` |
+| `text` | `html`, optional `bubble` and `tail` (see Speech and thought bubbles) |
 | `image` | `src` (under `assets/`) |
-| `shape` | `shape` |
+| `shape` | `shape`, and `tail` for a speech or thought bubble |
 | `button` | `label`, optional `icon` and `iconPlacement` (see Icons) |
 | `icon` | `set`, `name`, `shapes` (see Icons) |
 | `video`, `audio` | `src` (under `assets/`), optional `captions` (path under `assets/`, or null), optional `transcript` (HTML, as in a text object); a `video` also has an optional `description` (see Audio description) |
@@ -289,10 +309,25 @@ reflows to one column it becomes a visible button showing its name. It has to be
 reflows, and 24 is then what is left. (Defined in 0.18.0. The `hotspot` question kind is a different thing: see Quiz questions.)
 
 `shape` draws one of these, named in `content.shape`: `rectangle`, `rounded`, `ellipse`, `triangle`,
-`diamond` or `arrow`. A name the renderer does not know draws a rectangle. `style.fill` fills it and
+`diamond`, `arrow`, `speech` or `thought` (the last two are bubbles, below). A name the renderer does not know draws a rectangle. `style.fill` fills it and
 `style.stroke` (a colour, or `none`) with `style.strokeWidth` outlines it. The figure is drawn as
 vector graphics, so it stays sharp at any size, and it is hidden from assistive technology: the
 object around it carries the name, or is marked `decorative`. A line is a thin `rectangle`.
+
+A `text` object's words sit on the left of its box unless `style.textAlign` is `center` or `right` (a deck imported from PowerPoint may also bring `justify`, which the player draws; the editor offers only the first three, because the uneven spaces in justified text are hard to read). Nothing is written for left. It needs no schema change: `style` takes any keys the player knows.
+
+**Speech and thought bubbles** (added in 0.30.0). A bubble is the picture of something said or thought, with a tail that points at whoever is speaking or thinking. A `shape`
+whose `content.shape` is `speech` (a rounded box with a pointed tail) or `thought` (an ellipse with two small circles trailing away from it) is a plain, empty bubble: a picture
+with no words, like any other shape, and decorative unless the author says it carries meaning. A `text` object whose `content.bubble` is `"speech"` or `"thought"` is a bubble
+with words in it: its `html` is the words, drawn inside the bubble, and it is read like any text. `content.tail` (on either) is `"left"` or `"right"`, the side the tail is on;
+without one it is on the left. The tail always hangs below the body, so the object's box is the bubble with its tail: the body takes the top, and the tail the bottom
+(28 percent of the height, between 12 and 36 pixels, for speech; 30 percent, between 16 and 44, for thought). The drawing is made at the box's own size, so a tail stays
+the same size however wide or tall the bubble is made and a circle stays round. A text bubble is coloured as a shape is: `style.fill` is the bubble, `style.stroke` and
+`style.strokeWidth` its outline, `style.color` the words (which the validator checks against the fill), and the room round the words is worked out from the bubble, so they sit
+in its body and never in the tail. Where the page reflows to one column the drawing, made for the author's box, gives way to a plain rounded box in the same fill and
+outline with the words filling it; a plain bubble shape keeps its shape and fills the width, as any shape does. A learner's own colours (the accessibility panel) paint
+a bubble in the surface and text colours they chose, and Windows high contrast paints it in the system colours. A `bubble` or `tail` that is neither of the two is the
+validator's `bubble-invalid` error.
 
 A `quizQuestion` has to make sense: it needs an answer a learner can give that is right, and its parts must have different ids. The validator checks each
 kind (see Quiz questions). The object's `altText` names the group of controls for a screen reader; the question itself is normally a heading placed before it.
@@ -304,6 +339,10 @@ controls. A `video` needs `captions` (a `.vtt` file under `assets/`) or a narrat
 needs captions, a narration script or a non-empty `transcript`, because a transcript is what an audio-only
 clip needs. The player draws captions as a real `<track kind="captions">`, and a `transcript`, if there is
 one, as a native "Transcript" disclosure under the player, closed until opened. Neither plays on its own.
+
+A captions file may carry a WebVTT `NOTE` block that says nobody has checked it yet: "Times estimated from a script and not yet checked.", "Words and times made by speech recognition and not yet checked.", or "Times set by listening to the
+voice with speech recognition and not yet checked." Players ignore `NOTE` blocks, so the captions play as usual; the editor reads the note back so the warning is still there when the captions are opened again, and removes it when the
+author says they have checked. It is not part of the project schema and the validator does not look at it.
 
 **Audio description.** A `video` can carry an audio description for a learner who cannot see its picture (WCAG 2.2, 1.2.5, level AA): `content.description`
 is `{ "cues": [...] }`, one to 60 cues, each with an `id` (unique on the video), a `time` (whole milliseconds into the video, 0 to 24 hours), `text` (what the
@@ -406,9 +445,9 @@ filled in (`credit-incomplete`). The validator warns about an entry whose file i
 (`credit-asset-missing`), and when an asset that needs credit is used while `credits` is off
 (`credit-page-off`).
 
-When the course is published, the entries for assets that slides actually use go into the package, and if
-`credits` is on the player shows a "Credits" button that opens a dialog listing them: the title, the
-creator, where it came from, and the licence. The dialog is native, so focus stays inside it and Escape
+When the course is published, the entries for assets that the course actually uses go into the package (a file is used if a slide names it, or a person in the cast has it as their picture),
+and if `credits` is on the player shows a "Credits" button that opens a dialog listing them: the title, the
+creator, where it came from, and the licence. Entries that would read the same are one line. The dialog is native, so focus stays inside it and Escape
 closes it.
 
 **Pictures an AI service made** (added in 0.26.0; the record is also allowed for a sound, but nothing makes one now). The provider is `generated`, and the `source` carries a
@@ -501,7 +540,9 @@ A **situation** (`nodes[]`) has an `id`, a `title` (its heading), a `prompt` (th
 learner would say it), `next` (the id of the situation it leads to), `effects` (0 to 6, each a `variable` and a number to `add`, which is not 0 and may be negative) and
 a `response` (0 to 6 lines shown straight after the choice, before the next situation, which is where a person's reaction or a coach's note goes). A **line**
 has an `id`, a `speaker`, `text` (plain text, up to 2000 characters) and a `narration` (or null, and then it can only be read). The speaker is `null` for the
-narrator, `"you"` for the learner's own character, or the id of a person in the project's cast.
+narrator, `"you"` for the learner's own character, or the id of a person in the project's cast. A line may also have a **`pose`** (0.29.0): the id of one of its speaker's `poses`.
+The line then shows the person in that pose (a picture of them to the waist, 220 by 180 points, with the person's name beside it as always) instead of their small round picture; with no `pose`, or `null`, it shows their picture. A pose is decoration (its `alt` is empty), and what a line means is in its words.
+A narrator's line has no pose (`scenario-pose-narrator`), and the pose of a person in the cast must be one they have (`scenario-pose-unknown`). A line spoken by `"you"` may name a pose: it is shown if the person the learner chose has a pose with that id, and not otherwise, because who that will be is not known until the course is played, so the validator cannot check it and the editor does not offer it.
 
 All the ids in one scenario are different, whatever they name (situation, choice, line or meter), because the learner's path is remembered by them and audio is
 filed under them (`scenario-duplicate-id`). A choice's effect adds to a number variable when the choice is made, with the same arithmetic as the rule "add to a
@@ -1109,7 +1150,44 @@ forward without losing what the author added:
 `sourceCapture` and `stepId` are required and `capturedAt` is optional. A slide may carry this too, as an optional `provenance` field of its own
 (an imported slide does not; its shapes carry the deck). Several objects can come from one step, so only slides are checked for two claiming the same
 step (`provenance-duplicate`). A copy made in the editor (duplicate, paste, or duplicate slide) is the author's own, not the thing it was copied from, so it
-has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.)
+has no provenance, and two objects never claim the same source. (Capture provenance added in 0.18.0.) The Capture module makes up to three lessons from the same steps (Watch, Practice and Test), and two slides may not claim one step, so it names the lesson in `sourceCapture`: the recording's folder name for Watch (`Week 3.capture`), and `Week 3.capture#practice` and `Week 3.capture#test` for the others. The format does not look inside the name.
+
+#### What the Capture module remembers about a slide it made (0.27.0)
+
+So that a lesson can be brought up to date when its steps change, without losing anything the author did, a slide made from a step may carry one more thing in its `provenance`: `base`, the record of what
+was made.
+
+```json
+"provenance": {
+  "sourceCapture": "Week 3.capture#practice",
+  "stepId": "step-3",
+  "capturedAt": "2026-10-18T09:30:00Z",
+  "base": {
+    "name": "Practice 3: Choose Save from the menu.",
+    "picture": { "src": "assets/images/week-3-step-3.png", "width": 1280, "height": 720, "take": 1, "shotMs": 4200 },
+    "objects": {
+      "heading": { "id": "obj-0201", "layer": "layer-base",
+                   "fields": { "name": "0a1b2c3d4e5f6a", "geometry": "1b2c3d4e5f6a7b", "content": "2c3d4e5f6a7b8c", "style": "3d4e5f6a7b8c9d", "...": "one for each field" } },
+      "layer-hint/message": { "id": "obj-0207", "layer": "layer-hint", "fields": { "name": "4e5f6a7b8c9d0e", "...": "..." } }
+    }
+  }
+}
+```
+
+`name` is the slide's name as made. `picture` is the picture the slide was made with (the file, its size, the take it came from and the moment in it, in milliseconds), or `null` for a slide with no
+picture. `objects` has one entry for each thing that was made, under the name of its part (`heading`, `words`, `picture`, `frame`, `target`, `elsewhere`, `showme`, `question`, `answer`, and the parts of a
+layer such as `layer-hint/message`): the object's `id`, the `layer` it was made on, and `fields`, a short fingerprint of each field of the object as it was made (`name`, `geometry`, `content`, `style`,
+`accessibility`, `states`, `triggers`, `timing`, `animation` and `narration`). Fingerprints are of the design only: an object's `locked` and `group`, the ids of its rules and everything of a narration
+but its words (so choosing another voice is not changing the words) are left out. The fingerprints are not secret or checked: the editor compares them with the slide as it is now and with the slide as
+the step would make it now, one field at a time.
+
+- A field the step would not change is left alone, whether or not the author changed it.
+- A field the step would change, and the author has not, is made again from the step. (So a new picture is used even when the author has written their own description of it.)
+- A field the step would change, and the author has changed, stays as the author left it, and the author is told.
+- A part the author deleted stays deleted. A part the author added is not in `base` and is never touched. A part the step no longer makes is taken away only if the author never changed it.
+- A slide for a step that is gone is taken away only if every part is still as it was made and nothing was added; otherwise it stays, and the author is told.
+
+A slide with no `base` (every one made before 0.27.0) is left as it is. The validator checks the shape of `base` and nothing more.
 
 ### PowerPoint import
 
@@ -1356,6 +1434,10 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.29.0 | 0.30.0 | Adds the speech and thought bubbles: the shapes `speech` and `thought`, the optional `tail` (`left` or `right`) of a shape that is one, and the optional `bubble` and `tail` of a `text` object (words in a bubble). Nothing in an existing project has to change: no shape is a bubble and no text has one. |
+| 0.28.0 | 0.29.0 | Adds the optional `poses` and `library` of a person in the cast (more pictures of them, each in a pose, and the character pack they came from) and the optional `pose` of a line of a scenario (which of its speaker's poses to show). Nothing in an existing project changes: no person has poses and no line has a pose. |
+| 0.27.0 | 0.28.0 | Adds the optional `altSuggestion` to an object's `accessibility`: a description the computer worked out and the author has not approved (`text` and `basis`). The course never uses it, and alt text is still required. Nothing in an existing project changes: no object has one. |
+| 0.26.0 | 0.27.0 | Adds the optional `base` to a slide's Capture provenance: what the Capture module made for a step (the slide's name and picture, and for each part its id, layer and a fingerprint of each field), so a lesson can be brought up to date without losing what the author changed. Nothing in an existing project changes: no slide had one, and a slide without one is left as it is when a lesson is brought up to date. |
 | 0.25.0 | 0.26.0 | Adds the `generated` credit provider and its record (a picture or sound an AI service made, with the service, model, prompt and time), and lets a narration's `voice` name an engine other than the built-in one (`openai:alloy`). Nothing in an existing project changes: a voice with no engine in its name is still Kokoro's, and nothing was generated before. |
 | 0.24.0 | 0.25.0 | Adds what is needed to bring slides in from a PowerPoint deck and to bring them up to date: `project.sources` (the decks, and how each was laid on the stage), a slide's own import provenance, and in an object's import provenance the deck's slide number (`slideId`), a fingerprint of the shape (`sourceHash`) and the object as it was imported (`base`). Nothing in an existing project changes: nothing was imported before. |
 | 0.23.0 | 0.24.0 | Adds `announce` to a look (an object state): the words a screen reader says when a rule applies the look. Nothing in an existing project changes: no look has one. A look's name now has limits (1 to 40 characters, no space at either end). |

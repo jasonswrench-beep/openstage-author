@@ -225,6 +225,42 @@ Use `examples/powerpoint/Introduction to Communication.pptx` and then `Introduct
 | NVDA | | | |
 | Narrator | | | |
 
+### 12. The learner accessibility panel in the published course
+
+This is about the course a learner opens. Publish `examples/lms-test-lesson.osproj` (or open the preview) and use only the screen reader and the keyboard. See `docs/learner-accessibility.md`.
+
+**What to do.**
+1. Tab to the **Accessibility** button (after Credits). Press Enter. Listen to what is said about the panel.
+2. Tab through it. Change **Text size** to 150%, then **Colours** to Dark, then turn on **Reading line**. Listen to what is announced each time.
+3. Go to the Your results slide (slide 19), pause the narration, and press **Read aloud**. Then press Escape, or Stop reading.
+4. Press **Show the transcript**. Read a few slides. Close it, and see where focus goes.
+5. Press **Put everything back**. Then press Escape to close the panel, and see where focus goes.
+
+**A good result.** The button is read as "Accessibility, button, collapsed" and then "expanded" once open; the panel is read as a region named "Accessibility" with groups named Text, Colours, Reading, Read aloud and Transcript; each control is read with its label and its value ("Text size, 100%, combo box"). Each change is announced in words. Read aloud does not talk over the screen reader's own speech by starting by itself.
+The transcript window is read as a dialog titled with the course, with a heading for each slide. Escape closes the panel and focus is on the Accessibility button.
+
+| Screen reader | What it said | Verdict | Notes |
+| --- | --- | --- | --- |
+| NVDA | | | |
+| Narrator | | | |
+
+### 13. Captions from the voice, in the captions window
+
+This is about the editor. Select a video on a slide, press **Write captions...**, and find *Write the captions by listening to the voice*. See `docs/speech-recognition.md`.
+
+**What to do.**
+1. Move through the section with the screen reader: the line that says whether the recogniser and the model are ready, **Speech model**, **Words to listen for**, and the buttons.
+2. Press **Listen and write the captions** on a short video with a voice. Listen to what is said while it works, when it finishes, and where focus is.
+3. Press **Stop** during a second listening. Listen to what is said and where focus is.
+4. Read the "unchecked" note and press its button.
+
+**A good result.** Each field is read with its label and its description ("Words to listen for, edit, multi-line... Names and terms from your course..."). The progress bar is read as a progress bar named "How far this has got". The start and the end are announced in the status line; the percentage is not announced every few seconds. After a finished listening, focus is on the first caption's words; after Stop, on the button that was pressed.
+
+| Screen reader | What it said | Verdict | Notes |
+| --- | --- | --- | --- |
+| NVDA | | | |
+| Narrator | | | |
+
 ## Problems found
 
 | # | Pattern | Screen reader and version | What was said | What should have been said | How bad |
@@ -237,7 +273,15 @@ How bad: **blocks a task** (you could not do it), **awkward** (you could, with d
 
 ## What was not covered, for a second round
 
-These editor features were added after this script was written, and are not in the patterns above: choosing several objects and the Line up and Space out buttons, locking, grouping, copy and paste, the question editors in the Properties panel, snapping (which is for the pointer only), the Group, Duplicate slide and layer buttons, the audio description box on a video, the Characters dialog and its picture maker, the icon picker (a grid that moves with the arrow keys), the button picker and the button Look and icon boxes, the ready-made lesson slides in the Add slide picker, the scenario editor in the Properties panel, and the Choose by playing dialog and the timeline groups for objects that follow a video or audio clip. (Looks are pattern 10.) The AI services dialog (a password box with Show, a box that is the author's yes, Check the key, the plugin switches), the question asked before a service is sent anything for the first time (its **Not now** button has the focus), the **Make with AI** tab of the Assets dialog (how a made picture's alt text is asked for), and the notes under the Voice list that say where a voice is made and what it cannot do.
+These editor features were added after this script was written, and are not in the patterns above: choosing several objects and the Line up and Space out buttons, locking, grouping, copy and paste, the question editors in the Properties panel, snapping (which is for the pointer only), the Group, Duplicate slide and layer buttons, the audio description box on a video, the Characters dialog and its library of people (each person's description beside their picture, Choose buttons named for the person and the pack, Add a character pack, and Remove with a second press), the pose dialog (a check box for each pose, with its picture and words) and the Pose beside the line box in the scenario editor, the Shape or bubble picker with its bubble choices and the Bubble and Tail boxes in the Properties panel, the background picker (a list of pictures in groups, each with a button named for it) and the Background picture and Remove background picture buttons, the A person from the library choice and its one-picture dialog, and the Words sit box, the icon picker (a grid that moves with the arrow keys), the button picker and the button Look and icon boxes, the ready-made lesson slides in the Add slide picker, the scenario editor in the Properties panel, and the Choose by playing dialog and the timeline groups for objects that follow a video or audio clip. (Looks are pattern 10.) The AI services dialog (a password box with Show, a box that is the author's yes, Check the key, the plugin switches), the question asked before a service is sent anything for the first time (its **Not now** button has the focus), the **Make with AI** tab of the Assets dialog (how a made picture's alt text is asked for), and the notes under the Voice list that say where a voice is made and what it cannot do.
+
+## What the browser's accessibility tree says (not a screen reader), 2026-10-21
+
+This is not the pass above and does not replace it. It is what the browser tells assistive technology, read out of the real app over the debugging port (`Accessibility.getFullAXTree`), for the dialogs added with the people library, backgrounds and bubbles. It finds a missing name or a picture that is read out; it cannot say how a screen reader sounds or whether the order makes sense by ear.
+
+* **The library of people, the pose dialog (one picture), the background picker and the Shape or bubble picker:** each dialog has its name; headings run 2 (the dialog), 3 (a pack, or a group of choices) and 4 (a group of backgrounds); every list and region is named; every button is named for what it does and for what ("Use Corner office at dusk as the background", "Choose Lisa from OpenStage people, set 1"); the pictures are hidden from assistive technology, with the words beside them doing the describing; the pose dialog is one group of round buttons named for the person; no control is without a name.
+* **Found and fixed:** the tick that marks the chosen card in the pickers was read as part of the name ("check mark Rectangle"). It now has no words of its own.
+* **Not looked at this way:** the Properties panel (it uses the same labelled boxes as every other object's), the scenario editor, and the editors for questions and interactions.
 
 ## When it is done
 

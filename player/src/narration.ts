@@ -101,6 +101,11 @@ export class NarrationBar {
     });
   }
 
+  /** Whether the narration is playing now. */
+  get playing(): boolean {
+    return !this.audio.paused && !this.audio.ended && this.audio.hasAttribute("src");
+  }
+
   /** Set up for a new slide. Starts playing if the browser allows it. */
   load(items: NarratedItem[]): void {
     this.stop();

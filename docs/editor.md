@@ -109,7 +109,11 @@ as the voice** writes the voice's words from the description (they are then the 
 video and its time, so its audio is made like any other (the speech tool finds it under the key `<video id>/<description id>`). A description with no
 voice can only be read, which the Problems list says. The Objects list says ", described" for a video that has any. Descriptions are kept in the order
 they happen. The course shows the **Audio description** button beside the video only when there is a description. If everything important on screen is
-already said in the narration, no description is needed.
+already said in the narration, no description is needed. For a video made from a recording, **Describe what is on the screen** (in the recording window, once
+the video is on a slide) adds one description for each text overlay, each shape or arrow that was given a description, and each zoom (what it shows), at the time
+it happens, already with a voice that says its words, as one undo step (`Model.describeScreen`). That is the audio route for text a learner reads in a recording (story D7).
+Pressing it again adds nothing twice, and it never touches descriptions the author wrote. If the recorded voice already says one of them, delete it. It is only offered right
+after the video is put on the slide, because the editor does not yet remember which recording a video came from (that belongs with provenance, request OS-14, in Capture's Phase 7).
 
 **Hotspots.** **Add > Hotspot (a clickable area)** puts a transparent button on the layer, to place over a picture (a screenshot, say). It shows as a blue
 dashed box in the editor only; a learner sees nothing but the picture and, when they Tab to it, the ordinary focus ring. Its name is the Alt text field
@@ -123,6 +127,20 @@ every edit keeps it. A copy you make (Duplicate, Paste or Duplicate slide) is yo
 the shape later. Fill and outline colour and outline width are editable. New shapes are decorative,
 so they are hidden from screen readers; untick "Decorative" and write alt text if a shape carries
 meaning.
+
+**A background picture.** With nothing selected, the **Design** box has **Background picture...**, which opens the packs of backgrounds: offices, meeting and training rooms, reception areas, corridors, kitchens and outdoor entrances come with the program, each picture beside a description of it. Choosing one puts it behind everything on the slide. It is a decorative picture named *Background picture*, locked so a click on the slide does not move it (Unlock it in the Objects list to move or resize it), and the slide's own background becomes the picture's average colour so the Problems list can still judge your text and text that follows the theme stays readable. The same picture on another slide is the same file. **Remove background picture** takes it off. Words on a busy picture can be hard to read in places: put them in a text bubble or on a panel.
+
+**A person from the library on a slide.** **Add > Image, video, audio or file... > A person from the library** opens the library of people, then asks which picture of them: their head and shoulders, or one of their poses. The picture is copied into the project (once, however many times it is used), credited, and put on the slide as an image named for the person and the pose. Its alt text is filled in from the library, and the editor says so: read it, change it if it is not right, or mark the picture decorative if it only decorates. (Nothing is decorative until you say so.) Put a person over a background picture and a speech bubble beside them, and you have a scene: `examples/conversation.osproj` is two slides made that way (a background from the offices pack, Lisa and Ken from the people pack, a speech bubble and a thought bubble each with a voice), and it is a good one to open and change.
+
+**Where the words sit.** A text box's **Words sit** box puts its words on the left (how text starts), in the centre or on the right. A new text bubble starts in the centre. Justified text is not offered, because the uneven spaces are hard to read.
+
+**Speech and thought bubbles.** **Add > Shape or bubble...** offers four: a speech bubble or a thought bubble, each either **with words** (text you type in) or **empty** (a plain
+picture, decorative like a shape, to put your own words or a picture over). A bubble with words is a text object: type its words in the **Text** box as for any text, and
+set its **Bubble** (none, speech or thought), its **Tail** (on the left or the right, whichever side whoever is speaking or thinking is on), the **Bubble colour**, **Outline colour**
+and **Outline width** in the Properties panel. Any plain text box can be made into a bubble with its **Bubble** box, and made plain again (the bubble's colours go with it; Control Z
+brings them back). A new bubble has the theme's panel colour and a quiet outline, and its words are in the theme's text colour, so it reads well on any slide and keeps reading
+well if the theme changes; the Problems list checks the words against the bubble colour you choose. The tail stays the same size however you stretch the bubble, and where the
+page reflows to one column the bubble becomes a plain rounded box with the same colours.
 
 **Colours.** Wherever a colour is needed there is a palette of 24 named colours (choose one with the
 mouse, or with the arrow keys and Enter), the system colour picker for any other colour, a hex box
@@ -185,8 +203,8 @@ and whether the captions are timed to the spoken words; with audio, a "Listen to
 each with its audio status, a "Go to" button, and "Make audio" (or "Make all missing audio" for the lot). It works from the
 project as it is on screen, saved or not, and can be cancelled; the first time can take a minute or more for each object.
 If no speech engine is set up the dialog says so and still lists everything (transcripts and captions work without audio).
-OPEN EDITOR.bat looks for the engine in the Audiobook Studio folder; otherwise set `OPENSTAGE_KOKORO_PYTHON` to the
-Python that has Kokoro installed. **Clear unused audio** in the Narration dialog deletes the audio that no narration names any more (it is left behind when a script, voice, speed or language changes, and is found again if the change is undone), after asking, and says how much space it frees. It asks you to save first, so audio the saved version uses is not cleared. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
+The engine is installed separately (`docs/narration-setup.md`); its Python is named once in `local-settings.bat`
+(`OPENSTAGE_KOKORO_PYTHON`), which the `.bat` files read. **Clear unused audio** in the Narration dialog deletes the audio that no narration names any more (it is left behind when a script, voice, speed or language changes, and is found again if the change is undone), after asking, and says how much space it frees. It asks you to save first, so audio the saved version uses is not cleared. Publishing also makes any Kokoro audio that is missing. It never sends anything to a service: a narration whose voice is a service's
 is published with the audio already made, or without audio.
 
 **AI services.** The **AI services** button opens a dialog for OpenAI and for voice plugins (docs/ai-generation.md, docs/plugins.md). For OpenAI: the key
@@ -195,7 +213,7 @@ and under *models (advanced)* the model names. Voice plugins are listed with a s
 internet; **Open the plugins folder** shows where they go. **Save** keeps it; **Cancel** and Escape drop the changes. Only a service with a key and a yes has its voices in the lists.
 The first time the author makes something with a service they have not said yes to, a question asks, and says what is sent; its **Not now** button has the focus. A voice from a service or
 plugin is under its own heading in every Voice list (an object's, an item's, a description's, a character's). Under the list, a note says where the voice is made. A voice that speaks many languages
-has a **Language of the script** box. A voice that cannot use pronunciations says so and has no way to add one. If the credits page is off, the note says
+has a **Language of the script** box (for an OpenAI voice, changing it keeps the audio already made under the new language, since the voice sounds the same; `soundIgnoresLanguage`, the shell command `reuse_narration_audio`). A voice that cannot use pronunciations says so and has no way to add one. If the credits page is off, the note says
 that listeners are not told the voice is made by an AI service. The Narration dialog starts with one sentence for each engine (where the audio is made and whether anything is sent),
 asks before sending to a service for the first time, and leaves out what the author did not allow.
 
@@ -252,6 +270,38 @@ field. An audio clip needs captions or a transcript, a video needs captions. An 
 usual YouTube or Vimeo address forms, and needs a name, a transcript and a tick in "I have checked that this
 video has accurate captions". On the canvas an embed is a placeholder, so editing never loads anything from the
 web. The learner needs an internet connection to play it, and the LMS must allow embedded players.
+
+**Captions and the transcript of a video or audio clip.** In the Properties panel, **Write captions...** opens a dialog (`editor/src/captionsdialog.ts`) where the captions are written, timed,
+checked and saved, with nothing saved until **Save and use these captions** (or Ctrl+S). The clip plays in the dialog, and the captions in the list are shown over it. Every caption is a labelled
+group of fields (**Starts at**, **Ends at**, **Words**, in seconds, or as `1:05`), with **Start now** and **End now** to take a time from the player, and **Delete**; **Add a caption**, **Put the captions in
+order of time**, **Break long lines** (to 42 characters) and **Undo the last change to the list** work on the whole list. A caption that is hard to read says why, in words, next to its fields: more than
+two lines, a line over 42 characters, faster than 20 characters a second, or on screen for under a second (the numbers are `DEFAULT_LIMITS` in `editor/src/captions.ts`, from published caption guides,
+and a warning never stops saving). The captions together are checked for order, overlap and running past the end of the clip. Ways to start: type them; **Make captions from this script** (paste the
+words that are spoken: they are cut at the ends of sentences and clauses to fit, and the times are spread over the clip by length, as **estimates**; a note stays in the dialog, and in the saved WebVTT file as a `NOTE`, until
+**I have checked the times** is pressed; nothing listens to the voice); or **Bring in a .vtt or .srt file...** (what cannot be read is left out and said). **Copy as WebVTT** and **Copy as SRT** put them on the clipboard for other programs. Anything
+that would replace captions that already have words asks first, and can be undone. Saving writes plain WebVTT into `assets/captions` (a new file named from the clip, or the same file again when the clip already
+uses one) and points the clip at it; styling or positions in an older file are not kept. **Make a transcript from the captions** puts the spoken words, run into paragraphs, in the transcript box, with what is on the
+screen (from a recording: the words of text overlays, shapes and arrows that were given a description, and what each zoom shows) in square brackets where it happens; it is saved with the captions. A transcript with formatting
+the editor cannot edit is left as it is. The pure parts (reading and writing WebVTT and SRT, the warnings, the script cutting, the transcript) are `editor/src/captions.ts`, with tests. The shell commands are `captions_read`,
+`captions_write` and `caption_source_read` in `lib.rs` (only `assets/captions/<name>.vtt` is reachable, text only, 5 MB at most, replaced whole or not at all). Not built: marking which captions were edited by hand, and a languages choice for each caption track.
+
+  **A description suggested for you** (story D6, format 0.28.0; `altSuggestion`, `Model.useAltSuggestion` and `dismissAltSuggestion`, `calloutalt.ts`). A step's picture in a lesson made from a recording is not given a description until you check the step, but it is now given a **suggestion**: what was proposed
+  from the log (the name of what was clicked and the window), with what it was worked out from. In Properties, under Alt text, a group says "A description has been suggested, and not checked yet" and shows it with **Use this description** and **Throw the suggestion away**. Using it puts it in the Alt text box (focus goes there, and you are told to read it against the picture; one undo takes it back);
+  writing your own alt text, or marking the object decorative, ends the suggestion. The list of objects says "description suggested", and the Problems panel still asks for alt text and shows the suggestion in its detail. The course never uses a suggestion. In the recording editor, a highlight box, circle or arrow put in at a moment when something named was clicked (within 2.5 seconds before or 1.5 after, in the take the picture shows then) gets a suggestion beside its
+  alt text box ("A box around the Save button.", "A circle around ...", "An arrow pointing to ..."), with the click it came from and a button to use it; nothing is put in the edit until you press the button. No suggestion is made when nothing named was clicked near enough.
+
+  **Captions from the voice** (story D3; `editor/src/speechpanel.ts`, `recognition.ts`, `speechaudio.ts`, and `src-tauri/src/speech.rs`; see `docs/speech-recognition.md` and `docs/decisions/0002-speech-recognition.md`). In the captions dialog,
+  *Write the captions by listening to the voice* has a **Speech model** choice (small.en, 488 MB, careful and recommended; base.en, 148 MB, faster and less careful), **Words to listen for** (the course's names and terms, drawn from its
+  title, slide names, headings, text and narration scripts, and changeable), and three buttons. **Download the speech model (488 MB)...** asks first, in words (the size, that it comes from huggingface.co, where it is kept, and that nothing from the
+  course is sent), shows its progress, can be stopped, and keeps the file only when its size and SHA-256 are exactly what Hugging Face publishes. **Listen and write the captions** reads the clip's sound in the window (the window decodes it, so there is no
+  FFmpeg), saves it as a 16 kHz mono WAV in a temporary folder, runs the recogniser (`whisper-cli`, a separate program, processor only, with its alignment mode for accurate word times), and makes captions from the words:
+  a sentence that fits two lines of 42 characters is one caption, a longer one is cut near its middle (at a comma if one is there), a caption starts when its first word does and ends where the voice stops, and captions never overlap. The
+  recogniser's notes about sounds (`[BLANK_AUDIO]`, `(keyboard clicking)`, music signs) and any word "heard" where the clip is silent are left out, and the dialog says how many. **Set the times of my captions by the voice** keeps the words of the captions
+  the list already has (typed, from a script, or brought in) and gives them the voice's times, saying how many of their words were heard exactly; if the voice does not seem to say them it changes nothing. What the computer wrote or timed is
+  marked as unchecked, in the dialog and in the saved WebVTT file as a `NOTE` block, until **I have checked the captions** is pressed. A clip is listened to in parts of at most 20 minutes, cut in a pause, and joined (up to 3 hours; longer is refused with a message). Stop ends a listening or a download; closing the dialog while one is going asks first.
+  The pure parts (reading the recogniser's JSON, the notes and silence filters, cutting words into captions, placing captions by the voice, the hint) are `editor/src/recognition.ts` with tests that use real recogniser output.
+  The shell commands are `speech_status`, `speech_download`, `speech_audio_put` (the sound as the raw body of the request), `speech_listen`, `speech_drop`, `speech_cancel` and `read_media_bytes`; the window's page may reach the shell by its fast channel because
+  the content security policy allows `ipc:` and `http://ipc.localhost` (without that, every command quietly used a slower text route that cannot carry raw sound).
 
 **Questions, inputs and surveys.** "Question, input or survey..." in the Add menu opens one picker with
 three groups: Quiz questions (multiple choice, true or false), Inputs that save a choice (checkboxes,
@@ -428,9 +478,12 @@ the three places, then the door; at a door, where the learner is, the question, 
 three rooms.
 
 **Scenarios and the cast.** The **Characters** button in the toolbar opens the cast: the people a course can show and give a voice to. Each has a name, a few words
-on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can choose a file, or press **Make a picture...** to draw a simple person: skin tone, hair
-style and colour, expression, shirt and colour, glasses and background, with a live preview described in words, a Surprise me button, and the result saved in the project as a small drawing of
-your own (no credit needed). The maker describes the picture in words and offers that as a start for the alt text with a button, **Use that as the alt text**; it never fills the alt text in for you. You can add a person, move them and remove them.
+on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can press **Choose from the library...** to pick a person from a character pack (`docs/character-packs.md`), or **Choose a picture from my computer...**.
+The library shows each person with a description of them beside their picture. Choosing one brings their picture into the project with that description as the alt text (the dialog says so aloud, and the alt text is yours to change), gives a person who has no name yet
+the name and a voice of the kind the pack suggests, and saves the credit for the picture with the cast, in the same undo step. The library dialog also adds a pack from a zip file, shows the folder your own packs are kept in, and removes a pack you added (press twice).
+A picture that was copied into the project while choosing and was then replaced, or the dialog was cancelled, is deleted again. You can add a person, move them and remove them.
+A person from the library has a **Poses** box: **Add poses from the library...** shows every pose the pack has for them, each with its picture beside its words and a check box, and copies only the ones ticked into the project (so a course that uses three stays small); a pose can be taken out again, unless a line uses it, and then the dialog says where.
+In a scenario, a line said by a person with poses has a **Pose beside the line** box: their picture, or one of their poses, which is drawn beside the line, to the waist, instead of their small face. Changing who says a line keeps the pose if the new speaker has one with the same id and takes it off if not, and says so. The pictures are decoration: the person's name is always written beside them.
 The dialog changes nothing until **Save the cast**, and then one Undo takes it back. A person who is still used (they speak a line in a scenario, or a choice of
 character offers them) cannot be removed, and the dialog says where they are used. Changing a person's voice changes the voice of the lines they speak and says how
 many, so make the audio again. A scenario is added from "Interaction or scenario..." (Branching scenario), and starts as a small story to write over: one situation
@@ -546,8 +599,8 @@ choose with "Choose folder...". Until you choose, that is a "Published courses" 
 the folder you choose is remembered for next time. The folder and the package are named after the project.
 Publishing again replaces them, and it refuses a place that is inside the project, holds the project, or
 already has a folder of that name with other things in it, so it can never empty something that is yours.
-Narration audio is made for any narrated object that has none, if a speech engine is set up (OPEN EDITOR.bat
-looks for Kokoro in the Audiobook Studio folder); otherwise the course has transcripts and no new audio, and
+Narration audio is made for any narrated object that has none, if a speech engine is set up (`local-settings.bat`
+names the Python that has Kokoro; see `docs/narration-setup.md`); otherwise the course has transcripts and no new audio, and
 the dialog says so. The first time this can take several minutes, so the button becomes "Cancel publishing",
 and Escape cancels too. When it finishes the dialog says what was made and offers "Show the package in its
 folder" and "Open the course in my browser". The web-files folder also holds `_scorm-test.html`, a stand-in
@@ -584,8 +637,72 @@ the other accessibility fields are never filled in for the author.
 
 OpenStage Capture is a separate program that records the screen. The editor starts it and talks to it, and these are the parts of the editor's
 shell (the Rust side) that make that possible. They are built and tested; the panels an author would use (a recorder panel, a clip list) are not
-built yet, so nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
+built yet, so apart from the check dialog in the first item nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
 
+- **OpenScreen: recording from the editor.** OpenScreen is the name authors see for the Capture module. The toolbar's **OpenScreen** button opens a dialog
+  with three parts: **Record**, the recording as it goes, and **Is this computer ready to record?**
+  - **Record.** The author names the recording and chooses what to record: a whole screen, one window (found with **Look for windows**; the window is asked for
+    by its title), or part of a screen (four numbers, at least 64 by 64 pixels). They choose a microphone, whose sound to record (the computer's own sound includes a
+    screen reader's speech), a webcam (none unless chosen), and whether to note what they do with the mouse and keyboard (off unless chosen, with a plain note about what that
+    keeps and that password keys are never noted). The lists of screens, microphones, sound outputs and cameras come from the recorder's `probe`. A countdown of 0 to 10 seconds, and the
+    recorder's short sound for each step (countdown, start, pause, resume, stop, on by default for anyone who cannot see the screen) can be changed. **Practice** records a
+    made-up picture and sound instead of the screen, to try the controls. The recording is kept in a `captures` folder inside the course's own folder, in a folder named for the
+    recording and ending in `.capture`, and the first time the editor adds `captures` to the course's `sourceExclude`, so the raw recording and its notes never go into a published
+    package (the project then needs saving; it is not an undo step). **Start recording** says in words why it cannot start when a choice is missing.
+  - **The recording as it goes.** The dialog shows a sentence for the state ("Recording take 1, 12 seconds. Interaction recording is on. Sound: microphone good, the computer's
+    sound quiet."), with **Pause** or **Resume**, **Stop**, **Start again** (the old take is set aside, never erased) and **Add a marker** (with words if wanted), the markers, and
+    everything the recorder said (warnings and problems, each starting "Note." or "Problem."). Changes of state, markers, warnings and the end are spoken through a status
+    region; the sound levels and the running time are shown but not spoken, so a screen reader is not talked over. The recorder's keys work from any program while recording:
+    Ctrl+Shift+F10 pause or resume, Ctrl+Shift+F11 stop, Ctrl+Shift+F12 start again (the editor says which could not be used, and the buttons always work). A recording goes
+    on if the dialog is closed: the toolbar button then reads "OpenScreen (recording)" and the editor speaks the news itself. If the recorder ends without finishing, the editor says so
+    and repairs what was recorded (at most about a second can be lost). When it finishes, the dialog says where the recording is kept and offers to show its folder.
+  - **Is this computer ready to record?** **Check this computer** runs the recorder's own `setup-check`: the Windows version, screen capture, the video and sound encoders, the microphone and
+    the camera and the permission to use them, and the room left on the disk of the open project. Each finding starts with "Passed." or "Problem." (never colour alone), and one sentence at
+    the end says whether the computer is ready. It records nothing, asks Windows for no permission and sends nothing anywhere.
+  It is a native dialog, so focus moves in, Tab stays inside, Escape closes it and focus returns to the button. Not built yet: choosing part of a screen by dragging (the numbers are typed),
+  a list of earlier takes, changing the keys, editing a recording, and putting one in a course. The logic is `editor/src/capturesession.ts` (the choices, the recorder's options, what its lines
+  mean and the words for each state), `editor/src/capturecontroller.ts` (starting it, the commands, the keys, the repair; tested against a stand-in recorder), `editor/src/capturecheck.ts`
+  and the dialog `editor/src/recorderdialog.ts`. `OPEN EDITOR.bat` builds the recorder after the editor (into `capture\target\release`, where the editor looks), and opens the editor even if that fails.
+- **OpenScreen: editing a recording.** The recorder's preview, timeline and clip list (`capture-timeline/`, plain DOM with no dependencies, with the edit model in `capture-edit/`) open in a
+  dialog of their own: from **Edit a recording** in the OpenScreen dialog (every recording in the course's `captures` folder is listed) or from **Edit the recording I just made** when a recording has
+  finished. The edit is a list of what to keep and what to add (trims, splits, text, shapes, blur, zoom); it is saved as `edit.json` inside the recording, whole or not at all, and the recorded picture
+  and sound are never changed. **Save the edit** or Ctrl+S saves it; Close asks first if there are changes that are not saved. The screens keep their own keys and their own line of
+  announcements (a polite live region, so nothing is read twice): F6 and Shift+F6 move between the preview, the timeline and the clip list and say where they arrived, Ctrl+Z and Ctrl+Y undo and redo
+  the edit. While the dialog is open the editor's own Ctrl+S, Ctrl+Z and F6 step aside, so none of them reaches the course. The screens are kept in their light colours to match the editor.
+  The shell reaches a recording only by the course's folder and the recording's folder name: it lists the recordings, reads the recording's `.json` files, lists the folders of a take, writes `edit.json` (and
+  nothing else), and lets the page play the media of one recording's `takes` folder from disk with seeking (`list_recordings`, `recording_read`, `recording_folders`, `recording_write_edit`,
+  `allow_recording_media` in `lib.rs`; a name must be one plain folder name ending in `.capture`, a place inside it plain names joined by `/`, only `.json` is read as text). The screens read a recording
+  through `editor/src/recordingfolder.ts`, and the dialog is `editor/src/editrecording.ts`. A recording made with Practice has no real picture or sound, so it opens as an empty edit and says why.
+  **Making a video.** **Make a video from this edit** saves the edit first (the recorder reads `edit.json`), then runs the recorder's `render` and says how far it has got, in words, as it
+  works (about every tenth), with **Cancel the video**. The video is written in the recording's own `exports` folder (`<course>/captures/<name>.capture/exports/<name>.mp4`), so a half-made file is never
+  in the course, and the recorder reads it back the way a player would. Its checks (the length, the size, the sound, and notes such as text that does not fit its box) are listed, each starting
+  "Note." or "Problem.", with one sentence for the whole; a video that did not read back right is never called good. **Use cuts instead of animated zooms** (off unless chosen) is kinder to anyone
+  bothered by movement. When the video is made, **Put the video on the current slide** copies it into the course's `assets/video` and adds a video object to the slide. That object starts with no
+  description and no captions, and the Problems panel asks for both, because both are required and the editor never fills them in. **Show the video in its folder** opens its folder. An edit that
+  still lacks something accessibility needs (a description for a text overlay, for instance) is refused, with what is missing. Once the video is on the slide, **Write captions for the video** opens the captions
+  dialog on it, with the edit's on-screen words and zooms ready for its transcript. Not built: making the video anyway when that is so, choosing its size or
+  speed, and linking the video to the steps of a lesson. The options and the words are `editor/src/captureexport.ts`.
+  **Finishing the edit** (the timeline of the recording editor). Put the playhead where a mistake starts and press **I**, where it ends and press **O**: a shaded band shows the stretch and the words under the timeline say it. **X** removes it from every track and leaves a gap; **Shift+X** removes it and moves everything after it earlier; **Alt+X** clears the marks. Overlays and zooms in the stretch go with it or are shortened, and the sentence says what happened to them. One undo puts it all back.
+  Dragging with the mouse **snaps** to the playhead, the edges of other clips and the ends of the edit (a line shows where; the **Snap** button or **N** turns it off; holding **Alt** turns it off for one drag, as on a slide). With several clips chosen, dragging one moves them all. The **Tracks** button renames or deletes a track; one with things on it asks first.
+  Other things not built are listed in `capture-timeline/README.md` (a captions track, cursor and click effects).
+  The first page (no project open) offers **New project**, **Open project** and **Show the examples**, which opens the folder of example projects that came with the program (`examples_folder` in `lib.rs`); the button is left out when there are none.
+  **About** (the last button in the toolbar) shows the version and where things are on this computer (the program, its Python and Node, the recorder, the speech recogniser, the settings and data folders, whether the narration voice is installed, the web view and Windows versions), as lines and as text to copy into a message when asking for help; it holds no key and nothing from a course. **Show the guides** opens the folder of guides that came with an installed copy.
+  **Steps from a recording.** **Make steps from this recording** (in the OpenScreen dialog, and for the recording just made) opens a review dialog (`editor/src/stepsdialog.ts`) for the steps that can be made from
+  what the author did while OpenScreen was noting the mouse and keyboard (`takes/take-N/events.jsonl`): one step for each click (told as "Click the Save button.", "Choose Open from the menu.", "Double-click ...",
+  "Right-click ..."; without a name, "Click the highlighted spot."), each stretch of typing ("Type "report"."), each key such as Enter or Ctrl+S, each change of program, and each marker. Anything the edit cuts out makes no
+  step. Every step is a labelled group of fields: **Words the learner reads**, **Description of the picture**, **Picture taken at (seconds into the take)**, a tick for "I have checked the words and the picture description",
+  and **Move up**, **Move down**, **Merge with the next step**, **Split in two** (or **Undo the merge**), **Delete**; **Add a step by hand**, **Undo the last change to the list** and **Start again from what I did while recording** work on the list,
+  and every change is said in words. The words and the picture description are proposed from the log and are the author's only once the step is ticked as checked; slides made from steps will use a picture description only for a checked
+  step. **Save the steps** (or Ctrl+S) writes `steps.json` in the recording, which the next opening reads back. A recording with no log says how to get one, and steps can still be added by hand. The pure parts are `editor/src/steps.ts`
+  and `editor/src/stepsource.ts` (with tests); the shell reads a take's `events.jsonl` (up to 32 MB) and writes `steps.json` (`recording_write_steps`; only `edit.json` and `steps.json` can ever be written in a recording). The plan for pictures,
+  slides, Practice and Assessment is `docs/decisions/0003-steps-and-practice.md`.
+  **Pictures and the Watch lesson.** **Show the picture** (in each step) takes the step's picture from the recording's own video, at the moment in **Picture taken at**, and shows it with a box round the place to point at: the box is reached with Tab, moved with the arrow keys (Shift widens or heightens it, Control makes each press five times as big),
+  dragged with the mouse, or set in four number fields (left, top, width, height, in percent); pressing elsewhere on the picture puts its middle there; **Mark a place to point at** and **Take the mark off** work on any step. **Make or update the lesson: one slide for each step** (for the Watch lesson; its name follows the lesson chosen) saves the steps, takes and saves a picture for each step
+  that has no slide yet (into `assets/images`), then puts a slide for each step after the slide you are on, as one undo step: a heading ("Step 3 of 8"), the step's words with a voice that says them, the picture, and a frame round the place to point at. The picture's description is yours: it is used only for a step you ticked as checked, and the
+  Problems panel asks for it on the others. A step that already has a slide is brought up to date (below); with nothing changed, pressing the button twice does nothing the second time. Each slide says which recording and step it came from, and what was made (`provenance`). The pure parts are `editor/src/steppicture.ts` (names and sizes), `editor/src/stepslides.ts` (the slide) and `Model.makeStepSlides`;
+  the shell saves the picture (`save_step_picture`: a real PNG, a safe name, never overwriting).
+  **The three lessons.** The review dialog's **Lesson** choice makes **Watch** (as above), **Practice** or **Test** from the same steps (`editor/src/steplessons.ts`). *Practice:* for a click, the picture with a hotspot over the place (named by the step's words) and another named "Anywhere else on the screen"; pressing the right one says so and offers Next step; pressing the other counts a try (one number variable, `practice tries`) and gives a hint, and the third try outlines the place, as **Show me** does at once; for typing, a short-answer question worth no points. *Test:* each click is a scored hotspot question (one point, one try, no hints) with the place among up to four other areas of the picture, each with its own label; typing is a scored short answer; the score is the course's quiz score, so add a results box after the last question. A step with nothing to point at or type (a key, a change of program, a marker) is shown as in Watch.
+  Each lesson names its own capture in `provenance` (`name.capture`, `name.capture#practice`, `name.capture#test`), so all three can be in one course. Pressing the button again makes the missing slides, each in its place among the lesson's slides, and **brings the others up to date** (`editor/src/stepbase.ts`): if a step's words, picture or place to point at changed, or the steps were reordered, the slide is made again from the step, field by field. A field you changed yourself stays yours (and is reported); a part you deleted stays deleted; whatever you added is never touched; a voice you chose for the words stays, and only the words come forward. A slide for a step that is gone is taken away only if you never changed it, and the dialog says what it will change or take away and asks first. A new picture is taken only when the step's moment or take changed; until it is, the slide keeps the picture it has. Headings such as "Step 3 of 8" are renumbered when steps move, unless you edited the heading. Slides made before format 0.27.0 do not know what was made, so they are left as they are, and the dialog says which (delete one and make the lesson again to bring its step in). For a typing step there is a field for **What was typed**, the answer Practice and Test accept. The slides are built by `buildPracticeSlide` and `buildTestSlide`, and `Model.makeStepSlides` puts them in.
 - **Where the recorder is.** `OPENSTAGE_CAPTURE` names the program, in the same style as `OPENSTAGE_NODE` and `OPENSTAGE_PYTHON`. If it is not set, the editor
   looks for `openstage-capture.exe` beside itself and in the repository's usual build folders. If the program cannot be found the answer is a plain
   message that says what to do, and a setting that points at nothing is an error that names the setting, not a quiet fall back.

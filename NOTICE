@@ -29,11 +29,27 @@ Lucide icons (the Icons picker in the editor, and the icons a course holds)
   A course that uses an icon carries the notice: its credits page names Lucide, and the
   published package includes the licence text as licenses/lucide.txt.
 
-Speech engine (installed separately by the user; not included, bundled or hosted by OpenStage Author)
-  Spoken narration is made by a speech engine that the user installs on their own computer
-  and that OpenStage Author runs as a separate program. That engine may include components
-  under the GNU General Public License, such as phonemizer-fork and espeak-ng. OpenStage
-  Author does not include, bundle, or host them. They keep their own licences.
+Character pack "OpenStage people, set 1" (character-packs/openstage-people-1: fifteen people, Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf, in many poses, in the editor's library of people)
+  Pictures made by Jason S. Wrench with Ideogram (https://ideogram.ai), an AI picture service, from written
+  descriptions. Jason S. Wrench states that they remain in the public domain, so they are not part of the
+  Apache License above and anyone may use them for any purpose. A course made with OpenStage Author that
+  uses one still says on its credits page that it is AI-generated.
+
+Background pack "OpenStage offices and workplaces, set 1" (character-packs/openstage-offices-1: fifty-eight empty offices, meeting and training rooms, reception areas, corridors and outdoor entrances, in the editor's background picker)
+  Pictures made by Jason S. Wrench with Ideogram (https://ideogram.ai), an AI picture service, from written
+  descriptions. The pack's credit uses the same wording as the people pack ("Made with Ideogram
+  (AI-generated), in the public domain"), carried over from what Jason S. Wrench stated for the people;
+  he has not yet said in words that it covers these pictures too, so confirm it before release.
+
+Speech engine (put on the user's own computer, at their request; not included, bundled or hosted by OpenStage Author)
+  Spoken narration is made by the Kokoro speech engine (Apache License 2.0), which OpenStage
+  Author runs as a separate program. The user either installs it themselves or presses a button
+  in the editor, which says what it is going to do and then downloads it from its own publishers
+  (the Python packages from pypi.org, the voice model from huggingface.co) into the editor's own
+  folder on their computer. What the engine needs for its English voices includes components under
+  the GNU General Public License, such as phonemizer-fork and espeak-ng; the editor says so before it
+  downloads them. OpenStage Author's installer and website do not include, bundle, or host them.
+  They keep their own licences.
 
 AI services and voice plugins (connected by the user; not included, bundled or hosted by OpenStage Author)
   The editor can make voices and pictures with OpenAI (https://openai.com), and can run
@@ -43,6 +59,33 @@ AI services and voice plugins (connected by the user; not included, bundled or h
   it makes. A plugin is a separate program with its own licence. The example plugin in
   examples/plugins is part of OpenStage Author (Apache License 2.0). No component of these
   services is distributed with a course; a course credits the services that made its material.
+
+Speech recognition for captions (built or downloaded by the user; not included, bundled or hosted by OpenStage Author)
+  Captions from a recorded voice use whisper.cpp (https://github.com/ggml-org/whisper.cpp, MIT License, Copyright (c) 2023-2026 The ggml authors), which the user builds with
+  BUILD SPEECH RECOGNISER.bat and which the editor runs as a separate program, and a Whisper speech model that the user chooses to download from
+  https://huggingface.co/ggerganov/whisper.cpp (ggml-small.en.bin or ggml-base.en.bin; OpenAI's Whisper weights, which OpenAI's repository
+  https://github.com/openai/whisper licenses under the MIT License, Copyright (c) 2022 OpenAI; the Hugging Face card of the related whisper-small model says Apache License 2.0; both
+  are permissive). Neither is part of a course. The build copies whisper.cpp's licence into the speech folder as whisper.cpp-LICENSE.txt.
+
+OpenStage Capture (screen recording; the capture/, capture-edit/ and capture-timeline/ folders)
+  The recorder is a Rust program built from the crates listed, each with its licence, in
+  capture/THIRD-PARTY.md (every one MIT, Apache-2.0 or similarly permissive; the rule checker
+  capture/tools/check_rules.py fails the build otherwise). It records through services that are
+  part of Windows (screen capture, sound, camera and video encoding); none of that is distributed
+  with it. It contains no FFmpeg. The edit model and the editing screens are TypeScript with no
+  outside code. The audit of other recorders, and why none of their code is used, is in
+  docs/decisions/0001-screen-capture.md.
+
+The editor program (the editor/ folder) and the publishing tools
+  The editor is a Tauri program written in Rust, with a web side in TypeScript. Its 255 Rust crates, and the JavaScript packages that its web side and the
+  publishing tools use (@tauri-apps/api and its two plugins, fflate, esbuild), are listed with their licences in editor/THIRD-PARTY.md, which
+  tools/check_licences.py writes and checks on request. Every licence in it is permissive (MIT, Apache-2.0, BSD, ISC, Zlib, Unicode, CC0 and the like)
+  except the Mozilla Public License 2.0, which five of the crates carry (cssparser, cssparser-macros, dtoa-short, option-ext, selectors; they come with
+  Tauri's web view layer). That licence applies file by file; those crates are used exactly as published, and their source is on crates.io. The check
+  fails if a sixth appears, or if anything with a copyleft or unknown licence does. A program or package that is given to other people carries
+  the licence texts, which tools/check_licences.py --texts collects.
+  The editor shows its windows with Microsoft's WebView2, which is part of Windows 11 and is installed separately on older Windows. OpenStage Author does
+  not include it.
 
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.

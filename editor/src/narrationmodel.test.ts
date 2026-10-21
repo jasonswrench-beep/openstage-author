@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { Model } from "./model.ts";
 import { buildVoiceSources, emptyAi, allow, withKey } from "./aiservices.ts";
-import { audioStatus, keyOf, setVoiceSources, type CachedAudio, type Narration } from "./narration.ts";
+import { audioStatus, keyOf, setVoiceSources, soundIgnoresLanguage, type CachedAudio, type Narration } from "./narration.ts";
 import { newProjectFiles } from "./template.ts";
 
 function fresh(): Model {
@@ -176,8 +176,9 @@ test("narration is saved in the object's file and reads back unchanged", () => {
 });
 
 test("audio is found again by its words, so changing the language of an online voice and changing it back keeps the audio, but a new language is new audio", () => {
-  // OpenAI makes the same sound whatever the language box says, but the language is part of what names the audio, so a new language is a new file.
-  // That is why the audio is made (and charged for) again when the language changes, and why it is found again, with no new charge, when it is changed back.
+  // OpenAI makes the same sound whatever the language box says, but the language is part of what names the audio, so a new language is a new name.
+  // The editor keeps the audio already made under the new name (soundIgnoresLanguage, and the shell's reuse_narration_audio), so nothing is paid for twice; this test is about the
+  // names: a new language is a new key, and it is found again, with no new charge, when it is changed back.
   setVoiceSources(buildVoiceSources(allow(withKey(emptyAi(), "openai", "sk-1"), "openai", "2026-10-14T10:00:00Z"), []));
   try {
     const m = fresh();
@@ -194,4 +195,15 @@ test("audio is found again by its words, so changing the language of an online v
   } finally {
     setVoiceSources([]);
   }
+});
+
+test("only a voice that sounds the same in every language has its audio kept when the language changes", () => {
+  assert.equal(soundIgnoresLanguage("openai:alloy"), true);
+  assert.equal(soundIgnoresLanguage("af_heart"), false, "a Kokoro voice has its own language");
+  assert.equal(soundIgnoresLanguage("some-plugin:voice"), false, "a plugin's voice is told the language, so it may sound different");
+  assert.equal(soundIgnoresLanguage("unknown:thing"), false);
+  // The key that the audio would be kept under is the one the narration has after the change, and nothing else about the narration is part of it.
+  const before: Narration = { script: "Hello.", voice: "openai:alloy", speed: 1, lang: "en-US", pronunciations: [], audioCache: null };
+  assert.notEqual(keyOf(before), keyOf({ ...before, lang: "es" }));
+  assert.equal(keyOf({ ...before, lang: "es" }), keyOf({ ...before, lang: "es", audioCache: { hash: "x", path: "y" } }), "the remembered cache is not part of the key");
 });

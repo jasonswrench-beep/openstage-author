@@ -9,10 +9,15 @@ import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
 import { creditParts } from "./credits.ts";
 import { shouldReflow } from "./reflow.ts";
+import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
+import { AccessibilityPanel } from "./a11ypanel.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
 import type { CoursePackage, Effect, ObjectAnimation, Slide } from "./types.ts";
 
 export { readingOrder } from "./stage.ts";
+
+/** The kinds of object whose words can be read aloud when they have no recorded voice. Pictures, shapes, media and buttons have nothing to read. */
+const READ_ALOUD_TYPES = new Set(["text", "scrollingText", "table", "quizQuestion", "interaction", "results", "certificate", "download"]);
 
 export class Player implements Host {
   readonly runtime: Runtime;
@@ -35,6 +40,11 @@ export class Player implements Host {
   /** The learner turned animation off with the button, whatever their device says. */
   private animationOff = false;
   private started = false;
+  /** The learner's own accessibility choices (a11y.ts): a button in the navigation bar opens a panel of them. */
+  private a11y!: AccessibilityPanel;
+  private viewportEl!: HTMLElement;
+  /** The learner made the text bigger or more spaced, so the slide is shown in one column whatever the window's width. */
+  private forceReflow = false;
 
   private readonly root: HTMLElement;
   readonly pkg: CoursePackage;
@@ -154,11 +164,21 @@ export class Player implements Host {
 
     // Narration controls come first in the page so the pause control is easy to reach (WCAG 1.4.2).
     this.narration = new NarrationBar(doc, {
-      onStart: (id) => this.timeline.narrationStarted(id),
+      // A voice reading words aloud never carries on over the course's narration.
+      onStart: (id) => { this.a11y?.stopSpeaking(); this.timeline.narrationStarted(id); },
       onBlocked: () => this.timeline.narrationBlocked(),
     });
-    root.append(this.narration.el, this.timingBar, main, nav, this.announcer);
-    this.fitStage(viewport);
+    this.a11y = new AccessibilityPanel(doc, {
+      pkg,
+      say: (m) => this.say(m),
+      apply: (s) => this.applyA11y(s),
+      unvoicedText: () => this.unvoicedText(),
+      narrationPlaying: () => this.narration.playing,
+    });
+    nav.appendChild(this.a11y.button);
+    root.append(this.narration.el, this.timingBar, main, nav, this.a11y.panel, this.a11y.transcriptDialog, this.a11y.readingLine, this.announcer);
+    this.viewportEl = viewport;
+    this.applyA11y(this.a11y.settings());
     new ResizeObserver(() => this.fitStage(viewport)).observe(root);
   }
 
@@ -206,6 +226,7 @@ export class Player implements Host {
     // Layers already showing (a resumed slide with its feedback layer open) are built visible.
     const section = this.stage.render(slide, this.runtime.visibleLayers);
 
+    this.a11y.stopSpeaking();
     // Set up the timing before the narration starts, so the first object's narration is heard by it.
     this.timeline.reset();
     this.animations.clear();
@@ -313,13 +334,51 @@ export class Player implements Host {
     if (next) this.runtime.goTo(next.id);
   }
 
+  /** Draw the course with the learner's choices: attributes and variables the stylesheet reads, and one column if the text is bigger or more spaced. */
+  private applyA11y(s: A11ySettings): void {
+    const page = pageSettings(s);
+    const targets = [this.root, this.root.ownerDocument.documentElement];
+    for (const name of ["data-os-scale", "data-os-lh", "data-os-ls", "data-os-colors"]) {
+      const value = page.attributes[name];
+      for (const t of targets) {
+        if (value !== undefined) t.setAttribute(name, value);
+        else t.removeAttribute(name);
+      }
+    }
+    for (const name of ["--os-a11y-scale", "--os-a11y-lh", "--os-a11y-ls", "--os-a11y-ws"]) {
+      const value = page.variables[name];
+      if (value !== undefined) this.root.style.setProperty(name, value);
+      else this.root.style.removeProperty(name);
+    }
+    this.forceReflow = needsReflow(s);
+    this.fitStage(this.viewportEl);
+  }
+
+  /** The words on this slide that have no recorded voice, as the learner sees them (so a score or a name typed in is what is read), for reading aloud. */
+  private unvoicedText(): string[] {
+    const slide = this.runtime.currentSlide;
+    if (!slide) return [];
+    const out: string[] = [];
+    for (const layer of [slide.baseLayer, ...slide.layers]) {
+      if (layer !== slide.baseLayer && !this.runtime.visibleLayers.has(layer.id)) continue;
+      for (const o of readingOrder(layer.objects)) {
+        if (!READ_ALOUD_TYPES.has(o.type) || o.accessibility.decorative || this.pkg.narration[o.id]?.audio) continue;
+        const node = this.stage.elementFor(o.id);
+        if (!node || node.closest("[hidden], .os-timed-out")) continue;
+        const words = (node.innerText ?? node.textContent ?? "").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+        if (words !== "") out.push(words);
+      }
+    }
+    return out;
+  }
+
   private fitStage(viewport: HTMLElement): void {
     const { width, height } = this.pkg.project.stage;
     // Subtract the 12px of padding on each side of the player.
     const room = (this.root.clientWidth || width + 24) - 24;
     // On a narrow window, or a page zoomed in, a shrunken stage cannot be read and a full-size one needs scrolling sideways, so
     // the objects are shown in one column instead (WCAG 1.4.10).
-    const reflow = shouldReflow(room, width);
+    const reflow = this.forceReflow || shouldReflow(room, width);
     viewport.classList.toggle("os-reflow", reflow);
     viewport.parentElement?.classList.toggle("os-reflow", reflow);
     this.stage.setReflow(reflow);

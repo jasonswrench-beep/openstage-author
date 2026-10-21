@@ -1124,6 +1124,27 @@ class GeneratedCredits(unittest.TestCase):
         self.assertEqual(rules(self.findings(credits_on=True), "credit-page-off"), [])
 
 
+class CastCredits(unittest.TestCase):
+    """A picture of someone in the cast is used by the course though no slide names it, so it earns its credit like any other picture."""
+
+    def findings(self, credits_on):
+        with MutatedProject() as p:
+            (p.root / "assets" / "images").mkdir(parents=True, exist_ok=True)
+            (p.root / "assets" / "images" / "kathy.png").write_bytes(b"x")
+            entry = {"path": "assets/images/kathy.png", "title": "Kathy (character picture)", "kind": "image",
+                     "source": {"provider": "other", "url": "https://openstageauthor.com", "creator": "Jason S. Wrench", "creatorUrl": "",
+                                "licence": "Free to use in courses made with OpenStage Author", "requiresCredit": True}}
+            (p.root / "assets.json").write_text(json.dumps({"assets": [entry]}), encoding="utf-8")
+            p.edit("project.json", lambda d: d.__setitem__("credits", credits_on))
+            p.edit("project.json", lambda d: d.__setitem__("characters", [{"id": "kathy", "name": "Kathy", "role": "", "voice": "af_heart",
+                                                                            "picture": {"src": "assets/images/kathy.png", "alt": "Kathy, a woman with long red hair", "decorative": False}}]))
+            return p.run()
+
+    def test_the_credits_page_must_be_on_when_a_cast_picture_needs_credit(self):
+        self.assertEqual(len(rules(self.findings(False), "credit-page-off", severity="warning")), 1)
+        self.assertEqual(rules(self.findings(True), "credit-page-off"), [])
+
+
 class Themes(unittest.TestCase):
     THEMES = sorted((validate.ROOT / "themes").glob("*.theme.json"))
 
@@ -1426,6 +1447,49 @@ class CaptureProvenance(unittest.TestCase):
         with MutatedProject() as p:
             p.slide1(lambda d: d.__setitem__("provenance", {"stepId": "step-1"}))
             self.assertTrue([f for f in p.run() if f.severity == "error"])
+
+    BASE = {
+        "name": "Step 1: Click the Save button.",
+        "picture": {"src": "assets/images/lesson-step-1.png", "width": 1920, "height": 1080, "take": 1, "shotMs": 950},
+        "objects": {
+            "heading": {"id": "obj-0101", "layer": "layer-base", "fields": {"name": "0123456789abcd", "geometry": "fedcba98765432", "content": "0011223344556a"}},
+            "layer-hint/message": {"id": "obj-0102", "layer": "layer-hint", "fields": {"name": "fedcba98765432"}},
+        },
+    }
+
+    def test_a_slide_can_record_what_the_capture_module_made_for_it(self):
+        with MutatedProject() as p:
+            p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=json.loads(json.dumps(self.BASE)))))
+            self.assertEqual([f for f in p.run() if f.severity == "error" and f.rule == "schema"], [])
+        with MutatedProject() as p:
+            base = json.loads(json.dumps(self.BASE))
+            base["picture"] = None
+            p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=base)))
+            self.assertEqual(rules(p.run(), "schema"), [], "a slide made with no picture has none")
+
+    def test_a_malformed_base_is_an_error(self):
+        broken = {
+            "no name": lambda b: b.pop("name"),
+            "no picture entry": lambda b: b.pop("picture"),
+            "no objects": lambda b: b.pop("objects"),
+            "a part with no fingerprints": lambda b: b["objects"]["heading"].pop("fields"),
+            "a part with an empty set of fingerprints": lambda b: b["objects"]["heading"].__setitem__("fields", {}),
+            "a fingerprint field named in capitals": lambda b: b["objects"]["heading"]["fields"].__setitem__("Name", "abc"),
+            "a fingerprint that is not text": lambda b: b["objects"]["heading"]["fields"].__setitem__("name", 5),
+            "a part with no layer": lambda b: b["objects"]["heading"].pop("layer"),
+            "a part with an empty id": lambda b: b["objects"]["heading"].__setitem__("id", ""),
+            "a part named in capitals": lambda b: b["objects"].__setitem__("Heading", {"id": "x", "layer": "l", "fields": {"name": "h"}}),
+            "a picture outside the assets": lambda b: b["picture"].__setitem__("src", "elsewhere/x.png"),
+            "a picture with no size": lambda b: b["picture"].pop("width"),
+            "a picture of take zero": lambda b: b["picture"].__setitem__("take", 0),
+            "something else in it": lambda b: b.__setitem__("extra", 1),
+        }
+        for what, change in broken.items():
+            with MutatedProject() as p:
+                base = json.loads(json.dumps(self.BASE))
+                change(base)
+                p.slide1(lambda d: d.__setitem__("provenance", dict(self.STEP, base=base)))
+                self.assertTrue(rules(p.run(), "schema"), what)
 
     def test_a_slide_does_not_take_deck_provenance(self):
         with MutatedProject() as p:
@@ -1781,6 +1845,86 @@ class ScenarioAndCast(unittest.TestCase):
         with MutatedProject() as p:
             self.install(p, self.scenario(start="n-nowhere"))
             self.assertEqual(len(self.hits(p, "scenario-start-missing", "error")), 1)
+
+    # ---- poses (format 0.29.0)
+
+    def posed_cast(self, p):
+        """Maya has two poses (their pictures are written into the project), Dev has none."""
+        (p.root / "assets" / "images").mkdir(parents=True, exist_ok=True)
+        for name in ("maya-welcome.png", "maya-think.png"):
+            (p.root / "assets" / "images" / name).write_bytes(b"x")
+        cast = copy.deepcopy(self.CAST)
+        cast[0]["poses"] = [{"id": "welcome", "label": "Waving hello", "src": "assets/images/maya-welcome.png"},
+                            {"id": "think", "label": "Thinking", "src": "assets/images/maya-think.png"}]
+        cast[0]["library"] = {"pack": "openstage-people-1", "person": "lisa"}
+        return cast
+
+    def test_a_line_can_show_its_speaker_in_one_of_their_poses(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0]["pose"] = "welcome"
+            c["nodes"][1]["lines"][0]["pose"] = None
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(self.found(p), [])
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+
+    def test_a_pose_the_speaker_does_not_have_is_an_error(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0]["pose"] = "dancing"
+            self.install(p, c, cast=self.posed_cast(p))
+            hit = self.hits(p, "scenario-pose-unknown", "error")
+            self.assertEqual(len(hit), 1)
+            self.assertIn("Maya Reyes", hit[0].detail)
+
+    def test_a_pose_of_someone_who_has_none_is_an_error(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][1]["lines"][0]["speaker"] = "dev"
+            c["nodes"][1]["lines"][0]["pose"] = "welcome"
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(len(self.hits(p, "scenario-pose-unknown", "error")), 1)
+
+    def test_the_narrator_has_no_pose(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][2]["lines"][0]["pose"] = "welcome"
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(len(self.hits(p, "scenario-pose-narrator", "error")), 1)
+
+    def test_a_pose_on_a_line_spoken_by_you_is_left_to_the_course(self):
+        with MutatedProject() as p:
+            c = self.scenario()
+            c["nodes"][0]["lines"][0].update({"speaker": "you", "pose": "welcome"})
+            self.install(p, c, cast=self.posed_cast(p))
+            self.assertEqual(self.hits(p, "scenario-pose-unknown"), [])
+            self.assertEqual(self.hits(p, "scenario-pose-narrator"), [])
+
+    def test_two_poses_with_one_id_and_a_pose_without_its_file_are_errors(self):
+        with MutatedProject() as p:
+            cast = self.posed_cast(p)
+            cast[0]["poses"].append({"id": "think", "label": "Thinking again", "src": "assets/images/maya-think.png"})
+            cast[0]["poses"].append({"id": "gone", "label": "Not there", "src": "assets/images/maya-gone.png"})
+            self.install(p, None, cast=cast)
+            self.assertEqual(len(self.hits(p, "character-pose-duplicate", "error")), 1)
+            missing = [f for f in self.hits(p, "asset-missing", "error") if "maya-gone" in f.detail]
+            self.assertEqual(len(missing), 1)
+
+    def test_the_shape_of_a_pose_is_checked(self):
+        for bad in ({"id": "welcome", "label": "", "src": "assets/images/maya-welcome.png"},
+                    {"id": "Welcome", "label": "Waving", "src": "assets/images/maya-welcome.png"},
+                    {"id": "welcome", "label": "Waving"},
+                    {"id": "welcome", "label": "Waving", "src": "../x.png"}):
+            with MutatedProject() as p:
+                cast = self.posed_cast(p)
+                cast[0]["poses"] = [bad]
+                self.install(p, None, cast=cast)
+                self.assertTrue([f for f in p.run() if f.severity == "error"], bad)
+        with MutatedProject() as p:
+            cast = self.posed_cast(p)
+            cast[0]["library"] = {"pack": "Bad Pack", "person": "lisa"}
+            self.install(p, None, cast=cast)
+            self.assertTrue([f for f in p.run() if f.severity == "error"])
 
     def test_a_choice_has_to_lead_somewhere(self):
         with MutatedProject() as p:
@@ -2451,6 +2595,130 @@ class Looks(unittest.TestCase):
             self.assertIn("30% solid", rules(p.run(), "icon-contrast", "obj-9500")[0].detail)
 
 
+class Bubbles(unittest.TestCase):
+    """Format 0.30.0: a shape can be a speech or thought bubble, and a text can sit in one. The tail is on the left or the right; anything else is named, not guessed at."""
+
+    def shape(self, p, shape="speech", **content):
+        def make(d):
+            o = copy.deepcopy(d["baseLayer"]["objects"][2])
+            o.update({"id": "obj-9300", "name": "Bubble"})
+            o["content"] = {"shape": shape, **content}
+            o["geometry"].update({"x": 100, "y": 400, "width": 320, "height": 160})
+            d["baseLayer"]["objects"].append(o)
+        p.slide1(make)
+
+    def text(self, p, fill="#ffffff", color="#141414", **content):
+        def make(d):
+            o = copy.deepcopy(d["baseLayer"]["objects"][1])
+            o.update({"id": "obj-9301", "name": "Words in a bubble"})
+            o["accessibility"]["tabOrder"] = 9
+            o["content"] = {"html": "<p>I will send it today.</p>", **content}
+            o["style"] = {"fontFamily": "system-ui", "fontSize": 22, "color": color, "fill": fill, "stroke": "#4a4f57", "strokeWidth": 2}
+            o["geometry"].update({"x": 500, "y": 400, "width": 320, "height": 160})
+            d["baseLayer"]["objects"].append(o)
+        p.slide1(make)
+
+    def test_a_plain_bubble_of_either_kind_and_either_tail_is_fine(self):
+        for kind in ("speech", "thought"):
+            for extra in ({}, {"tail": "left"}, {"tail": "right"}):
+                with MutatedProject() as p:
+                    self.shape(p, kind, **extra)
+                    found = p.run()
+                    self.assertEqual([f for f in found if f.severity == "error"], [], (kind, extra))
+                    self.assertEqual(rules(found, "bubble-invalid"), [])
+
+    def test_a_text_bubble_of_either_kind_and_either_tail_is_fine(self):
+        for kind in ("speech", "thought"):
+            for extra in ({}, {"tail": "left"}, {"tail": "right"}):
+                with MutatedProject() as p:
+                    self.text(p, bubble=kind, **extra)
+                    found = p.run()
+                    self.assertEqual([f for f in found if f.severity == "error"], [], (kind, extra))
+                    self.assertEqual(rules(found, "bubble-invalid"), [])
+
+    def test_a_tail_that_is_neither_left_nor_right_is_an_error(self):
+        with MutatedProject() as p:
+            self.shape(p, "thought", tail="up")
+            hit = rules(p.run(), "bubble-invalid", "obj-9300", "error")
+            self.assertEqual(len(hit), 1)
+            self.assertIn('"up"', hit[0].detail)
+        with MutatedProject() as p:
+            self.text(p, bubble="speech", tail="middle")
+            self.assertEqual(len(rules(p.run(), "bubble-invalid", "obj-9301", "error")), 1)
+
+    def test_a_text_bubble_that_is_not_a_speech_or_thought_bubble_is_an_error(self):
+        for bad in ("cloud", "Speech", "bubble"):
+            with MutatedProject() as p:
+                self.text(p, bubble=bad)
+                hit = rules(p.run(), "bubble-invalid", "obj-9301", "error")
+                self.assertEqual(len(hit), 1, bad)
+        for bad in ("", None, 3):
+            with MutatedProject() as p:
+                self.text(p, bubble=bad)
+                self.assertTrue([f for f in p.run() if f.severity == "error"], f"{bad!r} is not even words, so the schema refuses it")
+
+    def test_a_tail_on_something_that_is_not_a_bubble_is_left_alone(self):
+        with MutatedProject() as p:
+            self.shape(p, "rectangle", tail="up")
+            self.text(p, tail="up")
+            self.assertEqual(rules(p.run(), "bubble-invalid"), [])
+
+    def test_the_words_in_a_text_bubble_are_checked_against_the_bubble_colour(self):
+        with MutatedProject() as p:
+            self.text(p, fill="#ffffff", color="#141414", bubble="speech")
+            self.assertEqual(rules(p.run(), "contrast", "obj-9301"), [])
+        with MutatedProject() as p:
+            self.text(p, fill="#ffffff", color="#bbbbbb", bubble="speech")
+            self.assertEqual(len(rules(p.run(), "contrast", "obj-9301", "error")), 1)
+
+    def test_the_schema_allows_a_bubble_and_a_tail_in_a_text_and_a_tail_in_a_shape_and_nothing_else_new(self):
+        with MutatedProject() as p:
+            self.text(p, bubble="speech", tail="left", surprise=1)
+            self.assertTrue([f for f in p.run() if f.severity == "error"], "a text still takes only the fields it knows")
+
+
+class ConversationExample(unittest.TestCase):
+    """examples/conversation.osproj: a background picture, two people from the library and speech and thought bubbles, made with the editor's own model."""
+
+    ROOT = EXAMPLES / "conversation.osproj"
+
+    def slides(self):
+        return [json.loads(p.read_text(encoding="utf-8")) for p in sorted((self.ROOT / "slides").glob("*.json"))]
+
+    def test_it_is_valid_and_current(self):
+        found = validate.validate_project(self.ROOT)
+        self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
+        project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(project["schemaVersion"], "0.30.0")
+
+    def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
+        slides = self.slides()
+        self.assertEqual(len(slides), 2)
+        for slide in slides:
+            objects = slide["baseLayer"]["objects"]
+            background = [o for o in objects if o["name"] == "Background picture"]
+            self.assertEqual(len(background), 1)
+            self.assertTrue(background[0]["accessibility"]["decorative"] and background[0].get("locked"))
+            self.assertEqual(background[0]["geometry"]["z"], 0)
+            people = [o for o in objects if o["type"] == "image" and o is not background[0]]
+            self.assertEqual(len(people), 2)
+            for person in people:
+                self.assertFalse(person["accessibility"]["decorative"])
+                self.assertGreater(len(person["accessibility"]["altText"]), 40)
+            kinds = sorted(o["content"]["bubble"] for o in objects if o["type"] == "text" and "bubble" in o["content"])
+            self.assertEqual(kinds, ["speech", "thought"])
+
+    def test_every_picture_is_credited_and_the_words_have_a_voice(self):
+        assets = json.loads((self.ROOT / "assets.json").read_text(encoding="utf-8"))["assets"]
+        credited = {a["path"] for a in assets}
+        for slide in self.slides():
+            for o in slide["baseLayer"]["objects"]:
+                if o["type"] == "image":
+                    self.assertIn(o["content"]["src"], credited)
+                if o["type"] == "text" and "bubble" in o["content"]:
+                    self.assertTrue(o["narration"] and o["narration"]["script"] and o["narration"]["voice"])
+
+
 class DeckImportRules(unittest.TestCase):
     """Slides and shapes imported from a PowerPoint deck say where they came from, and the project lists its decks."""
 
@@ -2529,6 +2797,56 @@ class DeckImportRules(unittest.TestCase):
         with MutatedProject() as p:
             p.slide1(lambda d: d.__setitem__("provenance", {"sourceCapture": "capture-2026-10-13", "stepId": "step-1"}))
             self.assertEqual(self.found(p), [])
+
+
+class AltSuggestionCases(unittest.TestCase):
+    """Format 0.28.0: a suggested description is only a suggestion. The course ignores it, a missing alt text is still an error (now with the suggestion in its detail), and a suggestion
+    left on an object that does not need one is a warning."""
+
+    def mark(self, p, **fields):
+        p.obj(0, lambda o: o["accessibility"].update(fields))
+
+    def first(self, p):
+        return next(f for f in p.run() if f.object_id == self.oid(p))
+
+    def oid(self, p):
+        return json.loads((p.root / "slides/slide-001.json").read_text(encoding="utf-8"))["baseLayer"]["objects"][0]["id"]
+
+    def test_a_missing_alt_text_with_a_suggestion_waiting_is_still_an_error_and_shows_it(self):
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=False, altSuggestion={"text": "A screenshot of Notepad, with the File menu marked.", "basis": "The name of what was clicked"})
+            hits = rules(p.run(), "alt-text-missing", self.oid(p), "error")
+            self.assertEqual(len(hits), 1)
+            self.assertIn("A screenshot of Notepad, with the File menu marked.", hits[0].detail)
+            self.assertIn("Use it, or write your own", hits[0].detail)
+
+    def test_a_missing_alt_text_with_no_suggestion_has_no_detail(self):
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=False)
+            hits = rules(p.run(), "alt-text-missing", self.oid(p), "error")
+            self.assertEqual([h.detail for h in hits], [""])
+
+    def test_a_suggestion_left_on_an_object_with_its_own_alt_text_or_a_decorative_one_is_a_warning(self):
+        s = {"text": "Something suggested.", "basis": "A guess"}
+        with MutatedProject() as p:
+            self.mark(p, altText="The author's own description.", decorative=False, altSuggestion=s)
+            self.assertEqual(len(rules(p.run(), "alt-suggestion-unused", self.oid(p), "warning")), 1)
+            self.assertEqual(rules(p.run(), "alt-text-missing", self.oid(p)), [])
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=True, altSuggestion=s)
+            self.assertEqual(len(rules(p.run(), "alt-suggestion-unused", self.oid(p), "warning")), 1)
+        with MutatedProject() as p:
+            self.assertEqual(rules(p.run(), "alt-suggestion-unused"), [], "an object with none is not told off")
+
+    def test_the_shape_of_a_suggestion_is_checked(self):
+        good = {"text": "A box around the Save button.", "basis": "The name of what was clicked"}
+        for bad in ({"text": "", "basis": "x"}, {"text": "x", "basis": ""}, {"text": "x"}, {"basis": "x"}, {**good, "extra": 1}, {"text": 5, "basis": "x"}, {"text": "x" * 1001, "basis": "x"}, "text", []):
+            with MutatedProject() as p:
+                self.mark(p, altText="", decorative=True, altSuggestion=bad)
+                self.assertTrue(rules(p.run(), "schema"), repr(bad)[:60])
+        with MutatedProject() as p:
+            self.mark(p, altText="", decorative=True, altSuggestion=good)
+            self.assertEqual(rules(p.run(), "schema"), [])
 
 
 if __name__ == "__main__":

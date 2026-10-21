@@ -17,7 +17,7 @@ import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { buildManifest, manifestId } from "./src/scorm-manifest.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
-import { narrationCredits } from "./src/credits.ts";
+import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -136,7 +136,8 @@ const theme = project.theme ? readJson<Theme>(path.join(projectDir, project.them
 const assetsFile = path.join(projectDir, "assets.json");
 const recorded = existsSync(assetsFile) ? readJson<{ assets: NonNullable<CoursePackage["credits"]> }>(assetsFile).assets : [];
 const slideText = JSON.stringify(slides);
-const credits = recorded.filter((e) => slideText.includes(e.path) && (e.source.creator || e.source.provider !== "other"));
+// A picture of someone in the cast is used too, though no slide names it.
+const credits = mergeCredits(creditsInUse(recorded, slideText + JSON.stringify(project.characters ?? [])));
 // Narration is made by a synthetic voice, and the credits page says so: one line for each engine whose voices speak in this course.
 credits.push(...narrationCredits(Object.values(narrationInfo).filter((i) => i.audio && i.engine && i.engineName).map((i) => ({ engine: i.engine!, name: i.engineName!, where: i.where ?? "unknown", ...(i.home ? { home: i.home } : {}) }))));
 // Icons come from an open set (Lucide, ISC licence) whose notice has to travel with them, so a course that uses any names it and carries the licence text.
