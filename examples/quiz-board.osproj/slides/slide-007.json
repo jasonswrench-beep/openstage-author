@@ -1,0 +1,386 @@
+{
+  "id": "slide-007",
+  "name": "Keyboard: 200",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0043",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Points",
+        "content": {
+          "html": "<p>200 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "200 points",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0046",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>What is a keyboard trap?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "What is a keyboard trap?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0047",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-6",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-6",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "A place the focus can enter but cannot leave with the keyboard",
+              "correct": true
+            },
+            {
+              "id": "c2",
+              "label": "A shortcut key that opens a menu",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "A key that has stopped working",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 200,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-9",
+            "incorrect": "layer-10"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "radiogroup",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0048",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 280,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back to the board",
+        "content": {
+          "label": "Back to the board"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back to the board",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-9",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0044",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. Someone using only a keyboard is stuck there. Every dialog and panel must be closable by keyboard.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. Someone using only a keyboard is stuck there. Every dialog and panel must be closable by keyboard.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-10",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0045",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. A keyboard trap is a place the focus can enter but cannot leave with the keyboard.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. A keyboard trap is a place the focus can enter but cannot leave with the keyboard.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "0.26.0",
+  "meta": {
+    "title": "Escape room: your first day",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-21",
+    "modified": "2026-10-21"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "Room 1: place 1 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-2",
+      "name": "Room 1: place 2 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-3",
+      "name": "Room 1: place 3 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-4",
+      "name": "Room 1: tries",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-5",
+      "name": "Room 2: place 1 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-6",
+      "name": "Room 2: place 2 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-7",
+      "name": "Room 2: place 3 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-8",
+      "name": "Room 2: tries",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-9",
+      "name": "Room 3: place 1 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-10",
+      "name": "Room 3: place 2 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-11",
+      "name": "Room 3: place 3 searched",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-12",
+      "name": "Room 3: tries",
+      "type": "number",
+      "initial": 0
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007",
+        "slide-008",
+        "slide-009"
+      ]
+    }
+  ]
+}

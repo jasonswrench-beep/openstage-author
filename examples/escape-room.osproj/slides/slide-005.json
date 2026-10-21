@@ -1,0 +1,971 @@
+{
+  "id": "slide-005",
+  "name": "The meeting room",
+  "duration": null,
+  "layout": null,
+  "background": "theme:bg.dark",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0028",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 64,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>The meeting room</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 40,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "The meeting room",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0029",
+        "geometry": {
+          "x": 80,
+          "y": 100,
+          "width": 1120,
+          "height": 60,
+          "rotation": 0,
+          "z": 11
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Instructions",
+        "content": {
+          "html": "<p>The next door is locked too. Search the meeting room for clues, then go to the door and enter its code.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 24,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "The next door is locked too. Search the meeting room for clues, then go to the door and enter its code.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0030",
+        "geometry": {
+          "x": 80,
+          "y": 200,
+          "width": 360,
+          "height": 120,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {
+          "Searched": {
+            "style": {
+              "fill": "theme:color.surface",
+              "color": "theme:color.text"
+            },
+            "announce": "Searched"
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0005",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-5",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0006",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-5",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0007",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0030",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0008",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0030",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0009",
+            "event": "click",
+            "action": "showLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0010",
+            "event": "keyActivate",
+            "action": "showLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0011",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0030",
+            "value": "Searched",
+            "conditions": [
+              {
+                "variable": "var-5",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Look at the whiteboard",
+        "content": {
+          "label": "Look at the whiteboard"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Look at the whiteboard",
+          "role": "button",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0033",
+        "geometry": {
+          "x": 460,
+          "y": 200,
+          "width": 360,
+          "height": 120,
+          "rotation": 0,
+          "z": 21
+        },
+        "states": {
+          "Searched": {
+            "style": {
+              "fill": "theme:color.surface",
+              "color": "theme:color.text"
+            },
+            "announce": "Searched"
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0005",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-6",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0006",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-6",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0007",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0033",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0008",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0033",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0009",
+            "event": "click",
+            "action": "showLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0010",
+            "event": "keyActivate",
+            "action": "showLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0011",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0033",
+            "value": "Searched",
+            "conditions": [
+              {
+                "variable": "var-6",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Look at the projector",
+        "content": {
+          "label": "Look at the projector"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Look at the projector",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0036",
+        "geometry": {
+          "x": 840,
+          "y": 200,
+          "width": 360,
+          "height": 120,
+          "rotation": 0,
+          "z": 22
+        },
+        "states": {
+          "Searched": {
+            "style": {
+              "fill": "theme:color.surface",
+              "color": "theme:color.text"
+            },
+            "announce": "Searched"
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-7",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "hideLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "hideLayer",
+            "target": "layer-8",
+            "conditions": []
+          },
+          {
+            "id": "trg-0005",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-7",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0006",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-7",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0007",
+            "event": "click",
+            "action": "changeState",
+            "target": "obj-0036",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0008",
+            "event": "keyActivate",
+            "action": "changeState",
+            "target": "obj-0036",
+            "value": "Searched",
+            "conditions": []
+          },
+          {
+            "id": "trg-0009",
+            "event": "click",
+            "action": "showLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0010",
+            "event": "keyActivate",
+            "action": "showLayer",
+            "target": "layer-9",
+            "conditions": []
+          },
+          {
+            "id": "trg-0011",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0036",
+            "value": "Searched",
+            "conditions": [
+              {
+                "variable": "var-7",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Look at the sign-up sheet",
+        "content": {
+          "label": "Look at the sign-up sheet"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Look at the sign-up sheet",
+          "role": "button",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0039",
+        "geometry": {
+          "x": 840,
+          "y": 640,
+          "width": 360,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-006",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-006",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Go to the door",
+        "content": {
+          "label": "Go to the door"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Go to the door",
+          "role": "button",
+          "tabOrder": 6,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-7",
+      "name": "Clue 1",
+      "objects": [
+        {
+          "id": "obj-0031",
+          "geometry": {
+            "x": 160,
+            "y": 360,
+            "width": 960,
+            "height": 120,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Clue",
+          "content": {
+            "html": "<p>The whiteboard lists 6 items for today's meeting, so the first digit is 6.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 26,
+            "color": "theme:color.text",
+            "fill": "theme:color.surface",
+            "padding": 16,
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "The whiteboard lists 6 items for today's meeting, so the first digit is 6.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0032",
+          "geometry": {
+            "x": 160,
+            "y": 500,
+            "width": 200,
+            "height": 56,
+            "rotation": 0,
+            "z": 41
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "hideLayer",
+              "target": "layer-7",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "hideLayer",
+              "target": "layer-7",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Close this clue",
+          "content": {
+            "label": "Close"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Close this clue",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-8",
+      "name": "Clue 2",
+      "objects": [
+        {
+          "id": "obj-0034",
+          "geometry": {
+            "x": 160,
+            "y": 360,
+            "width": 960,
+            "height": 120,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Clue",
+          "content": {
+            "html": "<p>The projector is plugged into socket 1, so the second digit is 1.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 26,
+            "color": "theme:color.text",
+            "fill": "theme:color.surface",
+            "padding": 16,
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "The projector is plugged into socket 1, so the second digit is 1.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0035",
+          "geometry": {
+            "x": 160,
+            "y": 500,
+            "width": 200,
+            "height": 56,
+            "rotation": 0,
+            "z": 41
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "hideLayer",
+              "target": "layer-8",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "hideLayer",
+              "target": "layer-8",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Close this clue",
+          "content": {
+            "label": "Close"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Close this clue",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-9",
+      "name": "Clue 3",
+      "objects": [
+        {
+          "id": "obj-0037",
+          "geometry": {
+            "x": 160,
+            "y": 360,
+            "width": 960,
+            "height": 120,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Clue",
+          "content": {
+            "html": "<p>The sign-up sheet for your induction has 53 names on it, so the last two digits are 53.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 26,
+            "color": "theme:color.text",
+            "fill": "theme:color.surface",
+            "padding": 16,
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "The sign-up sheet for your induction has 53 names on it, so the last two digits are 53.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0038",
+          "geometry": {
+            "x": 160,
+            "y": 500,
+            "width": 200,
+            "height": 56,
+            "rotation": 0,
+            "z": 41
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "hideLayer",
+              "target": "layer-9",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "hideLayer",
+              "target": "layer-9",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Close this clue",
+          "content": {
+            "label": "Close"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Close this clue",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

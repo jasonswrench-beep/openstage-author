@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "0.26.0",
+  "meta": {
+    "title": "Quiz board: accessibility basics",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-21",
+    "modified": "2026-10-21"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-1",
+      "name": "Tiles played",
+      "type": "number",
+      "initial": 0
+    },
+    {
+      "id": "var-2",
+      "name": "Used: Colour, 100",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-3",
+      "name": "Used: Colour, 200",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-4",
+      "name": "Used: Colour, 300",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-5",
+      "name": "Used: Keyboard, 100",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-6",
+      "name": "Used: Keyboard, 200",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-7",
+      "name": "Used: Keyboard, 300",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-8",
+      "name": "Used: Words, 100",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-9",
+      "name": "Used: Words, 200",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "var-10",
+      "name": "Used: Words, 300",
+      "type": "boolean",
+      "initial": false
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "credits": true,
+  "completion": {
+    "slides": "last"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001",
+        "slide-002",
+        "slide-003",
+        "slide-004",
+        "slide-005",
+        "slide-006",
+        "slide-007",
+        "slide-008",
+        "slide-009",
+        "slide-010",
+        "slide-011",
+        "slide-012"
+      ]
+    }
+  ]
+}

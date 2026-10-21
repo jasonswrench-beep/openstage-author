@@ -79,7 +79,8 @@ Adding to this list needs a better reason than "a competitor has it."
 - Cloud collaboration, user accounts, hosting, SSO. There is no server.
 - A built-in LMS.
 - Voice cloning. Fixed voice sets only.
-- VR, AR, avatar systems, gamification economies.
+- VR, AR, avatar systems, gamification economies (points shops, badges, coins, levelling, leaderboards, or anything kept beyond one
+  activity). A score within one game is not an economy: ready-made games are allowed, built from the editor's own parts (`docs/game-templates.md`).
 - Unrestricted custom scripting in courses.
 
 ## Acceptance tests that gate a release

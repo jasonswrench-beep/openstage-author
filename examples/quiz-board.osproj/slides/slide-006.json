@@ -1,0 +1,386 @@
+{
+  "id": "slide-006",
+  "name": "Keyboard: 100",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0037",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Points",
+        "content": {
+          "html": "<p>100 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "100 points",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0040",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>Which key moves the focus to the next control on a page?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Which key moves the focus to the next control on a page?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0041",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-5",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-5",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Enter",
+              "correct": false
+            },
+            {
+              "id": "c2",
+              "label": "Tab",
+              "correct": true
+            },
+            {
+              "id": "c3",
+              "label": "Escape",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 100,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-7",
+            "incorrect": "layer-8"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "radiogroup",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0042",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 280,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back to the board",
+        "content": {
+          "label": "Back to the board"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back to the board",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-7",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0038",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. Tab moves forward and Shift with Tab moves back.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. Tab moves forward and Shift with Tab moves back.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-8",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0039",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The answer is Tab. Enter presses the control that has the focus, and Escape closes things.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The answer is Tab. Enter presses the control that has the focus, and Escape closes things.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

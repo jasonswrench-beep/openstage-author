@@ -1,0 +1,598 @@
+{
+  "id": "slide-008",
+  "name": "The server cupboard: the door",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0061",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Where you are",
+        "content": {
+          "html": "<p>Room 3 of 3: the door</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "Room 3 of 3: the door",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0064",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>What is the code that opens the door?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "What is the code that opens the door?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0065",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 200,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-12",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-12",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "showLayer",
+            "target": "layer-18",
+            "conditions": [
+              {
+                "variable": "var-12",
+                "operator": "greaterThanOrEqual",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "showLayer",
+            "target": "layer-18",
+            "conditions": [
+              {
+                "variable": "var-12",
+                "operator": "greaterThanOrEqual",
+                "value": 3
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Short answer question",
+        "content": {
+          "questionType": "shortAnswer",
+          "answers": [
+            "8394"
+          ],
+          "caseSensitive": false,
+          "scoring": {
+            "points": 100,
+            "attemptsAllowed": 3
+          },
+          "feedback": {
+            "correct": "layer-16",
+            "incorrect": "layer-17"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Your answer",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0069",
+        "geometry": {
+          "x": 900,
+          "y": 640,
+          "width": 300,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-007",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-007",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back to the room",
+        "content": {
+          "label": "Back to the room"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back to the room",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-16",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0062",
+          "geometry": {
+            "x": 80,
+            "y": 400,
+            "width": 1000,
+            "height": 70,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. The door unlocks.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. The door unlocks.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0067",
+          "geometry": {
+            "x": 80,
+            "y": 560,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-009",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-009",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Next room",
+          "content": {
+            "label": "Next room"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Next room",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-17",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0063",
+          "geometry": {
+            "x": 80,
+            "y": 400,
+            "width": 1000,
+            "height": 70,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. Look again at what you found in the room.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. Look again at what you found in the room.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0068",
+          "geometry": {
+            "x": 80,
+            "y": 560,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {
+            "disabled": {
+              "style": {
+                "opacity": 0.4
+              }
+            }
+          },
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-009",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-009",
+              "conditions": []
+            },
+            {
+              "id": "trg-0003",
+              "event": "slideStart",
+              "action": "changeState",
+              "target": "obj-0068",
+              "value": "disabled",
+              "conditions": [
+                {
+                  "variable": "var-12",
+                  "operator": "lessThan",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "id": "trg-0004",
+              "event": "variableChange",
+              "action": "changeState",
+              "target": "obj-0068",
+              "value": "normal",
+              "conditions": [
+                {
+                  "variable": "var-12",
+                  "operator": "greaterThanOrEqual",
+                  "value": 3
+                }
+              ]
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Next room",
+          "content": {
+            "label": "Next room"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Next room",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-18",
+      "name": "Out of tries",
+      "objects": [
+        {
+          "id": "obj-0066",
+          "geometry": {
+            "x": 80,
+            "y": 470,
+            "width": 1000,
+            "height": 70,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "The code",
+          "content": {
+            "html": "<p>That was your last try. The code was 8394.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 22,
+            "color": "theme:color.text"
+          },
+          "accessibility": {
+            "altText": "That was your last try. The code was 8394.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

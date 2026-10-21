@@ -43,10 +43,10 @@ echo === lms-test-lesson.osproj (should have no errors) ===
 python tools\validate.py examples\lms-test-lesson.osproj
 echo.
 echo === question-types.osproj (should have no errors) ===
-python toolsalidate.py examples\question-types.osproj
+python tools\validate.py examples\question-types.osproj
 echo.
 echo === scenario.osproj (should have no errors) ===
-python toolsalidate.py examples\scenario.osproj
+python tools\validate.py examples\scenario.osproj
 echo.
 echo === lesson-parts.osproj (should have no errors) ===
 python tools\validate.py examples\lesson-parts.osproj
@@ -56,6 +56,15 @@ python tools\validate.py examples\timed-media.osproj
 echo.
 echo === looks.osproj (should have no errors) ===
 python tools\validate.py examples\looks.osproj
+echo.
+echo === quiz-board.osproj (should have no errors) ===
+python tools\validate.py examples\quiz-board.osproj
+echo.
+echo === prize-ladder.osproj (should have no errors) ===
+python tools\validate.py examples\prize-ladder.osproj
+echo.
+echo === escape-room.osproj (should have no errors) ===
+python tools\validate.py examples\escape-room.osproj
 echo.
 echo === broken.osproj (should have errors) ===
 python tools\validate.py examples\broken.osproj

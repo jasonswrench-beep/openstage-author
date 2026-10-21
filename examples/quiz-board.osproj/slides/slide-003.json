@@ -1,0 +1,386 @@
+{
+  "id": "slide-003",
+  "name": "Colour: 100",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0019",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Points",
+        "content": {
+          "html": "<p>100 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "100 points",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0022",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>What is the smallest contrast ratio WCAG 2.2 level AA allows for normal-size text?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "What is the smallest contrast ratio WCAG 2.2 level AA allows for normal-size text?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0023",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-2",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-2",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "3 to 1",
+              "correct": false
+            },
+            {
+              "id": "c2",
+              "label": "4.5 to 1",
+              "correct": true
+            },
+            {
+              "id": "c3",
+              "label": "7 to 1",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 100,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-1",
+            "incorrect": "layer-2"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "radiogroup",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0024",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 280,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back to the board",
+        "content": {
+          "label": "Back to the board"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back to the board",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-1",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0020",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. 4.5 to 1 is the level AA minimum for normal-size text. Level AAA asks for 7 to 1.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. 4.5 to 1 is the level AA minimum for normal-size text. Level AAA asks for 7 to 1.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-2",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0021",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The answer is 4.5 to 1. Large text can go down to 3 to 1, and level AAA asks for 7 to 1.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The answer is 4.5 to 1. Large text can go down to 3 to 1, and level AAA asks for 7 to 1.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

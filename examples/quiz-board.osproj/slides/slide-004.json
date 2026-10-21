@@ -1,0 +1,386 @@
+{
+  "id": "slide-004",
+  "name": "Colour: 200",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0025",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Points",
+        "content": {
+          "html": "<p>200 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "200 points",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0028",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>Which of these is not enough, on its own, to show that a form field has an error?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Which of these is not enough, on its own, to show that a form field has an error?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0029",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-3",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-3",
+            "value": true,
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          },
+          {
+            "id": "trg-0004",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-1",
+            "value": 1,
+            "operation": "add",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "A red border",
+              "correct": true
+            },
+            {
+              "id": "c2",
+              "label": "A message that says what is wrong",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "An icon with a text label",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 200,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-3",
+            "incorrect": "layer-4"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "radiogroup",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0030",
+        "geometry": {
+          "x": 80,
+          "y": 640,
+          "width": 280,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-002",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Back to the board",
+        "content": {
+          "label": "Back to the board"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Back to the board",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-3",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0026",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. A red border is only colour, and colour alone cannot carry meaning. Say what is wrong in words too.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. A red border is only colour, and colour alone cannot carry meaning. Say what is wrong in words too.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-4",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0027",
+          "geometry": {
+            "x": 840,
+            "y": 180,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The answer is the red border: it is only colour. Say what is wrong in words as well.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The answer is the red border: it is only colour. Say what is wrong in words as well.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

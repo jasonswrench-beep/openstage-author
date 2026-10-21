@@ -1,0 +1,1089 @@
+{
+  "id": "slide-002",
+  "name": "Accessibility basics: the board",
+  "duration": null,
+  "layout": null,
+  "background": "theme:bg.dark",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 64,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Accessibility basics</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 40,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Accessibility basics",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 80,
+          "y": 92,
+          "width": 1120,
+          "height": 44,
+          "rotation": 0,
+          "z": 11
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Instructions",
+        "content": {
+          "html": "<p>Choose a tile, answer its question, then come back to the board. Finish opens when every tile has been used.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Choose a tile, answer its question, then come back to the board. Finish opens when every tile has been used.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 80,
+          "y": 148,
+          "width": 362,
+          "height": 48,
+          "rotation": 0,
+          "z": 21
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Colour",
+        "content": {
+          "html": "<h2>Colour</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 24,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Colour",
+          "role": "heading",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 80,
+          "y": 204,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 22
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-003",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-003",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0007",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-2",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "100, Colour",
+        "content": {
+          "label": "100"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "100, Colour",
+          "role": "button",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0008",
+        "geometry": {
+          "x": 80,
+          "y": 288,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 23
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-004",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-004",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0008",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-3",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "200, Colour",
+        "content": {
+          "label": "200"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "200, Colour",
+          "role": "button",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0009",
+        "geometry": {
+          "x": 80,
+          "y": 372,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 24
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-005",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-005",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0009",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-4",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "300, Colour",
+        "content": {
+          "label": "300"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "300, Colour",
+          "role": "button",
+          "tabOrder": 6,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0010",
+        "geometry": {
+          "x": 458,
+          "y": 148,
+          "width": 362,
+          "height": 48,
+          "rotation": 0,
+          "z": 25
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Keyboard",
+        "content": {
+          "html": "<h2>Keyboard</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 24,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Keyboard",
+          "role": "heading",
+          "tabOrder": 7,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0011",
+        "geometry": {
+          "x": 458,
+          "y": 204,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 26
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-006",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-006",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0011",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-5",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "100, Keyboard",
+        "content": {
+          "label": "100"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "100, Keyboard",
+          "role": "button",
+          "tabOrder": 8,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0012",
+        "geometry": {
+          "x": 458,
+          "y": 288,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 27
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-007",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-007",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0012",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-6",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "200, Keyboard",
+        "content": {
+          "label": "200"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "200, Keyboard",
+          "role": "button",
+          "tabOrder": 9,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0013",
+        "geometry": {
+          "x": 458,
+          "y": 372,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 28
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-008",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-008",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0013",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-7",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "300, Keyboard",
+        "content": {
+          "label": "300"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "300, Keyboard",
+          "role": "button",
+          "tabOrder": 10,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0014",
+        "geometry": {
+          "x": 836,
+          "y": 148,
+          "width": 362,
+          "height": 48,
+          "rotation": 0,
+          "z": 29
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Words",
+        "content": {
+          "html": "<h2>Words</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 24,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "Words",
+          "role": "heading",
+          "tabOrder": 11,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0015",
+        "geometry": {
+          "x": 836,
+          "y": 204,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-009",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-009",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0015",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-8",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "100, Words",
+        "content": {
+          "label": "100"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "100, Words",
+          "role": "button",
+          "tabOrder": 12,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0016",
+        "geometry": {
+          "x": 836,
+          "y": 288,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 31
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-010",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-010",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0016",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-9",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "200, Words",
+        "content": {
+          "label": "200"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "200, Words",
+          "role": "button",
+          "tabOrder": 13,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0017",
+        "geometry": {
+          "x": 836,
+          "y": 372,
+          "width": 362,
+          "height": 72,
+          "rotation": 0,
+          "z": 32
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-011",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-011",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0017",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-10",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "300, Words",
+        "content": {
+          "label": "300"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 32,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "300, Words",
+          "role": "button",
+          "tabOrder": 14,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0018",
+        "geometry": {
+          "x": 1040,
+          "y": 640,
+          "width": 160,
+          "height": 56,
+          "rotation": 0,
+          "z": 33
+        },
+        "states": {
+          "disabled": {
+            "style": {
+              "opacity": 0.4
+            }
+          }
+        },
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-012",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-012",
+            "conditions": []
+          },
+          {
+            "id": "trg-0003",
+            "event": "slideStart",
+            "action": "changeState",
+            "target": "obj-0018",
+            "value": "disabled",
+            "conditions": [
+              {
+                "variable": "var-1",
+                "operator": "lessThan",
+                "value": 9
+              }
+            ]
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Finish",
+        "content": {
+          "label": "Finish"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Finish",
+          "role": "button",
+          "tabOrder": 15,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

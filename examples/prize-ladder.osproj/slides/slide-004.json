@@ -1,0 +1,831 @@
+{
+  "id": "slide-004",
+  "name": "Question 2: 200",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0030",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 860,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Where you are",
+        "content": {
+          "html": "<p>Question 2 of 8, worth 200 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "Question 2 of 8, worth 200 points",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0033",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 860,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>How many sides does a hexagon have?</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "How many sides does a hexagon have?",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0034",
+        "geometry": {
+          "x": 80,
+          "y": 180,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Multiple choice question",
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Six",
+              "correct": true
+            },
+            {
+              "id": "c2",
+              "label": "Five",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "Eight",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 200,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-3",
+            "incorrect": "layer-4"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Answer choices",
+          "role": "radiogroup",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0037",
+        "geometry": {
+          "x": 980,
+          "y": 24,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 800 points",
+        "content": {
+          "html": "<p>8. 800 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0038",
+        "geometry": {
+          "x": 980,
+          "y": 74,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 700 points",
+        "content": {
+          "html": "<p>7. 700 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0039",
+        "geometry": {
+          "x": 980,
+          "y": 124,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 600 points",
+        "content": {
+          "html": "<p>6. 600 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0040",
+        "geometry": {
+          "x": 980,
+          "y": 174,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 500 points",
+        "content": {
+          "html": "<p>5. 500 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0041",
+        "geometry": {
+          "x": 980,
+          "y": 224,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 400 points",
+        "content": {
+          "html": "<p>4. 400 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0042",
+        "geometry": {
+          "x": 980,
+          "y": 274,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 300 points",
+        "content": {
+          "html": "<p>3. 300 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.surface",
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0043",
+        "geometry": {
+          "x": 980,
+          "y": 324,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 200 points",
+        "content": {
+          "html": "<p>2. 200 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "fill": "theme:color.accentStrong",
+          "color": "theme:color.onAccentStrong",
+          "fontWeight": "700"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      },
+      {
+        "id": "obj-0044",
+        "geometry": {
+          "x": 980,
+          "y": 374,
+          "width": 220,
+          "height": 44,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ladder: 100 points",
+        "content": {
+          "html": "<p>1. 100 points</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "textAlign": "center",
+          "padding": 8,
+          "radius": 8,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        },
+        "group": "group-3"
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-3",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0031",
+          "geometry": {
+            "x": 80,
+            "y": 460,
+            "width": 860,
+            "height": 100,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Correct. Hex means six.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Correct. Hex means six.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0035",
+          "geometry": {
+            "x": 80,
+            "y": 580,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-005",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-005",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Next question",
+          "content": {
+            "label": "Next question"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Next question",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-4",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0032",
+          "geometry": {
+            "x": 80,
+            "y": 460,
+            "width": 860,
+            "height": 100,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The answer is six. Hex means six, and a pentagon has five.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The answer is six. Hex means six, and a pentagon has five.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0036",
+          "geometry": {
+            "x": 80,
+            "y": 580,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-005",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-005",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Next question",
+          "content": {
+            "label": "Next question"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Next question",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ]
+}

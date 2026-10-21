@@ -1,0 +1,153 @@
+{
+  "id": "slide-001",
+  "name": "Title slide",
+  "duration": null,
+  "layout": "title",
+  "background": "theme:bg.dark",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0003",
+        "geometry": {
+          "x": 80,
+          "y": 230,
+          "width": 160,
+          "height": 8,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0001",
+        "geometry": {
+          "x": 80,
+          "y": 260,
+          "width": 1120,
+          "height": 110,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>General knowledge</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 56,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "General knowledge",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0002",
+        "geometry": {
+          "x": 80,
+          "y": 390,
+          "width": 1120,
+          "height": 60,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Subtitle",
+        "content": {
+          "html": "<p>A prize ladder with eight questions. Press Next to play.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 28,
+          "color": "theme:color.onDark"
+        },
+        "accessibility": {
+          "altText": "A prize ladder with eight questions. Press Next to play.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

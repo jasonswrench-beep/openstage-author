@@ -31,6 +31,8 @@ import { askChoice, interactionPreview, shapePreview } from "./choicepicker.ts";
 import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
+import { GAME_PREFIX, gameById } from "./gamesets.ts";
+import { askGame } from "./gamedialog.ts";
 import { groupBox } from "./group.ts";
 import { ALIGNMENTS } from "./align.ts";
 import { extraWordsOf, LIMITS, QUIZ_KINDS, quizKind, type QuestionEdit } from "./questionedit.ts";
@@ -1011,14 +1013,32 @@ export class App {
     if (!m) return;
     const layout = await askLayout({
       heading: "Add a slide", confirm: "Add slide", initial: this.lastLayout, theme: m.theme, templates: true,
-      note: "A layout places text. A ready-made lesson slide also brings the parts a lesson needs, such as Next and Back buttons that are already wired, a question with its feedback, or a story to write.",
+      note: "A layout places text. A ready-made lesson slide also brings the parts a lesson needs, such as Next and Back buttons that are already wired, a question with its feedback, or a story to write. A ready-made game adds several slides at once, with the variables and rules that make it play.",
     });
     if (!layout) return;
     this.lastLayout = layout;
+    if (layout.startsWith(GAME_PREFIX)) {
+      await this.addGame(layout.slice(GAME_PREFIX.length));
+      return;
+    }
     const template = layout.startsWith(TEMPLATE_PREFIX) ? m.addTemplateSlide(layout.slice(TEMPLATE_PREFIX.length)) : null;
     const s = template ?? m.addSlide(layout.startsWith(TEMPLATE_PREFIX) ? "blank" : layout);
     this.announce(`Added ${s.name}. It is slide ${m.slides.findIndex((x) => x.id === s.id) + 1} of ${m.slides.length}.${template ? " Its buttons are already wired. Replace the placeholder words with your own." : ""}`);
     this.refocus(`slide:${s.id}`);
+  }
+
+  /** Ask how big the game should be, then add its slides after the one being edited. One step for Undo. */
+  private async addGame(id: string): Promise<void> {
+    const m = this.model;
+    const set = gameById(id);
+    if (!m || !set) return;
+    const options = await askGame(set);
+    if (!options) return;
+    const made = m.addGameSet(set.id, options);
+    if (!made) return;
+    const first = made.slides[0]!;
+    this.announce(`Added ${set.label}: ${made.slides.length} slides, starting with ${first.name}. ${made.notes.join(" ")} Press Control Z to undo it all at once.`);
+    this.refocus(`slide:${first.id}`);
   }
 
   /** Give the slide being edited a different layout. The text already on it moves into the new places. */

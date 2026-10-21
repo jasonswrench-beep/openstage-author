@@ -7,6 +7,7 @@
 import { backgroundColors, resolveValue } from "../../player/src/theme.ts";
 import type { Theme } from "../../player/src/types.ts";
 import { previewBlocks, SLIDE_LAYOUTS, textRole, type PreviewBlock, type SlideLayout } from "./factory.ts";
+import { GAME_PREFIX, GAME_SETS } from "./gamesets.ts";
 import { SLIDE_TEMPLATES, TEMPLATE_PREFIX } from "./templates.ts";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -94,7 +95,7 @@ export interface LayoutChoice {
   /** The project's theme, so the drawings show its colours. */
   theme: Theme;
   note?: string;
-  /** Also offer the ready-made lesson slides. Their ids come back as "template:<id>". Only for adding a slide, not for changing a layout. */
+  /** Also offer the ready-made lesson slides and games. Their ids come back as "template:<id>" and "game:<id>". Only for adding a slide, not for changing a layout. */
   templates?: boolean;
 }
 
@@ -126,6 +127,8 @@ export function askLayout(choice: LayoutChoice): Promise<string | null> {
     }
     if (choice.templates) {
       offers.push({ group: "Lesson slides, ready-made", items: SLIDE_TEMPLATES.map((t) => ({ value: `${TEMPLATE_PREFIX}${t.id}`, layout: t.layout, label: t.label, description: t.description, extras: t.extras })) });
+      // A game adds several slides at once, so the picture is of its first slide.
+      offers.push({ group: "Games, ready-made", items: GAME_SETS.map((g) => ({ value: `${GAME_PREFIX}${g.id}`, layout: g.layout, label: g.label, description: g.description, extras: g.extras })) });
     }
     for (const { group, items } of offers) {
       const h3 = doc.createElement("h3");

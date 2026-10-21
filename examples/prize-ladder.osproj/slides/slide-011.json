@@ -1,0 +1,110 @@
+{
+  "id": "slide-011",
+  "name": "Game results",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0135",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>Game results</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Game results",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0136",
+        "geometry": {
+          "x": 80,
+          "y": 160,
+          "width": 760,
+          "height": 340,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "results",
+        "name": "Results",
+        "content": {
+          "heading": "Your game results",
+          "passMessage": "Well done.",
+          "failMessage": "Look back over the questions you missed.",
+          "review": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "Your game results",
+          "role": "region",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

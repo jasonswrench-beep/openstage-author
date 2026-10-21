@@ -25,6 +25,7 @@ import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
+import { gameById, gameOptions } from "./gamesets.ts";
 import { templateById } from "./templates.ts";
 import { castUse, cloneCast, draftProblems as castProblems, voiceChanges } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
@@ -1020,6 +1021,40 @@ export class Model {
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
     return slide;
+  }
+
+  /**
+   * Add a ready-made game: several slides that jump between each other, and the variables and rules that make it play (see gamesets.ts). The slides
+   * go after the one the author is on, in order, and the first is selected. It is one undo step, which takes the slides, the variables and any change
+   * to the course's completion setting back together. What it makes is ordinary slides, not tied to the game afterwards.
+   * Returns the slides and what to tell the author, or null if there is no such game.
+   */
+  addGameSet(gameId: string, raw: Record<string, unknown> = {}): { slides: Slide[]; notes: string[] } | null {
+    const set = gameById(gameId);
+    if (!set) return null;
+    const options = gameOptions(set, raw);
+    this.record("");
+    const built = set.build({
+      alloc: this.allocator(emptySlide("", "")),
+      slideId: this.slideIdMaker(),
+      variable: (type, name) => this.makeVariable(type, name),
+      variableNames: () => this.project.variables.map((v) => v.name),
+    }, options);
+    const notes = [...built.notes];
+    if (set.completion === "last" && this.completion === "all") {
+      this.project.completion = { slides: "last" };
+      notes.push("The course now counts as complete when the learner reaches the last slide and has finished every quiz, because learners visit this game's slides in any order. You can change this in the course settings.");
+    }
+    const scene = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0]!;
+    const at = scene.slides.indexOf(this.sel.slideId);
+    scene.slides.splice(at === -1 ? scene.slides.length : at + 1, 0, ...built.slides.map((s) => s.id));
+    for (const slide of built.slides) this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    this.syncDocOrder();
+    const first = built.slides[0]!;
+    this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    return { slides: built.slides, notes };
   }
 
   addQuiz(type: QuizType, opts: { imageSrc?: string } = {}): OSObject | null {

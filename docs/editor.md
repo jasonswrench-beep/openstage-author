@@ -394,6 +394,39 @@ check (a multiple choice question with feedback for a right and a wrong answer, 
 built into the editor and need no format change. Their buttons are already wired and reachable in reading order; the words, the question and the story are placeholders to replace. The slide they make is an
 ordinary slide, not tied to the template, and adding one is a single step for Undo.
 
+**Games.** The Add slide picker has a second group, **Games, ready-made**, after the lesson slides. A game is several slides that jump between each other, with the variables and rules that make it play, built from
+the editor's own parts, so it needed no format change. Choosing one asks how big it should be (a drop-down for each number, labelled, with a line that says how many slides it will add), then adds all its slides after the
+one you are on and selects the first, as one step for Undo that also takes back the variables and the completion setting. Everything you have to write is a placeholder, and what it makes is ordinary slides, not tied to the game afterwards.
+The first game is the **Quiz board**: a board slide with 2 to 6 categories of 2 to 5 tiles each (worth 100 points, then 200, and so on), a question slide for every tile (multiple choice, one try, worth its tile's points), and a results slide.
+A tile opens its question. Answering marks the tile as used and counts it (the question's own rules, which the player runs once, when an answer is accepted), and each time the board opens, a rule dims every used tile, and
+dims Finish until every tile has been used. Every question slide always has **Back to the board**, so a learner is never stuck on a question that is already answered. The game sets the course to complete when the learner
+**reaches the last slide** if it was set to every slide seen (and says so), because learners visit the questions in any order and the validator would otherwise warn about every tile. Reading order on the board goes down each
+category (its heading, then its tiles from the smallest value) and then Finish; every tile and Finish is a real button, and a used tile or a closed Finish is a disabled button, so Tab skips it and a screen reader says it is unavailable.
+Each tile's name starts with the words on it and then says its category ("200, Category 2"), so **when you rename a category, change the alt text of its tiles too** (and the variables' names in **Variables**, if you want them to match).
+The tiles, headings and the board's instructions have no narration until you add it, as with any text. A learner who leaves and comes back finds the board as they left it: a look is not saved, but the board's rules that dim a used tile
+and close Finish depend on variables, which are, so a resume works them out again (silently, see Resume in `docs/format-spec.md`). The board has no running score
+on it, because there is no way yet to show a variable's value as text; the score is in the results box. `examples/quiz-board.osproj` is a finished board of nine questions, and `docs/game-templates.md` has the plan for more games.
+
+The second game is the **Prize ladder**: 5 to 15 questions in order (the dialog's one drop-down), each worth 100 points more than the one before. It adds an opening slide (what the game is, the whole ladder and **Start**), a
+question slide for each rung, and a results slide. Each question is multiple choice with one try. After an answer its feedback shows the right answer, and a **Next question** button (**See my results** on the last) is in the
+feedback, so the way on is there only once an answer has been given. **A wrong answer does not end the game**: a course is complete only when every question has been answered, so a game that stopped early would leave the
+course incomplete for good. The ladder down the right of each question is a column of text boxes with fills of their own, grouped (so it can be moved, resized or deleted as one), and marked decorative, so a screen reader
+skips it; the same facts are in words: "Question 3 of 8, worth 300 points" at the top of each question, and the opening slide's text. The rung the learner is on is bold and in the strong colour, rungs still to come are grey boxes,
+and rungs already answered are faded text. The game adds no variables and changes no course setting, because every jump goes to the next slide. If you change the number of questions or their points, change the line at the top of
+each question and its rung to match. Reading order on a question is where the learner is, the question, then its answers; in the feedback, the words and then the way on. `examples/prize-ladder.osproj` is a finished ladder of eight questions.
+
+The third game is the **Escape room**: 2 to 5 rooms and 1 to 3 tries at each lock (two drop-downs in the dialog). It adds an opening slide, then a **room** and a **door** for each room, and a results slide. A room has three places
+to search, which are buttons (there are no pictures to put hotspots on; put a picture behind them and move them if you like), and **Go to the door**. A place opens its clue, one at a time, with a **Close** button, and is marked
+**Searched** (its look changes, and a screen reader says "Searched") from then on, including after the learner leaves the room and comes back, because the room's rules put the look back from the place's variable.
+A door is a typed code (a short answer question, 100 points) with the tries asked for. After a right answer, **Next room** appears in its feedback. After a wrong answer with tries left, the learner can try again, and the
+feedback's **Next room** is there but dimmed; when the last try is used, it opens and the code is shown. **Back to the room** is always there. This is so a lock can always be finished: a course is complete only when every question has been
+finished, a rule cannot tell a right answer from a wrong one, and so the way on opens when the lock is finished by either route. The game counts the tries in a variable of its own (the question's rules add 1 for each answer that is accepted).
+Each room has four variables, three for its places and one for its tries, made together. The clues the game starts with spell out each room's code, so it can be played as it is made: when you change a code, change it in the
+lock's question (its answer), in the three clues, and in the line that says what the code was. It changes no course setting, because every way on goes to the next slide. A learner who leaves part way through comes back
+to the same place: places still look searched, a lock with tries left keeps its feedback and its dimmed way on, and a finished lock keeps the code and its open way on. Reading order in a room is its title, its words,
+the three places, then the door; at a door, where the learner is, the question, its answer box, then Back to the room, and in each feedback the words and then the way on. `examples/escape-room.osproj` is a finished escape room of
+three rooms.
+
 **Scenarios and the cast.** The **Characters** button in the toolbar opens the cast: the people a course can show and give a voice to. Each has a name, a few words
 on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can choose a file, or press **Make a picture...** to draw a simple person: skin tone, hair
 style and colour, expression, shirt and colour, glasses and background, with a live preview described in words, a Surprise me button, and the result saved in the project as a small drawing of
