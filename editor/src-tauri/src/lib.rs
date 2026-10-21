@@ -2796,6 +2796,76 @@ fn captions_write(dir: String, name_hint: String, existing: Option<String>, text
     write_captions_at(Path::new(&dir), &name_hint, existing.as_deref(), &text)
 }
 
+// ---- questions from a spreadsheet
+//
+// An author saves their table of questions as a CSV (or text) file and chooses it. The editor reads it in the web layer (questionimport.ts); all
+// the Rust side does is hand over the words, whatever way Excel saved them, and write the blank template the author can start from.
+
+const MAX_QUESTION_FILE: u64 = 2 * 1024 * 1024;
+
+/// What a spreadsheet program may have saved a table as: UTF-8 (with or without a byte order mark), UTF-16 (Excel's "Unicode Text"), or the
+/// Windows Western code page that Excel's plain "CSV (Comma delimited)" uses. UTF-8 is tried first, so a file that is valid UTF-8 is never misread.
+fn decode_table_text(bytes: &[u8]) -> String {
+    const CP1252: [char; 32] = [
+        '\u{20AC}', '\u{81}', '\u{201A}', '\u{0192}', '\u{201E}', '\u{2026}', '\u{2020}', '\u{2021}', '\u{02C6}', '\u{2030}', '\u{0160}', '\u{2039}', '\u{0152}', '\u{8D}', '\u{017D}', '\u{8F}',
+        '\u{90}', '\u{2018}', '\u{2019}', '\u{201C}', '\u{201D}', '\u{2022}', '\u{2013}', '\u{2014}', '\u{02DC}', '\u{2122}', '\u{0161}', '\u{203A}', '\u{0153}', '\u{9D}', '\u{017E}', '\u{0178}',
+    ];
+    let units = |b: &[u8], little: bool| -> Vec<u16> { b.chunks_exact(2).map(|p| if little { u16::from_le_bytes([p[0], p[1]]) } else { u16::from_be_bytes([p[0], p[1]]) }).collect() };
+    let text = if bytes.starts_with(&[0xFF, 0xFE]) {
+        String::from_utf16_lossy(&units(&bytes[2..], true))
+    } else if bytes.starts_with(&[0xFE, 0xFF]) {
+        String::from_utf16_lossy(&units(&bytes[2..], false))
+    } else {
+        match std::str::from_utf8(bytes) {
+            Ok(s) => s.to_string(),
+            Err(_) => bytes.iter().map(|&b| if (0x80..=0x9F).contains(&b) { CP1252[(b - 0x80) as usize] } else { b as char }).collect(),
+        }
+    };
+    text.trim_start_matches('\u{FEFF}').to_string()
+}
+
+/// The words of a table of questions the author chose from anywhere (`.csv`, `.tsv` or `.txt`). Nothing is copied or kept.
+fn read_question_file_at(source: &Path) -> Result<String, String> {
+    let ext = source.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if ext != "csv" && ext != "tsv" && ext != "txt" {
+        return Err("A table of questions has to be saved as a .csv file. In Excel, choose Save As, then CSV UTF-8 (Comma delimited).".into());
+    }
+    let meta = fs::metadata(source).map_err(|e| format!("Could not read that file: {e}"))?;
+    if !meta.is_file() {
+        return Err("That is not a file.".into());
+    }
+    if meta.len() > MAX_QUESTION_FILE {
+        return Err(format!("That file is larger than {} MB, which is far more than a table of questions needs.", MAX_QUESTION_FILE / (1024 * 1024)));
+    }
+    let bytes = fs::read(source).map_err(|e| format!("Could not read that file: {e}"))?;
+    Ok(decode_table_text(&bytes))
+}
+
+/// Write the blank table of questions (made by the editor) to a place the author chose. UTF-8 with a byte order mark, so Excel shows accented
+/// letters properly. Only a `.csv` file of a sensible size is written.
+fn write_question_template_at(dest: &Path, text: &str) -> Result<(), String> {
+    let ext = dest.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    if ext != "csv" {
+        return Err("The template is saved as a .csv file.".into());
+    }
+    if text.len() > 100 * 1024 || !text.starts_with("Type,Question") {
+        return Err("That is not the template.".into());
+    }
+    let mut bytes = vec![0xEF, 0xBB, 0xBF];
+    bytes.extend_from_slice(text.as_bytes());
+    fs::write(dest, bytes).map_err(|e| format!("Could not save the template: {e}"))
+}
+
+#[tauri::command]
+fn question_file_read(source: String) -> Result<String, String> {
+    read_question_file_at(Path::new(&source))
+}
+
+#[tauri::command]
+fn question_template_write(dest: String, text: String) -> Result<(), String> {
+    write_question_template_at(Path::new(&dest), &text)
+}
+
 // ---- the Capture recorder
 //
 // OpenStage Capture is a separate program that the editor starts and talks to (see stream.rs). Nothing here records anything.
@@ -3175,7 +3245,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -4658,6 +4728,41 @@ mod tests {
         assert!(write_recording_edit_at(&project, "Missing.capture", "{}").is_err());
         assert!(write_recording_edit_at(&project, "Demo.capture", &format!("{{\"x\":\"{}\"}}", "a".repeat(9 * 1024 * 1024))).is_err(), "too large");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_table_of_questions_is_read_however_a_spreadsheet_saved_it_and_the_template_is_written_for_excel() {
+        let dir = std::env::temp_dir().join(format!("openstage-test-questions-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        // UTF-8 with Excel's byte order mark: the mark is not part of the words.
+        fs::write(dir.join("a.csv"), b"\xEF\xBB\xBFQuestion,A\nCaf\xC3\xA9?,x\n").unwrap();
+        assert_eq!(read_question_file_at(&dir.join("a.csv")).unwrap(), "Question,A\nCaf\u{e9}?,x\n");
+        // Excel's plain "CSV (Comma delimited)": the Windows Western code page, with a curly quote and an accent.
+        fs::write(dir.join("b.CSV"), b"Question\nIt\x92s caf\xE9\n").unwrap();
+        assert_eq!(read_question_file_at(&dir.join("b.CSV")).unwrap(), "Question\nIt\u{2019}s caf\u{e9}\n");
+        // Excel's "Unicode Text": UTF-16 with a mark, tab separated.
+        let mut utf16 = vec![0xFF, 0xFE];
+        for u in "Question\tA\n\u{e9}\ty\n".encode_utf16() {
+            utf16.extend_from_slice(&u.to_le_bytes());
+        }
+        fs::write(dir.join("c.txt"), utf16).unwrap();
+        assert_eq!(read_question_file_at(&dir.join("c.txt")).unwrap(), "Question\tA\n\u{e9}\ty\n");
+        // Only a table, of a sensible size.
+        fs::write(dir.join("d.xlsx"), b"PK").unwrap();
+        assert!(read_question_file_at(&dir.join("d.xlsx")).unwrap_err().contains("CSV UTF-8"));
+        fs::write(dir.join("big.csv"), vec![b'a'; (MAX_QUESTION_FILE + 1) as usize]).unwrap();
+        assert!(read_question_file_at(&dir.join("big.csv")).unwrap_err().contains("larger than 2 MB"));
+        fs::create_dir_all(dir.join("folder.csv")).unwrap();
+        assert!(read_question_file_at(&dir.join("folder.csv")).is_err(), "a folder is not a file");
+        assert!(read_question_file_at(&dir.join("missing.csv")).is_err());
+        // The template: a .csv, the editor's own text, with the byte order mark put in front.
+        write_question_template_at(&dir.join("t.csv"), "Type,Question,A\r\nMC,Why?,x\r\n").unwrap();
+        assert_eq!(fs::read(dir.join("t.csv")).unwrap(), b"\xEF\xBB\xBFType,Question,A\r\nMC,Why?,x\r\n");
+        assert!(write_question_template_at(&dir.join("t.txt"), "Type,Question").is_err(), "only a .csv");
+        assert!(write_question_template_at(&dir.join("u.csv"), "anything else at all").is_err(), "only the template");
+        assert!(!dir.join("u.csv").exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

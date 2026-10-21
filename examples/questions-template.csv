@@ -1,0 +1,6 @@
+﻿Type,Question,A,B,C,D,E,Correct,Points,Feedback if right,Feedback if wrong
+MC,Which channel suits a quick yes or no between two colleagues?,A short message,A formal letter,A staff meeting,A printed memo,,A,10,Right: a short message is quick and easy to answer.,Not quite. Think about how quickly the answer is needed.
+MC,Which of these is a planet?,Mars,The Moon,The Sun,Sirius,Halley's Comet,A,,,
+MR,Which of these help a reader decide what to read first?,A clear subject line,A long first paragraph,A short summary at the top,Writing in capital letters,,"A, C",10,,
+TF,A reply to everyone is always the right choice.,,,,,,False,,,
+SA,What is the name of the movement of ideas from one person to another?,Communication,communicating,,,,,,,

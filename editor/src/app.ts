@@ -22,6 +22,7 @@ import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parse
 import { fileDetails } from "../../player/src/downloads.ts";
 import { timerContentOf } from "../../player/src/timer.ts";
 import { openBanks } from "./bankdialog.ts";
+import { askQuestionImport } from "./questiondialog.ts";
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
@@ -202,6 +203,7 @@ export class App {
   private readonly duplicateSlideBtn: HTMLButtonElement;
   private readonly shareSlidesBtn: HTMLButtonElement;
   private readonly banksBtn: HTMLButtonElement;
+  private readonly questionsFileBtn: HTMLButtonElement;
   private readonly slidesFromFileBtn: HTMLButtonElement;
   private readonly slideUpBtn: HTMLButtonElement;
   private readonly slideDownBtn: HTMLButtonElement;
@@ -288,12 +290,14 @@ export class App {
     this.shareSlidesBtn = this.small("Share slides...", "Save slides, with what they need, as one file to give to someone else", () => void this.shareSlides());
     this.slidesFromFileBtn = this.small("Add slides from a file...", "Add slides someone gave you as one file after this slide", () => void this.addSlidesFromFile());
     this.banksBtn = this.small("Question banks...", "Choose which slides each learner is shown: some of a run of questions, picked at random", () => void this.openBanksDialog());
+    this.questionsFileBtn = this.small("Questions from a file...", "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide", () => void this.addQuestionsFromFile());
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("h2", { id: "slides-h", text: "Slides" }),
       h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
-      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn, this.banksBtn),
+      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
+      h("div", { class: "btn-row" }, this.questionsFileBtn, this.banksBtn),
       this.slideList);
 
     // Canvas and layers
@@ -2152,6 +2156,7 @@ ${errorText(err)}`);
     this.setEnabled(this.duplicateSlideBtn, !!m);
     this.setEnabled(this.shareSlidesBtn, !!m);
     this.setEnabled(this.banksBtn, !!m);
+    this.setEnabled(this.questionsFileBtn, !!m);
     this.setEnabled(this.slidesFromFileBtn, !!m);
     this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
     const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
@@ -4403,6 +4408,22 @@ ${errorText(err)}`);
       h("p", { class: "note", text: "A rule says what the course does, and when. Rules run in order from the top, and a rule that goes to another slide ends the list. To send the learner different ways, use several rules with different conditions. A rule can belong to any object." }),
       ...(cards.length ? cards : [h("p", { class: "note", text: "No rules yet." })]),
       h("div", { class: "btn-row" }, add, variables))];
+  }
+
+  /** Make a slide for each question in a spreadsheet the author saved as a CSV file (see docs/question-import.md). */
+  private async addQuestionsFromFile(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const choice = await askQuestionImport(m.slide?.name ?? "", {
+      pickFile: () => backend.pickQuestionFile(),
+      readFile: (path) => backend.questionFileRead(path),
+      pickTemplateSave: () => backend.pickQuestionTemplateSave(),
+      writeTemplate: (dest, text) => backend.questionTemplateWrite(dest, text),
+    });
+    this.questionsFileBtn.focus();
+    if (!choice) return;
+    const msg = m.addQuestionSlides(choice.questions, { bank: choice.bank, shuffleAnswers: choice.shuffleAnswers });
+    if (msg) this.announce(msg);
   }
 
   private async openBanksDialog(): Promise<void> {

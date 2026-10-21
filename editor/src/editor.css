@@ -287,6 +287,12 @@ button.small:hover { background: #e3e6eb; }
 .rule .conds { margin: 4px 0; }
 .cond { border-left: 3px solid #0b3fb3; padding-left: 8px; margin: 6px 0; }
 .banks-dialog { width: min(760px, 94vw); }
+.questions-dialog { width: min(820px, 94vw); }
+.qi-problems li.error { color: #8a1c1c; }
+.qi-problems li.warning { color: #6b4e00; }
+.qi-problems, .qi-list { max-height: 220px; overflow: auto; padding-left: 1.4em; }
+.qi-summary { font-weight: 600; }
+.qi-bank { margin-left: 1.6em; }
 .bk-row, .bk-add { margin: 12px 0; }
 .bk-row .field.check, .bk-add .field.check { display: flex; gap: 10px; align-items: center; }
 .variables-dialog { width: min(900px, 94vw); }

@@ -27,6 +27,7 @@ import { baseFrom, baseOf, mergeSlide, untouched, type Merge } from "./stepbase.
 import type { Step } from "./steps.ts";
 import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
+import type { ImportedQuestion } from "./questionimport.ts";
 import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
 import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment, type Box } from "./align.ts";
 import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } from "./group.ts";
@@ -3891,6 +3892,83 @@ export class Model {
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
     return `Deleted ${doc.slide.name}${leftBank}`;
+  }
+
+  // ---- questions from a spreadsheet (questionimport.ts)
+
+  /**
+   * Make a slide for each question read from a spreadsheet, after the slide being edited, as one step to undo. Each slide is what Add > Quiz question
+   * makes (the question as a heading, the question itself, and a layer of feedback for a right and a wrong answer), with the table's words in it. The
+   * name a screen reader gives a question's answers is the question itself, because it is the author's own words and they will see it in Alt text.
+   * With `bank` the new slides become a question bank. `shuffleAnswers` makes each multiple choice and multiple response question mix its answers.
+   */
+  addQuestionSlides(questions: ImportedQuestion[], opts: { bank: { name: string; draw: number; shuffle: boolean } | null; shuffleAnswers: boolean }): string | null {
+    if (questions.length === 0) return "There are no questions to add.";
+    const here = this.project.scenes.find((s) => s.slides.includes(this.sel.slideId)) ?? this.project.scenes[0];
+    if (!here) return null;
+    const blank = SLIDE_LAYOUTS.find((l) => l.id === "blank") ?? SLIDE_LAYOUTS[0]!;
+    const alloc = this.allocator(emptySlide("", ""));
+    const nextSlideId = this.slideIdMaker();
+    const html = (text: string): string => text.split(/\r?\n/).filter((t) => t.trim() !== "").map((t) => `<p>${t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("");
+    const plain = (text: string): string => text.replace(/\s+/g, " ").trim();
+    this.record("");
+    const made: Slide[] = [];
+    questions.forEach((q, n) => {
+      const slide = buildLayoutSlide(blank, nextSlideId(), alloc);
+      slide.name = `Question ${n + 1}`;
+      const built = buildQuiz(q.type === "short" ? "short" : q.type, alloc, { tone: "light", y: 60, z: 10, tab: 1 });
+      const [prompt, quiz] = built.objects as [OSObject, OSObject];
+      prompt.content = { html: `<h2>${q.question.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</h2>` };
+      prompt.accessibility = { ...prompt.accessibility, altText: plain(q.question) };
+      const attempts = q.attempts ?? (q.type === "tf" ? 1 : 2);
+      const choices = q.answers.map((label, i) => ({ id: `c${i + 1}`, label, correct: q.correct.includes(i) }));
+      const body: Record<string, unknown> =
+        q.type === "short" ? { questionType: "shortAnswer", answers: q.answers, caseSensitive: false }
+        : q.type === "mr" ? { questionType: "multipleResponse", choices }
+        : { questionType: "multipleChoice", choices };
+      if (opts.shuffleAnswers && (q.type === "mc" || q.type === "mr")) body["shuffle"] = true;
+      quiz.content = { ...body, scoring: { points: q.points ?? 10, attemptsAllowed: attempts }, feedback: (quiz.content as { feedback: unknown }).feedback };
+      quiz.accessibility = { ...quiz.accessibility, altText: plain(q.question) };
+      if (q.type === "mc" || q.type === "mr") quiz.geometry = { ...quiz.geometry, height: Math.max(quiz.geometry.height, 80 + 48 * choices.length) };
+      const [right, wrong] = built.layers as [Layer, Layer];
+      const say = (layer: Layer, text: string) => {
+        const o = layer.objects[0]!;
+        o.content = { html: html(text) };
+        o.accessibility = { ...o.accessibility, altText: plain(text) };
+      };
+      say(right, q.rightFeedback || "Correct.");
+      say(wrong, q.wrongFeedback || (attempts > 1 ? "Not quite. Try again." : "Not quite."));
+      slide.baseLayer.objects.push(...built.objects);
+      slide.layers.push(...built.layers);
+      made.push(slide);
+    });
+    const at = here.slides.indexOf(this.sel.slideId);
+    here.slides.splice(at === -1 ? here.slides.length : at + 1, 0, ...made.map((s) => s.id));
+    for (const slide of made) this.docs.push({ id: slide.id, slide, originalText: "", savedCompact: "" });
+    this.syncDocOrder();
+    let bankNote = "";
+    if (opts.bank) {
+      if (made.length < 2) bankNote = " A bank needs at least two questions, so no bank was made.";
+      else {
+        const bank: Bank = {
+          id: `bank-${String(nextNumber(this.banks.map((b) => b.id), "bank-")).padStart(4, "0")}`,
+          name: opts.bank.name.trim() || `Question bank ${this.banks.length + 1}`,
+          slides: made.map((s) => s.id),
+          draw: Math.min(made.length, Math.max(1, Math.round(opts.bank.draw))),
+          shuffle: opts.bank.shuffle,
+        };
+        this.writeBanks([...this.banks, bank]);
+        bankNote = ` They are the question bank ${bank.name}: each learner is shown ${bank.draw} of them${bank.shuffle ? ", in a mixed order" : ""}.`;
+      }
+    }
+    const first = made[0]!;
+    this.sel = { slideId: first.id, layerId: first.baseLayer.id, objectId: null };
+    this.more = null;
+    this.anchor = null;
+    this.emit({ kind: "structure" });
+    this.emit({ kind: "selection" });
+    const number = this.docs.findIndex((d) => d.id === first.id) + 1;
+    return `Added ${made.length === 1 ? "one question" : `${made.length} questions`} as ${made.length === 1 ? `slide ${number}` : `slides ${number} to ${number + made.length - 1}`}.${bankNote} One Undo takes them all away.`;
   }
 
   // ---- question banks (player/src/bank.ts)

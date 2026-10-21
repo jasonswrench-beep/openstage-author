@@ -126,6 +126,14 @@ export interface Backend {
   pickSetFile(): Promise<string | null>;
   /** Ask where to save a set of slides, with a file dialog. Null if the author cancelled. */
   pickSetSave(name: string): Promise<string | null>;
+  /** Ask which table of questions to read (a CSV file saved from a spreadsheet), with a file dialog. Null if the author cancelled. */
+  pickQuestionFile(): Promise<string | null>;
+  /** Ask where to save the blank table of questions, with a file dialog. Null if the author cancelled. */
+  pickQuestionTemplateSave(): Promise<string | null>;
+  /** The words of a table of questions saved as CSV or text, whatever way the spreadsheet program saved them. */
+  questionFileRead(source: string): Promise<string>;
+  /** Write the blank table of questions to a file the author chose. */
+  questionTemplateWrite(dest: string, text: string): Promise<void>;
   /** Check a set of slides and unpack it into a folder of its own; the answer says what is in it, or why it cannot be used. */
   setRead(source: string): Promise<SetAnswer<SetRead>>;
   /** Copy one file of an unpacked set into the project, and give its project-relative path. */
@@ -271,7 +279,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | "setfile" | "setsave" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | "setfile" | "setsave" | "questionfile" | "questionsave" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
 /** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
 const testConfirm = (message: string): boolean | undefined =>
@@ -360,6 +368,20 @@ const tauriBackend: Backend = {
     const picked = await openDialog({ multiple: false, title: "Choose a set of slides", filters: [{ name: "Sets of slides", extensions: ["osset"] }] });
     return typeof picked === "string" ? picked : null;
   },
+  async pickQuestionFile() {
+    const forced = testPick("questionfile");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose a table of questions", filters: [{ name: "Tables of questions (CSV)", extensions: ["csv", "tsv", "txt"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async pickQuestionTemplateSave() {
+    const forced = testPick("questionsave");
+    if (forced !== undefined) return forced;
+    const picked = await saveDialog({ title: "Save the blank table of questions", defaultPath: "OpenStage questions template.csv", filters: [{ name: "CSV files", extensions: ["csv"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  questionFileRead: (source) => invoke<string>("question_file_read", { source }),
+  questionTemplateWrite: (dest, text) => invoke<void>("question_template_write", { dest, text }),
   async pickSetSave(name) {
     const forced = testPick("setsave");
     if (forced !== undefined) return forced;
@@ -581,6 +603,18 @@ const previewBackend: Backend = {
   },
   async pickSetSave() {
     return null;
+  },
+  async pickQuestionFile() {
+    return null;
+  },
+  async pickQuestionTemplateSave() {
+    return null;
+  },
+  async questionFileRead() {
+    throw new Error("Reading a table of questions needs the desktop app.");
+  },
+  async questionTemplateWrite() {
+    throw new Error("Saving the template needs the desktop app.");
   },
   async setRead() {
     return { ok: false, message: "Taking in a set of slides needs the desktop app." };
