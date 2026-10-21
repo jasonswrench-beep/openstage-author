@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.29.0",
+  "schemaVersion": "0.30.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -283,9 +283,9 @@ group's objects is not grouped. (Added in 0.17.0.)
 
 | Type | `content` |
 | --- | --- |
-| `text` | `html` |
+| `text` | `html`, optional `bubble` and `tail` (see Speech and thought bubbles) |
 | `image` | `src` (under `assets/`) |
-| `shape` | `shape` |
+| `shape` | `shape`, and `tail` for a speech or thought bubble |
 | `button` | `label`, optional `icon` and `iconPlacement` (see Icons) |
 | `icon` | `set`, `name`, `shapes` (see Icons) |
 | `video`, `audio` | `src` (under `assets/`), optional `captions` (path under `assets/`, or null), optional `transcript` (HTML, as in a text object); a `video` also has an optional `description` (see Audio description) |
@@ -309,10 +309,23 @@ reflows to one column it becomes a visible button showing its name. It has to be
 reflows, and 24 is then what is left. (Defined in 0.18.0. The `hotspot` question kind is a different thing: see Quiz questions.)
 
 `shape` draws one of these, named in `content.shape`: `rectangle`, `rounded`, `ellipse`, `triangle`,
-`diamond` or `arrow`. A name the renderer does not know draws a rectangle. `style.fill` fills it and
+`diamond`, `arrow`, `speech` or `thought` (the last two are bubbles, below). A name the renderer does not know draws a rectangle. `style.fill` fills it and
 `style.stroke` (a colour, or `none`) with `style.strokeWidth` outlines it. The figure is drawn as
 vector graphics, so it stays sharp at any size, and it is hidden from assistive technology: the
 object around it carries the name, or is marked `decorative`. A line is a thin `rectangle`.
+
+**Speech and thought bubbles** (added in 0.30.0). A bubble is the picture of something said or thought, with a tail that points at whoever is speaking or thinking. A `shape`
+whose `content.shape` is `speech` (a rounded box with a pointed tail) or `thought` (an ellipse with two small circles trailing away from it) is a plain, empty bubble: a picture
+with no words, like any other shape, and decorative unless the author says it carries meaning. A `text` object whose `content.bubble` is `"speech"` or `"thought"` is a bubble
+with words in it: its `html` is the words, drawn inside the bubble, and it is read like any text. `content.tail` (on either) is `"left"` or `"right"`, the side the tail is on;
+without one it is on the left. The tail always hangs below the body, so the object's box is the bubble with its tail: the body takes the top, and the tail the bottom
+(28 percent of the height, between 12 and 36 pixels, for speech; 30 percent, between 16 and 44, for thought). The drawing is made at the box's own size, so a tail stays
+the same size however wide or tall the bubble is made and a circle stays round. A text bubble is coloured as a shape is: `style.fill` is the bubble, `style.stroke` and
+`style.strokeWidth` its outline, `style.color` the words (which the validator checks against the fill), and the room round the words is worked out from the bubble, so they sit
+in its body and never in the tail. Where the page reflows to one column the drawing, made for the author's box, gives way to a plain rounded box in the same fill and
+outline with the words filling it; a plain bubble shape keeps its shape and fills the width, as any shape does. A learner's own colours (the accessibility panel) paint
+a bubble in the surface and text colours they chose, and Windows high contrast paints it in the system colours. A `bubble` or `tail` that is neither of the two is the
+validator's `bubble-invalid` error.
 
 A `quizQuestion` has to make sense: it needs an answer a learner can give that is right, and its parts must have different ids. The validator checks each
 kind (see Quiz questions). The object's `altText` names the group of controls for a screen reader; the question itself is normally a heading placed before it.
@@ -1409,6 +1422,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.29.0 | 0.30.0 | Adds the speech and thought bubbles: the shapes `speech` and `thought`, the optional `tail` (`left` or `right`) of a shape that is one, and the optional `bubble` and `tail` of a `text` object (words in a bubble). Nothing in an existing project has to change: no shape is a bubble and no text has one. |
 | 0.28.0 | 0.29.0 | Adds the optional `poses` and `library` of a person in the cast (more pictures of them, each in a pose, and the character pack they came from) and the optional `pose` of a line of a scenario (which of its speaker's poses to show). Nothing in an existing project changes: no person has poses and no line has a pose. |
 | 0.27.0 | 0.28.0 | Adds the optional `altSuggestion` to an object's `accessibility`: a description the computer worked out and the author has not approved (`text` and `basis`). The course never uses it, and alt text is still required. Nothing in an existing project changes: no object has one. |
 | 0.26.0 | 0.27.0 | Adds the optional `base` to a slide's Capture provenance: what the Capture module made for a step (the slide's name and picture, and for each part its id, layer and a fingerprint of each field), so a lesson can be brought up to date without losing what the author changed. Nothing in an existing project changes: no slide had one, and a slide without one is left as it is when a lesson is brought up to date. |

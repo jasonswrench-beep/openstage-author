@@ -33,6 +33,15 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-shape svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .os-text > :first-child { margin-top: 0; }
 .os-text > :last-child { margin-bottom: 0; }
+/* A speech or thought bubble drawn behind words. The object's padding (set from the bubble's size) keeps the words in the body and out of the tail. */
+.os-bubbled { isolation: isolate; display: flex; flex-direction: column; justify-content: center; }
+.os-bubble-fig { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; overflow: visible; pointer-events: none; }
+.os-shape > .os-bubble-fig { position: static; z-index: auto; display: block; }
+.os-bubble-text { min-width: 0; }
+.os-bubble-text > :first-child { margin-top: 0; }
+.os-bubble-text > :last-child { margin-bottom: 0; }
+.os-bubble-text :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; margin: 0 0 .4em; }
+@media (forced-colors: active) { .os-bubble-fig .os-shape-fig { fill: Canvas; stroke: CanvasText; } }
 .os-image { object-fit: contain; }
 
 .os-button {
@@ -366,6 +375,9 @@ a.os-download-link:hover { text-decoration: underline; }
 .os-stage.os-reflow .os-layer > video.os-media { width: 100% !important; max-width: var(--os-w) !important; aspect-ratio: var(--os-ar); }
 .os-stage.os-reflow .os-layer > audio.os-media { width: 100% !important; }
 .os-stage.os-reflow .os-shape svg { height: 100%; }
+/* A text bubble in one column: the drawing is for the author's box, so it gives way to a plain rounded box in the same colours, and the words fill it. */
+.os-stage.os-reflow .os-layer > .os-bubbled { display: block; padding: 12px 18px !important; background: var(--os-bubble-fill, var(--os-surface, #f4f5f7)); border: 2px solid var(--os-bubble-stroke, var(--os-muted, #4a4f57)); border-radius: 18px; }
+.os-stage.os-reflow .os-bubbled > .os-bubble-fig { display: none; }
 .os-stage.os-reflow .os-mediabox .os-media-inner { aspect-ratio: 16 / 9; height: auto; flex: none; }
 .os-stage.os-reflow .os-embed-frame { flex: none; height: auto; aspect-ratio: 16 / 9; }
 
@@ -504,9 +516,12 @@ html[data-os-colors], html[data-os-colors] body { background: var(--os-c-bg); }
 .os-player[data-os-colors] :is(.os-viewport, .os-stage, .os-slide) { background: var(--os-c-bg) !important; }
 .os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-interaction, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario, .os-embed-placeholder, .os-mediabox, .os-transcript) { color: var(--os-c-text) !important; background-color: var(--os-c-bg) !important; border-color: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario) *:not(a, button, svg, svg *, input, select, textarea) { color: inherit !important; }
+/* A text bubble's colour is the drawn bubble's (below), so the box round it is left clear. */
+.os-player[data-os-colors] .os-stage .os-bubbled { background-color: transparent !important; }
 .os-player[data-os-colors] .os-stage a, .os-player[data-os-colors] .os-credits a { color: var(--os-c-accent) !important; text-decoration: underline; }
 .os-player[data-os-colors] .os-stage :is(.os-button, .os-quiz-check, .os-ix-turn, .os-ix-nav, .os-ix-listen, .os-download-link) { background: var(--os-c-accent) !important; color: var(--os-c-on-accent) !important; border-color: var(--os-c-text) !important; }
-.os-player[data-os-colors] .os-stage .os-shape :is(path, rect, ellipse, polygon, circle, line, polyline) { fill: var(--os-c-surface) !important; stroke: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage :is(.os-shape, .os-bubble-fig) :is(path, rect, ellipse, polygon, circle, line, polyline) { fill: var(--os-c-surface) !important; stroke: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage.os-reflow .os-layer > .os-bubbled { background: var(--os-c-surface) !important; border-color: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-stage .os-icon { color: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-nav-btn { background: var(--os-c-bg); color: var(--os-c-text); border-color: var(--os-c-text); }
 .os-player[data-os-colors] .os-nav-btn[aria-pressed="true"] { background: var(--os-c-accent); color: var(--os-c-on-accent); }

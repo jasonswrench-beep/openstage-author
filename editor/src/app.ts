@@ -15,6 +15,7 @@ import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
 import { Canvas } from "./canvas.ts";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
+import { isBubbleKind, tailOf } from "../../player/src/bubble.ts";
 import { backgroundColors, isThemeRef, resolveValue } from "../../player/src/theme.ts";
 import { COLOR_ROLES, colorRef } from "./colors.ts";
 import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, isCourseAction, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
@@ -27,8 +28,8 @@ import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
 import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
 import type { Style } from "../../player/src/types.ts";
-import { askChoice, interactionPreview, shapePreview } from "./choicepicker.ts";
-import { ADD_MENU, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
+import { askChoice, bubblePreview, interactionPreview, shapePreview } from "./choicepicker.ts";
+import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
 import { groupBox } from "./group.ts";
@@ -88,7 +89,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
 }
 
 const VALIDATE_DELAY_MS = 600;
-const SHAPE_LABELS: Record<(typeof SHAPE_KINDS)[number], string> = { rectangle: "Rectangle", rounded: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle", diamond: "Diamond", arrow: "Arrow" };
+const SHAPE_LABELS: Record<(typeof SHAPE_KINDS)[number], string> = { rectangle: "Rectangle", rounded: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle", diamond: "Diamond", arrow: "Arrow", speech: "Speech bubble", thought: "Thought bubble" };
 const BLOCK_LABELS: Record<TextBlock, string> = { p: "Paragraph", h1: "Heading 1", h2: "Heading 2", h3: "Heading 3", h4: "Heading 4", h5: "Heading 5", h6: "Heading 6" };
 
 /** What decides whether an input's panel has to be rebuilt: its parts, and the variables it can choose between. */
@@ -1370,7 +1371,16 @@ export class App {
         return;
       }
       const picked = await askChoice(group === "shape"
-        ? { heading: "Add a shape", legend: "Shape", confirm: "Add shape", choices: groupOptions("shape").map((c) => ({ ...c, preview: shapePreview(c.value.slice(6)) })) }
+        ? {
+          heading: "Add a shape or a bubble", legend: "Shape or bubble", confirm: "Add",
+          choices: [
+            ...groupOptions("shape").map((c) => ({ ...c, group: "Shapes", preview: shapePreview(c.value.slice(6)) })),
+            { value: "bubble:text-speech", label: "Speech bubble, with words", description: "A speech bubble you type in, to say what someone is saying.", group: "Speech and thought bubbles", preview: bubblePreview("speech", true) },
+            { value: "bubble:text-thought", label: "Thought bubble, with words", description: "A thought bubble you type in, to say what someone is thinking.", group: "Speech and thought bubbles", preview: bubblePreview("thought", true) },
+            { value: "bubble:shape-speech", label: "Speech bubble, empty", description: "A plain speech bubble with no words in it, to put your own words or a picture over.", group: "Speech and thought bubbles", preview: bubblePreview("speech", false) },
+            { value: "bubble:shape-thought", label: "Thought bubble, empty", description: "A plain thought bubble with no words in it.", group: "Speech and thought bubbles", preview: bubblePreview("thought", false) },
+          ],
+        }
         : { heading: "Add a quiz question", legend: "Kind of question", confirm: "Add question", choices: groupOptions("quiz").map((c) => ({ ...c, description: c.value === "quiz:tf" ? "A statement the learner marks true or false." : "One correct answer among several choices." })) });
       this.addKind.focus();
       if (!picked) return;
@@ -1381,6 +1391,10 @@ export class App {
       if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
       return;
     }
+    if (choice.startsWith("bubble:")) {
+      this.addBubble(m, choice);
+      return;
+    }
     const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "button" | "hotspot");
     if (o && o.type === "hotspot") {
       this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
@@ -1388,6 +1402,20 @@ export class App {
       const n = o.accessibility.tabOrder ?? 0;
       this.announce(`Added ${o.name}${n >= 1 ? `, number ${n} in reading order` : ", decorative"}. Its properties are in the Properties panel.`);
     }
+  }
+
+  /** Add a speech or thought bubble, with words to type in or empty. */
+  private addBubble(m: Model, choice: string): void {
+    const wanted = bubbleChoice(choice);
+    if (!wanted) return;
+    const { how, which } = wanted;
+    const made = how === "text" ? m.addObject("text", { bubble: which }) : m.addObject("shape", { shape: which });
+    if (!made) return;
+    const n = made.accessibility.tabOrder ?? 0;
+    const who = which === "speech" ? "speaking" : "thinking";
+    this.announce(how === "text"
+      ? `Added a ${which} bubble with words, number ${n} in reading order. Type what it says in the Text box in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`
+      : `Added an empty ${which} bubble, decorative. Choose its fill and outline in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`);
   }
 
   /** A hotspot question is about a picture, so the author chooses it first. */
@@ -2147,7 +2175,8 @@ export class App {
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
     const shape = !o ? "" : o.type === "button" ? `${m.activationOf(o).kind}|${o.content["icon"] ? "icon" : ""}`
-      : o.type === "text" ? (parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw")
+      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}`
+      : o.type === "shape" ? (isBubbleKind(o.content["shape"]) ? "bubble" : "")
       : o.type === "interaction" ? interactionShape(o)
       : o.type === "video" || o.type === "audio" ? `${String(o.content["captions"] ?? "")}|${parseBody(String(o.content["transcript"] ?? "")) === null}`
       : o.type === "embed" ? `${(o.content as unknown as EmbedContent).provider}|${parseBody((o.content as unknown as EmbedContent).transcript) === null}`
@@ -2483,6 +2512,8 @@ export class App {
     set("opacity", typeof o.style["opacity"] === "number" ? percentOf(o.style["opacity"]) : "");
     this.fillLooks(o);
     set("shape", String(o.content["shape"] ?? "rectangle"));
+    set("bubble", isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "");
+    set("tail", tailOf(o.content["tail"]));
     this.updateContrast(o);
     if (o.type === "quizQuestion") this.fillQuiz(o);
     if (o.type === "interaction") this.fillInteraction(o);
@@ -2552,7 +2583,7 @@ export class App {
 
     this.colorUpdaters.clear();
     const content: HTMLElement[] = [];
-    if (o.type === "text") content.push(...this.textFields(m, o));
+    if (o.type === "text") content.push(...this.textFields(m, o), ...this.bubbleFields(m, o));
     if (o.type === "button") content.push(this.field("label", "Button label", String(o.content["label"] ?? ""), (v) => {
       const msg = m.setLabel(o.id, v);
       if (msg) this.announce(msg); else this.fillValues(o);
@@ -2562,6 +2593,16 @@ export class App {
     if (o.type === "text" || o.type === "button") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true), this.colorField(m, o, "color", "Text colour", "Default"),
         h("p", { id: "contrast-note", class: "note" }));
+    }
+    if (o.type === "text" && isBubbleKind(o.content["bubble"])) {
+      looks.push(
+        this.colorField(m, o, "fill", "Bubble colour", "No fill"),
+        this.colorField(m, o, "stroke", "Outline colour", "No outline"),
+        this.field("stroke-width", "Outline width", o.style["strokeWidth"] ?? "", (v) => {
+          const r = m.setStyle(o.id, "strokeWidth", v);
+          if (!r.ok) { this.announce(r.message); this.fillValues(o); } else if (r.message) this.announce(r.message);
+        }, { number: true }),
+      );
     }
     if (o.type === "button") looks.unshift(...this.buttonLookFields(m, o));
     if (o.type === "button") looks.push(this.colorField(m, o, "fill", "Button colour", "Default"));
@@ -2592,6 +2633,7 @@ export class App {
           const msg = m.setShape(o.id, v);
           if (msg) this.announce(msg);
         }),
+        ...(isBubbleKind(o.content["shape"]) ? [this.tailField(m, o)] : []),
         this.colorField(m, o, "fill", "Fill colour", "No fill"),
         this.colorField(m, o, "stroke", "Outline colour", "No outline"),
         this.field("stroke-width", "Outline width", o.style["strokeWidth"] ?? "", (v) => {
@@ -3948,6 +3990,28 @@ export class App {
         if (msg) this.announce(msg);
       }, { area: true, rows: 4 }),
     ];
+  }
+
+  /** For text: whether the words sit in a speech or thought bubble, and which side the tail is on. */
+  private bubbleFields(m: Model, o: OSObject): HTMLElement[] {
+    const kind = isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "";
+    return [
+      this.selectField("bubble", "Bubble", [
+        { value: "", label: "None (plain text)" }, { value: "speech", label: "Speech bubble" }, { value: "thought", label: "Thought bubble" },
+      ], kind, (v) => {
+        const msg = m.setTextBubble(o.id, v);
+        if (msg) this.announce(msg);
+      }),
+      ...(kind ? [this.tailField(m, o)] : []),
+    ];
+  }
+
+  /** Which side of a bubble its tail is on. The tail always hangs below, pointing at whoever is speaking or thinking. */
+  private tailField(m: Model, o: OSObject): HTMLElement {
+    return this.selectField("tail", "Tail", [{ value: "left", label: "On the left" }, { value: "right", label: "On the right" }], tailOf(o.content["tail"]), (v) => {
+      const msg = m.setBubbleTail(o.id, v);
+      if (msg) this.announce(msg);
+    });
   }
 
   /**

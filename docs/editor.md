@@ -128,6 +128,14 @@ the shape later. Fill and outline colour and outline width are editable. New sha
 so they are hidden from screen readers; untick "Decorative" and write alt text if a shape carries
 meaning.
 
+**Speech and thought bubbles.** **Add > Shape or bubble...** offers four: a speech bubble or a thought bubble, each either **with words** (text you type in) or **empty** (a plain
+picture, decorative like a shape, to put your own words or a picture over). A bubble with words is a text object: type its words in the **Text** box as for any text, and
+set its **Bubble** (none, speech or thought), its **Tail** (on the left or the right, whichever side whoever is speaking or thinking is on), the **Bubble colour**, **Outline colour**
+and **Outline width** in the Properties panel. Any plain text box can be made into a bubble with its **Bubble** box, and made plain again (the bubble's colours go with it; Control Z
+brings them back). A new bubble has the theme's panel colour and a quiet outline, and its words are in the theme's text colour, so it reads well on any slide and keeps reading
+well if the theme changes; the Problems list checks the words against the bubble colour you choose. The tail stays the same size however you stretch the bubble, and where the
+page reflows to one column the bubble becomes a plain rounded box with the same colours.
+
 **Colours.** Wherever a colour is needed there is a palette of 24 named colours (choose one with the
 mouse, or with the arrow keys and Enter), the system colour picker for any other colour, a hex box
 for anyone who has a code, and a button for "none" or "default". For text and buttons the panel

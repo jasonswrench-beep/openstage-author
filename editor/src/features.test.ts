@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
 import type { ChoiceQuiz } from "../../player/src/types.ts";
 import { colorName, contrastNote, contrastRatio, normalizeHex, PALETTE } from "./content.ts";
-import { NEW_OPTIONS, previewBlocks, SLIDE_LAYOUTS } from "./factory.ts";
+import { bubbleChoice, NEW_OPTIONS, previewBlocks, SLIDE_LAYOUTS } from "./factory.ts";
 import { Model } from "./model.ts";
 import { newProjectFiles } from "./template.ts";
 
@@ -559,7 +559,9 @@ test("a project built from every layout, shape and quiz passes the real validato
   for (const o of NEW_OPTIONS) {
     // An image, a table and a scrolling text box start with no alt text, on purpose, so the validator asks for it.
     if (o.value === "image" || o.value.startsWith("quiz:") || o.value.startsWith("content:")) continue;
+    const bubble = bubbleChoice(o.value);
     if (o.value.startsWith("shape:")) m.addObject("shape", { shape: o.value.slice(6) });
+    else if (bubble) bubble.how === "text" ? m.addObject("text", { bubble: bubble.which }) : m.addObject("shape", { shape: bubble.which });
     else m.addObject(o.value as "text" | "button");
   }
   m.addQuiz("mc");

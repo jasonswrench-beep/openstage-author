@@ -33,7 +33,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 29, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 30, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -457,6 +457,31 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _download(rel, obj, add)
         _description(rel, obj, add)
         _narration(rel, obj, add)
+        _bubble(rel, obj, add)
+
+
+BUBBLE_KINDS = ("speech", "thought")
+BUBBLE_TAILS = ("left", "right")
+
+
+def _bubble(rel, obj, add):
+    """A speech or thought bubble is a `shape` whose form is one (an empty bubble) or a `text` with a `bubble` (a bubble with words in it). Its tail, if it names one, is on
+    the left or the right. The player draws anything else as it would draw the plain version, so this is a mistake to correct rather than a broken course."""
+    content = obj["content"]
+    if obj["type"] == "text":
+        kind = content.get("bubble")
+        if "bubble" in content and kind not in BUBBLE_KINDS:
+            add(ERROR, rel, obj["id"], "bubble-invalid", "A text bubble is neither a speech nor a thought bubble",
+                f"Its bubble is {json.dumps(kind)}; it can be \"speech\" or \"thought\". Leave it out to have plain text.")
+            return
+        is_bubble = "bubble" in content
+    elif obj["type"] == "shape":
+        is_bubble = content.get("shape") in BUBBLE_KINDS
+    else:
+        return
+    if is_bubble and "tail" in content and content["tail"] not in BUBBLE_TAILS:
+        add(ERROR, rel, obj["id"], "bubble-invalid", "A bubble's tail is on neither side",
+            f"Its tail is {json.dumps(content['tail'])}; it can be \"left\" or \"right\".")
 
 
 def _alt_suggestion(rel, obj, add):

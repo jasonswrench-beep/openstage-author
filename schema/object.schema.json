@@ -336,7 +336,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["html"],
-      "properties": { "html": { "type": "string", "minLength": 1 } }
+      "properties": {
+        "html": { "type": "string", "minLength": 1 },
+        "bubble": { "type": "string", "minLength": 1 },
+        "tail": { "type": "string", "minLength": 1 }
+      }
     },
     "contentImage": {
       "type": "object",
@@ -346,7 +350,10 @@
     "contentShape": {
       "type": "object",
       "required": ["shape"],
-      "properties": { "shape": { "type": "string", "minLength": 1 } }
+      "properties": {
+        "shape": { "type": "string", "minLength": 1 },
+        "tail": { "type": "string", "minLength": 1 }
+      }
     },
     "contentButton": {
       "type": "object",

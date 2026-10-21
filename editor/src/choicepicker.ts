@@ -2,6 +2,8 @@
 // short. Like the layout picker it is a native <dialog> holding one group of real radio buttons, so
 // it works by keyboard and a screen reader reads each name. The drawings are for the eye only.
 
+import { bubbleParts } from "../../player/src/bubble.ts";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export interface Choice {
@@ -44,6 +46,29 @@ export function shapePreview(kind: string): SVGElement {
   else if (kind === "diamond") draw("polygon", { points: "40,5 70,25 40,45 10,25" });
   else if (kind === "arrow") draw("polygon", { points: "8,18 44,18 44,6 72,25 44,44 44,32 8,32" });
   else draw("line", { x1: "10", y1: "40", x2: "70", y2: "10" });
+  return svg;
+}
+
+/** A small drawing of a speech or thought bubble, with a few lines in it for words when it has some. */
+export function bubblePreview(kind: "speech" | "thought", withWords: boolean): SVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 80 50");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("class", "choice-preview");
+  const group = document.createElementNS(SVG_NS, "g");
+  group.setAttribute("transform", "translate(10 3)");
+  const add = (tag: string, attrs: Record<string, string>) => {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    group.appendChild(e);
+  };
+  for (const f of bubbleParts(kind, "left", 60, 44).figures) {
+    const { tag, ...attrs } = f;
+    add(tag, { ...Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, String(v)])), fill: "#e8ecf6", stroke: "#0b3fb3", "stroke-width": "2.5" });
+  }
+  if (withWords) for (const y of [11, 18]) add("line", { x1: "14", y1: String(y), x2: "46", y2: String(y), stroke: "#6b7280", "stroke-width": "2.5", "stroke-linecap": "round" });
+  svg.appendChild(group);
   return svg;
 }
 

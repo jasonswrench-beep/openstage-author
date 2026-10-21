@@ -17,6 +17,7 @@ import { planReflow, type ReflowNote } from "./reflow.ts";
 import { buildScenario, type Move, type ScenarioSound } from "./scenario.ts";
 import { buildCertificate, buildResults, type CourseInfo, type CourseResults } from "./results.ts";
 import { buildLogo, logoFirst } from "./logo.ts";
+import { bubbleParts, bubblePaddingCss, isBubbleKind, tailOf, type BubbleKind, type BubbleTail } from "./bubble.ts";
 import { buildIcon, strokeWidthOf } from "./icon.ts";
 import { lookLayers, spokenOnChange } from "./looks.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
@@ -277,14 +278,23 @@ export class StageRenderer {
       case "text": {
         node = el(doc, "div", "os-text");
         const html = String(obj.content["html"] ?? "");
+        // A text bubble is words over a drawn bubble: the figure lies behind, and the words are in a box of their own that sits in the bubble's body.
+        let host = node;
+        const bubble = bubbleOf(obj);
+        if (bubble) {
+          node.classList.add("os-bubbled");
+          node.appendChild(bubbleFigure(doc, bubble.kind, bubble.tail, obj.geometry.width, obj.geometry.height));
+          host = el(doc, "div", "os-bubble-text");
+          node.appendChild(host);
+        }
         if (LIVE_ROLES.has(a.role)) {
           node.setAttribute("role", a.role);
           const list = this.fillers.get(layerId) ?? [];
-          list.push({ el: node, html });
+          list.push({ el: host, html });
           this.fillers.set(layerId, list);
-          if (layerVisible || this.behavior.editing) appendSanitizedHtml(node, html);
+          if (layerVisible || this.behavior.editing) appendSanitizedHtml(host, html);
         } else {
-          appendSanitizedHtml(node, html);
+          appendSanitizedHtml(host, html);
         }
         break;
       }
@@ -297,7 +307,8 @@ export class StageRenderer {
       }
       case "shape": {
         node = el(doc, "div", "os-shape");
-        node.appendChild(shapeFigure(doc, String(obj.content["shape"] ?? "rectangle")));
+        const bubble = bubbleOf(obj);
+        node.appendChild(bubble ? bubbleFigure(doc, bubble.kind, bubble.tail, obj.geometry.width, obj.geometry.height) : shapeFigure(doc, String(obj.content["shape"] ?? "rectangle")));
         if (!a.decorative) {
           node.setAttribute("role", "img");
           node.setAttribute("aria-label", a.altText);
@@ -534,12 +545,32 @@ export class StageRenderer {
 
     const theme = this.theme;
     const layers: Style[] = [resolveStyle(theme, obj.style), ...lookLayers(obj.states, { name: m.stateName, visited: m.visited, hover: m.hover }).map((s) => resolveStyle(theme, s))];
+    const bubble = bubbleOf(obj);
+    if (bubble) {
+      // The figure is drawn again at the box's size, so its tail stays the same size and its circles stay round however the box is stretched.
+      const fig = Array.from(node.children).find((c) => (c.getAttribute("class") ?? "").split(/\s+/).includes("os-bubble-fig"));
+      if (fig) drawBubble(this.doc, fig as SVGSVGElement, bubble.kind, bubble.tail, g.width, g.height);
+    }
     if (obj.type === "shape") {
       // Fill and outline belong to the drawn figure. The box around it must stay transparent,
       // or a circle would sit in a square of colour.
       const own = ["fill", "background", "stroke", "strokeWidth", "radius"];
       for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => !own.includes(k))));
       applyShapeStyle(node, Object.assign({}, ...layers) as Style);
+    } else if (bubble) {
+      // A text bubble: the colour behind the words, and the outline, belong to the drawn bubble. The words keep their own colour, font and size.
+      // The room round the words is worked out from the bubble, so they sit in its body and not its tail.
+      const own = ["fill", "background", "stroke", "strokeWidth", "radius", "padding"];
+      for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => !own.includes(k))));
+      const merged = Object.assign({}, ...layers) as Style;
+      applyShapeStyle(node, merged);
+      set("padding", bubblePaddingCss(bubble.kind, g.width, g.height));
+      // For the one-column layout, which paints a plain rounded box in place of the figure.
+      const paint = (v: unknown) => (typeof v === "string" && COLOR_VALUE.test(v) && v !== "none" ? v : "");
+      const fill = paint(merged["fill"] ?? merged["background"]);
+      const stroke = paint(merged["stroke"]);
+      if (fill) set("--os-bubble-fill", fill);
+      if (stroke) set("--os-bubble-stroke", stroke);
     } else if (obj.type === "interaction" || obj.type === "table" || obj.type === "scrollingText" || obj.type === "input" || obj.type === "embed" || obj.type === "results" || obj.type === "certificate" || obj.type === "download" || obj.type === "scenario") {
       // An interaction, table or scrolling text box paints itself in the theme's colours, which are known to read well together,
       // so only the font and its size can be changed.
@@ -559,7 +590,7 @@ export class StageRenderer {
     const note = this.reflow ? this.reflowNotes.get(m.obj.id) : undefined;
     m.el.classList.toggle("os-reflow-hide", !!note?.hide);
     // An object that has a fill of its own keeps it.
-    const backed = !!note?.backdrop && m.el.style.backgroundColor === "";
+    const backed = !!note?.backdrop && m.el.style.backgroundColor === "" && !m.el.classList.contains("os-bubbled");
     m.el.classList.toggle("os-reflow-backed", backed);
     if (backed) m.el.style.setProperty("background-color", note!.backdrop!);
     // Type drawn for a wide stage is too big for a narrow screen. Titles are capped at about nine hundredths of the window's width and
@@ -610,7 +641,7 @@ function applyStyle(node: HTMLElement, style: Style): void {
 // ---- shapes
 
 /** The shapes an object of type "shape" can be. An unknown name draws a rectangle. */
-export const SHAPE_KINDS = ["rectangle", "rounded", "ellipse", "triangle", "diamond", "arrow"] as const;
+export const SHAPE_KINDS = ["rectangle", "rounded", "ellipse", "triangle", "diamond", "arrow", "speech", "thought"] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -648,15 +679,48 @@ function shapeFigure(doc: Document, kind: string): SVGSVGElement {
   return svg;
 }
 
+/** The bubble an object draws, if it draws one: a shape that is a speech or thought bubble, or text with a `bubble` in its content. The tail is on the left unless it says right. */
+function bubbleOf(obj: OSObject): { kind: BubbleKind; tail: BubbleTail } | null {
+  const kind = obj.type === "shape" ? obj.content["shape"] : obj.type === "text" ? obj.content["bubble"] : undefined;
+  return isBubbleKind(kind) ? { kind, tail: tailOf(obj.content["tail"]) } : null;
+}
+
+/** A bubble, drawn at the size of its box, with a view box the same size so nothing is stretched. */
+function bubbleFigure(doc: Document, kind: BubbleKind, tail: BubbleTail, width: number, height: number): SVGSVGElement {
+  const svg = doc.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "os-bubble-fig");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  drawBubble(doc, svg, kind, tail, width, height);
+  return svg;
+}
+
+/** Draw (or draw again) a bubble in its figure. */
+function drawBubble(doc: Document, svg: SVGSVGElement, kind: BubbleKind, tail: BubbleTail, width: number, height: number): void {
+  const drawing = bubbleParts(kind, tail, width, height);
+  svg.setAttribute("viewBox", drawing.viewBox);
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  for (const f of drawing.figures) {
+    const part = doc.createElementNS(SVG_NS, f.tag);
+    if (f.tag === "path") part.setAttribute("d", f.d);
+    else for (const [k, v] of Object.entries(f)) if (k !== "tag") part.setAttribute(k, String(v));
+    part.setAttribute("class", "os-shape-fig");
+    part.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.appendChild(part);
+  }
+}
+
 function applyShapeStyle(node: HTMLElement, style: Style): void {
-  const fig = node.querySelector(".os-shape-fig");
-  if (!fig) return;
   const color = (v: unknown) => (typeof v === "string" && COLOR_VALUE.test(v) && v !== "none" ? v : "none");
-  fig.setAttribute("fill", color(style["fill"] ?? style["background"]));
   const stroke = color(style["stroke"]);
-  fig.setAttribute("stroke", stroke);
   const width = typeof style["strokeWidth"] === "number" ? style["strokeWidth"] : 2;
-  fig.setAttribute("stroke-width", stroke === "none" ? "0" : String(Math.max(0, width)));
+  // A bubble is several pieces (a thought bubble's circles), and they are all painted alike.
+  for (const fig of Array.from(node.querySelectorAll(".os-shape-fig"))) {
+    fig.setAttribute("fill", color(style["fill"] ?? style["background"]));
+    fig.setAttribute("stroke", stroke);
+    fig.setAttribute("stroke-width", stroke === "none" ? "0" : String(Math.max(0, width)));
+  }
 }
 
 export function el(doc: Document, tag: string, cls: string): HTMLElement {

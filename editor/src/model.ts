@@ -3,13 +3,14 @@
 
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
+import { isBubbleKind, isBubbleTail } from "../../player/src/bubble.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -36,7 +37,10 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.29.0";
+export const FORMAT_VERSION = "0.30.0";
+
+/** A shape that is a speech or thought bubble, or text that sits in one. */
+const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
 
 export interface OpenedProject {
   dir: string;
@@ -763,9 +767,48 @@ export class Model {
     const obj = this.find(objectId);
     if (!obj || obj.type !== "shape" || !SHAPE_KINDS.includes(shape as (typeof SHAPE_KINDS)[number]) || obj.content["shape"] === shape) return null;
     this.record(`shape:${objectId}`);
-    obj.content = { ...obj.content, shape };
+    // A tail goes with a bubble: a shape made into one has its tail on the left, and one made into anything else has no tail.
+    const { tail: oldTail, ...rest } = obj.content;
+    obj.content = isBubbleKind(shape) ? { ...rest, shape, tail: isBubbleTail(oldTail) ? oldTail : "left" } : { ...rest, shape };
     this.emit({ kind: "structure", objectId });
     return `Shape changed to ${shape}`;
+  }
+
+  /** Which side of a bubble (a speech or thought bubble shape, or text in a bubble) its tail is on. */
+  setBubbleTail(objectId: string, tail: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || !isBubbleTail(tail) || !isBubbleObject(obj) || obj.content["tail"] === tail) return null;
+    this.record(`tail:${objectId}`);
+    obj.content = { ...obj.content, tail };
+    this.emit({ kind: "content", objectId });
+    return `Tail on the ${tail}`;
+  }
+
+  /**
+   * Put the words of a text object in a speech or thought bubble, or take them out ("" is not a bubble). Making one gives it the panel colour and outline a new bubble has and
+   * the theme's text colour, unless it has colours of its own; taking it out takes those colours away, so the words are plain text again.
+   */
+  setTextBubble(objectId: string, kind: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text") return null;
+    const now = isBubbleKind(obj.content["bubble"]) ? obj.content["bubble"] : "";
+    if (kind === now || (kind !== "" && !isBubbleKind(kind))) return null;
+    this.record(`bubble:${objectId}`);
+    const { bubble: _bubble, tail: _tail, ...rest } = obj.content;
+    if (kind === "") {
+      obj.content = rest;
+      const { fill: _fill, stroke: _stroke, strokeWidth: _width, ...style } = obj.style;
+      obj.style = style;
+      this.emit({ kind: "structure", objectId });
+      return "Plain text again, without the bubble";
+    }
+    obj.content = { ...rest, bubble: kind, tail: isBubbleTail(obj.content["tail"]) ? obj.content["tail"] : "left" };
+    if (now === "") {
+      const own = obj.style;
+      obj.style = { ...own, fill: own["fill"] ?? BUBBLE_LOOK.fill, stroke: own["stroke"] ?? BUBBLE_LOOK.stroke, strokeWidth: own["strokeWidth"] ?? BUBBLE_LOOK.strokeWidth, ...(own["fill"] === undefined ? { color: BUBBLE_TEXT_COLOR } : {}) };
+    }
+    this.emit({ kind: "structure", objectId });
+    return kind === "speech" ? "In a speech bubble" : "In a thought bubble";
   }
 
   /** Replace the HTML of a text object directly, for text with formatting the simple editor cannot handle. */
@@ -1061,7 +1104,7 @@ export class Model {
   }
 
   /** Add an object to the layer being edited, and select it. */
-  addObject(kind: NewKind, opts: { imageSrc?: string; size?: { w: number; h: number }; shape?: string } = {}): OSObject | null {
+  addObject(kind: NewKind, opts: { imageSrc?: string; size?: { w: number; h: number }; shape?: string; bubble?: "speech" | "thought" } = {}): OSObject | null {
     const layer = this.layer;
     if (!layer) return null;
     const obj = newObject(kind, this.placement(this.allocator().object()), opts);

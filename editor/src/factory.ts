@@ -38,10 +38,20 @@ export const NEW_OPTIONS: { value: string; label: string }[] = [
   { value: "shape:diamond", label: "Shape: diamond" },
   { value: "shape:arrow", label: "Shape: arrow" },
   { value: "shape:line", label: "Shape: line" },
+  { value: "bubble:text-speech", label: "Bubble: speech, with words" },
+  { value: "bubble:text-thought", label: "Bubble: thought, with words" },
+  { value: "bubble:shape-speech", label: "Bubble: speech, empty" },
+  { value: "bubble:shape-thought", label: "Bubble: thought, empty" },
   { value: "content:table", label: "Content: table" },
   { value: "content:scrollingText", label: "Content: scrolling text" },
   ...QUIZ_KINDS.map((k) => ({ value: `quiz:${k.id}`, label: `Quiz question: ${k.label}` })),
 ];
+
+/** What an Add menu value "bubble:<how>-<which>" asks for: words to type in (`text`) or an empty bubble (`shape`), a speech or a thought bubble. */
+export function bubbleChoice(value: string): { how: "text" | "shape"; which: "speech" | "thought" } | null {
+  const m = /^bubble:(text|shape)-(speech|thought)$/.exec(value);
+  return m ? { how: m[1] as "text" | "shape", which: m[2] as "speech" | "thought" } : null;
+}
 
 /** Ids for new objects and layers that no one else is using. */
 export interface Alloc {
@@ -70,9 +80,17 @@ export interface Placement {
 interface NewOptions {
   imageSrc?: string;
   size?: { w: number; h: number };
-  /** For a shape: rectangle, rounded, ellipse, triangle, diamond, arrow or line. */
+  /** For a shape: rectangle, rounded, ellipse, triangle, diamond, arrow, line, speech or thought. */
   shape?: string;
+  /** For text: put the words in a speech or thought bubble. */
+  bubble?: "speech" | "thought";
 }
+
+/** What a bubble looks like when it is first made, or when a text box is made into one: the theme's panel colour with a quiet outline, so it reads well on any slide
+ *  and keeps reading well when the theme changes. The words are in the theme's text colour, which goes with the panel colour. */
+export const BUBBLE_LOOK = { fill: colorRef("surface"), stroke: colorRef("muted"), strokeWidth: 2 };
+export const BUBBLE_TEXT_COLOR = colorRef("text");
+export const BUBBLE_NAMES: Record<"speech" | "thought", string> = { speech: "Speech bubble", thought: "Thought bubble" };
 
 /** The parts every object has the same way, with nothing added to it yet. */
 export const box = (id: string, x: number, y: number, w: number, h: number, z: number) => ({
@@ -91,13 +109,21 @@ const stagger = (p: Placement, x: number, y: number) => ({ x: x + (p.count % 6) 
 
 const SHAPE_NAMES: Record<string, string> = {
   rectangle: "Rectangle", rounded: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle",
-  diamond: "Diamond", arrow: "Arrow", line: "Line",
+  diamond: "Diamond", arrow: "Arrow", line: "Line", speech: "Speech bubble", thought: "Thought bubble",
 };
 
 export function newObject(kind: NewKind, p: Placement, opts: NewOptions = {}): OSObject {
   switch (kind) {
     case "text": {
       const at = stagger(p, 160, 160);
+      if (opts.bubble) {
+        return {
+          ...box(p.id, at.x, at.y, 380, 180, p.z), type: "text", name: BUBBLE_NAMES[opts.bubble],
+          content: { html: "<p>New text</p>", bubble: opts.bubble, tail: "left" },
+          style: { fontFamily: "theme:font.body", fontSize: BLOCK_SIZES.p, color: BUBBLE_TEXT_COLOR, ...BUBBLE_LOOK },
+          accessibility: { altText: "New text", role: "paragraph", tabOrder: p.tabOrder, decorative: false },
+        };
+      }
       return {
         ...box(p.id, at.x, at.y, 600, 60, p.z), type: "text", name: "Text box",
         content: { html: "<p>New text</p>" },
@@ -127,11 +153,12 @@ export function newObject(kind: NewKind, p: Placement, opts: NewOptions = {}): O
     case "shape": {
       const which = opts.shape ?? "rectangle";
       const isLine = which === "line";
+      const isBubble = which === "speech" || which === "thought";
       const at = stagger(p, 160, 360);
       return {
-        ...box(p.id, at.x, at.y, isLine ? 400 : 200, isLine ? 6 : 120, p.z), type: "shape", name: SHAPE_NAMES[which] ?? "Shape",
-        content: { shape: isLine ? "rectangle" : which },
-        style: { fill: colorRef("surface") },
+        ...box(p.id, at.x, at.y, isLine ? 400 : isBubble ? 320 : 200, isLine ? 6 : isBubble ? 160 : 120, p.z), type: "shape", name: SHAPE_NAMES[which] ?? "Shape",
+        content: isBubble ? { shape: which, tail: "left" } : { shape: isLine ? "rectangle" : which },
+        style: isBubble ? { ...BUBBLE_LOOK } : { fill: colorRef("surface") },
         accessibility: { altText: "", role: "presentation", tabOrder: 0, decorative: true },
       };
     }
@@ -621,7 +648,7 @@ export const ADD_MENU: { value: string; label: string }[] = [
   { value: "group:button", label: "Button..." },
   { value: "hotspot", label: "Hotspot (a clickable area)" },
   { value: "group:media", label: "Image, video, audio or file..." },
-  { value: "group:shape", label: "Shape..." },
+  { value: "group:shape", label: "Shape or bubble..." },
   { value: "group:content", label: "Table or scrolling text..." },
   { value: "group:question", label: "Question, input or survey..." },
   { value: "group:interaction", label: "Interaction or scenario..." },

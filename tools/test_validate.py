@@ -2595,6 +2595,88 @@ class Looks(unittest.TestCase):
             self.assertIn("30% solid", rules(p.run(), "icon-contrast", "obj-9500")[0].detail)
 
 
+class Bubbles(unittest.TestCase):
+    """Format 0.30.0: a shape can be a speech or thought bubble, and a text can sit in one. The tail is on the left or the right; anything else is named, not guessed at."""
+
+    def shape(self, p, shape="speech", **content):
+        def make(d):
+            o = copy.deepcopy(d["baseLayer"]["objects"][2])
+            o.update({"id": "obj-9300", "name": "Bubble"})
+            o["content"] = {"shape": shape, **content}
+            o["geometry"].update({"x": 100, "y": 400, "width": 320, "height": 160})
+            d["baseLayer"]["objects"].append(o)
+        p.slide1(make)
+
+    def text(self, p, fill="#ffffff", color="#141414", **content):
+        def make(d):
+            o = copy.deepcopy(d["baseLayer"]["objects"][1])
+            o.update({"id": "obj-9301", "name": "Words in a bubble"})
+            o["accessibility"]["tabOrder"] = 9
+            o["content"] = {"html": "<p>I will send it today.</p>", **content}
+            o["style"] = {"fontFamily": "system-ui", "fontSize": 22, "color": color, "fill": fill, "stroke": "#4a4f57", "strokeWidth": 2}
+            o["geometry"].update({"x": 500, "y": 400, "width": 320, "height": 160})
+            d["baseLayer"]["objects"].append(o)
+        p.slide1(make)
+
+    def test_a_plain_bubble_of_either_kind_and_either_tail_is_fine(self):
+        for kind in ("speech", "thought"):
+            for extra in ({}, {"tail": "left"}, {"tail": "right"}):
+                with MutatedProject() as p:
+                    self.shape(p, kind, **extra)
+                    found = p.run()
+                    self.assertEqual([f for f in found if f.severity == "error"], [], (kind, extra))
+                    self.assertEqual(rules(found, "bubble-invalid"), [])
+
+    def test_a_text_bubble_of_either_kind_and_either_tail_is_fine(self):
+        for kind in ("speech", "thought"):
+            for extra in ({}, {"tail": "left"}, {"tail": "right"}):
+                with MutatedProject() as p:
+                    self.text(p, bubble=kind, **extra)
+                    found = p.run()
+                    self.assertEqual([f for f in found if f.severity == "error"], [], (kind, extra))
+                    self.assertEqual(rules(found, "bubble-invalid"), [])
+
+    def test_a_tail_that_is_neither_left_nor_right_is_an_error(self):
+        with MutatedProject() as p:
+            self.shape(p, "thought", tail="up")
+            hit = rules(p.run(), "bubble-invalid", "obj-9300", "error")
+            self.assertEqual(len(hit), 1)
+            self.assertIn('"up"', hit[0].detail)
+        with MutatedProject() as p:
+            self.text(p, bubble="speech", tail="middle")
+            self.assertEqual(len(rules(p.run(), "bubble-invalid", "obj-9301", "error")), 1)
+
+    def test_a_text_bubble_that_is_not_a_speech_or_thought_bubble_is_an_error(self):
+        for bad in ("cloud", "Speech", "bubble"):
+            with MutatedProject() as p:
+                self.text(p, bubble=bad)
+                hit = rules(p.run(), "bubble-invalid", "obj-9301", "error")
+                self.assertEqual(len(hit), 1, bad)
+        for bad in ("", None, 3):
+            with MutatedProject() as p:
+                self.text(p, bubble=bad)
+                self.assertTrue([f for f in p.run() if f.severity == "error"], f"{bad!r} is not even words, so the schema refuses it")
+
+    def test_a_tail_on_something_that_is_not_a_bubble_is_left_alone(self):
+        with MutatedProject() as p:
+            self.shape(p, "rectangle", tail="up")
+            self.text(p, tail="up")
+            self.assertEqual(rules(p.run(), "bubble-invalid"), [])
+
+    def test_the_words_in_a_text_bubble_are_checked_against_the_bubble_colour(self):
+        with MutatedProject() as p:
+            self.text(p, fill="#ffffff", color="#141414", bubble="speech")
+            self.assertEqual(rules(p.run(), "contrast", "obj-9301"), [])
+        with MutatedProject() as p:
+            self.text(p, fill="#ffffff", color="#bbbbbb", bubble="speech")
+            self.assertEqual(len(rules(p.run(), "contrast", "obj-9301", "error")), 1)
+
+    def test_the_schema_allows_a_bubble_and_a_tail_in_a_text_and_a_tail_in_a_shape_and_nothing_else_new(self):
+        with MutatedProject() as p:
+            self.text(p, bubble="speech", tail="left", surprise=1)
+            self.assertTrue([f for f in p.run() if f.severity == "error"], "a text still takes only the fields it knows")
+
+
 class DeckImportRules(unittest.TestCase):
     """Slides and shapes imported from a PowerPoint deck say where they came from, and the project lists its decks."""
 

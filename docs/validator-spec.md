@@ -140,6 +140,15 @@ schema error.
 
 A person's voice that does not exist, or a line's narration with one that does not, is `voice-unknown`, like any narration; a picture that is missing is `asset-missing`.
 
+### Speech and thought bubbles
+
+| Rule | Severity | Message |
+| --- | --- | --- |
+| A text object's `content.bubble` is not `speech` or `thought` (`bubble-invalid`) | Error | A text bubble is neither a speech nor a thought bubble |
+| A bubble's `content.tail` is not `left` or `right` (`bubble-invalid`) | Error | A bubble's tail is on neither side |
+
+The tail of something that is not a bubble is left alone. The words in a text bubble are checked for contrast against the bubble's `fill` by the ordinary `contrast` rule, and an empty bubble is a shape: decorative unless it is given alt text.
+
 ### Icons and the course actions
 
 | Rule | Severity | Message |
