@@ -1,7 +1,8 @@
 // Words that show a value: what a reference looks like, the values the course works out itself, and how each one is written.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILT_IN_VALUES, isBuiltInValue, namesInBrackets, referencesIn, showValue, splitReferences, valueFor, variableNamed, type ValueSource } from "./valuetext.ts";
+import { BUILT_IN_VALUES, isBuiltInValue, namesInBrackets, referencesIn, showValue, splitReferences, totalsFromResults, valueFor, variableNamed, type ValueSource } from "./valuetext.ts";
+import type { CourseResults } from "./results.ts";
 import type { Variable } from "./types.ts";
 
 const variables: Variable[] = [
@@ -72,4 +73,19 @@ test("only the course's own names are built in, and they all start with a dollar
 test("for a fixed copy such as a transcript, a reference is its name in brackets, without the dollar sign", () => {
   assert.equal(namesInBrackets("Score so far: {{$score}} out of {{$possible}}. Tries: {{Tries}}."), "Score so far: [score] out of [possible]. Tries: [Tries].");
   assert.equal(namesInBrackets("Plain words"), "Plain words");
+});
+
+test("the totals come from where the learner stands in the quiz, the same figures as the results box, and are all 0 before there is anything", () => {
+  assert.deepEqual(totalsFromResults(undefined), { earnedPoints: 0, totalPoints: 0, percent: null, questions: 0, finished: 0, correct: 0 });
+  const results: CourseResults = {
+    questions: [
+      { slideName: "a", objectId: "o1", points: 100, earned: 100, state: "correct" },
+      { slideName: "b", objectId: "o2", points: 100, earned: 50, state: "partial" },
+      { slideName: "c", objectId: "o3", points: 100, earned: 0, state: "incorrect" },
+      { slideName: "d", objectId: "o4", points: 100, earned: 0, state: "open" },
+      { slideName: "e", objectId: "o5", points: 100, earned: 0, state: "unanswered" },
+    ],
+    totalPoints: 500, earnedPoints: 150, percent: null, finished: false, passed: null, passMark: 80,
+  };
+  assert.deepEqual(totalsFromResults(results), { earnedPoints: 150, totalPoints: 500, percent: null, questions: 5, finished: 3, correct: 1 });
 });

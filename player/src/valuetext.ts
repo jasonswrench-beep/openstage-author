@@ -2,6 +2,7 @@
 // changes it when the value changes. This file has no screen in it. It says what a reference looks like, which names there are besides the author's own variables, and what
 // each one is worth, so every part can be tested directly (valuetext.test.ts). The validator (tools/validate.py) reads references the same way: the two must agree.
 
+import type { CourseResults } from "./results.ts";
 import type { Primitive, Variable } from "./types.ts";
 
 /** A reference is two braces, a name, and two braces. A name has no brace in it and is not long. */
@@ -59,6 +60,19 @@ export interface QuestionTotals {
   questions: number;
   finished: number;
   correct: number;
+}
+
+/** The totals from where the learner stands in the quiz (the same figures as the results box). With nothing yet, every total is 0. */
+export function totalsFromResults(results: CourseResults | undefined): QuestionTotals {
+  const questions = results?.questions ?? [];
+  return {
+    earnedPoints: results?.earnedPoints ?? 0,
+    totalPoints: results?.totalPoints ?? 0,
+    percent: results?.percent ?? null,
+    questions: questions.length,
+    finished: questions.filter((q) => q.state === "correct" || q.state === "partial" || q.state === "incorrect").length,
+    correct: questions.filter((q) => q.state === "correct").length,
+  };
 }
 
 export interface ValueSource {

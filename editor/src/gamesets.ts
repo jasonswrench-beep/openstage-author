@@ -7,6 +7,7 @@
 // box and the LMS. There are no leaderboards, coins, badges or anything kept beyond the one activity.
 
 import { colorRef } from "../../player/src/theme.ts";
+import { namesInBrackets } from "../../player/src/valuetext.ts";
 import type { Condition, Layer, OSObject, Slide, Trigger } from "../../player/src/types.ts";
 import { buildActivation, writeRules, type Rule, type RuleItem } from "./content.ts";
 import { box, buildQuiz, emptyLayer, emptySlide, heading, body, newObject, textRole, type Alloc, type PreviewBlock, type Rect, type SlideLayout, type Tone } from "./factory.ts";
@@ -79,7 +80,7 @@ const textBox = (alloc: Alloc, name: string, block: "h1" | "h2" | "p", text: str
   ...box(alloc.object(), rect[0], rect[1], rect[2], rect[3], z), type: "text", name,
   content: { html: `<${block}>${text}</${block}>` },
   style: { fontFamily: block === "p" ? "theme:font.body" : "theme:font.heading", fontSize: size, color: colorRef(textRole(tone, muted)) },
-  accessibility: { altText: text, role: block === "p" ? "paragraph" : "heading", tabOrder: tab, decorative: false },
+  accessibility: { altText: namesInBrackets(text), role: block === "p" ? "paragraph" : "heading", tabOrder: tab, decorative: false },
 });
 
 /** A button with its words as its name. Its rules are given by the caller. */
@@ -127,6 +128,16 @@ export const tileValue = (r: number): number => (r + 1) * 100;
 
 const BOARD_PROMPT = "Choose a tile, answer its question, then come back to the board. Finish opens when every tile has been used.";
 
+/** The running score, shown in the top corner of a slide: the points the learner has earned so far. A value in a text is put there by the player (see valuetext.ts). */
+const SCORE_WORDS = "Score: {{$score}}";
+const scoreRect: Rect = [960, 36, 240, 40];
+
+/** The score text in the top corner of a dark slide, against the right-hand margin. */
+const scoreBox = (alloc: Alloc, tab: number): OSObject => {
+  const o = textBox(alloc, "Score", "p", SCORE_WORDS, scoreRect, 26, "dark", tab, 12);
+  return { ...o, style: { ...o.style, textAlign: "right" } };
+};
+
 function boardPreview(categories: number, values: number): PreviewBlock[] {
   const grid = boardGrid(categories, values);
   const out: PreviewBlock[] = [{ kind: "button", rect: [1040, 640, 160, 56] }];
@@ -155,7 +166,7 @@ const triggerIds = (): (() => string) => {
 function questionSlide(ctx: GameContext, id: string, boardId: string, category: number, row: number, usedVariable: string, playedVariable: string): Slide {
   const { alloc } = ctx;
   const value = tileValue(row);
-  const points = textBox(alloc, "Points", "p", `${value} points`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
+  const points = textBox(alloc, "Points", "p", `${value} points. Score so far: {{$score}}`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
   const built = buildQuiz("mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
   const [, quiz] = built.objects as [OSObject, OSObject];
   // One try: the answer is final, so the tile is used up when it is given. Each question is worth its tile's points, which is what reaches the score.
@@ -210,11 +221,12 @@ function buildQuizBoard(ctx: GameContext, o: GameOptions): GameBuild {
   const used = questionIds.map((column, c) => column.map((_, r) => ctx.variable("boolean", `${tag}Used: Category ${c + 1}, ${tileValue(r)}`)));
 
   // The board. Reading order goes down each category in turn (its name, then its tiles from the smallest value), then Finish.
-  let tab = 2;
+  let tab = 3;
   let z = 20;
   const objects: OSObject[] = [
-    textBox(alloc, "Title", "h1", "Quiz board", [80, 24, 1120, 64], 40, "dark", 1, 10),
+    textBox(alloc, "Title", "h1", "Quiz board", [80, 24, 860, 64], 40, "dark", 1, 10),
     textBox(alloc, "Instructions", "p", BOARD_PROMPT, [80, 92, 1120, 44], 22, "dark", 2, 11, true),
+    scoreBox(alloc, 3),
   ];
   for (let c = 0; c < categories; c++) {
     objects.push(textBox(alloc, `Category ${c + 1}`, "h2", `Category ${c + 1}`, grid.header(c), 24, "dark", ++tab, ++z));
@@ -339,7 +351,7 @@ const ladderLayout: SlideLayout = {
 function ladderQuestion(ctx: GameContext, id: string, nextId: string, level: number, rungs: number, group: string): Slide {
   const { alloc } = ctx;
   const value = rungValue(level);
-  const where = textBox(alloc, "Where you are", "p", `Question ${level} of ${rungs}, worth ${value} points`, [80, 24, 860, 36], 22, "light", 1, 10, true);
+  const where = textBox(alloc, "Where you are", "p", `Question ${level} of ${rungs}, worth ${value} points. Points so far: {{$score}}`, [80, 24, 860, 36], 22, "light", 1, 10, true);
   const built = buildQuiz("mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
   const [prompt, quiz] = built.objects as [OSObject, OSObject];
   // The ladder takes the right-hand side, so the question and its feedback keep to the left of it.
@@ -450,11 +462,12 @@ function roomSlide(ctx: GameContext, id: string, lockId: string, room: number, f
   const code = doorCode(room);
   const clues = PLACE_LABELS.map((_, j) => layerOf(alloc, `Clue ${j + 1}`));
   const objects: OSObject[] = [
-    textBox(alloc, "Title", "h1", `Room ${room}`, [80, 24, 1120, 64], 40, "dark", 1, 10),
+    textBox(alloc, "Title", "h1", `Room ${room}`, [80, 24, 860, 64], 40, "dark", 1, 10),
     textBox(alloc, "Instructions", "p", "Search each place for a clue. When you are ready, go to the door and enter its code.", [80, 100, 1120, 60], 24, "dark", 2, 11, true),
+    scoreBox(alloc, 3),
   ];
   PLACE_LABELS.forEach((label, j) => {
-    const spot = button(alloc, label, label, spotRect(j), 20 + j, 3 + j, 26);
+    const spot = button(alloc, label, label, spotRect(j), 20 + j, 4 + j, 26);
     spot.states = SEARCHED;
     const own = clues[j]!;
     // Only one clue is open at a time, because they all appear in the same place. Searching also marks the place as searched, and a rule that
@@ -475,7 +488,7 @@ function roomSlide(ctx: GameContext, id: string, lockId: string, room: number, f
     close.triggers = buildActivation({ kind: "hide", layerId: own.id });
     own.objects.push(note, close);
   });
-  const door = button(alloc, "Go to the door", "Go to the door", [840, 640, 360, 56], 30, 3 + PLACE_LABELS.length);
+  const door = button(alloc, "Go to the door", "Go to the door", [840, 640, 360, 56], 30, 4 + PLACE_LABELS.length);
   door.triggers = buildActivation({ kind: "jump", slideId: lockId });
   objects.push(door);
   return slideWith(id, `Room ${room}`, objects, clues, "theme:bg.dark");
@@ -490,7 +503,7 @@ function roomSlide(ctx: GameContext, id: string, lockId: string, room: number, f
 function lockSlide(ctx: GameContext, id: string, roomId: string, nextId: string, room: number, rooms: number, tries: number, triesVariable: string): Slide {
   const { alloc } = ctx;
   const code = doorCode(room);
-  const where = textBox(alloc, "Where you are", "p", `Room ${room} of ${rooms}: the door`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
+  const where = textBox(alloc, "Where you are", "p", `Room ${room} of ${rooms}: the door. Score so far: {{$score}}`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
   const built = buildQuiz("short", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
   const [prompt, quiz] = built.objects as [OSObject, OSObject];
   prompt.content = { ...prompt.content, html: "<h2>What is the code that opens the door?</h2>" };

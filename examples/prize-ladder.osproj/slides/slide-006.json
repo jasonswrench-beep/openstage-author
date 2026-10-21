@@ -41,7 +41,7 @@
         "type": "text",
         "name": "Where you are",
         "content": {
-          "html": "<p>Question 4 of 8, worth 400 points</p>"
+          "html": "<p>Question 4 of 8, worth 400 points. Points so far: {{$score}}</p>"
         },
         "style": {
           "fontFamily": "theme:font.body",
@@ -49,7 +49,7 @@
           "color": "theme:color.muted"
         },
         "accessibility": {
-          "altText": "Question 4 of 8, worth 400 points",
+          "altText": "Question 4 of 8, worth 400 points. Points so far: [score]",
           "role": "paragraph",
           "tabOrder": 1,
           "decorative": false

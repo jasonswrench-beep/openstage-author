@@ -41,7 +41,7 @@
         "type": "text",
         "name": "Where you are",
         "content": {
-          "html": "<p>Room 2 of 3: the door</p>"
+          "html": "<p>Room 2 of 3: the door. Score so far: {{$score}}</p>"
         },
         "style": {
           "fontFamily": "theme:font.body",
@@ -49,7 +49,7 @@
           "color": "theme:color.muted"
         },
         "accessibility": {
-          "altText": "Room 2 of 3: the door",
+          "altText": "Room 2 of 3: the door. Score so far: [score]",
           "role": "paragraph",
           "tabOrder": 1,
           "decorative": false

@@ -21,7 +21,7 @@ import { bubbleParts, bubblePaddingCss, isBubbleKind, tailOf, type BubbleKind, t
 import { buildIcon, strokeWidthOf } from "./icon.ts";
 import { lookLayers, spokenOnChange } from "./looks.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
-import { splitReferences, valueFor, type QuestionTotals } from "./valuetext.ts";
+import { splitReferences, totalsFromResults, valueFor } from "./valuetext.ts";
 import { backgroundCss, resolveStyle } from "./theme.ts";
 import type { Character, Effect, IconContent, OSObject, QuizContent, Slide, Style, Theme, Variable } from "./types.ts";
 
@@ -289,15 +289,7 @@ export class StageRenderer {
   /** What to show for one reference: its value now, or the reference itself if there is nothing by that name, so the mistake can be seen. */
   private valueText(name: string): string {
     const variables = this.behavior.variables?.() ?? [];
-    const results = this.behavior.results?.();
-    const totals = (): QuestionTotals => ({
-      earnedPoints: results?.earnedPoints ?? 0,
-      totalPoints: results?.totalPoints ?? 0,
-      percent: results?.percent ?? null,
-      questions: results?.questions.length ?? 0,
-      finished: results?.questions.filter((q) => q.state === "correct" || q.state === "partial" || q.state === "incorrect").length ?? 0,
-      correct: results?.questions.filter((q) => q.state === "correct").length ?? 0,
-    });
+    const totals = () => totalsFromResults(this.behavior.results?.());
     const shown = valueFor(name, { variables, valueOf: (id) => this.behavior.variableValue?.(id) ?? variables.find((v) => v.id === id)?.initial, totals });
     return shown ?? `{{${name}}}`;
   }

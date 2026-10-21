@@ -13,7 +13,7 @@
         "geometry": {
           "x": 80,
           "y": 24,
-          "width": 1120,
+          "width": 860,
           "height": 64,
           "rotation": 0,
           "z": 10
@@ -244,7 +244,7 @@
         "accessibility": {
           "altText": "Look at the welcome board",
           "role": "button",
-          "tabOrder": 3,
+          "tabOrder": 4,
           "decorative": false
         }
       },
@@ -390,7 +390,7 @@
         "accessibility": {
           "altText": "Look at the visitor book",
           "role": "button",
-          "tabOrder": 4,
+          "tabOrder": 5,
           "decorative": false
         }
       },
@@ -536,7 +536,7 @@
         "accessibility": {
           "altText": "Look at the fire notice",
           "role": "button",
-          "tabOrder": 5,
+          "tabOrder": 6,
           "decorative": false
         }
       },
@@ -600,7 +600,55 @@
         "accessibility": {
           "altText": "Go to the door",
           "role": "button",
-          "tabOrder": 6,
+          "tabOrder": 7,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0072",
+        "geometry": {
+          "x": 960,
+          "y": 36,
+          "width": 240,
+          "height": 40,
+          "rotation": 0,
+          "z": 12
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Score",
+        "content": {
+          "html": "<p>Score: {{$score}}</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 26,
+          "color": "theme:color.onDark",
+          "textAlign": "right"
+        },
+        "accessibility": {
+          "altText": "Score: [score]",
+          "role": "paragraph",
+          "tabOrder": 3,
           "decorative": false
         }
       }

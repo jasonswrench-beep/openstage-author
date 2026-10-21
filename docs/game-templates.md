@@ -31,7 +31,7 @@ generic names (no "Jeopardy", "Millionaire" or "Monopoly", which are trademarks)
 
 ## What it cannot do yet (searched for and not found)
 
-1. **Show a variable's value as text.** There is no live score, lives, level or coins readout outside a scenario's meters and the results box.
+1. **Show a variable's value as text.** ~~There is no live score, lives, level or coins readout outside a scenario's meters and the results box.~~ Built 2026-10-21 (format 0.31.0): a text can hold `{{$score}}` or `{{Name}}`, and the games now show a running score (see "A running score" under Built so far).
 2. **A countdown timer.** Timed questions are listed as not built. A timer must let the learner extend it or turn it off (WCAG 2.2.1).
 3. **Shuffling and randomness** (beyond the quiz's fixed, seeded shuffle), and question banks.
 4. **A look that swaps words or a picture**, so a card cannot turn over to show its face with a look.
@@ -123,6 +123,10 @@ The author approved stage 1 and the reading of "gamification economies" above (a
   category's heading and its tiles in order, used tiles and Finish as real disabled buttons; the ladder: every rung `aria-hidden`, the words in text, and exactly one way on reachable after an answer; the escape
   room: before an answer no way on, after a wrong answer with tries left a real `disabled` button, after the last try an enabled one, and the code shown).
 
+### A running score (added 2026-10-21, after values in a text were built, format 0.31.0)
+
+A text can now show a value that changes (`{{$score}}`: the points earned so far, read from the same totals as the results box, so a wrong answer adds nothing; see `docs/format-spec.md`). The three game sets use it, with no new variables and no new rules: the **Quiz board** has **Score: {{$score}}** in the top right corner (reading order: title, instructions, score, then the categories), and each of its question slides says **100 points. Score so far: ...** in the line that already named the points; the **Prize ladder** says **Points so far** in the line at the top of each question (so finding 6, that the ladder could not show what the learner has won, no longer holds); the **Escape room** has the score in the top right of each room and in the line at the top of each lock. The text is not a live region (so the score is not read out at every change); a screen reader user hears it when they read the line, and the author can turn on **Say changes aloud** for any of them. The examples carry it too. Because the score is the course's own quiz points, it counts only what the questions count: a lock is worth 100, and a tile is worth its value.
+
 ### What the build found
 
 1. **The course must be set to complete at the last slide.** A board jumps forward past slides, so with "every slide seen" the validator warns about every tile (sixteen warnings on the starting 4 by 4 board, measured).
@@ -179,7 +183,7 @@ What all of them have, and what the games built so far have too: a title slide w
 
 What they have that the built games do not, and what each needs:
 
-1. **A running score on every slide** (a prize in dollars with "3/10" in Millionaire, points in the other two). Needs **show a variable as text** (stage 2, the first block the author asked for).
+1. **A running score on every slide** (a prize in dollars with "3/10" in Millionaire, points in the other two). Built 2026-10-21 with values in a text; the games now show one. The "3/10" counter is `{{$answered}}` of `{{$questions}}`.
 2. **Play again** on the results slide, which starts the game over. Needs a way to **reset**: variables are easy, but a quiz that has been answered cannot be answered again today (finding 5 shows the same limit). This is a new item, not on the earlier list, and needs designing.
 3. **Right and wrong told apart.** Categories rings a used tile in yellow when it was answered right and red when wrong; Gameshow fades used tiles. A rule cannot tell a right answer from a wrong one today (finding 8), so the board can only mark a tile "used". Needs an event such as "the answer was right" and "the answer was wrong" on a question. Another new item.
 4. **Hints** (Millionaire: three "!" tokens that each open a hint panel and are used up) in place of lifelines. A hint is a layer the learner opens, so it needs only a counter that runs out (a variable, a condition and a look), and show-a-variable-as-text to say how many are left.

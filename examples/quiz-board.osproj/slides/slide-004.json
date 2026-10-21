@@ -41,7 +41,7 @@
         "type": "text",
         "name": "Points",
         "content": {
-          "html": "<p>200 points</p>"
+          "html": "<p>200 points. Score so far: {{$score}}</p>"
         },
         "style": {
           "fontFamily": "theme:font.body",
@@ -49,7 +49,7 @@
           "color": "theme:color.muted"
         },
         "accessibility": {
-          "altText": "200 points",
+          "altText": "200 points. Score so far: [score]",
           "role": "paragraph",
           "tabOrder": 1,
           "decorative": false

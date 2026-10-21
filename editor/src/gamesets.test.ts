@@ -7,11 +7,14 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Runtime, type Host } from "../../player/src/runtime.ts";
+import { courseResults } from "../../player/src/scorm.ts";
+import { totalsFromResults, valueFor } from "../../player/src/valuetext.ts";
 import { decodeSuspend, encodeSuspend, evaluate, lessonStatus, SUSPEND_LIMIT } from "../../player/src/scorm.ts";
 import type { CoursePackage, Layer, OSObject, Project, QuizContent, Slide, Theme } from "../../player/src/types.ts";
 import { readActivation, readRules } from "./content.ts";
 import { previewBlocks, SLIDE_LAYOUTS } from "./factory.ts";
 import { boardGrid, clueText, doorCode, GAME_PREFIX, GAME_SETS, gameById, gameOptions, ladderGrid, MAX_ROOMS, MAX_RUNGS, MAX_TRIES, MIN_ROOMS, MIN_RUNGS, MIN_TRIES, PLACES, rungValue, tileValue } from "./gamesets.ts";
+import { referencesIn } from "../../player/src/valuetext.ts";
 import { Model } from "./model.ts";
 import { newProjectFiles } from "./template.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
@@ -230,7 +233,7 @@ test("Finish is dimmed until every tile is used, then goes to the results, which
 test("reading order on the board goes down each category in turn, and every slide's tab order is 1, 2, 3 with no repeats", () => {
   const { made, board: b, categories, rows } = board();
   const order = b.baseLayer.objects.filter((o) => (o.accessibility.tabOrder ?? 0) >= 1).sort((x, y) => x.accessibility.tabOrder! - y.accessibility.tabOrder!).map((o) => o.name);
-  const expected = ["Title", "Instructions"];
+  const expected = ["Title", "Instructions", "Score"];
   for (let c = 0; c < categories; c++) {
     expected.push(`Category ${c + 1}`);
     for (let r = 0; r < rows; r++) expected.push(`${tileValue(r)}, Category ${c + 1}`);
@@ -602,7 +605,7 @@ test("Start goes to the first question, and each question's feedback has the way
     assert.equal(s.baseLayer.objects.filter((o) => o.type === "button").length, 0, "no way on until an answer has been given");
     assert.deepEqual(quizOf(s).triggers, [], "nothing to remember, so the question has no rules");
     const where = s.baseLayer.objects.find((o) => o.name === "Where you are")!;
-    assert.equal(where.content["html"], `<p>Question ${level} of 8, worth ${level * 100} points</p>`);
+    assert.equal(where.content["html"], `<p>Question ${level} of 8, worth ${level * 100} points. Points so far: {{$score}}</p>`);
   });
   assert.equal(objectsOf(results).filter((o) => o.type === "button").length, 0, "the results are the end");
   assert.ok(objectsOf(results).some((o) => o.type === "results"));
@@ -1256,4 +1259,48 @@ test("a project with an escape room passes the real validator with no findings a
     const swapped = files.map((f) => (f.path === "theme.json" ? { ...f, text: readFileSync(path.join(themesDir, name), "utf-8") } : f));
     assert.deepEqual(validate(swapped), [], name);
   }
+});
+
+// ---- the running score
+
+test("every game shows the points earned so far where the learner is playing, as a value the player fills in, and its alt text says [score]", () => {
+  const shows = (s: Slide): OSObject[] => objectsOf(s).filter((o) => o.type === "text" && referencesIn(String(o.content["html"])).length > 0);
+  const m = fresh();
+  const boardGame = m.addGameSet("quiz-board", { categories: 2, values: 2 })!;
+  const ladder = m.addGameSet("prize-ladder", { questions: 5 })!;
+  const room = m.addGameSet("escape-room", { rooms: 2, tries: 2 })!;
+  // The board shows it in its corner; each question says it beside the points; the results box has the score already.
+  assert.equal(shows(boardGame.slides[0]!).length, 1);
+  assert.deepEqual(boardGame.slides.slice(1, -1).map((s) => shows(s).length), [1, 1, 1, 1]);
+  assert.equal(shows(boardGame.slides.at(-1)!).length, 0);
+  // The ladder: the line at the top of every question; the opening slide has no score yet.
+  assert.equal(shows(ladder.slides[0]!).length, 0);
+  assert.deepEqual(ladder.slides.slice(1, -1).map((s) => shows(s).length), [1, 1, 1, 1, 1]);
+  // The escape room: every room, and every lock.
+  assert.deepEqual(room.slides.slice(1, -1).map((s) => shows(s).length), [1, 1, 1, 1]);
+  for (const slide of [...boardGame.slides, ...ladder.slides, ...room.slides]) {
+    for (const o of shows(slide)) {
+      assert.deepEqual(referencesIn(String(o.content["html"])), ["$score"], `${slide.name}: ${o.name}`);
+      assert.match(o.accessibility.altText, /\[score\]/, `${slide.name}: ${o.name}`);
+      assert.doesNotMatch(o.accessibility.altText, /\{\{/);
+    }
+  }
+});
+
+test("the score a game shows is the quiz points the course already counts: answering a tile right adds its points, a wrong one adds nothing", () => {
+  const { m, board: b, questions, categories, rows, tile } = board({ categories: 2, values: 2 });
+  assert.equal(categories * rows, 4);
+  const p = play(m);
+  const shown = () => valueFor("$score", { variables: m.variables, valueOf: (id) => p.rt.variables.get(id), totals: () => totalsFromResults(courseResults(p.rt)) });
+  const percent = () => valueFor("$percent", { variables: m.variables, valueOf: (id) => p.rt.variables.get(id), totals: () => totalsFromResults(courseResults(p.rt)) });
+  p.rt.goTo(b.id);
+  assert.equal(shown(), "0");
+  answer(p, tile(0, 0), questions[0]!, "right");
+  assert.equal(shown(), "100");
+  answer(p, tile(0, 1), questions[1]!, "wrong");
+  assert.equal(shown(), "100", "a wrong answer adds nothing");
+  answer(p, tile(1, 0), questions[2]!, "right");
+  answer(p, tile(1, 1), questions[3]!, "right");
+  assert.equal(shown(), "400");
+  assert.equal(percent(), "67", "400 of the 600 points there were");
 });
