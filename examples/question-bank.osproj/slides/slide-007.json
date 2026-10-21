@@ -1,0 +1,370 @@
+{
+  "id": "slide-007",
+  "name": "Question 5",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-7010",
+        "type": "text",
+        "name": "Prompt",
+        "geometry": {
+          "x": 80,
+          "y": 96,
+          "width": 1120,
+          "height": 120,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>Question 5</h1><p>Why check a message before you send it?</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Question 5",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "A manager forwards an email to the whole department instead of to one person. Which channel problem is this?",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-7011",
+        "type": "quizQuestion",
+        "name": "Channel question",
+        "geometry": {
+          "x": 80,
+          "y": 248,
+          "width": 720,
+          "height": 260,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "questionType": "multipleChoice",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "To catch mistakes that change the meaning",
+              "correct": true
+            },
+            {
+              "id": "c2",
+              "label": "To make it longer",
+              "correct": false
+            },
+            {
+              "id": "c3",
+              "label": "To delay the reply",
+              "correct": false
+            },
+            {
+              "id": "c4",
+              "label": "To hide the sender",
+              "correct": false
+            },
+            {
+              "id": "c5",
+              "label": "To add more people",
+              "correct": false
+            }
+          ],
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-c7",
+            "incorrect": "layer-r7"
+          },
+          "shuffle": true
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "Why check a message before you send it?",
+          "role": "radiogroup",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0010",
+            "event": "click",
+            "action": "setVariable",
+            "target": "var-answered",
+            "conditions": []
+          },
+          {
+            "id": "trg-0011",
+            "event": "keyActivate",
+            "action": "setVariable",
+            "target": "var-answered",
+            "conditions": []
+          },
+          {
+            "id": "trg-702",
+            "event": "click",
+            "action": "stopTimer",
+            "target": "obj-730",
+            "conditions": []
+          },
+          {
+            "id": "trg-703",
+            "event": "keyActivate",
+            "action": "stopTimer",
+            "target": "obj-730",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Your choices are: Channel overload. Channel scarcity. Or, upward distortion.",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-730",
+        "type": "timer",
+        "name": "Timer",
+        "geometry": {
+          "x": 900,
+          "y": 40,
+          "width": 340,
+          "height": 200,
+          "rotation": 0,
+          "z": 50
+        },
+        "content": {
+          "seconds": 60,
+          "label": "Time left",
+          "extendBy": 30
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "Time left",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-701",
+            "event": "timerEnd",
+            "action": "showLayer",
+            "target": "layer-r7",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "A manager forwards an email to the whole department instead of to one person. Which channel problem is this?",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-c7",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-7020",
+          "type": "text",
+          "name": "Correct message",
+          "geometry": {
+            "x": 840,
+            "y": 248,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Right. Everyone now has to read a message meant for one person, which is overload rather than scarcity.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 18,
+            "color": "#0f5132"
+          },
+          "accessibility": {
+            "altText": "Correct. Everyone now has to read a message meant for one person, which is overload rather than scarcity.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": {
+            "script": "Correct. Everyone now has to read a message meant for one person, which is overload rather than scarcity.",
+            "voice": "af_heart",
+            "speed": 1.0,
+            "lang": "en-US",
+            "pronunciations": [],
+            "audioCache": null
+          },
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    },
+    {
+      "id": "layer-r7",
+      "name": "Retry feedback",
+      "objects": [
+        {
+          "id": "obj-7021",
+          "type": "text",
+          "name": "Retry message",
+          "geometry": {
+            "x": 840,
+            "y": 248,
+            "width": 360,
+            "height": 160,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Not quite. Think about how many people now have to process a message that was only relevant to one of them.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 18,
+            "color": "#842029"
+          },
+          "accessibility": {
+            "altText": "Not quite. Think about how many people now have to process a message that was only relevant to one of them.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": {
+            "script": "Not quite. Think about how many people now have to process a message that was only relevant to one of them.",
+            "voice": "af_heart",
+            "speed": 1.0,
+            "lang": "en-US",
+            "pronunciations": [],
+            "audioCache": null
+          },
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}
