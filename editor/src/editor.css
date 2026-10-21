@@ -236,7 +236,8 @@ button.small:hover { background: #e3e6eb; }
 .layout-card:hover .card-body { border-color: #1d2530; }
 .layout-card input:checked + .card-body { border-color: #0b3fb3; border-width: 3px; padding: 7px; background: #eef3ff; }
 .layout-card input:focus-visible + .card-body { outline: 3px solid #0b3fb3; outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
-.layout-card input:checked + .card-body .card-title::before { content: "\2713  "; color: #0b3fb3; }
+/* The tick is for the eye. The second content gives it no words of its own, so a screen reader does not read "check mark" as part of the name. */
+.layout-card input:checked + .card-body .card-title::before { content: "\2713  "; content: "\2713  " / ""; color: #0b3fb3; }
 
 .dialog.wide { max-height: 92vh; overflow: auto; scroll-padding-bottom: 80px; }
 .layout-group { font-size: 14px; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #8c929b; }

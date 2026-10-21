@@ -1,0 +1,391 @@
+{
+  "id": "slide-001",
+  "name": "A word in the hallway: the question",
+  "duration": null,
+  "layout": "blank",
+  "background": "#c3c5c7",
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "z": 0
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "image",
+        "name": "Background picture",
+        "locked": true,
+        "content": {
+          "src": "assets/images/open-plan-1.webp"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0002",
+        "geometry": {
+          "x": 40,
+          "y": 24,
+          "width": 640,
+          "height": 64,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Heading",
+        "content": {
+          "html": "<h1>A word in the hallway: the question</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 32,
+          "color": "theme:color.text",
+          "fill": "theme:color.surface"
+        },
+        "accessibility": {
+          "altText": "New text",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0003",
+        "geometry": {
+          "x": 160,
+          "y": 300,
+          "width": 226,
+          "height": 400,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "image",
+        "name": "Lisa, explaining, hands raised",
+        "content": {
+          "src": "assets/images/lisa-explain-2.webp"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "Lisa, a woman with dark skin and short dark hair at chin length, wearing a dark grey skirt suit and a white blouse, explaining with both hands raised and open, turned slightly.",
+          "role": "img",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0004",
+        "geometry": {
+          "x": 200,
+          "y": 110,
+          "width": 520,
+          "height": 210,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "Did you get a chance to read the proposal before the meeting?",
+          "voice": "af_heart",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Lisa says",
+        "content": {
+          "html": "<p>Did you get a chance to read the proposal before the meeting?</p>",
+          "bubble": "speech",
+          "tail": "left"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text",
+          "textAlign": "center",
+          "fill": "theme:color.surface",
+          "stroke": "theme:color.muted",
+          "strokeWidth": 2
+        },
+        "accessibility": {
+          "altText": "Did you get a chance to read the proposal before the meeting?",
+          "role": "paragraph",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0005",
+        "geometry": {
+          "x": 800,
+          "y": 300,
+          "width": 201,
+          "height": 400,
+          "rotation": 0,
+          "z": 40
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "image",
+        "name": "Ken, thinking, hand to chin",
+        "content": {
+          "src": "assets/images/ken-think.webp"
+        },
+        "style": {},
+        "accessibility": {
+          "altText": "Ken, a man with light skin and short brown hair, wearing a navy blazer over a light blue shirt and grey trousers, resting a hand on the chin as if thinking.",
+          "role": "img",
+          "tabOrder": 4,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0006",
+        "geometry": {
+          "x": 840,
+          "y": 130,
+          "width": 400,
+          "height": 190,
+          "rotation": 0,
+          "z": 50
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": {
+          "script": "I meant to. I only had time to skim it.",
+          "voice": "am_adam",
+          "speed": 1,
+          "lang": "en-US",
+          "pronunciations": [],
+          "audioCache": null
+        },
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Ken",
+        "content": {
+          "html": "<p>I meant to. I only had time to skim it.</p>",
+          "bubble": "thought",
+          "tail": "left"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text",
+          "textAlign": "center",
+          "fill": "theme:color.surface",
+          "stroke": "theme:color.muted",
+          "strokeWidth": 2
+        },
+        "accessibility": {
+          "altText": "I meant to. I only had time to skim it.",
+          "role": "paragraph",
+          "tabOrder": 5,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0007",
+        "geometry": {
+          "x": 1030,
+          "y": 640,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 60
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0001",
+            "event": "click",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          },
+          {
+            "id": "trg-0002",
+            "event": "keyActivate",
+            "action": "nextSlide",
+            "target": "",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Next",
+        "content": {
+          "label": "Next",
+          "icon": {
+            "set": "lucide",
+            "name": "arrow-right",
+            "shapes": [
+              {
+                "tag": "path",
+                "d": "M5 12h14"
+              },
+              {
+                "tag": "path",
+                "d": "m12 5 7 7-7 7"
+              }
+            ]
+          },
+          "iconPlacement": "after"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Next",
+          "role": "button",
+          "tabOrder": 6,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

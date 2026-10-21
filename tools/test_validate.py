@@ -2677,6 +2677,48 @@ class Bubbles(unittest.TestCase):
             self.assertTrue([f for f in p.run() if f.severity == "error"], "a text still takes only the fields it knows")
 
 
+class ConversationExample(unittest.TestCase):
+    """examples/conversation.osproj: a background picture, two people from the library and speech and thought bubbles, made with the editor's own model."""
+
+    ROOT = EXAMPLES / "conversation.osproj"
+
+    def slides(self):
+        return [json.loads(p.read_text(encoding="utf-8")) for p in sorted((self.ROOT / "slides").glob("*.json"))]
+
+    def test_it_is_valid_and_current(self):
+        found = validate.validate_project(self.ROOT)
+        self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
+        project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(project["schemaVersion"], "0.30.0")
+
+    def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
+        slides = self.slides()
+        self.assertEqual(len(slides), 2)
+        for slide in slides:
+            objects = slide["baseLayer"]["objects"]
+            background = [o for o in objects if o["name"] == "Background picture"]
+            self.assertEqual(len(background), 1)
+            self.assertTrue(background[0]["accessibility"]["decorative"] and background[0].get("locked"))
+            self.assertEqual(background[0]["geometry"]["z"], 0)
+            people = [o for o in objects if o["type"] == "image" and o is not background[0]]
+            self.assertEqual(len(people), 2)
+            for person in people:
+                self.assertFalse(person["accessibility"]["decorative"])
+                self.assertGreater(len(person["accessibility"]["altText"]), 40)
+            kinds = sorted(o["content"]["bubble"] for o in objects if o["type"] == "text" and "bubble" in o["content"])
+            self.assertEqual(kinds, ["speech", "thought"])
+
+    def test_every_picture_is_credited_and_the_words_have_a_voice(self):
+        assets = json.loads((self.ROOT / "assets.json").read_text(encoding="utf-8"))["assets"]
+        credited = {a["path"] for a in assets}
+        for slide in self.slides():
+            for o in slide["baseLayer"]["objects"]:
+                if o["type"] == "image":
+                    self.assertIn(o["content"]["src"], credited)
+                if o["type"] == "text" and "bubble" in o["content"]:
+                    self.assertTrue(o["narration"] and o["narration"]["script"] and o["narration"]["voice"])
+
+
 class DeckImportRules(unittest.TestCase):
     """Slides and shapes imported from a PowerPoint deck say where they came from, and the project lists its decks."""
 
