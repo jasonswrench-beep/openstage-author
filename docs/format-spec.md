@@ -714,7 +714,7 @@ or the keyboard is on it. A later one wins for each property it sets.
 
 **When they apply.** The course applies `hover` and `visited` itself. A rule applies any look, including those two, with `changeState`, whose `target` is an object on the same slide and
 whose `value` is `normal` or the name of a look that object has (`trigger-state-missing`). The look a rule applied lasts until the slide closes: opening a slide, or replaying it,
-starts every object in its own appearance, and the learner's saved place does not hold looks. Anything that has to last is a variable, which a rule on the slide's start can turn into a look again.
+starts every object in its own appearance, and the learner's saved place does not hold looks. Anything that has to last is a variable, which a rule on the slide's start can turn into a look again, and a resume does the same for a rule that has a condition (see Resume, under SCORM 1.2 tracking).
 `disabled` also disables a button, so it cannot be pressed or reached with the keyboard, and sets `aria-disabled` on anything else.
 
 **What is said.** A look changes how something appears, and a change that is only seen is missed by a learner who cannot see it. When a rule applies a look that has an `announce`, the player says the
@@ -1317,6 +1317,16 @@ under `source/` (not listed in the manifest, so the LMS ignores it). The ADL sch
   shows the saved slide with its layers and the learner's last answer, without running that
   slide's `slideStart` triggers again. Narration starts again from the beginning of the slide.
   Unknown ids in saved state are ignored, so a course edited since still opens.
+  **Looks come back by their conditions.** A look lasts only until its slide closes and is not saved, so a resumed
+  slide would show a used tile as open. The variables are saved, so the looks that depend on them are worked out
+  again: every rule on the slide whose action is `changeState` and that has at least one condition is run once more
+  against the restored variables, `slideStart` rules first and then `variableChange` rules, each in the order of the
+  slide's objects and their rules, as they would have run. Nothing else is run again (a rule that sets a variable, jumps
+  or shows a layer would repeat what the learner already did). A `changeState` rule with no condition is not run again,
+  because the learner may have changed that look since the slide opened; such a look is back to the object's own
+  appearance after a resume, as before. The looks are applied silently: an `announce` message is not spoken, because
+  the learner is not being told of a change. If the saved text had no room for the variables (see above), the
+  conditions are judged on their starting values.
 - **Exit.** `cmi.core.exit` is `suspend` unless the course is finished, and `session_time` is
   sent, when the page is hidden or unloaded. The final write happens once.
 - **Interactions.** Each quiz submission is recorded as an interaction of the SCORM type that fits the kind of question (see Quiz

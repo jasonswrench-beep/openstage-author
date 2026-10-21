@@ -14,7 +14,8 @@ export interface Host {
   setLayerVisible(layerId: string, visible: boolean): void;
   playMedia(objectId: string): void;
   pauseMedia(objectId: string): void;
-  setObjectState(objectId: string, state: string): void;
+  /** Show an object in one of its looks. `quiet` is set when a resumed slide gets its looks back, so nothing is said about a change that is not one. */
+  setObjectState(objectId: string, state: string, quiet?: boolean): void;
 }
 
 export interface QuizStatus {
@@ -204,7 +205,7 @@ export class Runtime {
   }
 
   /** `resume` shows the slide without running its slideStart triggers or resetting layers,
-   *  because the learner has already been through that. */
+   *  because the learner has already been through that. The looks that depend on variables are put back (see `reapplyLooks`). */
   goTo(slideId: string, resume = false): void {
     const next = this.slidesById.get(slideId);
     if (!next) return;
@@ -214,8 +215,29 @@ export class Runtime {
     this.visibleLayers.add(next.baseLayer.id);
     this.visited.add(next.id);
     this.host.showSlide(next);
-    if (!resume) this.fireSlideEvent(next, "slideStart");
+    if (resume) this.reapplyLooks(next);
+    else this.fireSlideEvent(next, "slideStart");
     this.emit({ type: "slide" });
+  }
+
+  /**
+   * A look lasts until the slide closes and is not saved, and a resumed slide does not run its start rules, so a learner who comes back
+   * would find a used tile open again, or a button that should be closed. The variables are saved, though, so the looks that depend on them
+   * can be worked out again. Every rule on the slide that applies a look and has a condition is run once more, slideStart rules first and then
+   * variableChange rules, as they would have run, against the variables as they are now. Nothing else runs: a rule that does anything but apply
+   * a look would repeat something the learner already did, and a look with no condition is left alone, because the learner may have changed it
+   * since the slide opened. The host is told to say nothing, because the learner is not being told of a change.
+   */
+  private reapplyLooks(slide: Slide): void {
+    for (const event of ["slideStart", "variableChange"] as const) {
+      for (const obj of Runtime.objectsOf(slide)) {
+        for (const t of obj.triggers) {
+          if (t.event !== event || t.action !== "changeState" || t.conditions.length === 0) continue;
+          if (!t.conditions.every((c) => compare(this.variables.get(c.variable), c.operator, c.value))) continue;
+          this.host.setObjectState(t.target, String(t.value ?? "normal"), true);
+        }
+      }
+    }
   }
 
   /** Run the triggers on one object for one event. Returns how many ran. */

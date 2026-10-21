@@ -303,9 +303,9 @@ export class Player implements Host {
     this.stage.pauseMedia(objectId);
   }
 
-  setObjectState(objectId: string, state: string): void {
+  setObjectState(objectId: string, state: string, quiet = false): void {
     const said = this.stage.setObjectState(objectId, state);
-    if (said) this.say(said);
+    if (said && !quiet) this.say(said);
   }
 
   private step(delta: number): void {
