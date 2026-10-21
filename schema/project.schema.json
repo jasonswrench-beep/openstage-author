@@ -40,6 +40,23 @@
       "maxItems": 12,
       "items": { "$ref": "#/$defs/character" }
     },
+    "banks": {
+      "description": "Optional. Question banks: runs of slides of which each learner is shown some, picked at random when they begin and kept with their progress. A bank shows draw of its slides (all of them, if it has fewer), in the author's order or mixed. The slides shown take the place of the bank's first slide, so a bank is meant to be a run of slides that sit together.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "slides", "draw", "shuffle"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "slides": { "type": "array", "minItems": 2, "maxItems": 200, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+          "draw": { "type": "integer", "minimum": 1, "maximum": 200, "description": "How many of the bank's slides each learner is shown." },
+          "shuffle": { "type": "boolean", "description": "Show the slides picked in a random order, not the author's." }
+        }
+      }
+    },
     "sources": {
       "description": "Optional. The PowerPoint decks slides were imported from. An imported slide and its shapes name a deck by its id here. The deck's size and where it was placed on the stage are kept, so a changed deck is placed the same way.",
       "type": "array",

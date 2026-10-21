@@ -34,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 32, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 33, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -457,6 +457,7 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _embed(rel, obj, add)
         _download(rel, obj, add)
         _timer(rel, obj, add)
+        _shuffle_words(rel, obj, add)
         _description(rel, obj, add)
         _narration(rel, obj, add)
         _bubble(rel, obj, add)
@@ -1527,6 +1528,7 @@ def validate_project(project_dir, asset_root=None):
     _icon_credit(project, slides, add)
     _voice_credit(project, slides, add)
     _completion(project, slides, listed, add)
+    _banks(project, slides, listed, add)
     _results(slides, add)
     _timing(slides, add)
 
@@ -1551,6 +1553,73 @@ def validate_project(project_dir, asset_root=None):
             _assets(asset_root, rel, obj, add)
 
     return findings
+
+
+_LETTERED = re.compile(r"^\s*\(?[A-Ha-h][.):]\s")
+_POSITIONAL = re.compile(r"\b(all|none|neither|both)\b.{0,12}\b(of the above|of these)\b|\b(both|either)\s+[A-Ha-h]\s+(and|or)\s+[A-Ha-h]\b|\bthe above\b", re.IGNORECASE)
+
+
+def _banks(project, slides, order, add):
+    """Question banks (player/src/bank.ts): each learner is shown some of a run of slides, picked at random. The slides have to be there, in
+    one bank each, and there have to be enough of them. What the learner is shown is worked out when they begin, so a rule that jumps to a
+    slide of a bank may lead somewhere that learner was never given."""
+    banks = project.get("banks") or []
+    rel = "project.json"
+    by_id = {s["id"]: s for s in slides.values()}
+    position = {sid: i for i, sid in enumerate(dict.fromkeys(order))}
+    ids = [b["id"] for b in banks]
+    for dup in sorted({i for i in ids if ids.count(i) > 1}):
+        add(ERROR, rel, dup, "bank-duplicate-id", "Two question banks have the same id", f"More than one bank has the id '{dup}'.")
+    owner = {}
+    for bank in banks:
+        bid = bank["id"]
+        for sid in bank["slides"]:
+            if sid not in by_id:
+                add(ERROR, rel, bid, "bank-slide-missing", "A question bank holds a slide that is not in the course",
+                    f"Bank '{bank['name']}' lists '{sid}', which does not exist. Take it out of the bank.")
+            elif sid in owner and owner[sid] != bid:
+                add(ERROR, rel, bid, "bank-slide-shared", "A slide is in two question banks",
+                    f"'{sid}' is in banks '{owner[sid]}' and '{bid}'. A slide can be in one bank only.")
+            owner.setdefault(sid, bid)
+        known = [s for s in bank["slides"] if s in by_id]
+        spots = sorted(position[s] for s in known if s in position)
+        if spots and spots[-1] - spots[0] + 1 != len(spots):
+            add(WARNING, rel, bid, "bank-not-together", "The slides of a question bank are not side by side",
+                f"Bank '{bank['name']}' holds slides with other slides between them. The slides shown take the place of the bank's first slide, so the slides between "
+                "stay where they are and a learner may meet them before every question of the bank. Put the bank's slides together.")
+        if known and bank["draw"] > len(known):
+            add(ERROR, rel, bid, "bank-draw-too-many", "A question bank is asked to show more slides than it has",
+                f"Bank '{bank['name']}' shows {bank['draw']} slides but holds {len(known)}. Lower the number, or add slides to the bank.")
+        elif known and bank["draw"] == len(known) and not bank["shuffle"]:
+            add(WARNING, rel, bid, "bank-does-nothing", "A question bank shows every slide in the same order, so it changes nothing",
+                f"Bank '{bank['name']}' shows all {len(known)} of its slides in the author's order. Show fewer of them, or mix the order.")
+        quiz_points = {}
+        for sid in known:
+            quiz_points[sid] = [o["content"]["scoring"]["points"] for _, o in _objects(by_id[sid]) if o["type"] == "quizQuestion"]
+        bare = [sid for sid, points in quiz_points.items() if not points]
+        if bare:
+            add(WARNING, rel, bid, "bank-slide-no-question", "A slide in a question bank has no question",
+                f"Bank '{bank['name']}': {', '.join(bare)} {'has' if len(bare) == 1 else 'have'} no question, so a learner may be shown a slide that asks nothing.")
+        if len({sum(points) for points in quiz_points.values() if points}) > 1:
+            add(WARNING, rel, bid, "bank-points-differ", "The questions in a bank are worth different points",
+                f"Bank '{bank['name']}' holds questions worth different points, so what is possible, and the score, depends on which ones a learner is shown. "
+                "The percentage still means the same thing, but make them worth the same if the points are shown to the learner.")
+    for srel, slide in slides.items():
+        for _, obj in _objects(slide):
+            for t in obj["triggers"]:
+                if t["action"] == "jumpToSlide" and t["target"] in owner:
+                    add(WARNING, srel, obj["id"], "jump-into-bank", "A rule jumps to a slide in a question bank",
+                        f"Trigger {t['id']} goes to '{t['target']}', which is in a bank. Each learner is shown only some of a bank's slides, so this learner may not have that slide, and then the rule does nothing.")
+
+
+def _shuffle_words(rel, obj, add):
+    """A question that mixes its answers cannot have answers that depend on where they are: 'A.', 'All of the above', 'Both A and B'."""
+    if obj["type"] != "quizQuestion" or not obj["content"].get("shuffle"):
+        return
+    odd = [c["label"] for c in obj["content"].get("choices", []) if _LETTERED.search(c["label"]) or _POSITIONAL.search(c["label"])]
+    if odd:
+        add(WARNING, rel, obj["id"], "shuffle-position-words", "A question that mixes its answers has an answer that depends on its place",
+            f"'{odd[0]}' only makes sense if the answers stay in order, and they will not. Reword it, or turn off Shuffle the answers.")
 
 
 def _completion(project, slides, order, add):

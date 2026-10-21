@@ -8,7 +8,7 @@ import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
 import { referencesVariable, renameReferences } from "./values.ts";
 import { importSlides, peopleProblem, type SetRead } from "./slidesets.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
-import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
+import type { Bank, CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
@@ -42,7 +42,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.32.0";
+export const FORMAT_VERSION = "0.33.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3882,6 +3882,7 @@ export class Model {
     this.record("");
     const index = this.docs.indexOf(doc);
     for (const scene of this.project.scenes) scene.slides = scene.slides.filter((s) => s !== slideId);
+    const leftBank = this.leaveBanks(slideId);
     this.docs = this.docs.filter((d) => d.id !== slideId);
     if (this.sel.slideId === slideId) {
       const next = this.docs[Math.min(index, this.docs.length - 1)]!.slide;
@@ -3889,7 +3890,153 @@ export class Model {
     }
     this.emit({ kind: "structure" });
     this.emit({ kind: "selection" });
-    return `Deleted ${doc.slide.name}`;
+    return `Deleted ${doc.slide.name}${leftBank}`;
+  }
+
+  // ---- question banks (player/src/bank.ts)
+
+  get banks(): Bank[] {
+    return this.project.banks ?? [];
+  }
+
+  /** The bank a slide is in, if it is in one. */
+  bankOf(slideId: string): Bank | undefined {
+    return this.banks.find((b) => b.slides.includes(slideId));
+  }
+
+  private writeBanks(next: Bank[]): void {
+    if (next.length === 0) delete this.project.banks;
+    else this.project.banks = next;
+  }
+
+  /** A deleted slide leaves its bank. A bank left with fewer than two slides is taken away, and one asked to show more than it has shows what it has. Says what happened, for the end of a message. */
+  private leaveBanks(slideId: string): string {
+    const note: string[] = [];
+    const next: Bank[] = [];
+    for (const bank of this.banks) {
+      if (!bank.slides.includes(slideId)) { next.push(bank); continue; }
+      const slides = bank.slides.filter((s) => s !== slideId);
+      if (slides.length < 2) { note.push(`The question bank ${bank.name} has too few slides left and was taken away.`); continue; }
+      next.push({ ...bank, slides, draw: Math.min(bank.draw, slides.length) });
+      note.push(`It was one of the slides of the question bank ${bank.name}.`);
+    }
+    if (note.length > 0) this.writeBanks(next);
+    return note.length > 0 ? `. ${note.join(" ")}` : "";
+  }
+
+  /** The slides from one slide to another, in course order, or null if either is not in the course. */
+  private slideRun(first: string, last: string): string[] | null {
+    const order = this.slides.map((s) => s.id);
+    const a = order.indexOf(first);
+    const b = order.indexOf(last);
+    if (a === -1 || b === -1) return null;
+    return order.slice(Math.min(a, b), Math.max(a, b) + 1);
+  }
+
+  /** Why these slides cannot make a bank (or this bank), or null if they can. */
+  private bankProblem(slides: string[], except: string | null): string | null {
+    if (slides.length < 2) return "A question bank needs at least two slides: it picks some of them for each learner.";
+    const order = this.slides.map((s) => s.id);
+    for (const id of slides) {
+      const other = this.banks.find((b) => b.id !== except && b.slides.includes(id));
+      if (other) return `Slide ${order.indexOf(id) + 1} is already in the question bank ${other.name}. A slide can be in one bank only.`;
+    }
+    return null;
+  }
+
+  /** Make a bank of the slides from the first to the last. It starts by showing half of them, in a mixed order. */
+  addBank(first: string, last: string, name = ""): string | null {
+    const slides = this.slideRun(first, last);
+    if (!slides) return null;
+    const problem = this.bankProblem(slides, null);
+    if (problem) return problem;
+    const bank: Bank = {
+      id: `bank-${String(nextNumber(this.banks.map((b) => b.id), "bank-")).padStart(4, "0")}`,
+      name: name.trim() || `Question bank ${this.banks.length + 1}`,
+      slides,
+      draw: Math.max(1, Math.floor(slides.length / 2)),
+      shuffle: true,
+    };
+    this.record("");
+    this.writeBanks([...this.banks, bank]);
+    this.emit({ kind: "structure" });
+    return `Added the question bank ${bank.name}: ${slides.length} slides, showing ${bank.draw} of them to each learner, in a mixed order.`;
+  }
+
+  private bankById(id: string): Bank | undefined {
+    return this.banks.find((b) => b.id === id);
+  }
+
+  private updateBank(id: string, key: string, change: (b: Bank) => Bank): void {
+    this.record(key);
+    this.writeBanks(this.banks.map((b) => (b.id === id ? change(b) : b)));
+    this.emit({ kind: "structure" });
+  }
+
+  setBankName(id: string, name: string): string | null {
+    const bank = this.bankById(id);
+    const next = name.replace(/\s+/g, " ").trim().slice(0, 80);
+    if (!bank) return null;
+    if (next === "") return "A question bank needs a name.";
+    if (next === bank.name) return null;
+    this.updateBank(id, `bank-name:${id}`, (b) => ({ ...b, name: next }));
+    return "Name updated";
+  }
+
+  /** Move the bank to the slides from the first to the last. How many it shows is lowered if it now has fewer. */
+  setBankRange(id: string, first: string, last: string): string | null {
+    const bank = this.bankById(id);
+    const slides = this.slideRun(first, last);
+    if (!bank || !slides) return null;
+    const problem = this.bankProblem(slides, id);
+    if (problem) return problem;
+    if (slides.join() === bank.slides.join()) return null;
+    this.updateBank(id, "", (b) => ({ ...b, slides, draw: Math.min(b.draw, slides.length) }));
+    return `The question bank ${bank.name} now holds ${slides.length} slides.`;
+  }
+
+  /** How many of the bank's slides each learner is shown: from 1 to all of them. */
+  setBankDraw(id: string, draw: number): string | null {
+    const bank = this.bankById(id);
+    if (!bank) return null;
+    if (!Number.isFinite(draw)) return "That needs a number.";
+    const next = Math.min(bank.slides.length, Math.max(1, Math.round(draw)));
+    if (next === bank.draw) return Math.round(draw) === next ? null : `A bank shows from 1 to ${bank.slides.length} slides.`;
+    this.updateBank(id, `bank-draw:${id}`, (b) => ({ ...b, draw: next }));
+    const clamped = Math.round(draw) === next ? "" : ` That is as many as it can.`;
+    return `Each learner is shown ${next} of the ${bank.slides.length} slides.${clamped}`;
+  }
+
+  setBankMix(id: string, on: boolean): string | null {
+    const bank = this.bankById(id);
+    if (!bank || bank.shuffle === on) return null;
+    this.updateBank(id, "", (b) => ({ ...b, shuffle: on }));
+    return on ? "The slides are shown in a mixed order." : "The slides are shown in the order they have in the course.";
+  }
+
+  deleteBank(id: string): string | null {
+    const bank = this.bankById(id);
+    if (!bank) return null;
+    this.record("");
+    this.writeBanks(this.banks.filter((b) => b.id !== id));
+    this.emit({ kind: "structure" });
+    return `Deleted the question bank ${bank.name}. Its slides stay in the course, and every learner sees all of them.`;
+  }
+
+  /** Mix the answers of a multiple choice or multiple response question for each learner. */
+  setShuffleChoices(objectId: string, on: boolean): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "quizQuestion") return null;
+    const type = String(obj.content["questionType"]);
+    if (type !== "multipleChoice" && type !== "multipleResponse") return "Only a question with answers to choose from can mix them.";
+    if ((obj.content["shuffle"] === true) === on) return null;
+    this.record("");
+    const content = { ...obj.content };
+    if (on) content["shuffle"] = true;
+    else delete content["shuffle"];
+    obj.content = content;
+    this.emit({ kind: "content", objectId });
+    return on ? "Each learner will see the answers in a different order. Here you still see your own order." : "The answers are shown in your order.";
   }
 
   moveSlide(slideId: string, delta: -1 | 1): string | null {
@@ -4243,15 +4390,17 @@ export class Model {
   }
 
   private snapshot(): string {
-    return JSON.stringify({ scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
+    return JSON.stringify({ scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, banks: this.project.banks, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
   }
 
   private restore(snapshot: string): void {
-    const state = JSON.parse(snapshot) as { scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
+    const state = JSON.parse(snapshot) as { scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; banks?: Project["banks"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
     this.project.scenes = state.scenes;
     this.project.variables = state.variables;
     if (state.characters) this.project.characters = state.characters;
     else delete this.project.characters;
+    if (state.banks) this.project.banks = state.banks;
+    else delete this.project.banks;
     if (state.sources) this.project.sources = state.sources;
     else delete this.project.sources;
     this.project.credits = state.credits;

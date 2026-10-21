@@ -16,6 +16,8 @@ export interface QuestionContext {
   editing: boolean;
   /** A message for a screen reader. */
   announce?: (message: string) => void;
+  /** The learner's own number for shuffling, as text. A question that shuffles its answers does so only when there is one: the editor has none, so the author sees their own order. */
+  seed?: string;
 }
 
 export interface QuestionView {
@@ -51,7 +53,7 @@ function highlight(root: HTMLElement, target: HTMLElement | null, cls: string): 
 
 // ---- multiple choice and multiple response
 
-function buildChoice(doc: Document, obj: OSObject, q: ChoiceQuiz): Parts {
+function buildChoice(doc: Document, obj: OSObject, q: ChoiceQuiz, ctx: QuestionContext): Parts {
   const multi = q.questionType === "multipleResponse";
   const group = make(doc, "div", "os-quiz-group", { role: multi ? "group" : "radiogroup", "aria-label": obj.accessibility.altText });
   if (multi) {
@@ -61,7 +63,9 @@ function buildChoice(doc: Document, obj: OSObject, q: ChoiceQuiz): Parts {
     group.appendChild(hint);
   }
   const boxes: HTMLInputElement[] = [];
-  for (const c of q.choices) {
+  // A different order for each learner, the same one every time that learner comes back. Grading goes by each answer's id, so the order changes nothing else.
+  const shown = q.shuffle === true && !ctx.editing && ctx.seed !== undefined ? stableShuffle(q.choices, `${ctx.seed}:${obj.id}`) : q.choices;
+  for (const c of shown) {
     const label = make(doc, "label", "os-choice");
     const box = input(doc, multi ? "checkbox" : "radio", "", { name: obj.id, value: c.id });
     label.append(box, doc.createTextNode(` ${c.label}`));
@@ -408,7 +412,7 @@ export function buildQuestion(doc: Document, obj: OSObject, ctx: QuestionContext
   let parts: Parts;
   switch (q.questionType) {
     case "multipleChoice":
-    case "multipleResponse": parts = buildChoice(doc, obj, q); break;
+    case "multipleResponse": parts = buildChoice(doc, obj, q, ctx); break;
     case "shortAnswer":
     case "numeric": parts = buildTyped(doc, obj, q); break;
     case "fillBlanks": parts = buildBlanks(doc, obj, q, ctx); break;

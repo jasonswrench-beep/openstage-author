@@ -6,6 +6,7 @@ import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
 import { timerContentOf } from "./timer.ts";
+import { applyDraws, drawBanks, drawsFit, newSeed } from "./bank.ts";
 import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
 import { creditParts } from "./credits.ts";
@@ -157,6 +158,7 @@ export class Player implements Host {
       characters: () => pkg.project.characters ?? [],
       scenarioPath: (objectId) => this.runtime.scenarioPath(objectId),
       onScenarioMove: (obj, move) => this.runtime.scenarioMove(obj.id, move),
+      sessionSeed: () => (this.runtime.session.seed === 0 ? undefined : String(this.runtime.session.seed)),
       onTimerAddTime: (obj) => this.timeline.addTime(obj.id, timerContentOf(obj).extendBy),
       onTimerOff: () => {
         this.timeline.turnOffTimers();
@@ -229,9 +231,23 @@ export class Player implements Host {
 
   /** Open the course, at the start or where a saved snapshot says the learner left off. */
   start(resume: Snapshot | null = null): void {
+    this.beginSession(resume);
     if (resume && this.runtime.restore(resume)) return;
     const first = this.pkg.slides[0];
     if (first) this.runtime.goTo(first.id);
+  }
+
+  /**
+   * The learner's random choices for this visit: the number that shuffles their answers, and which slides each question bank shows.
+   * A returning learner gets the ones they had, if they still fit the course; anyone else gets new ones.
+   */
+  private beginSession(resume: Snapshot | null): void {
+    const banks = this.pkg.project.banks ?? [];
+    const courseOrder = this.pkg.slides.map((s) => s.id);
+    const seed = resume?.seed !== undefined && Number.isFinite(resume.seed) && resume.seed !== 0 ? resume.seed : newSeed();
+    const draws = banks.length === 0 ? {} : drawsFit(banks, resume?.draws, courseOrder) ? resume!.draws! : drawBanks(banks, courseOrder, seed);
+    this.runtime.session = { seed, draws };
+    if (banks.length > 0) this.runtime.useSlides(applyDraws([...this.pkg.slides], banks, draws));
   }
 
   // ---- Host: what the runtime asks for

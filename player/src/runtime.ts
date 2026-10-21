@@ -2,6 +2,7 @@
 // The browser renderer (player.ts) and, later, the editor stage both drive this class, so
 // the stage and the published player behave identically.
 
+import type { Draws } from "./bank.ts";
 import { grade, isAnswered, keepAnswer, type Graded } from "./grading.ts";
 import type { Move } from "./scenario.ts";
 import type {
@@ -51,6 +52,10 @@ export interface Snapshot {
   visited: string;
   /** Where the learner is in each scenario they have started: the path (see scenario.ts), by the scenario's object id. Absent in progress saved before scenarios. */
   scenario?: Record<string, string>;
+  /** The number that shuffles this learner's answers, so they come back in the same order. Absent in progress saved before 0.33.0. */
+  seed?: number;
+  /** The slides each question bank showed this learner, so coming back shows the same ones. Absent when the course has no banks. */
+  draws?: Draws;
 }
 
 export interface AssessmentSummary {
@@ -85,6 +90,8 @@ export class Runtime {
   readonly visited = new Set<string>();
   /** Where the learner is in each scenario they have started, by object id. A scenario at its start has no entry. */
   readonly scenarios = new Map<string, string>();
+  /** This learner's random choices: the seed that shuffles answers, and the slides drawn from each question bank. Set by the player when it begins. */
+  session: { seed: number; draws: Draws } = { seed: 0, draws: {} };
   private readonly listeners: ((e: RuntimeEvent) => void)[] = [];
   private readonly slidesById = new Map<string, Slide>();
   private current: Slide | null = null;
@@ -101,6 +108,16 @@ export class Runtime {
   }
 
   get currentSlide(): Slide | null { return this.current; }
+
+  /**
+   * Show only these slides, in this order: what a question bank leaves of the course for this learner. The course package is changed in
+   * place, so the player, the progress and the score all see the same slides. Call it before the learner starts.
+   */
+  useSlides(slides: Slide[]): void {
+    this.pkg.slides.splice(0, this.pkg.slides.length, ...slides);
+    this.slidesById.clear();
+    for (const s of slides) this.slidesById.set(s.id, s);
+  }
 
   get slideIndex(): number {
     return this.current ? this.pkg.slides.findIndex((s) => s.id === this.current!.id) : -1;
@@ -174,6 +191,8 @@ export class Runtime {
       visited: this.pkg.slides.map((s) => (this.visited.has(s.id) ? "1" : "0")).join(""),
     };
     if (this.scenarios.size > 0) snap.scenario = Object.fromEntries(this.scenarios);
+    if (this.session.seed !== 0) snap.seed = this.session.seed;
+    if (Object.keys(this.session.draws).length > 0) snap.draws = this.session.draws;
     return snap;
   }
 

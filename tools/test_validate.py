@@ -359,6 +359,160 @@ class Timers(unittest.TestCase):
             self.assertTrue(rules(p.run(), "timing-control-disappears", oid="obj-0096"))
 
 
+def question_slides(p, count, first=3):
+    """More slides like slide-002 (a question with its two feedback layers), with ids of their own, added to the end of the course."""
+    src = json.loads((p.root / "slides" / "slide-002.json").read_text(encoding="utf-8"))
+    ids = []
+    for n in range(first, first + count):
+        text = json.dumps(src).replace("obj-00", f"obj-{n}0").replace("layer-correct", f"layer-c{n}").replace("layer-retry", f"layer-r{n}")
+        data = json.loads(text)
+        data["id"] = f"slide-00{n}"
+        data["name"] = f"Question {n}"
+        (p.root / "slides" / f"slide-00{n}.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+        ids.append(data["id"])
+    p.edit("project.json", lambda d: d["scenes"][0]["slides"].extend(ids))
+    return ids
+
+
+def bank(ids, **over):
+    b = {"id": "bank-0001", "name": "Chapter questions", "slides": ids, "draw": 2, "shuffle": True}
+    b.update(over)
+    return b
+
+
+class QuestionBanks(unittest.TestCase):
+    """A bank is a run of slides of which each learner is shown some. The slides have to exist, in one bank each, with enough of them."""
+
+    def with_bank(self, p, ids, **over):
+        p.edit("project.json", lambda d: d.__setitem__("banks", [bank(ids, **over)]))
+        return p.run()
+
+    def test_a_good_bank_is_accepted_without_a_word(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 4)
+            found = self.with_bank(p, ids)
+            self.assertEqual([f for f in found if f.severity == "error"], [])
+            self.assertEqual([f.rule for f in found if f.rule.startswith("bank-") or f.rule == "jump-into-bank"], [])
+
+    def test_a_slide_that_is_not_in_the_course_is_an_error(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            found = self.with_bank(p, ids + ["slide-099"])
+            self.assertTrue(rules(found, "bank-slide-missing", severity="error"))
+
+    def test_a_slide_can_be_in_one_bank_only(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 4)
+            p.edit("project.json", lambda d: d.__setitem__("banks", [bank(ids[:3]), bank(ids[2:], id="bank-0002", name="More")]))
+            self.assertTrue(rules(p.run(), "bank-slide-shared", severity="error"))
+
+    def test_two_banks_with_the_same_id_are_an_error(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 4)
+            p.edit("project.json", lambda d: d.__setitem__("banks", [bank(ids[:2], draw=1), bank(ids[2:], draw=1, name="More")]))
+            self.assertTrue(rules(p.run(), "bank-duplicate-id", severity="error"))
+
+    def test_asking_for_more_slides_than_the_bank_has_is_an_error(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            self.assertTrue(rules(self.with_bank(p, ids, draw=4), "bank-draw-too-many", severity="error"))
+
+    def test_showing_every_slide_in_order_does_nothing_and_says_so_but_mixing_them_is_a_change(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            self.assertTrue(rules(self.with_bank(p, ids, draw=3, shuffle=False), "bank-does-nothing", severity="warning"))
+            self.assertEqual(rules(self.with_bank(p, ids, draw=3, shuffle=True), "bank-does-nothing"), [])
+
+    def test_slides_that_are_not_side_by_side_are_a_warning(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            found = self.with_bank(p, [ids[0], ids[2]], draw=1)
+            self.assertTrue(rules(found, "bank-not-together", severity="warning"))
+            self.assertEqual([f for f in found if f.severity == "error"], [])
+
+    def test_a_slide_with_no_question_is_a_warning(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 2)
+            found = self.with_bank(p, ["slide-001"] + ids, draw=2)
+            hit = rules(found, "bank-slide-no-question", severity="warning")
+            self.assertTrue(hit)
+            self.assertIn("slide-001", hit[0].detail)
+
+    def test_questions_worth_different_points_are_a_warning(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            def worth(d):
+                for o in d["baseLayer"]["objects"]:
+                    if o["type"] == "quizQuestion":
+                        o["content"]["scoring"]["points"] = 25
+            p.edit("slides/slide-004.json", worth)
+            self.assertTrue(rules(self.with_bank(p, ids, draw=2), "bank-points-differ", severity="warning"))
+
+    def test_a_rule_that_jumps_into_a_bank_is_a_warning(self):
+        with MutatedProject() as p:
+            ids = question_slides(p, 3)
+            found = self.with_bank(p, ids, draw=2)
+            self.assertEqual(rules(found, "jump-into-bank"), [], "nothing jumps into this bank")
+            found = self.with_bank(p, ["slide-002"] + ids, draw=2)
+            hit = rules(found, "jump-into-bank", severity="warning")
+            self.assertTrue(hit, "the Continue button on slide 1 goes to slide 2, which is now in a bank")
+            self.assertEqual(hit[0].file, "slides/slide-001.json")
+
+    def test_the_schema_holds_a_bank_to_its_shape(self):
+        for bad in ({"draw": 0}, {"draw": 1.5}, {"slides": ["slide-003"]}, {"name": ""}, {"shuffle": "yes"}, {"extra": 1}):
+            with MutatedProject() as p:
+                ids = question_slides(p, 3)
+                found = self.with_bank(p, ids, **bad)
+                self.assertTrue([f for f in found if f.severity == "error"], bad)
+
+
+class ShuffledAnswers(unittest.TestCase):
+    """A question can mix its answers for each learner, so none may depend on where it stands."""
+
+    def with_labels(self, p, labels, shuffle=True, slide="slides/slide-002.json"):
+        def go(d):
+            for o in d["baseLayer"]["objects"]:
+                if o["type"] == "quizQuestion":
+                    o["content"]["choices"] = [{"id": f"c{i + 1}", "label": text, "correct": i == 0} for i, text in enumerate(labels)]
+                    if shuffle is not None:
+                        o["content"]["shuffle"] = shuffle
+        p.edit(slide, go)
+        return p.run()
+
+    def test_plain_answers_may_be_mixed(self):
+        with MutatedProject() as p:
+            found = self.with_labels(p, ["Channel overload", "Channel scarcity", "Upward distortion"])
+            self.assertEqual([f for f in found if f.severity == "error"], [])
+            self.assertEqual(rules(found, "shuffle-position-words"), [])
+
+    def test_answers_that_depend_on_their_place_are_a_warning_only_when_mixed(self):
+        for label in ("A. Channel overload", "b) Channel scarcity", "(C) Upward distortion", "All of the above", "None of the above", "Both A and B", "Neither of these", "Either B or C", "The above"):
+            with MutatedProject() as p:
+                found = self.with_labels(p, ["Plain answer", label, "Another answer"])
+                self.assertTrue(rules(found, "shuffle-position-words", severity="warning"), label)
+            with MutatedProject() as p:
+                found = self.with_labels(p, ["Plain answer", label, "Another answer"], shuffle=False)
+                self.assertEqual(rules(found, "shuffle-position-words"), [], label + " is fine when nothing is mixed")
+            with MutatedProject() as p:
+                found = self.with_labels(p, ["Plain answer", label, "Another answer"], shuffle=None)
+                self.assertEqual(rules(found, "shuffle-position-words"), [], label + " is fine when the setting is absent")
+
+    def test_ordinary_words_that_begin_with_a_letter_are_not_caught(self):
+        with MutatedProject() as p:
+            found = self.with_labels(p, ["A channel that is overloaded", "Both channels", "All employees"])
+            self.assertEqual(rules(found, "shuffle-position-words"), [])
+
+    def test_only_questions_with_choices_can_say_to_mix(self):
+        with MutatedProject() as p:
+            def go(d):
+                for o in d["baseLayer"]["objects"]:
+                    if o["type"] == "quizQuestion":
+                        o["content"] = {"questionType": "shortAnswer", "answers": ["x"], "caseSensitive": False, "shuffle": True,
+                                        "scoring": o["content"]["scoring"], "feedback": o["content"]["feedback"]}
+            p.edit("slides/slide-002.json", go)
+            self.assertTrue([f for f in p.run() if f.severity == "error"])
+
+
 class Timing(unittest.TestCase):
     """Things that appear, disappear or advance on their own."""
 
@@ -2840,7 +2994,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.32.0")
+        self.assertEqual(project["schemaVersion"], "0.33.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

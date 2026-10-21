@@ -291,6 +291,22 @@ millisecond values within an hour, nothing else allowed. A `duration` must be ab
 All are errors, so a course cannot be published until each is settled. A `download` is a control, so it also needs
 alt text and a tab order of 1 or more like the other controls.
 
+### Question banks and shuffled answers
+
+| Rule | Message |
+| --- | --- |
+| Two banks have the same id (`bank-duplicate-id`) | Two question banks have the same id |
+| A bank lists a slide that is not in the course (`bank-slide-missing`) | A question bank holds a slide that is not in the course |
+| A slide is in two banks (`bank-slide-shared`) | A slide is in two question banks |
+| A bank is asked to show more slides than it holds (`bank-draw-too-many`) | A question bank is asked to show more slides than it has |
+| A bank shows all its slides and does not mix them (`bank-does-nothing`, warning) | A question bank shows every slide in the same order, so it changes nothing |
+| The slides of a bank have other slides between them (`bank-not-together`, warning) | The slides of a question bank are not side by side |
+| A slide of a bank holds no question (`bank-slide-no-question`, warning) | A slide in a question bank has no question |
+| The questions of a bank are worth different points (`bank-points-differ`, warning) | The questions in a bank are worth different points |
+| A rule jumps to a slide of a bank (`jump-into-bank`, warning) | A rule jumps to a slide in a question bank |
+| A question that shuffles has an answer that depends on its place: a letter, "all of the above", "both A and B" (`shuffle-position-words`, warning) | A question that mixes its answers has an answer that depends on its place |
+| A bank's `draw` below 1 or not whole, fewer than two `slides`, no name, or a `shuffle` that is not true or false; a `shuffle` on a question with no answers to choose from (`schema`) | (the schema's message) |
+
 ### Timers
 
 | Rule | Message |

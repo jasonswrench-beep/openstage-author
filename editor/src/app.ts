@@ -21,6 +21,7 @@ import { COLOR_ROLES, colorRef } from "./colors.ts";
 import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, isCourseAction, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
 import { fileDetails } from "../../player/src/downloads.ts";
 import { timerContentOf } from "../../player/src/timer.ts";
+import { openBanks } from "./bankdialog.ts";
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
@@ -200,6 +201,7 @@ export class App {
   private readonly deleteSlideBtn: HTMLButtonElement;
   private readonly duplicateSlideBtn: HTMLButtonElement;
   private readonly shareSlidesBtn: HTMLButtonElement;
+  private readonly banksBtn: HTMLButtonElement;
   private readonly slidesFromFileBtn: HTMLButtonElement;
   private readonly slideUpBtn: HTMLButtonElement;
   private readonly slideDownBtn: HTMLButtonElement;
@@ -285,12 +287,13 @@ export class App {
     this.duplicateSlideBtn = this.small("Duplicate slide", "Make a copy of this slide straight after it (Ctrl+D in the list)", () => this.duplicateSlide());
     this.shareSlidesBtn = this.small("Share slides...", "Save slides, with what they need, as one file to give to someone else", () => void this.shareSlides());
     this.slidesFromFileBtn = this.small("Add slides from a file...", "Add slides someone gave you as one file after this slide", () => void this.addSlidesFromFile());
+    this.banksBtn = this.small("Question banks...", "Choose which slides each learner is shown: some of a run of questions, picked at random", () => void this.openBanksDialog());
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("h2", { id: "slides-h", text: "Slides" }),
       h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
-      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
+      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn, this.banksBtn),
       this.slideList);
 
     // Canvas and layers
@@ -2148,6 +2151,7 @@ ${errorText(err)}`);
     this.setEnabled(this.deleteLayerBtn, !!m && m.sel.layerId !== m.slide?.baseLayer.id);
     this.setEnabled(this.duplicateSlideBtn, !!m);
     this.setEnabled(this.shareSlidesBtn, !!m);
+    this.setEnabled(this.banksBtn, !!m);
     this.setEnabled(this.slidesFromFileBtn, !!m);
     this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
     const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
@@ -2221,7 +2225,7 @@ ${errorText(err)}`);
     if (!m) return;
     this.keepFocus(() => {
       this.slideList.replaceChildren(
-        ...m.slides.map((s, i) => this.item(`slide:${s.id}`, `${i + 1}. ${s.name}`, s.id === m.sel.slideId, () => {
+        ...m.slides.map((s, i) => this.item(`slide:${s.id}`, `${i + 1}. ${s.name}${m.bankOf(s.id) ? ` (in the question bank ${m.bankOf(s.id)!.name})` : ""}`, s.id === m.sel.slideId, () => {
           m.selectSlide(s.id);
           this.announce(`Slide ${i + 1} of ${m.slides.length}: ${s.name}.`);
         })),
@@ -3322,13 +3326,16 @@ ${errorText(err)}`);
     });
     this.setEnabled(add, q.choices.length < LIMITS.choices);
     const several = this.tick("checkbox", "choice-multiple", "Several answers can be right", multi, (on) => edit({ op: "choiceMode", multiple: on }));
+    const mix = this.tick("checkbox", "choice-shuffle", "Show the answers in a different order to each learner", q.shuffle === true, (on) => { const msg = m.setShuffleChoices(o.id, on); if (msg) this.announce(msg); });
     return [
       h("fieldset", {}, h("legend", { text: "Answers" }),
         h("p", { class: "note", text: multi
           ? "Tick every answer that is right. A learner earns part of the points for each right answer ticked, less a share for each wrong one."
           : "Select the radio button beside the correct answer. Exactly one answer is correct." }),
         ...rows, add,
-        h("div", { class: "field check" }, several, h("label", { for: "p-choice-multiple", text: "Several answers can be right (multiple response)" }))),
+        h("div", { class: "field check" }, several, h("label", { for: "p-choice-multiple", text: "Several answers can be right (multiple response)" })),
+        h("div", { class: "field check" }, mix, h("label", { for: "p-choice-shuffle", text: "Show the answers in a different order to each learner" })),
+        h("p", { class: "note", text: "Each learner sees their own order, and the same order each time they come back. Here in the editor you always see your own order. Do not write answers that depend on where they stand, such as \"A.\" or \"All of the above\": the Problems list warns about them." })),
     ];
   }
 
@@ -4396,6 +4403,14 @@ ${errorText(err)}`);
       h("p", { class: "note", text: "A rule says what the course does, and when. Rules run in order from the top, and a rule that goes to another slide ends the list. To send the learner different ways, use several rules with different conditions. A rule can belong to any object." }),
       ...(cards.length ? cards : [h("p", { class: "note", text: "No rules yet." })]),
       h("div", { class: "btn-row" }, add, variables))];
+  }
+
+  private async openBanksDialog(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    await openBanks(m, (msg) => this.announce(msg));
+    this.banksBtn.focus();
+    this.renderProps();
   }
 
   private async openVariablesDialog(): Promise<void> {

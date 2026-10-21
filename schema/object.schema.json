@@ -705,6 +705,7 @@
             "incorrect": { "$ref": "project.schema.json#/$defs/id" }
           }
         },
+        "shuffle": { "type": "boolean", "description": "Only for multipleChoice and multipleResponse. Show the answers in a different order to each learner, the same order each time that learner comes back. Absent means the author's order." },
         "choices": {
           "type": "array",
           "minItems": 2,
@@ -802,7 +803,7 @@
       },
       "allOf": [
         { "if": { "properties": { "questionType": { "enum": ["multipleChoice", "multipleResponse"] } } },
-          "then": { "required": ["choices"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "choices"] } } },
+          "then": { "required": ["choices"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "choices", "shuffle"] } } },
         { "if": { "properties": { "questionType": { "const": "shortAnswer" } } },
           "then": { "required": ["answers", "caseSensitive"], "propertyNames": { "enum": ["questionType", "scoring", "feedback", "answers", "caseSensitive"] } } },
         { "if": { "properties": { "questionType": { "const": "numeric" } } },

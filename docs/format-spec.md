@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.32.0",
+  "schemaVersion": "0.33.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -81,6 +81,19 @@ earlier, which is how they already behaved.
 down to fit, while the window is wide enough, and shows one column instead when it is not (see Reflow, under the player's
 behaviour). Nothing about that is in the project file: it is worked out from the objects' places, their reading order and whether
 they are marked decorative, so no format change was needed.
+
+`banks` is optional (added in 0.33.0): **question banks**, runs of slides of which each learner is shown some. Each bank has an `id`, a `name`, its `slides` (two or more slide ids), `draw` (how many each learner is
+shown) and `shuffle` (show the ones picked in a random order). When a learner begins, the player picks `draw` of each bank's slides at random (all of them, if it holds fewer), keeps them in the author's order unless `shuffle` is
+on, and plays a course made of the slides that are in no bank plus those picks, which take the place of the bank's first slide. Everything the player works out from the slides follows what the learner was shown: "Slide 3 of 5", Back and
+Next, whether every slide has been seen, the questions that must be finished, the points that are possible and the score sent to the LMS. What was picked is kept with the learner's progress (in the SCORM suspend data, with a number that
+also shuffles their answers), so coming back shows the same slides; a learner who starts again, or whose saved picks no longer fit the course, is dealt new ones. The slides of a bank should sit together; each can be in one bank only.
+A rule that jumps to a slide of a bank may lead to a slide that learner was not given, and then does nothing (`jump-into-bank`, warning).
+
+```json
+"banks": [
+  { "id": "bank-0001", "name": "Chapter questions", "slides": ["slide-003", "slide-004", "slide-005", "slide-006"], "draw": 2, "shuffle": true }
+]
+```
 
 `characters` is optional: the cast, the people a course can show and give a voice to. It is shared by every scenario and every choice of character in the
 course, so a person is described once.
@@ -884,6 +897,11 @@ exactly a word of the `wordBank`, and the right word of each blank is the first 
 Matches and extras must read differently, because a learner chooses among them. The sentence of a `fillBlanks` marks each blank `{1}`, `{2}` and so
 on, and every marker has a blank and every blank a marker.
 
+**Shuffled answers** (added in 0.33.0). A `multipleChoice` or `multipleResponse` question may have `"shuffle": true`. Each learner is then shown its answers in an order of their own, worked out from the number the player gives that
+learner when they begin and the question's id, so the same learner sees the same order each time they come back (and after they resume), and another learner sees another. Grading goes by each answer's `id`, so nothing else changes.
+The editor never shuffles, so the author sees and edits their own order. An answer that depends on where it stands (`A.`, `All of the above`, `Both A and B`) is a warning when the question shuffles (`shuffle-position-words`).
+Absent, or `false`, means the author's order. No other kind of question has the field (the schema refuses it).
+
 **Order.** Matches, the word bank and the starting order of a sequence are shown in an order that is the same every time (a shuffle seeded by the
 object's id) and never the order the author wrote, so the first match is not the first item's. The editor and the player show the same order.
 
@@ -1465,6 +1483,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.32.0 | 0.33.0 | Adds question banks (the optional `banks` of `project.json`) and the optional `shuffle` of a multiple choice or multiple response question. Nothing in an older course changes. |
 | 0.31.0 | 0.32.0 | Adds the timer: an object of type `timer` (`seconds`, `label`, `extendBy`), the event `timerEnd` and the action `stopTimer`. Nothing in an older course changes. |
 | 0.30.0 | 0.31.0 | Adds values in a text: a `text` object's `html` can hold `{{Name}}`, naming a variable or one of the values the course works out (`$score`, `$possible`, `$percent`, `$answered`, `$questions`, `$correct`), and the player shows and updates it. Nothing in an existing project has to change, unless a text already had words in double braces, which now name a value (the validator says if they name nothing). |
 | 0.29.0 | 0.30.0 | Adds the speech and thought bubbles: the shapes `speech` and `thought`, the optional `tail` (`left` or `right`) of a shape that is one, and the optional `bubble` and `tail` of a `text` object (words in a bubble). Nothing in an existing project has to change: no shape is a bubble and no text has one. |

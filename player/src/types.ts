@@ -30,6 +30,20 @@ export interface Project {
   scenes: { id: string; name: string; slides: string[] }[];
   /** The PowerPoint decks slides were imported from. Absent means none. */
   sources?: DeckSource[];
+  /** Question banks: runs of slides of which each learner is shown some. Absent means none. */
+  banks?: Bank[];
+}
+
+/** A question bank. Each learner is shown `draw` of its slides, picked at random when they begin, in the author's order or mixed. See bank.ts. */
+export interface Bank {
+  id: string;
+  name: string;
+  /** The slides it holds, which sit together in the course. */
+  slides: string[];
+  /** How many of them each learner is shown. */
+  draw: number;
+  /** Show the ones picked in a random order, not the author's. */
+  shuffle: boolean;
 }
 
 /** A PowerPoint deck slides were imported from, and how it was laid on the stage, so a changed deck is placed the same way. */
@@ -163,6 +177,8 @@ export interface QuizBase {
 export interface ChoiceQuiz extends QuizBase {
   questionType: "multipleChoice" | "multipleResponse";
   choices: Choice[];
+  /** Show the answers in a different order to each learner (the same order for the same learner, however often they come back). Absent means the author's order. */
+  shuffle?: boolean;
 }
 
 /** A typed answer, right if it matches one of the accepted answers. */

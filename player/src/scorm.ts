@@ -120,7 +120,9 @@ export function lessonStatus(p: Progress, current: string): string {
 // ---- suspend data
 
 export function encodeSuspend(snap: Snapshot): string {
-  const full = { v: 1, s: snap.slide, x: snap.vars, q: snap.quiz, l: snap.layers, d: snap.visited, c: snap.scenario };
+  // The learner's random choices (the seed and the slides each bank showed) are kept in every form: without them the quiz results and
+  // the visited slides would belong to slides the learner is no longer shown.
+  const full = { v: 1, s: snap.slide, x: snap.vars, q: snap.quiz, l: snap.layers, d: snap.visited, c: snap.scenario, r: snap.seed, b: snap.draws };
   // Over the limit: drop the least important parts first. Quiz results are never dropped,
   // because the score depends on them. Where a learner is in a scenario goes with the variables: the
   // meters are variables, so one without the other would put the learner back at the start with
@@ -135,7 +137,7 @@ export function encodeSuspend(snap: Snapshot): string {
     const text = JSON.stringify(a);
     if (text.length <= SUSPEND_LIMIT) return text;
   }
-  return JSON.stringify({ v: 1, s: snap.slide });
+  return JSON.stringify({ v: 1, s: snap.slide, r: snap.seed, b: snap.draws });
 }
 
 export function decodeSuspend(text: string): Snapshot | null {
@@ -150,6 +152,8 @@ export function decodeSuspend(text: string): Snapshot | null {
       layers: (raw["l"] as string[]) ?? [],
       visited: typeof raw["d"] === "string" ? raw["d"] : "",
       ...(raw["c"] && typeof raw["c"] === "object" ? { scenario: raw["c"] as Record<string, string> } : {}),
+      ...(typeof raw["r"] === "number" && Number.isFinite(raw["r"]) ? { seed: raw["r"] } : {}),
+      ...(raw["b"] && typeof raw["b"] === "object" && !Array.isArray(raw["b"]) ? { draws: raw["b"] as Snapshot["draws"] } : {}),
     };
   } catch {
     return null;

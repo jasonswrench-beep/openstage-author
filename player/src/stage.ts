@@ -64,6 +64,8 @@ export interface StageBehavior {
   scenarioPath?(objectId: string): string;
   /** A learner made a choice in a scenario, or took one back. */
   onScenarioMove?(obj: OSObject, move: Move): void;
+  /** The learner's own number for shuffling answers, as text, or undefined when there is none (the editor). */
+  sessionSeed?(): string | undefined;
   /** A learner added time to a timer. */
   onTimerAddTime?(obj: OSObject): void;
   /** A learner turned a timer off. */
@@ -551,7 +553,7 @@ export class StageRenderer {
   private buildQuiz(obj: OSObject): HTMLElement {
     const doc = this.doc;
     const q = obj.content as unknown as QuizContent;
-    const view = buildQuestion(doc, obj, { editing: !!this.behavior.editing, announce: (m) => this.behavior.announce?.(m) });
+    const view = buildQuestion(doc, obj, { editing: !!this.behavior.editing, announce: (m) => this.behavior.announce?.(m), seed: this.behavior.sessionSeed?.() });
     const check = button(doc, "Check answer", "os-button os-quiz-check");
     view.el.appendChild(check);
     if (this.behavior.editing) return view.el;

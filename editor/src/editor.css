@@ -286,6 +286,9 @@ button.small:hover { background: #e3e6eb; }
 .props-body fieldset.rule { border: 1px solid #8c929b; border-radius: 6px; margin: 8px 0; }
 .rule .conds { margin: 4px 0; }
 .cond { border-left: 3px solid #0b3fb3; padding-left: 8px; margin: 6px 0; }
+.banks-dialog { width: min(760px, 94vw); }
+.bk-row, .bk-add { margin: 12px 0; }
+.bk-row .field.check, .bk-add .field.check { display: flex; gap: 10px; align-items: center; }
 .variables-dialog { width: min(900px, 94vw); }
 .vr-row { display: grid; grid-template-columns: minmax(8em, 1.4fr) 8em minmax(10em, 1.4fr) 6.5em auto; gap: 8px; align-items: center; margin: 6px 0; padding: 4px 0; border-bottom: 1px solid #d3d8df; }
 .vr-row input, .vr-row select { font: inherit; padding: 3px 5px; min-width: 0; max-width: 100%; box-sizing: border-box; }
