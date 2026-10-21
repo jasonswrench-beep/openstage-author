@@ -30,9 +30,9 @@ function kathy(src = "assets/images/kathy.png") {
   return { listed, person, character, credit: creditForPicture(listed, person, src) };
 }
 
-test("the pack that comes with the program has the eleven people, each with alt text and many poses", () => {
+test("the pack that comes with the program has the fifteen people, each with alt text and many poses", () => {
   const { listed } = kathy();
-  assert.deepEqual(listed.people.map((p) => p.name), ["Aisyah", "Daryl", "David", "Gerry", "Jacob", "Kathy", "Ken", "Lisa", "Malina", "Mei", "Salma"]);
+  assert.deepEqual(listed.people.map((p) => p.name), ["Aisyah", "Blayne", "Daryl", "David", "Gerry", "Harold", "Jacob", "Kathy", "Ken", "Lisa", "Makoa", "Malina", "Mei", "Salma", "Yusuf"]);
   for (const p of listed.people) {
     assert.ok(p.alt.length > 40, `${p.name} has a description`);
     assert.ok(p.poses.length >= 10, `${p.name} has poses`);

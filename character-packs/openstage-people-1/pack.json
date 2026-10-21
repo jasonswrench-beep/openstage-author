@@ -3,7 +3,7 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Eleven people in everyday work and casual clothes, each in many poses: Aisyah, Daryl, David, Gerry, Jacob, Kathy, Ken, Lisa, Malina, Mei and Salma. The pictures were made with Ideogram from written descriptions.",
+  "description": "Fifteen people in everyday work and casual clothes, each in many poses: Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf. The pictures were made with Ideogram from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
@@ -158,6 +158,142 @@
         }
       ],
       "head": "aisyah/head.png"
+    },
+    {
+      "id": "blayne",
+      "name": "Blayne",
+      "role": "",
+      "voice": "male",
+      "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "blayne/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms down, smiling."
+        },
+        {
+          "id": "neutral-2",
+          "file": "blayne/neutral-2.png",
+          "label": "Standing, turned slightly",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing turned slightly, with arms down, smiling."
+        },
+        {
+          "id": "hand-in-pocket",
+          "file": "blayne/hand-in-pocket.png",
+          "label": "Hand in pocket",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing turned slightly with one hand in a pocket, smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "blayne/welcome.png",
+          "label": "Waving hello",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "blayne/welcome-2.png",
+          "label": "Waving, hand held up",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, waving with one hand held up, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "blayne/explain.png",
+          "label": "Explaining, hands in front",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with both hands held in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "blayne/explain-2.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with one hand raised in front of the chest."
+        },
+        {
+          "id": "explain-3",
+          "file": "blayne/explain-3.png",
+          "label": "Explaining, turned slightly",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, explaining with both hands out in front, turned slightly."
+        },
+        {
+          "id": "offer",
+          "file": "blayne/offer.png",
+          "label": "Offering, hand open",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "blayne/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "blayne/present-right-2.png",
+          "label": "Presenting, arm out wide to the right",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out wide to the right, palm up, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "blayne/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out to the left, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "blayne/present-left-2.png",
+          "label": "Presenting, arm out wide to the left",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, holding one arm out wide to the left, palm up, pointing across with the other hand, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "blayne/arms-crossed.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "blayne/arms-crossed-2.png",
+          "label": "Arms crossed, relaxed",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, standing with arms crossed, looking relaxed."
+        },
+        {
+          "id": "think",
+          "file": "blayne/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "blayne/think-2.png",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "blayne/emphasis.png",
+          "label": "Making a point, fist raised",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, smiling, with one hand raised in a loose fist beside the shoulder."
+        },
+        {
+          "id": "emphasis-2",
+          "file": "blayne/emphasis-2.png",
+          "label": "Making a point, fist raised, leaning",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, smiling, leaning a little, with one hand raised in a loose fist."
+        },
+        {
+          "id": "side",
+          "file": "blayne/side.png",
+          "label": "Turned away, looking back",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, turned away to one side, looking back over the shoulder."
+        },
+        {
+          "id": "side-2",
+          "file": "blayne/side-2.png",
+          "label": "Seen from the side",
+          "alt": "Blayne, a young man with brown skin and short dark hair, wearing a mustard yellow sweatshirt over a white collared shirt, dark navy jeans and white sneakers, seen from the side, standing, looking toward the viewer."
+        }
+      ],
+      "head": "blayne/head.png"
     },
     {
       "id": "daryl",
@@ -536,6 +672,142 @@
         }
       ],
       "head": "gerry/head.png"
+    },
+    {
+      "id": "harold",
+      "name": "Harold",
+      "role": "",
+      "voice": "male",
+      "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "harold/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "harold/neutral-2.png",
+          "label": "Standing, calm",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms down, looking calm and slightly smiling."
+        },
+        {
+          "id": "welcome",
+          "file": "harold/welcome.png",
+          "label": "Waving hello",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "harold/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "welcome-3",
+          "file": "harold/welcome-3.png",
+          "label": "Waving, small wave",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, giving a small wave with one hand raised, smiling."
+        },
+        {
+          "id": "welcome-4",
+          "file": "harold/welcome-4.png",
+          "label": "Waving, wearing glasses",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, wearing glasses and waving with one hand raised, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "harold/explain.png",
+          "label": "Explaining, both hands out",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, explaining with both hands held out, with feet apart."
+        },
+        {
+          "id": "explain-2",
+          "file": "harold/explain-2.png",
+          "label": "Explaining, hands low",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, explaining with both hands held low in front."
+        },
+        {
+          "id": "offer",
+          "file": "harold/offer.png",
+          "label": "Offering, hand open",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one hand open in front of the chest, palm up, looking serious."
+        },
+        {
+          "id": "offer-2",
+          "file": "harold/offer-2.png",
+          "label": "Offering, hand open, facing front",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing facing front and holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "present-right",
+          "file": "harold/present-right.png",
+          "label": "Presenting, hands out to the right",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding both hands out to the right, as if presenting, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "harold/present-right-2.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one arm out to the right, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "harold/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding one arm out to the left, palm up, with the other hand across the body, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "harold/present-left-2.png",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, turned slightly and holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "harold/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "harold/arms-crossed-2.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, standing with arms crossed, with a slight smile."
+        },
+        {
+          "id": "think",
+          "file": "harold/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "harold/think-2.png",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "stop",
+          "file": "harold/stop.png",
+          "label": "Hand up, palm out",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, holding up one hand, palm out, smiling."
+        },
+        {
+          "id": "side",
+          "file": "harold/side.png",
+          "label": "Seen from the side",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "harold/side-2.png",
+          "label": "Seen at an angle",
+          "alt": "Harold, an older man with light skin, short silver hair and a short grey beard, wearing a brown tweed blazer over a light blue open-collar shirt, dark grey trousers and brown leather shoes, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "harold/head.png"
     },
     {
       "id": "jacob",
@@ -992,6 +1264,142 @@
       "head": "lisa/head.png"
     },
     {
+      "id": "makoa",
+      "name": "Makoa",
+      "role": "",
+      "voice": "male",
+      "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "makoa/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "makoa/neutral-2.png",
+          "label": "Standing, smiling",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms down, with a slight smile."
+        },
+        {
+          "id": "neutral-3",
+          "file": "makoa/neutral-3.png",
+          "label": "Standing, hands at sides",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with hands at the sides, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "makoa/welcome.png",
+          "label": "Waving hello",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "makoa/welcome-2.png",
+          "label": "Waving, hand at the shoulder",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, waving with one hand near the shoulder, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "makoa/explain.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with one hand raised in front of the chest."
+        },
+        {
+          "id": "explain-2",
+          "file": "makoa/explain-2.png",
+          "label": "Explaining, hands out",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands held out in front, smiling."
+        },
+        {
+          "id": "explain-3",
+          "file": "makoa/explain-3.png",
+          "label": "Explaining, hands together",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands held together near the chest."
+        },
+        {
+          "id": "explain-4",
+          "file": "makoa/explain-4.png",
+          "label": "Explaining, feet apart",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, explaining with both hands out, standing with feet apart."
+        },
+        {
+          "id": "offer",
+          "file": "makoa/offer.png",
+          "label": "Offering, hand open",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand open at the waist, palm up, turned slightly."
+        },
+        {
+          "id": "present-right",
+          "file": "makoa/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one arm out to the right, palm up, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "makoa/present-right-2.png",
+          "label": "Presenting, hand out to the right, other hand across",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand out to the right, palm up, with the other hand across the chest, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "makoa/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "makoa/present-left-2.png",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "makoa/arms-crossed.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms crossed, smiling."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "makoa/arms-crossed-2.png",
+          "label": "Arms crossed, calm",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "think",
+          "file": "makoa/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, resting a hand on the chin with the other hand in a pocket, as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "makoa/think-2.png",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "makoa/emphasis.png",
+          "label": "Making a point, fist raised",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, smiling, with one hand raised in a loose fist near the chest."
+        },
+        {
+          "id": "side",
+          "file": "makoa/side.png",
+          "label": "Turned away, looking back",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, turned away to one side, looking back over the shoulder."
+        },
+        {
+          "id": "side-2",
+          "file": "makoa/side-2.png",
+          "label": "Turned slightly, looking back",
+          "alt": "Makoa, a man with medium brown skin and short dark hair, wearing a teal short-sleeved shirt with a tropical flower print, cream trousers and tan loafers, turned slightly to one side, looking back over the shoulder."
+        }
+      ],
+      "head": "makoa/head.png"
+    },
+    {
       "id": "malina",
       "name": "Malina",
       "role": "",
@@ -1380,6 +1788,136 @@
         }
       ],
       "head": "salma/head.png"
+    },
+    {
+      "id": "yusuf",
+      "name": "Yusuf",
+      "role": "",
+      "voice": "male",
+      "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes.",
+      "poses": [
+        {
+          "id": "neutral",
+          "file": "yusuf/neutral.png",
+          "label": "Standing, relaxed",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing turned slightly, with arms down, looking calm."
+        },
+        {
+          "id": "neutral-2",
+          "file": "yusuf/neutral-2.png",
+          "label": "Standing, facing front",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing facing front with arms down, looking calm."
+        },
+        {
+          "id": "welcome",
+          "file": "yusuf/welcome.png",
+          "label": "Waving hello",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, waving hello, smiling."
+        },
+        {
+          "id": "welcome-2",
+          "file": "yusuf/welcome-2.png",
+          "label": "Waving, hand held high",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, waving with one hand held high, smiling."
+        },
+        {
+          "id": "explain",
+          "file": "yusuf/explain.png",
+          "label": "Explaining, one hand raised",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with one hand raised in front of the chest, smiling."
+        },
+        {
+          "id": "explain-2",
+          "file": "yusuf/explain-2.png",
+          "label": "Explaining, hands together",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with both hands held together at the waist, turned slightly."
+        },
+        {
+          "id": "explain-3",
+          "file": "yusuf/explain-3.png",
+          "label": "Explaining, hands at the chest",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, explaining with both hands at the chest, one pointing up."
+        },
+        {
+          "id": "offer",
+          "file": "yusuf/offer.png",
+          "label": "Offering, hand open",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand open in front of the chest, palm up."
+        },
+        {
+          "id": "offer-2",
+          "file": "yusuf/offer-2.png",
+          "label": "Offering, hand open at the waist",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand open at the waist, palm up, looking calm."
+        },
+        {
+          "id": "present-right",
+          "file": "yusuf/present-right.png",
+          "label": "Presenting, arm out to the right",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one arm out to the right, palm up, with the other hand at the chest, smiling."
+        },
+        {
+          "id": "present-right-2",
+          "file": "yusuf/present-right-2.png",
+          "label": "Presenting, pointing across, arm out to the right",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, pointing across the body with one hand and holding the other arm out to the right, smiling."
+        },
+        {
+          "id": "present-left",
+          "file": "yusuf/present-left.png",
+          "label": "Presenting, arm out to the left",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one arm out to the left, palm up, smiling."
+        },
+        {
+          "id": "present-left-2",
+          "file": "yusuf/present-left-2.png",
+          "label": "Presenting, hand out low to the left",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, holding one hand out low to the left, palm up, smiling."
+        },
+        {
+          "id": "arms-crossed",
+          "file": "yusuf/arms-crossed.png",
+          "label": "Arms crossed",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing with arms crossed, looking calm."
+        },
+        {
+          "id": "arms-crossed-2",
+          "file": "yusuf/arms-crossed-2.png",
+          "label": "Arms crossed, smiling",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, standing turned slightly with arms crossed, smiling."
+        },
+        {
+          "id": "think",
+          "file": "yusuf/think.png",
+          "label": "Thinking, hand to chin",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, resting a hand on the chin as if thinking."
+        },
+        {
+          "id": "think-2",
+          "file": "yusuf/think-2.png",
+          "label": "Thinking, hand to chin, arm across",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, resting a hand on the chin with the other arm across the body, as if thinking."
+        },
+        {
+          "id": "emphasis",
+          "file": "yusuf/emphasis.png",
+          "label": "Making a point, stepping",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, stepping to one side with one hand raised near the chest, smiling."
+        },
+        {
+          "id": "side",
+          "file": "yusuf/side.png",
+          "label": "Seen from the side",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, seen from the side, standing, facing right."
+        },
+        {
+          "id": "side-2",
+          "file": "yusuf/side-2.png",
+          "label": "Seen at an angle",
+          "alt": "Yusuf, a middle-aged man with medium skin, short grey hair and a short grey beard, wearing a navy blazer over a white open-collar shirt, dark grey trousers and brown shoes, seen at an angle from the side, standing, facing right."
+        }
+      ],
+      "head": "yusuf/head.png"
     }
   ]
 }
