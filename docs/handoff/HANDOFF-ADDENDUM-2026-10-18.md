@@ -281,3 +281,11 @@ Built, tested and pushed. User guide: `docs/speech-recognition.md`. Decision and
 - **Done here, in the desktop app** (`games1.js`, `games2.js` over the debugging port): the Add slide picker's Games group, each size dialog (the first question focused, a live summary line), adding all three, one Undo per game, saving, the validator (no error), Preview, the accessibility tree of the picker and a size dialog (named controls, the summary is a status), and a **background picture on an escape-room room slide** (the server hall behind the three place buttons; the validator stays clean because the game's own boxes paint their own fills). The games were not *played* in the window.
 - **Open, for Jason (from the memo):** which stage 2 first (show a variable as text, a timer that can be extended or turned off, shuffling and question banks; each a format change); whether a game with elimination is wanted (finding 5); where the five videos are; whether sets should be shareable as files.
 - **Working with the other session:** it pushes to the same repository, so `git fetch` before starting and `git pull --rebase` before pushing.
+
+## Jason's answers about the games and the pass (2026-10-21)
+
+- **Backgrounds: public domain, confirmed** (as the people are). NOTICE, the pack's ADR and the roadmap say so.
+- **No elimination:** every game goes to the end, with a score total and feedback slide closing it. That is what the games already do (finding 5 of `docs/game-templates.md` stands).
+- **Sharing:** yes, a game (or any set of slides) can be shared as a file with another person who uses OpenStage Author. To be built as a slide set file (`docs/slide-sets.md`).
+- **The five videos** are on Jason's work computer. Not needed now; screenshots would do if the genre list needs checking.
+- **Screen reader pass:** "we need to do it." Needs NVDA (a download, which needs Jason's yes) or a person who uses one.

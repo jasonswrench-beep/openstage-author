@@ -39,7 +39,7 @@ Jason sent 58 empty-place pictures (offices, meeting and training rooms, recepti
 * **WebP, 1920 by 1080, about 150 KB each** (8.7 MB for all 58, against about 300 MB), made once by `tools/make_background_pack.py`. A slide is usually 1280 by 720, so the pictures are sharp at full screen.
 * **Each picture is described in words** (a name, a group, and what it shows, written by looking at it), so someone who cannot see can still choose one. The picture itself is decoration.
 * **No new format.** A background is an ordinary decorative `image` named "Background picture" at the back of the base layer, which is what the PowerPoint import already does, locked so a click does not move it, with the slide's colour set to the picture's average so the checker can judge the text (it cannot see a picture). The credit is saved in `assets.json` with the same wording as the people, and the same picture on two slides is one file.
-* **Licence wording carried over, not confirmed.** The credit says "Made with Ideogram (AI-generated), in the public domain", as for the people. Jason stated that for the people; he has not yet said it in words for these pictures. NOTICE says so.
+* **Licence confirmed by Jason, 2026-10-21:** the backgrounds are in the public domain, as the people are. The credit says "Made with Ideogram (AI-generated), in the public domain", and NOTICE says it was confirmed.
 
 ## Not built
 

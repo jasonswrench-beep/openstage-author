@@ -167,6 +167,6 @@ The author approved stage 1 and the reading of "gamification economies" above (a
 
 - Stage 1 is built: the mechanism, the Quiz board, the Prize ladder and the Escape room. Stage 2 is next, each with your yes because each is a format change: show a variable as text (which would also give the
   games a running score and fix the names that go stale), a timer that can be extended or turned off, and shuffling with question banks. Say which first, or whether to commit what is here before going on.
-- Whether a game with elimination is wanted (finding 5), and so whether to design a way to finish the quizzes left after a game over. The escape room's tries (finding 8) show a pattern that could be reused.
+- **Decided by the author, 2026-10-21: no elimination.** People should be able to go to the end of any game, and there is a score total and feedback slide at the end (the results slide every game already ends with). So finding 5 stands as built, and nothing needs designing for a game over.
 - Where the five videos are, so the genre list can be checked against them. A few screenshots of each would do. (Not seen yet.)
-- Built into the editor, as proposed, and with an example project each. Say if sets should also be shareable as files (that belongs with reusable components).
+- **Decided by the author, 2026-10-21: yes, a game (or any set of slides) can be shared as a file** with another person who uses OpenStage Author, because it is all open and sharing is best. This is built as its own feature, not as reusable components: see `docs/slide-sets.md` once it exists.
