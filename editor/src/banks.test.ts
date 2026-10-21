@@ -140,6 +140,19 @@ test("a bank is saved in project.json and read back, and a project with none has
   assert.equal(reopened.banks[0]!.name, "Quiz");
 });
 
+test("the copy of a slide in a bank joins the bank, right after it, so the bank stays together", () => {
+  const m = course(5);
+  m.addBank(ids(m)[1]!, ids(m)[3]!);
+  const original = ids(m)[2]!;
+  const before = ids(m);
+  const said = m.duplicateSlide(original)!;
+  assert.match(said, /The copy is in the question bank Question bank 1 too/);
+  const copy = ids(m).find((id) => !before.includes(id))!;
+  assert.deepEqual(m.banks[0]!.slides, [before[1]!, original, copy, before[3]!]);
+  assert.deepEqual(m.banks[0]!.slides, ids(m).slice(1, 5), "side by side in the course too");
+  assert.equal(m.duplicateSlide(ids(m)[0]!)!.includes("question bank"), false, "a slide outside any bank is copied outside");
+});
+
 // ---- shuffled answers
 
 test("a multiple choice question can mix its answers, and that is taken away by turning it off", () => {

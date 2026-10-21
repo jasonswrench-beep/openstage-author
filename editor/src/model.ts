@@ -4139,6 +4139,9 @@ export class Model {
     const scene = this.project.scenes.find((s) => s.slides.includes(slideId)) ?? this.project.scenes[0]!;
     const at = scene.slides.indexOf(slideId);
     scene.slides.splice(at === -1 ? scene.slides.length : at + 1, 0, id);
+    // The copy of a slide in a question bank joins the bank, so the bank's slides stay side by side.
+    const bank = this.bankOf(slideId);
+    if (bank) this.writeBanks(this.banks.map((b) => (b.id === bank.id ? { ...b, slides: [...b.slides.slice(0, b.slides.indexOf(slideId) + 1), id, ...b.slides.slice(b.slides.indexOf(slideId) + 1)] } : b)));
     this.docs.push({ id, slide, originalText: "", savedCompact: "" });
     this.syncDocOrder();
     this.sel = { slideId: id, layerId: slide.baseLayer.id, objectId: null };
@@ -4151,6 +4154,7 @@ export class Model {
     if (made.newVariables > 0) parts.push(`Its ${made.newVariables === 1 ? "input saves" : "inputs save"} to ${made.newVariables === 1 ? "a variable" : "variables"} of its own, so the copy does not overwrite the original's answers.`);
     const questions = flat.filter((o) => o.type === "quizQuestion").length;
     if (questions > 0) parts.push(`${questions === 1 ? "Its question counts" : `Its ${questions} questions count`} toward the score again, because the copy has ${questions === 1 ? "one" : "questions"} of its own.`);
+    if (bank) parts.push(`The copy is in the question bank ${bank.name} too.`);
     parts.push("Rules on other slides that go to this slide still go to the original.");
     return parts.join(" ");
   }
