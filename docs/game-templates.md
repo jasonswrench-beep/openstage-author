@@ -168,5 +168,24 @@ The author approved stage 1 and the reading of "gamification economies" above (a
 - Stage 1 is built: the mechanism, the Quiz board, the Prize ladder and the Escape room. Stage 2 is next, each with your yes because each is a format change: show a variable as text (which would also give the
   games a running score and fix the names that go stale), a timer that can be extended or turned off, and shuffling with question banks. Say which first, or whether to commit what is here before going on.
 - **Decided by the author, 2026-10-21: no elimination.** People should be able to go to the end of any game, and there is a score total and feedback slide at the end (the results slide every game already ends with). So finding 5 stands as built, and nothing needs designing for a game over.
-- Where the five videos are, so the genre list can be checked against them. A few screenshots of each would do. (Not seen yet.)
+- ~~Where the videos are.~~ Four arrived on 2026-10-21 (see the next section).
 - **Decided by the author, 2026-10-21: yes, a game (or any set of slides) can be shared as a file** with another person who uses OpenStage Author, because it is all open and sharing is best. This is built as its own feature, not as reusable components: see `docs/slide-sets.md` once it exists.
+
+## What the four example videos show (looked at 2026-10-21)
+
+The author sent four short screen recordings of an eLearning authoring platform game demos, about a minute each, 1024 by 720, **with no sound** (so this is from frames; nothing was heard): **Millionaire Challenge** (two takes of the same game), **Categories** and **Gameshow**. They are examples of how the genres look, not designs to copy: nothing here copies a vendor's pictures, words or names.
+
+What all of them have, and what the games built so far have too: a title slide with a Start button and instructions; a question slide; feedback that says right or wrong with a short explanation and a Continue button; a results slide with a percentage and a pass or fail word.
+
+What they have that the built games do not, and what each needs:
+
+1. **A running score on every slide** (a prize in dollars with "3/10" in Millionaire, points in the other two). Needs **show a variable as text** (stage 2, the first block the author asked for).
+2. **Play again** on the results slide, which starts the game over. Needs a way to **reset**: variables are easy, but a quiz that has been answered cannot be answered again today (finding 5 shows the same limit). This is a new item, not on the earlier list, and needs designing.
+3. **Right and wrong told apart.** Categories rings a used tile in yellow when it was answered right and red when wrong; Gameshow fades used tiles. A rule cannot tell a right answer from a wrong one today (finding 8), so the board can only mark a tile "used". Needs an event such as "the answer was right" and "the answer was wrong" on a question. Another new item.
+4. **Hints** (Millionaire: three "!" tokens that each open a hint panel and are used up) in place of lifelines. A hint is a layer the learner opens, so it needs only a counter that runs out (a variable, a condition and a look), and show-a-variable-as-text to say how many are left.
+5. **A picture that changes with progress** (Millionaire's suitcase fills with money). The ladder already draws a picture per rung; a suitcase would be one picture per question slide.
+6. **A feedback face** (Categories shows a character with the feedback). The people from the library on a slide (built 2026-10-21) cover it.
+7. **A "Submit" step** (choose an answer, then press Submit). The quiz questions already have Check answer.
+8. **Elimination** (Millionaire: a wrong answer shows "You lose"). **Not wanted**: decided 2026-10-21, every game goes to the end.
+
+The author also asked for a timer and for shuffling with question banks; neither appears in these four videos, and both are still planned.
