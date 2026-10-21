@@ -4,13 +4,14 @@
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
 import { isBubbleKind, isBubbleTail } from "../../player/src/bubble.ts";
+import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -3931,6 +3932,74 @@ export class Model {
     this.retone(doc.slide, was, toneOf(value, (hex) => this.lightBackground(hex)));
     this.emit({ kind: "structure" });
     return "Background updated";
+  }
+
+  // ---- a picture behind everything on a slide
+
+  /** The file already in the project that was recorded with this credit title, if any, so a picture chosen again is not copied again. */
+  pathOfCredit(title: string): string | null {
+    return this.assets.find((a) => a.title === title)?.path ?? null;
+  }
+
+  /** The picture behind everything on a slide, if it has one (see backgrounds.ts). */
+  backgroundPictureOf(slideId: string): OSObject | null {
+    return this.docs.find((d) => d.id === slideId)?.slide.baseLayer.objects.find(isBackgroundPicture) ?? null;
+  }
+
+  /**
+   * Put a picture behind everything on a slide, in place of the one that was there. It is a decorative picture the size of the stage at the back of the base layer, locked so
+   * a click on the slide does not move it, and the slide's own background becomes the picture's average colour: the checker judges text against a colour and cannot see a
+   * picture, so this is its best guess. Text that follows the theme takes the colour that suits the new background. `credit` says where the picture came from. One undo step.
+   */
+  setBackgroundPicture(slideId: string, picture: { src: string; color: string | null; credit?: CreditEntry }): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc || !picture.src.startsWith("assets/")) return null;
+    const slide = doc.slide;
+    this.record("");
+    const objects = slide.baseLayer.objects;
+    for (let i = objects.length - 1; i >= 0; i--) {
+      if (isBackgroundPicture(objects[i]!)) objects.splice(i, 1);
+    }
+    // Behind everything is z 0. If something already sits at 0 or below, everything moves up together, so the order they were in does not change.
+    const lowest = objects.reduce((m, o) => Math.min(m, o.geometry.z), Infinity);
+    if (lowest !== Infinity && lowest <= 0) {
+      for (const o of objects) o.geometry = { ...o.geometry, z: o.geometry.z + 1 - lowest };
+    }
+    const stage = this.project.stage;
+    objects.unshift({
+      ...box(this.allocator().object(), 0, 0, stage.width, stage.height, 0), type: "image", name: BACKGROUND_NAME, locked: true,
+      content: { src: picture.src }, style: {},
+      accessibility: { altText: "", role: "presentation", tabOrder: 0, decorative: true },
+    });
+    if (picture.credit) {
+      const at = this.assets.findIndex((a) => a.path === picture.credit!.path);
+      if (at === -1) this.assets.push(picture.credit); else this.assets[at] = picture.credit;
+    }
+    if (picture.color && /^#[0-9a-fA-F]{6}$/.test(picture.color)) {
+      const was = toneOf(slide.background, (hex) => this.lightBackground(hex));
+      slide.background = picture.color;
+      this.retone(slide, was, toneOf(picture.color, (hex) => this.lightBackground(hex)));
+    }
+    this.emit({ kind: "structure" });
+    return "Background picture added behind everything on this slide. It is locked, so clicking the slide does not move it.";
+  }
+
+  /** Take a slide's background picture away. The slide's background goes back to the theme's. One undo step. */
+  removeBackgroundPicture(slideId: string): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    const at = doc ? doc.slide.baseLayer.objects.findIndex(isBackgroundPicture) : -1;
+    if (!doc || at === -1) return null;
+    const slide = doc.slide;
+    this.record("");
+    const [gone] = slide.baseLayer.objects.splice(at, 1);
+    if (gone && this.sel.objectId === gone.id) this.sel = { ...this.sel, objectId: null };
+    if (slide.background !== null) {
+      const was = toneOf(slide.background, (hex) => this.lightBackground(hex));
+      slide.background = null;
+      this.retone(slide, was, toneOf(null, (hex) => this.lightBackground(hex)));
+    }
+    this.emit({ kind: "structure" });
+    return "Background picture removed. The slide's background is the theme's again.";
   }
 
   // ---- history

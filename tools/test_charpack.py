@@ -86,7 +86,7 @@ class TheManifest(Temp):
 
     def test_each_mistake_is_named_in_words(self):
         cases = [
-            ({"packVersion": 2}, "packVersion"),
+            ({"packVersion": 3}, "packVersion"),
             ({"id": "Bad Id"}, "\"id\""),
             ({"version": "one"}, "version"),
             ({"title": ""}, "title"),
@@ -339,6 +339,113 @@ class Installing(Temp):
         with self.assertRaises(c.PackError) as ctx:
             self.install(files)
         self.assertIn("capital letters", str(ctx.exception))
+
+
+def backgrounds(**over):
+    """A pack of backgrounds only (packVersion 2)."""
+    base = {
+        "packVersion": 2, "id": "test-rooms", "title": "Test rooms", "version": "1.0.0", "description": "Two rooms for tests.",
+        "credit": {"creator": "A. Maker", "creatorUrl": "", "licence": "Free to use in OpenStage courses", "url": "https://example.org/packs"},
+        "backgrounds": [
+            {"id": "office-1", "name": "Open-plan office", "group": "Offices", "alt": "An empty open-plan office with long desks.", "file": "rooms/office-1.png"},
+            {"id": "hall-1", "name": "Corridor", "group": "", "alt": "A long corridor with glass walls.", "file": "rooms/hall-1.png"},
+        ],
+    }
+    base.update(over)
+    return base
+
+
+class Backgrounds(Temp):
+    """A pack can hold backgrounds (pictures to put behind a slide), with or without people: packVersion 2."""
+
+    def test_a_pack_of_backgrounds_alone_is_good_and_says_what_it_holds(self):
+        m = c.check_pack(write_pack(self.dir / "p", backgrounds()))
+        self.assertEqual(m["people"], [])
+        self.assertEqual([b["id"] for b in m["backgrounds"]], ["office-1", "hall-1"])
+        self.assertEqual(m["backgrounds"][1]["group"], "")
+        self.assertEqual(c.contents(m), "2 backgrounds")
+        self.assertEqual(c.pack_kind(m), "background pack")
+        self.assertEqual(c.files_named(m), ["rooms/office-1.png", "rooms/hall-1.png"])
+
+    def test_a_pack_can_hold_people_and_backgrounds(self):
+        data = manifest(packVersion=2, backgrounds=backgrounds()["backgrounds"])
+        m = c.check_pack(write_pack(self.dir / "p", data))
+        self.assertEqual(c.contents(m), "2 people and 2 backgrounds")
+        self.assertEqual(c.pack_kind(m), "pack")
+        self.assertIn("rooms/hall-1.png", c.files_named(m))
+
+    def test_a_pack_of_people_is_still_a_character_pack_at_either_version(self):
+        for version in (1, 2):
+            m = c.clean_manifest(manifest(packVersion=version))
+            self.assertEqual(m["backgrounds"], [])
+            self.assertEqual(c.pack_kind(m), "character pack")
+            self.assertEqual(c.contents(m), "2 people")
+            self.assertEqual(m["packVersion"], version)
+
+    def test_backgrounds_need_packversion_2(self):
+        self.refused(c.clean_manifest, backgrounds(packVersion=1), word="packVersion")
+        self.refused(c.clean_manifest, backgrounds(packVersion=3), word="packVersion")
+
+    def test_a_pack_with_nothing_in_it_is_refused(self):
+        self.refused(c.clean_manifest, backgrounds(backgrounds=[]), word="from 1 to")
+        self.refused(c.clean_manifest, manifest(packVersion=2, people=[]), word="from 1 to")
+        data = backgrounds()
+        del data["backgrounds"]
+        self.refused(c.clean_manifest, data, word="from 1 to")
+
+    def test_each_mistake_in_a_background_is_named_in_words(self):
+        def with_one(**over):
+            data = backgrounds()
+            data["backgrounds"][0].update(over)
+            return data
+        for over, word in (
+            ({"id": "Office"}, "lower case"),
+            ({"id": "hall-1"}, "used twice"),
+            ({"name": ""}, "\"name\" is needed"),
+            ({"name": "x" * 61}, "too long"),
+            ({"alt": ""}, "\"alt\" is needed"),
+            ({"alt": "x" * 301}, "too long"),
+            ({"group": "x" * 41}, "too long"),
+            ({"file": "../office.png"}, "plain place"),
+            ({"file": "rooms/office-1.jpg"}, ".png or .webp"),
+            ({"file": "a/b/c/d.png"}, "plain place"),
+        ):
+            with self.subTest(over=over):
+                self.refused(c.clean_manifest, with_one(**over), word=word)
+        self.refused(c.clean_manifest, backgrounds(backgrounds="none"), word="from 1 to")
+        self.refused(c.clean_manifest, backgrounds(backgrounds=["x"]), word="must be an object")
+        self.refused(c.clean_manifest, backgrounds(backgrounds=[backgrounds()["backgrounds"][0]] * 201), word="from 1 to")
+
+    def test_the_pictures_are_checked_like_any_other(self):
+        folder = write_pack(self.dir / "p", backgrounds())
+        (folder / "rooms" / "hall-1.png").unlink()
+        self.refused(c.check_pack, folder, word="is not in the pack")
+        folder = write_pack(self.dir / "q", backgrounds())
+        (folder / "rooms" / "hall-1.png").write_bytes(b"not a picture at all, just words")
+        self.refused(c.check_pack, folder, word="not a real PNG")
+
+    def test_two_entries_for_one_file_are_refused(self):
+        data = backgrounds()
+        data["backgrounds"][1]["file"] = data["backgrounds"][0]["file"]
+        self.refused(c.check_pack, write_pack(self.dir / "p", data), word="same file")
+
+    def test_a_pack_of_backgrounds_is_installed_from_a_zip_and_listed_with_them(self):
+        files = {"pack.json": json.dumps(backgrounds())}
+        for rel in c.files_named(c.clean_manifest(backgrounds())):
+            files[rel] = picture()
+        answer = c.install_zip(zip_of(self.dir / "rooms.zip", files), self.bundled, self.yours)
+        self.assertEqual(answer["message"], "Installed the background pack \"Test rooms\" version 1.0.0: 2 backgrounds.")
+        listed = c.list_packs(self.bundled, self.yours)["packs"]
+        self.assertEqual([p["id"] for p in listed], ["test-rooms"])
+        self.assertEqual(len(listed[0]["backgrounds"]), 2)
+        self.assertEqual(listed[0]["people"], [])
+
+    def test_the_command_line_counts_backgrounds(self):
+        folder = write_pack(self.dir / "p", backgrounds())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            c.main(["check", str(folder)])
+        self.assertIn("2 backgrounds", json.loads(out.getvalue())["message"])
 
 
 class Removing(Temp):

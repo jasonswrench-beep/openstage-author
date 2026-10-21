@@ -31,6 +31,16 @@ Left out on purpose: a stock-photo preview with a watermark ("Royce") in Jacob's
 * **Settled by Jason, 2026-10-20:** "Images were created using Ideogram and remain in the Public Domain." So the pictures are not under Apache-2.0, and anyone may use them for any purpose. The licence line is now "Made with Ideogram (AI-generated), in the public domain" (`pack.json`, the source file, `NOTICE`, the assets.json of the two examples). Nothing here is legal advice; it is the owner's statement, recorded.
 * **The credit stays.** A public-domain picture needs no credit, but the entry keeps `requiresCredit` true: the credits page still tells a learner a person is AI-generated (as it does for AI narration), and a course with the credits page off still gets the warning for that reason. A pack with another licence says its own.
 
+## Backgrounds (2026-10-21)
+
+Jason sent 58 empty-place pictures (offices, meeting and training rooms, reception areas, corridors and outdoor entrances; all 2560 by 1440 PNG, about 300 MB) to set scenes behind the people. The decisions, taken with him ("Go ahead with your plan"):
+
+* **The same pack, not a new kind of thing.** A pack may hold `backgrounds` as well as, or instead of, `people` (`packVersion` 2; a pack of people alone stays at 1). So the folders, the installer, the zip install, the check, the credit and the remove button all work for backgrounds unchanged, and a future pack can hold both a person and the rooms they belong in. The folder is still called `character-packs`.
+* **WebP, 1920 by 1080, about 150 KB each** (8.7 MB for all 58, against about 300 MB), made once by `tools/make_background_pack.py`. A slide is usually 1280 by 720, so the pictures are sharp at full screen.
+* **Each picture is described in words** (a name, a group, and what it shows, written by looking at it), so someone who cannot see can still choose one. The picture itself is decoration.
+* **No new format.** A background is an ordinary decorative `image` named "Background picture" at the back of the base layer, which is what the PowerPoint import already does, locked so a click does not move it, with the slide's colour set to the picture's average so the checker can judge the text (it cannot see a picture). The credit is saved in `assets.json` with the same wording as the people, and the same picture on two slides is one file.
+* **Licence wording carried over, not confirmed.** The credit says "Made with Ideogram (AI-generated), in the public domain", as for the people. Jason stated that for the people; he has not yet said it in words for these pictures. NOTICE says so.
+
 ## Not built
 
 * A person in a pose on a slide (an image object from the library, with the pack's description of the pose as its alt text). The pack already carries that description (`alt`) for every pose.

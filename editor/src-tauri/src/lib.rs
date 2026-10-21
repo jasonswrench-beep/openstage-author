@@ -4684,15 +4684,21 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&listed).unwrap();
         assert_eq!(v["ok"], true);
         let packs = v["packs"].as_array().unwrap();
-        assert_eq!(packs.len(), 1, "{listed}");
-        assert_eq!(packs[0]["id"], "openstage-people-1");
-        assert_eq!(packs[0]["source"], "bundled");
-        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 15);
+        assert_eq!(packs.len(), 2, "{listed}");
+        let ids: Vec<&str> = packs.iter().map(|p| p["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["openstage-offices-1", "openstage-people-1"], "{listed}");
+        assert!(packs.iter().all(|p| p["source"] == "bundled"));
+        assert_eq!(packs[0]["backgrounds"].as_array().unwrap().len(), 58);
+        assert_eq!(packs[0]["people"].as_array().unwrap().len(), 0);
+        assert_eq!(packs[1]["people"].as_array().unwrap().len(), 15);
         assert!(v["broken"].as_array().unwrap().is_empty(), "{listed}");
-        // The page may then ask for a picture of that pack, and only of it.
-        let folder = packs[0]["folder"].as_str().unwrap();
-        let head = packs[0]["people"][0]["head"].as_str().unwrap();
+        // The page may then ask for a picture of a pack, and only of it.
+        let folder = packs[1]["folder"].as_str().unwrap();
+        let head = packs[1]["people"][0]["head"].as_str().unwrap();
         assert!(pack_picture_data_url(&bundled.join(folder), head).unwrap().starts_with("data:image/webp;base64,"), "the pack that comes with the program is WebP");
+        let room_folder = packs[0]["folder"].as_str().unwrap();
+        let room = packs[0]["backgrounds"][0]["file"].as_str().unwrap();
+        assert!(pack_picture_data_url(&bundled.join(room_folder), room).unwrap().starts_with("data:image/webp;base64,"), "a background is a picture of a pack too");
         // Something that is not a zip file is refused in words, and nothing is made.
         let fake = std::env::temp_dir().join(format!("openstage-test-fake-{}.zip", std::process::id()));
         fs::write(&fake, "not a zip").unwrap();

@@ -64,7 +64,8 @@ import { editTheme as editThemeDialog } from "./themeeditor.ts";
 import { editCast } from "./castdialog.ts";
 import { chooseFromLibrary } from "./packdialog.ts";
 import { choosePoses as choosePosesDialog } from "./posedialog.ts";
-import { creditForPicture } from "./packs.ts";
+import { creditForBackground, creditForPicture } from "./packs.ts";
+import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
 import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
@@ -786,6 +787,27 @@ export class App {
       document.getElementById(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : goTo.cue ? `p-desc-${goTo.cue.id}-narration-script` : goTo.line ? `p-sc-line-${goTo.line.id}-narration-script` : "p-narration-script")?.focus();
     } else {
       this.narrationBtn.focus();
+    }
+  }
+
+  /** Choose a picture from the packs to put behind everything on a slide. */
+  private async chooseBackground(slideId: string): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const chosen = await chooseBackgroundPicture({ backend, announce: (msg) => this.announce(msg) });
+    document.getElementById("bg-pick")?.focus();
+    if (!chosen) return;
+    const { pack, background } = chosen;
+    try {
+      // A picture the course already has is used again, not copied again.
+      const known = m.pathOfCredit(creditForBackground(pack, background, "").title);
+      const src = known ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, background.file, background.id);
+      const color = await averageColourOf(await backend.packPictureUrl(pack.source, pack.folder, background.file));
+      const msg = m.setBackgroundPicture(slideId, { src, color, credit: creditForBackground(pack, background, src) });
+      if (msg) this.announce(`${background.name}. ${msg}${color ? " Text that follows the theme was changed to stay readable on it." : ""} Press Control Z to undo.`);
+      document.getElementById("bg-pick")?.focus();
+    } catch (err) {
+      this.announce(`The background picture could not be added. ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -2196,7 +2218,7 @@ export class App {
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}`;
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -2425,6 +2447,15 @@ export class App {
     });
     this.setEnabled(reset, !!layout);
 
+    const pick = this.small("Background picture...", "Choose a picture to put behind everything on this slide", () => void this.chooseBackground(slide.id));
+    pick.id = "bg-pick";
+    const drop = this.small("Remove background picture", "Take this slide's background picture away", () => {
+      if (drop.getAttribute("aria-disabled") === "true") return;
+      const msg = m.removeBackgroundPicture(slide.id);
+      if (msg) this.announce(`${msg} Press Control Z to undo.`);
+    });
+    this.setEnabled(drop, m.backgroundPictureOf(slide.id) !== null);
+
     const background = this.selectField("slide-bg", "Background", [
       { value: "default", label: "Theme default" },
       { value: "dark", label: "Theme: dark" },
@@ -2440,6 +2471,8 @@ export class App {
       h("p", { class: "note", text: layout ? `Layout: ${layout.label}. ${layout.description}` : "Layout: none. This slide was arranged by hand." }),
       h("div", { class: "btn-row" }, change, reset),
       background,
+      h("div", { class: "btn-row" }, pick, drop),
+      ...(m.backgroundPictureOf(slide.id) ? [h("p", { class: "note", text: "This slide has a background picture. It is locked, so clicking the slide does not move it: it is in the Objects list as Background picture, and Unlock lets you move or resize it. The background colour above is the picture's average colour." })] : []),
       ...(kind === "custom" ? [this.field("slide-bg-hex", "Background colour (hex)", custom, (v) => {
         const hx = normalizeHex(v);
         if (!hx) { this.announce("A colour must be a hex code such as #1a1a1a."); (document.getElementById("p-slide-bg-hex") as HTMLInputElement).value = custom; return; }

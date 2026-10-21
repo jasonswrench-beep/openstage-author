@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Character packs: checking them, listing the ones on this computer, installing one from a zip file, and taking one away.
+"""Packs: checking them, listing the ones on this computer, installing one from a zip file, and taking one away.
 
-A character pack is a folder of pictures of people (so a course can show them in a scenario or on a slide) and a pack.json that says who they are.
+A pack is a folder of pictures and a pack.json that says what they are. It can hold pictures of people (so a course can show them in a scenario), pictures to put
+behind a slide (backgrounds), or both. A pack with only people is a character pack; one with backgrounds needs packVersion 2.
 Packs are data only: pictures and words. Nothing in one is ever run, and a picture that is not really a PNG or WebP picture is refused.
 docs/character-packs.md is the description of the format. This file is the one place that decides what a good pack is, so the editor, the
 command line and the tool that makes packs all agree.
@@ -28,10 +29,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import pngio  # noqa: E402
 
-PACK_VERSION = 1
+PACK_VERSION = 1             # a pack of people
+BACKGROUND_PACK_VERSION = 2  # a pack that may also (or only) hold backgrounds
+READS = (PACK_VERSION, BACKGROUND_PACK_VERSION)
 
 MAX_PEOPLE = 40
 MAX_POSES = 40
+MAX_BACKGROUNDS = 200
 MAX_PICTURE_BYTES = 3 * 1024 * 1024
 MAX_PACK_BYTES = 120 * 1024 * 1024
 MAX_FILES = 2000
@@ -136,8 +140,8 @@ def clean_manifest(raw):
     """The manifest as the editor uses it, with every field checked. Raises PackError saying what is wrong."""
     if not isinstance(raw, dict):
         raise PackError("pack.json must hold one object.")
-    if raw.get("packVersion") != PACK_VERSION:
-        raise PackError(f"pack.json says packVersion {raw.get('packVersion')!r}, and this program reads packVersion {PACK_VERSION}. The pack may be newer than this program: update OpenStage Author.")
+    if raw.get("packVersion") not in READS:
+        raise PackError(f"pack.json says packVersion {raw.get('packVersion')!r}, and this program reads packVersion {' and '.join(map(str, READS))}. The pack may be newer than this program: update OpenStage Author.")
     pid = raw.get("id")
     if not isinstance(pid, str) or not PACK_ID.match(pid):
         raise PackError("pack.json: \"id\" must be 3 to 40 lower case letters, digits and hyphens, starting with a letter.")
@@ -153,9 +157,15 @@ def clean_manifest(raw):
         "licence": _text(credit, "licence", "credit", 1, 300, True),
         "url": _web(_text(credit, "url", "credit", 1, 300, True), "credit", "url"),
     }
+    backgrounds_raw = raw.get("backgrounds")
+    if backgrounds_raw is not None and raw["packVersion"] < BACKGROUND_PACK_VERSION:
+        raise PackError(f"pack.json: a pack with \"backgrounds\" needs \"packVersion\": {BACKGROUND_PACK_VERSION}.")
     people_raw = raw.get("people")
-    if not isinstance(people_raw, list) or not 1 <= len(people_raw) <= MAX_PEOPLE:
-        raise PackError(f"pack.json: \"people\" must list from 1 to {MAX_PEOPLE} people.")
+    if people_raw is None and backgrounds_raw is not None:
+        people_raw = []
+    low = 0 if backgrounds_raw else 1
+    if not isinstance(people_raw, list) or not low <= len(people_raw) <= MAX_PEOPLE:
+        raise PackError(f"pack.json: \"people\" must list from {low} to {MAX_PEOPLE} people.")
     people, seen = [], set()
     for i, p in enumerate(people_raw, 1):
         if not isinstance(p, dict):
@@ -201,15 +211,45 @@ def clean_manifest(raw):
             "head": _path(p, "head", who),
             "poses": poses,
         })
+    backgrounds = _backgrounds(backgrounds_raw)
     return {
-        "packVersion": PACK_VERSION,
+        "packVersion": raw["packVersion"],
         "id": pid,
         "title": _text(raw, "title", "pack.json", 1, 80, True),
         "version": version,
         "description": _text(raw, "description", "pack.json", 0, 400),
         "credit": cleaned_credit,
         "people": people,
+        "backgrounds": backgrounds,
     }
+
+
+def _backgrounds(raw):
+    """The pictures to put behind a slide, checked: each has an id, a name, an optional group to be listed under, the words that describe it, and its file."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not 1 <= len(raw) <= MAX_BACKGROUNDS:
+        raise PackError(f"pack.json: \"backgrounds\" must list from 1 to {MAX_BACKGROUNDS} pictures.")
+    out, seen = [], set()
+    for i, b in enumerate(raw, 1):
+        if not isinstance(b, dict):
+            raise PackError(f"Background {i} must be an object.")
+        who = f"Background {i}"
+        bid = b.get("id")
+        if not isinstance(bid, str) or not PERSON_ID.match(bid):
+            raise PackError(f"{who}: \"id\" must be 1 to 30 lower case letters, digits and hyphens, starting with a letter.")
+        if bid in seen:
+            raise PackError(f"{who}: the id \"{bid}\" is used twice.")
+        seen.add(bid)
+        who = f"Background \"{bid}\""
+        out.append({
+            "id": bid,
+            "name": _text(b, "name", who, 1, 60, True),
+            "group": _text(b, "group", who, 0, 40),
+            "alt": _text(b, "alt", who, 1, 300, True),
+            "file": _path(b, "file", who),
+        })
+    return out
 
 
 def files_named(manifest):
@@ -218,7 +258,28 @@ def files_named(manifest):
     for p in manifest["people"]:
         out.append(p["head"])
         out.extend(pose["file"] for pose in p["poses"])
+    out.extend(b["file"] for b in manifest["backgrounds"])
     return out
+
+
+def contents(manifest):
+    """What a pack holds, in words: "15 people", "58 backgrounds", or both."""
+    people, backgrounds = len(manifest["people"]), len(manifest["backgrounds"])
+    parts = []
+    if people:
+        parts.append(f"{people} {'person' if people == 1 else 'people'}")
+    if backgrounds:
+        parts.append(f"{backgrounds} {'background' if backgrounds == 1 else 'backgrounds'}")
+    return " and ".join(parts)
+
+
+def pack_kind(manifest):
+    """"character pack" for people only, "background pack" for backgrounds only, otherwise just "pack"."""
+    if manifest["people"] and not manifest["backgrounds"]:
+        return "character pack"
+    if manifest["backgrounds"] and not manifest["people"]:
+        return "background pack"
+    return "pack"
 
 
 def check_pack(folder):
@@ -320,11 +381,11 @@ def _find_top(names):
     for top in sorted(tops):
         if f"{top}/pack.json" in names and all(n == top or n.startswith(top + "/") for n in names):
             return top
-    raise PackError("There is no pack.json in this zip file, so it is not a character pack.")
+    raise PackError("There is no pack.json in this zip file, so it is not a pack.")
 
 
 def install_zip(zip_path, bundled, yours):
-    """Install a character pack from a zip file into the folder of packs the author has added. Everything is checked before anything is kept."""
+    """Install a pack from a zip file into the folder of packs the author has added. Everything is checked before anything is kept."""
     zip_path = pathlib.Path(zip_path)
     yours = pathlib.Path(yours)
     try:
@@ -334,7 +395,7 @@ def install_zip(zip_path, bundled, yours):
     with archive:
         infos = [i for i in archive.infolist() if not i.is_dir()]
         if len(infos) > MAX_FILES:
-            raise PackError("That zip file holds far more files than a character pack does.")
+            raise PackError("That zip file holds far more files than a pack does.")
         names = {i.filename for i in infos}
         top = _find_top(names)
         wanted = []
@@ -352,7 +413,7 @@ def install_zip(zip_path, bundled, yours):
             elif lower.endswith(PICTURE_TYPES):
                 limit = MAX_PICTURE_BYTES
             else:
-                raise PackError(f"A character pack holds only pictures, pack.json and plain text, and this zip file holds {rel[:80]}.")
+                raise PackError(f"A pack holds only pictures, pack.json and plain text, and this zip file holds {rel[:80]}.")
             if info.file_size > limit:
                 raise PackError(f"{rel} is larger than a file in a pack may be.")
             wanted.append((info, rel, limit))
@@ -414,7 +475,7 @@ def install_zip(zip_path, bundled, yours):
     extra = f" (it was version {replaced})" if replaced and replaced != "?" else ""
     return {
         "ok": True, "id": manifest["id"], "title": manifest["title"], "version": manifest["version"], "replaced": bool(replaced),
-        "message": f"{verb} the character pack \"{manifest['title']}\" version {manifest['version']}{extra}: {len(manifest['people'])} {'person' if len(manifest['people']) == 1 else 'people'}.",
+        "message": f"{verb} the {pack_kind(manifest)} \"{manifest['title']}\" version {manifest['version']}{extra}: {contents(manifest)}.",
     }
 
 
@@ -472,7 +533,7 @@ def main(argv=None):
             answer = remove_pack(args.id, args.yours)
         else:
             manifest = check_pack(args.folder)
-            answer = {"ok": True, "message": f"The pack \"{manifest['title']}\" is good: {len(manifest['people'])} people, {manifest['bytes'] // 1024} KB."}
+            answer = {"ok": True, "message": f"The pack \"{manifest['title']}\" is good: {contents(manifest)}, {manifest['bytes'] // 1024} KB."}
     except PackError as e:
         answer = {"ok": False, "message": str(e)}
     print(json.dumps(answer, ensure_ascii=False))

@@ -128,6 +128,8 @@ the shape later. Fill and outline colour and outline width are editable. New sha
 so they are hidden from screen readers; untick "Decorative" and write alt text if a shape carries
 meaning.
 
+**A background picture.** With nothing selected, the **Design** box has **Background picture...**, which opens the packs of backgrounds: offices, meeting and training rooms, reception areas, corridors, kitchens and outdoor entrances come with the program, each picture beside a description of it. Choosing one puts it behind everything on the slide. It is a decorative picture named *Background picture*, locked so a click on the slide does not move it (Unlock it in the Objects list to move or resize it), and the slide's own background becomes the picture's average colour so the Problems list can still judge your text and text that follows the theme stays readable. The same picture on another slide is the same file. **Remove background picture** takes it off. Words on a busy picture can be hard to read in places: put them in a text bubble or on a panel.
+
 **Speech and thought bubbles.** **Add > Shape or bubble...** offers four: a speech bubble or a thought bubble, each either **with words** (text you type in) or **empty** (a plain
 picture, decorative like a shape, to put your own words or a picture over). A bubble with words is a text object: type its words in the **Text** box as for any text, and
 set its **Bubble** (none, speech or thought), its **Tail** (on the left or the right, whichever side whoever is speaking or thinking is on), the **Bubble colour**, **Outline colour**

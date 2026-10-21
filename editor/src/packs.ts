@@ -1,5 +1,5 @@
-// Character packs in the editor: what the shell says about the packs on this computer, and what choosing a person from one means for the cast. A pack is a folder
-// of pictures of people with a pack.json (docs/character-packs.md); tools/charpack.py decides what a good pack is, and the shell passes its answer on as JSON. Nothing
+// Packs in the editor: what the shell says about the packs on this computer, and what choosing a person (or a background) from one means. A pack is a folder of
+// pictures of people, of backgrounds, or of both, with a pack.json (docs/character-packs.md); tools/charpack.py decides what a good pack is, and the shell passes its answer on as JSON. Nothing
 // here needs a window, so all of it is tested alone (packs.test.ts). The dialog that uses it is packdialog.ts.
 
 import type { Character, CreditEntry } from "../../player/src/types.ts";
@@ -26,6 +26,17 @@ export interface PackPerson {
   poses: PackPose[];
 }
 
+/** A picture to put behind a slide, with the words that describe it. */
+export interface PackBackground {
+  id: string;
+  name: string;
+  /** The heading it is listed under, or "". */
+  group: string;
+  /** What the picture shows, in words, for someone who cannot see it. */
+  alt: string;
+  file: string;
+}
+
 export interface PackCredit {
   creator: string;
   creatorUrl: string;
@@ -40,6 +51,7 @@ export interface Pack {
   description: string;
   credit: PackCredit;
   people: PackPerson[];
+  backgrounds: PackBackground[];
   source: PackSource;
   /** The pack's folder, to ask the shell for its pictures by. */
   folder: string;
@@ -83,6 +95,14 @@ function parsePerson(raw: unknown): PackPerson | null {
   return { id, name: text(p["name"], id), role: text(p["role"]), voice, alt: text(p["alt"]), head, poses };
 }
 
+function parseBackground(raw: unknown): PackBackground | null {
+  const b = record(raw);
+  const id = text(b["id"]);
+  const file = text(b["file"]);
+  if (!id || !file) return null;
+  return { id, name: text(b["name"], id), group: text(b["group"]), alt: text(b["alt"]), file };
+}
+
 /** The shell's JSON as a list of packs. A pack that makes no sense is left out; anything that cannot be read at all is no packs. */
 export function parsePackList(raw: string): PackList {
   try {
@@ -91,11 +111,12 @@ export function parsePackList(raw: string): PackList {
       const p = record(x);
       const credit = record(p["credit"]);
       const people = (Array.isArray(p["people"]) ? p["people"] : []).map(parsePerson).filter((q): q is PackPerson => q !== null);
-      if (!text(p["id"]) || !text(p["folder"]) || people.length === 0) return [];
+      const backgrounds = (Array.isArray(p["backgrounds"]) ? p["backgrounds"] : []).map(parseBackground).filter((q): q is PackBackground => q !== null);
+      if (!text(p["id"]) || !text(p["folder"]) || people.length + backgrounds.length === 0) return [];
       return [{
         id: text(p["id"]), title: text(p["title"], text(p["id"])), version: text(p["version"]), description: text(p["description"]),
         credit: { creator: text(credit["creator"]), creatorUrl: text(credit["creatorUrl"]), licence: text(credit["licence"]), url: text(credit["url"]) },
-        people, source: source(p["source"]), folder: text(p["folder"]), bytes: typeof p["bytes"] === "number" ? p["bytes"] : 0,
+        people, backgrounds, source: source(p["source"]), folder: text(p["folder"]), bytes: typeof p["bytes"] === "number" ? p["bytes"] : 0,
       }];
     });
     const broken = (Array.isArray(d["broken"]) ? d["broken"] : []).flatMap((x): BrokenPack[] => {
@@ -118,6 +139,12 @@ export function parsePackAnswer(raw: string): PackAnswer {
   }
 }
 
+/** The packs that have people in them: the ones the library of people shows. */
+export const packsWithPeople = (packs: readonly Pack[]): Pack[] => packs.filter((p) => p.people.length > 0);
+
+/** The packs that have backgrounds in them: the ones the background picker shows. */
+export const packsWithBackgrounds = (packs: readonly Pack[]): Pack[] => packs.filter((p) => p.backgrounds.length > 0);
+
 /** Where a pack came from, in words. */
 export function whereFrom(pack: Pack): string {
   return pack.source === "bundled" ? "Came with OpenStage Author" : "Added by you";
@@ -136,6 +163,17 @@ export function creditForPicture(pack: Pack, person: PackPerson, path: string): 
   return {
     path,
     title: `${person.name} (character picture)`,
+    kind: "image",
+    source: { provider: "other", url: c.url, creator: c.creator, creatorUrl: c.creatorUrl, licence: c.licence.replace(/\.+$/, ""), requiresCredit: true },
+  };
+}
+
+/** The record for assets.json of a background copied out of a pack. */
+export function creditForBackground(pack: Pack, background: PackBackground, path: string): CreditEntry {
+  const c = pack.credit;
+  return {
+    path,
+    title: `${background.name} (background picture)`,
     kind: "image",
     source: { provider: "other", url: c.url, creator: c.creator, creatorUrl: c.creatorUrl, licence: c.licence.replace(/\.+$/, ""), requiresCredit: true },
   };

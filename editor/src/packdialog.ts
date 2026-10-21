@@ -3,7 +3,7 @@
 // beside the words that describe them (the same words become the alt text), so the picture is decoration here and nothing depends on seeing it.
 
 import { errorText, type Backend } from "./backend.ts";
-import { creditLine, NO_PACKS, whereFrom, type Pack, type PackList, type PackPerson } from "./packs.ts";
+import { creditLine, NO_PACKS, packsWithPeople, whereFrom, type Pack, type PackList, type PackPerson } from "./packs.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -105,14 +105,16 @@ export function chooseFromLibrary(opts: LibraryDialogOptions): Promise<LibraryCh
     };
 
     const count = () => {
-      const people = state.packs.reduce((n, p) => n + p.people.length, 0);
-      return state.packs.length === 0
+      const shown = packsWithPeople(state.packs);
+      const people = shown.reduce((n, p) => n + p.people.length, 0);
+      return shown.length === 0
         ? "There are no character packs on this computer yet. Add one from a zip file."
-        : `${people} ${people === 1 ? "person" : "people"} in ${state.packs.length} ${state.packs.length === 1 ? "pack" : "packs"}.`;
+        : `${people} ${people === 1 ? "person" : "people"} in ${shown.length} ${shown.length === 1 ? "pack" : "packs"}.`;
     };
 
     const draw = (focusId?: string) => {
-      list.replaceChildren(...state.packs.map(packSection));
+      // A pack of backgrounds alone has no one to choose; it is in the background picker.
+      list.replaceChildren(...packsWithPeople(state.packs).map(packSection));
       if (state.broken.length > 0) {
         list.append(h("div", { class: "lib-broken", role: "group", "aria-label": "Packs that cannot be used" },
           h("h3", { text: "Packs that cannot be used" }),

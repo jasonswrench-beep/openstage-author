@@ -35,6 +35,12 @@ Character pack "OpenStage people, set 1" (character-packs/openstage-people-1: fi
   Apache License above and anyone may use them for any purpose. A course made with OpenStage Author that
   uses one still says on its credits page that it is AI-generated.
 
+Background pack "OpenStage offices and workplaces, set 1" (character-packs/openstage-offices-1: fifty-eight empty offices, meeting and training rooms, reception areas, corridors and outdoor entrances, in the editor's background picker)
+  Pictures made by Jason S. Wrench with Ideogram (https://ideogram.ai), an AI picture service, from written
+  descriptions. The pack's credit uses the same wording as the people pack ("Made with Ideogram
+  (AI-generated), in the public domain"), carried over from what Jason S. Wrench stated for the people;
+  he has not yet said in words that it covers these pictures too, so confirm it before release.
+
 Speech engine (put on the user's own computer, at their request; not included, bundled or hosted by OpenStage Author)
   Spoken narration is made by the Kokoro speech engine (Apache License 2.0), which OpenStage
   Author runs as a separate program. The user either installs it themselves or presses a button

@@ -2,7 +2,9 @@
 
 A **character pack** is a folder of pictures of people, with a description of each person. It is how a course gets people on its screen: the cast of a scenario, the people a learner can choose to be, a face beside a line of dialogue. Packs are data only, pictures and words. Nothing in one is ever run.
 
-OpenStage Author comes with one pack, **OpenStage people, set 1**: Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf, each in many poses. More packs can be added, one at a time, from a zip file.
+A pack can also hold **backgrounds**: pictures to put behind a slide (see Backgrounds, below). A pack of people alone is a character pack, a pack of backgrounds alone a background pack, and one pack may hold both.
+
+OpenStage Author comes with two packs. **OpenStage people, set 1** has Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf, each in many poses. **OpenStage offices and workplaces, set 1** has fifty-eight backgrounds with no one in them. More packs can be added, one at a time, from a zip file.
 
 ## Using a person from a pack
 
@@ -23,11 +25,22 @@ A pack has a head picture for each person and, usually, many poses: the whole pe
 
 A pose is decoration: it is drawn beside the person's name, so a screen reader skips it, and what a line means must be in its words. Every pose is described in the pack anyway (its `alt`), for a picture of the person that is put on a slide in a later version.
 
+## Backgrounds
+
+A background is a picture to go behind everything on a slide. On a slide with nothing chosen, the **Design** box in the Properties panel has **Background picture...**. It opens the packs of backgrounds, with each picture beside the words that describe it, in groups (open-plan offices, meeting rooms, corridors and so on); choose one and it is put behind the slide.
+
+* The picture is copied into the project (`assets/images`), as a person is, so the course does not depend on the pack afterwards. The same picture chosen on another slide is the same file, not a second copy.
+* On the slide it is an ordinary **decorative** picture named *Background picture*, the size of the stage, at the very back and **locked** (so clicking the slide does not move it). It needs no alt text because it is decoration; the words in the pack say what it shows for someone choosing. Unlock it in the Objects list to move or resize it. There is no new format for it: the PowerPoint import draws a slide's background picture the same way.
+* The checker cannot see a picture, so the slide's own background is set to the picture's **average colour**, and text that follows the theme takes the colour that suits it. Text on a busy picture can still be hard to read in places, so put words on a picture in a text bubble or on a panel.
+* The credits page names who made the picture and the licence, once however many slides use it.
+* **Remove background picture** takes it off that slide and puts the slide's background back to the theme's. Both are one step to undo.
+* In one column (a narrow screen, or the page zoomed right in) a decorative picture behind text is left out, as any decorative picture behind text is; the words are what matters.
+
 ## Adding a pack, and taking one away
 
-In the same library dialog:
+In the library dialog (people) or the background picker (backgrounds); both do the same thing, and either can add any pack:
 
-* **Add a character pack...** asks for a zip file, checks all of it, and only then installs it. A pack that is not good is not kept, and the message says what is wrong.
+* **Add a character pack...** (in the picker, **Add a pack...**) asks for a zip file, checks all of it, and only then installs it. A pack that is not good is not kept, and the message says what is wrong.
 * **Show the packs folder** opens the folder where packs you added are kept (in the editor's data folder). Uninstalling OpenStage Author offers to delete that folder with the rest of the program's data.
 * **Remove this pack** (on a pack you added; press it twice) takes the pack away. A pack that came with the program cannot be removed. People already in a cast keep their pictures, because the pictures are in the project.
 
@@ -37,7 +50,7 @@ Adding a pack whose id is already there updates it (the message says which versi
 
 The check (`tools/charpack.py`) refuses a pack, and keeps nothing of it, if:
 
-* there is no `pack.json`, or it is not valid, or it says a `packVersion` this program does not know;
+* there is no `pack.json`, or it is not valid, or it says a `packVersion` this program does not know (it reads 1, a pack of people, and 2, a pack that may also or only hold backgrounds);
 * it holds anything but PNG and WebP pictures, `pack.json` and plain text files (`.txt`, `.md`) at the top: no SVG, no program, no web page, no link;
 * a picture is not really a PNG or WebP picture whatever it is called, is smaller than 16 or larger than 4096 points a side, or is larger than 3 MB;
 * a name inside the zip is not a plain place inside the pack (a path that climbs out with `..`, a drive letter, a backslash, a hidden file, more than three levels), or two names differ only by capital letters;
@@ -98,7 +111,13 @@ openstage-people-1/
 | `title`, `description` | What the library shows. `title` is needed (up to 80 letters); `description` may be empty (up to 400). |
 | `version` | Like `1.0.0`. Adding a pack with the same `id` replaces the old one. |
 | `credit` | Who made the pictures and under what terms. `creator`, `licence` and `url` are needed; `creatorUrl` may be empty. This is what the credits page says. Write the licence as a phrase, without a full stop at the end (the credits page adds one). |
-| `people` | 1 to 40 people. |
+| `people` | 1 to 40 people (none is allowed if the pack has `backgrounds`). |
+| `backgrounds` | 1 to 200 backgrounds, and `packVersion` 2. A pack of people alone leaves this out and may stay at `packVersion` 1. |
+| background `id` | 1 to 30 lower case letters, digits and hyphens, starting with a letter. Unique in the pack. |
+| background `name` | 1 to 60 letters: what the picker calls it. |
+| background `group` | Up to 40 letters, or empty: the heading it is listed under. |
+| background `alt` | What the picture shows, in words, up to 300 letters. Needed. Say what is plain to see, and where there is open space. |
+| background `file` | The picture, a place inside the pack, PNG or WebP. Any shape is allowed; a slide's usual 16 by 9 fits best. |
 | person `id` | 1 to 30 lower case letters, digits and hyphens, starting with a letter; not `you` (which means the learner in a scenario). Unique in the pack. |
 | person `name` | 1 to 40 letters. What the learner reads beside the person's lines. |
 | person `role` | A few words on who they are, or empty. |
@@ -108,6 +127,19 @@ openstage-people-1/
 | person `poses` | 0 to 40 poses. A pose has an `id` (unique for the person), a `label` (what a menu says, up to 60 letters), an `alt` (the person in that pose, in words, starting with who they are) and a `file`. |
 
 Pictures are PNG or WebP, with a clear background (a cut-out), and every pose of one person has the same size and is cut to the same frame, so that changing pose does not make them jump. The pack that comes with the program is WebP, about a quarter of the size of the same pictures as PNG and the same to the eye. Places inside the pack are up to three plain names joined by `/`.
+
+A background pack looks like this (the pictures can sit in one folder):
+
+```
+openstage-offices-1/
+  pack.json
+  backgrounds/
+    open-plan-1.webp
+    boardroom-1.webp
+    ...
+```
+
+with `"packVersion": 2` and a `backgrounds` list in `pack.json`, each `{ "id", "name", "group", "alt", "file" }`.
 
 ### Pose names
 
@@ -144,8 +176,18 @@ You need a folder for each person with one PNG for each pose: the person on a **
 
 Write the descriptions as you would want to hear them: who the person is, then what the picture shows. A pose's `alt` starts with the person's own description and then says what they are doing ("..., waving hello."). Say what is plain to see (hair, clothes, a wheelchair, glasses); do not guess at things a picture cannot show.
 
+### A pack of backgrounds
+
+`tools/make_background_pack.py` does for backgrounds what the tool above does for people, and needs FFmpeg for the same reason (it is only used to make the files). Put the original pictures in one folder, write a source file (a `pack.json` as above, with `"source"` in each background for the original picture's file name instead of `file`, plus `size` (default `[1920, 1080]`) and `webpQuality` (default 85) at the top), and run:
+
+```
+python tools/make_background_pack.py my-rooms-source.json --raw C:\pictures\my-rooms --out C:\packs\my-rooms
+```
+
+Every picture is made the same size and written as WebP (about a tenth the size of the PNG it came from), `pack.json` is written for you, and the result is checked the way the editor will. `character-packs-src/openstage-offices-1.json` is the source of the pack that comes with the program.
+
 ## Licences
 
 The pictures in a pack are not part of OpenStage Author's Apache-2.0 licence unless the pack says so. Each pack says who made its pictures and what you may do with them, and that is what the credits page tells your learners. A person who makes a pack decides its licence.
 
-The pack that comes with the program, OpenStage people, set 1, was made by Jason S. Wrench with Ideogram, from written descriptions. Jason S. Wrench states that the pictures were created using Ideogram and remain in the public domain, so anyone may use them for any purpose, and they are not under Apache-2.0. A course that uses one still says on its credits page who made it and that it is AI-generated ("Made with Ideogram (AI-generated), in the public domain"), so a learner is not left to guess; this is the same honesty the credits page keeps for AI narration, and it is why the entry still asks for the credits page to be on.
+The packs that come with the program, OpenStage people, set 1 and OpenStage offices and workplaces, set 1, were made by Jason S. Wrench with Ideogram, from written descriptions. Jason S. Wrench states that the pictures were created using Ideogram and remain in the public domain, so anyone may use them for any purpose, and they are not under Apache-2.0. A course that uses one still says on its credits page who made it and that it is AI-generated ("Made with Ideogram (AI-generated), in the public domain"), so a learner is not left to guess; this is the same honesty the credits page keeps for AI narration, and it is why the entry still asks for the credits page to be on.
