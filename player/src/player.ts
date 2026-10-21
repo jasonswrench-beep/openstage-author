@@ -131,6 +131,7 @@ export class Player implements Host {
       quizStatus: (id) => this.runtime.quiz.get(id),
       onInput: (obj, c) => this.runtime.setInput(obj.id, c.rowId, c.variable, c.value, c.type, c.response),
       variableValue: (id) => this.runtime.variables.get(id),
+      variables: () => pkg.project.variables,
       results: () => courseResults(this.runtime),
       course: () => ({ title: pkg.project.meta.title, language: pkg.project.meta.language }),
       fileSize: (path) => pkg.fileSizes?.[path],
@@ -160,7 +161,11 @@ export class Player implements Host {
     };
     this.stage = new StageRenderer(doc, this.stageEl, behavior, pkg.theme);
     // A variable changed (a rule, a choice in a scenario, a choice of character): a scenario on screen shows it.
-    this.runtime.onEvent((e) => { if (e.type === "state") this.stage.refreshScenarios(); });
+    this.runtime.onEvent((e) => {
+      if (e.type === "state") this.stage.refreshScenarios();
+      // A value written in a text (`{{Score}}`) follows its variable, and the points follow every answer.
+      if (e.type === "state" || e.type === "quiz") this.stage.refreshValues();
+    });
 
     // Narration controls come first in the page so the pause control is easy to reach (WCAG 1.4.2).
     this.narration = new NarrationBar(doc, {

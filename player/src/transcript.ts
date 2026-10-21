@@ -6,6 +6,7 @@
 // from other text on the slide. It is built from the course package, with no page, so it is tested with Node alone. The panel shows it and offers it as a file
 // (a11ypanel.ts).
 
+import { namesInBrackets } from "./valuetext.ts";
 import { descriptionCues } from "./description.ts";
 import { itemNarrationKey } from "./narration.ts";
 import { readingOrder } from "./stage.ts";
@@ -56,7 +57,8 @@ function partsOf(o: OSObject, pkg: CoursePackage): string[] {
   switch (o.type) {
     case "text":
     case "scrollingText":
-      onScreen.push(...lines(text(o.content["html"])));
+      // A transcript is a fixed copy, so a value that changes while the course is played (`{{Score}}`) is written as its name, [Score].
+      onScreen.push(...lines(namesInBrackets(text(o.content["html"]))));
       break;
     case "table": {
       const t = o.content as unknown as TableContent;

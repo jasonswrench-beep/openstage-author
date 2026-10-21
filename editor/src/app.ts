@@ -67,6 +67,8 @@ import { editCast } from "./castdialog.ts";
 import { chooseFromLibrary } from "./packdialog.ts";
 import { choosePoses as choosePosesDialog } from "./posedialog.ts";
 import { creditForBackground, creditForPicture, creditForSlidePicture, slidePictures } from "./packs.ts";
+import { insertReference, valueChoices } from "./values.ts";
+import { referencesIn } from "../../player/src/valuetext.ts";
 import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
@@ -2248,7 +2250,7 @@ export class App {
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
     const shape = !o ? "" : o.type === "button" ? `${m.activationOf(o).kind}|${o.content["icon"] ? "icon" : ""}`
-      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}`
+      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}|${referencesIn(String(o.content["html"] ?? "")).length > 0 ? "values" : ""}`
       : o.type === "shape" ? (isBubbleKind(o.content["shape"]) ? "bubble" : "")
       : o.type === "interaction" ? interactionShape(o)
       : o.type === "video" || o.type === "audio" ? `${String(o.content["captions"] ?? "")}|${parseBody(String(o.content["transcript"] ?? "")) === null}`
@@ -2569,6 +2571,8 @@ export class App {
     set("name", o.name);
     set("x", g.x); set("y", g.y); set("width", g.width); set("height", g.height); set("rotation", g.rotation); set("z", g.z);
     set("alt", a.altText); set("role", a.role); set("tab", a.tabOrder);
+    const liveBox = this.propsBody.querySelector<HTMLInputElement>("#p-value-live");
+    if (liveBox && document.activeElement !== liveBox) liveBox.checked = a.role === "status";
     const dec = this.propsBody.querySelector<HTMLInputElement>("#p-decorative");
     if (dec) dec.checked = a.decorative;
     const lock = this.propsBody.querySelector<HTMLInputElement>("#p-locked");
@@ -4078,7 +4082,45 @@ export class App {
         const msg = m.setText(o.id, { block: cur.block, text: v });
         if (msg) this.announce(msg);
       }, { area: true, rows: 4 }),
+      ...this.valueFields(m, o, simple.text),
     ];
+  }
+
+  /**
+   * Show a value in the words: the points so far, or a variable of the course's. It is written {{Name}} in the text, and the course puts the value there while it is played and
+   * changes it when it changes. A text that shows a value can be a live region, so a screen reader says the new value (say the score, not every second of a clock).
+   */
+  private valueFields(m: Model, o: OSObject, text: string): HTMLElement[] {
+    const choices = valueChoices(m.variables);
+    const pick = this.selectField("value-pick", "Show a value in the text", [{ value: "", label: "Choose one..." }, ...choices.map((c) => ({ value: c.value, label: c.label }))], "", () => undefined);
+    const insert = h("button", { type: "button", id: "value-insert", text: "Put it in the text" });
+    insert.addEventListener("click", () => {
+      const name = (document.getElementById("p-value-pick") as HTMLSelectElement | null)?.value ?? "";
+      const box = document.getElementById("p-text") as HTMLTextAreaElement | null;
+      if (!name || !box) {
+        this.announce("Choose a value first.");
+        return;
+      }
+      const at = box.selectionStart ?? box.value.length;
+      box.value = insertReference(box.value, name, at, box.selectionEnd ?? at);
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      this.announce(`Put ${name} in the text. The course shows its value while it is played.`);
+      box.focus();
+    });
+    const shown = referencesIn(text).length > 0;
+    const role = o.accessibility.role;
+    const out: HTMLElement[] = [pick, h("div", { class: "btn-row" }, insert)];
+    if (shown && (role === "paragraph" || role === "status")) {
+      const live = h("input", { id: "p-value-live", type: "checkbox", ...(role === "status" ? { checked: true } : {}), "aria-describedby": "value-live-note" });
+      live.dataset["key"] = "prop:value-live";
+      live.addEventListener("change", () => {
+        m.setAccessibility(o.id, { role: live.checked ? "status" : "paragraph" });
+        this.announce(live.checked ? "A screen reader will say this text when its value changes." : "A screen reader will not say this text when its value changes.");
+      });
+      out.push(h("div", { class: "field check" }, live, h("label", { for: "p-value-live", text: "Say changes aloud" })),
+        h("p", { id: "value-live-note", class: "note", text: "A screen reader says the whole text again each time a value in it changes. Use it for something that changes now and then, like a score, not for something that changes all the time." }));
+    }
+    return out;
   }
 
   /** For text: whether the words sit in a speech or thought bubble, and which side the tail is on. */

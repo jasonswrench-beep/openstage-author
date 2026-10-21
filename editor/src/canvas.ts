@@ -169,7 +169,7 @@ export class Canvas {
     this.element.append(this.viewport, tools, hint);
 
     // Editing mode: objects are drawn but inert. The shared renderer draws them.
-    this.stage = new StageRenderer(doc, this.stageEl, { editing: true, characters: () => this.model()?.characters ?? [] }, DEFAULT_THEME);
+    this.stage = new StageRenderer(doc, this.stageEl, { editing: true, characters: () => this.model()?.characters ?? [], variables: () => this.model()?.variables ?? [] }, DEFAULT_THEME);
     // The stage clears its own children on render, so the overlay is re-attached after.
     this.group.addEventListener("keydown", (e) => this.onKey(e));
     this.overlay.addEventListener("pointerdown", (e) => this.onPointerDown(e));

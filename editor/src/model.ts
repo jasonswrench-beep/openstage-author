@@ -5,6 +5,7 @@ import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { readingOrder, SHAPE_KINDS } from "../../player/src/stage.ts";
 import { isBubbleKind, isBubbleTail } from "../../player/src/bubble.ts";
 import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
+import { referencesVariable, renameReferences } from "./values.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
@@ -39,7 +40,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.30.0";
+export const FORMAT_VERSION = "0.31.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -2720,7 +2721,8 @@ export class Model {
     for (const d of this.docs) {
       for (const layer of [d.slide.baseLayer, ...d.slide.layers]) {
         for (const o of layer.objects) {
-          if (JSON.stringify(o.triggers).includes(`"${id}"`) || JSON.stringify(o.content).includes(`"${id}"`)) out.push({ slide: d.slide.name, object: o.name });
+          const shown = o.type === "text" && referencesVariable(String(o.content["html"] ?? ""), this.variableName(id));
+          if (shown || JSON.stringify(o.triggers).includes(`"${id}"`) || JSON.stringify(o.content).includes(`"${id}"`)) out.push({ slide: d.slide.name, object: o.name });
         }
       }
     }
@@ -2785,9 +2787,23 @@ export class Model {
     if (trimmed === "") return "A variable needs a name.";
     if (this.project.variables.some((x) => x.id !== id && x.name.toLowerCase() === trimmed.toLowerCase())) return `There is already a variable called ${trimmed}.`;
     this.record(`varname:${id}`);
+    const was = v.name;
     v.name = trimmed;
-    this.emit({ kind: "content" });
-    return `Variable renamed to ${trimmed}`;
+    // A text that shows this variable (`{{Score}}`) names it, so it is written again with the new name, in the same step.
+    let texts = 0;
+    for (const d of this.docs) {
+      for (const layer of [d.slide.baseLayer, ...d.slide.layers]) {
+        for (const o of layer.objects) {
+          if (o.type !== "text") continue;
+          const html = String(o.content["html"] ?? "");
+          if (!referencesVariable(html, was)) continue;
+          o.content = { ...o.content, html: renameReferences(html, was, trimmed) };
+          texts++;
+        }
+      }
+    }
+    this.emit({ kind: texts > 0 ? "structure" : "content" });
+    return `Variable renamed to ${trimmed}${texts > 0 ? `. ${texts} ${texts === 1 ? "text that shows" : "texts that show"} it ${texts === 1 ? "was" : "were"} changed to match.` : ""}`;
   }
 
   // ---- inputs and surveys

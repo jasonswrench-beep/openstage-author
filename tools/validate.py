@@ -8,6 +8,7 @@ then runs the semantic rules. Exits 1 if there are errors, 0 otherwise.
 The same function (validate_project) is meant to power the command line and, later,
 the editor's problem list. Never write a second implementation.
 """
+import html as htmllib
 import json
 import os
 import pathlib
@@ -33,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 30, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 31, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -420,7 +421,7 @@ def _groups(rel, slide, add):
                 f"Group '{tag}' has one object, so it groups nothing.")
 
 
-def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, stage=None, cast=None, chosen=None, order=None):
+def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, stage=None, cast=None, chosen=None, order=None, variable_names=None):
     layer_ids = {layer["id"] for layer in _layers(slide)}
     objects_by_id = {obj["id"]: obj for _, obj in _objects(slide)}
 
@@ -458,6 +459,30 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _description(rel, obj, add)
         _narration(rel, obj, add)
         _bubble(rel, obj, add)
+        _value_text(rel, obj, variable_names or set(), add)
+
+
+# Words that show a value while the course is played: a text holds {{Name}}, and the player puts the variable's value there (player/src/valuetext.ts reads them the same way).
+VALUE_REFERENCE = re.compile(r"\{\{([^{}\n]{1,80})\}\}")
+BUILT_IN_VALUES = ("$score", "$possible", "$percent", "$answered", "$questions", "$correct")
+
+
+def _value_text(rel, obj, names, add):
+    """Every {{Name}} in a text names a variable the course has, or one of the values the course works out itself (they start with a dollar sign). References are read in each
+    stretch of words between tags, as the player reads them, so a tag in the middle of one breaks it."""
+    if obj["type"] != "text":
+        return
+    seen = []
+    for stretch in re.split(r"<[^>]*>", str(obj["content"].get("html", ""))):
+        for m in VALUE_REFERENCE.finditer(htmllib.unescape(stretch)):
+            name = m.group(1).strip()
+            if not name or name in seen:
+                continue
+            seen.append(name)
+            known = name in BUILT_IN_VALUES if name.startswith("$") else name.lower() in names
+            if not known:
+                what = ("The course works out only these: " + ", ".join(BUILT_IN_VALUES) + ".") if name.startswith("$") else "No variable has that name. Add it in Variables, or write the name as it is there."
+                add(ERROR, rel, obj["id"], "value-text-unknown", "A text shows a value that does not exist", f"It says {{{{{name}}}}}. {what}")
 
 
 BUBBLE_KINDS = ("speech", "thought")
@@ -1504,7 +1529,8 @@ def validate_project(project_dir, asset_root=None):
     chosen = {obj["content"]["variable"] for s in slides.values() for _, obj in _objects(s)
               if obj["type"] == "input" and obj["content"]["kind"] == "character"}
     for rel, slide in slides.items():
-        _check_slide(rel, slide, variables, slides_by_id, add, theme, saved_by_inputs, project["stage"], cast, chosen, list(dict.fromkeys(listed)))
+        _check_slide(rel, slide, variables, slides_by_id, add, theme, saved_by_inputs, project["stage"], cast, chosen, list(dict.fromkeys(listed)),
+                     {v["name"].strip().lower() for v in project["variables"]})
         for _, obj in _objects(slide):
             _assets(asset_root, rel, obj, add)
 

@@ -2677,6 +2677,72 @@ class Bubbles(unittest.TestCase):
             self.assertTrue([f for f in p.run() if f.severity == "error"], "a text still takes only the fields it knows")
 
 
+class ValuesInText(unittest.TestCase):
+    """Format 0.31.0: a text can show a value that changes while the course is played, written {{Name}}. Every name must be a variable the course has or a value it works out."""
+
+    def project_with(self, p, html, variables=()):
+        p.edit("project.json", lambda d: d["variables"].extend({"id": f"var-{i}", "name": n, "type": t, "initial": v} for i, (n, t, v) in enumerate(variables, 71)))
+        p.obj(1, lambda o: o["content"].update({"html": html}))
+
+    def unknown(self, p):
+        return rules(p.run(), "value-text-unknown", severity="error")
+
+    def test_the_values_the_course_works_out_are_known(self):
+        for name in ("$score", "$possible", "$percent", "$answered", "$questions", "$correct"):
+            with MutatedProject() as p:
+                self.project_with(p, f"<p>Now {{{{{name}}}}}.</p>")
+                self.assertEqual(self.unknown(p), [], name)
+
+    def test_a_variable_is_known_by_its_name_whatever_the_capitals_and_spaces(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>Tries: {{ tries }} and {{Door open}}.</p>", [("Tries", "number", 0), ("Door open", "boolean", False)])
+            self.assertEqual(self.unknown(p), [])
+
+    def test_a_name_with_an_ampersand_is_read_as_it_is_written_in_the_variables(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{Cats &amp; dogs}}</p>", [("Cats & dogs", "number", 0)])
+            self.assertEqual(self.unknown(p), [])
+
+    def test_a_name_nothing_has_is_an_error_that_says_what_it_said(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{Lives}} left</p>", [("Tries", "number", 0)])
+            hit = self.unknown(p)
+            self.assertEqual(len(hit), 1)
+            self.assertIn("{{Lives}}", hit[0].detail)
+            self.assertIn("Variables", hit[0].detail)
+
+    def test_a_dollar_name_the_course_does_not_work_out_is_an_error_that_lists_those_it_does(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{$lives}}</p>")
+            hit = self.unknown(p)
+            self.assertEqual(len(hit), 1)
+            self.assertIn("$score", hit[0].detail)
+
+    def test_a_name_is_reported_once_however_often_it_is_written(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{Nope}} and {{Nope}}</p><p>{{Nope}}</p>")
+            self.assertEqual(len(self.unknown(p)), 1)
+
+    def test_a_tag_in_the_middle_of_a_reference_breaks_it_as_it_does_in_the_player(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{Sc<strong>ore</strong>}}</p>")
+            self.assertEqual(self.unknown(p), [], "it is not a reference, so it is only words")
+        with MutatedProject() as p:
+            self.project_with(p, "<p><strong>{{Nope}}</strong></p>")
+            self.assertEqual(len(self.unknown(p)), 1, "a reference wholly inside a tag is one")
+
+    def test_braces_that_are_not_a_reference_are_only_words(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{one} {{}} {{ }} {{a{b}}</p>")
+            self.assertEqual(self.unknown(p), [])
+
+    def test_a_text_bubble_is_a_text(self):
+        with MutatedProject() as p:
+            self.project_with(p, "<p>{{Nope}}</p>")
+            p.obj(1, lambda o: o["content"].update({"bubble": "speech"}))
+            self.assertEqual(len(self.unknown(p)), 1)
+
+
 class ConversationExample(unittest.TestCase):
     """examples/conversation.osproj: a background picture, two people from the library and speech and thought bubbles, made with the editor's own model."""
 
@@ -2689,7 +2755,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.30.0")
+        self.assertEqual(project["schemaVersion"], "0.31.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

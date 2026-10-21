@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.30.0",
+  "schemaVersion": "0.31.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -313,6 +313,8 @@ reflows, and 24 is then what is left. (Defined in 0.18.0. The `hotspot` question
 `style.stroke` (a colour, or `none`) with `style.strokeWidth` outlines it. The figure is drawn as
 vector graphics, so it stays sharp at any size, and it is hidden from assistive technology: the
 object around it carries the name, or is marked `decorative`. A line is a thin `rectangle`.
+
+**Values in a text** (added in 0.31.0). A `text` object's `html` can hold a **reference**, two braces round a name: `Score: {{$score}}`. While the course is played the player puts the value there and writes it again whenever it changes (a rule changed a variable, or a question was answered). The name is either a variable's `name` (capitals and spaces at the ends do not matter) or one of the values the course works out, which start with a dollar sign so no variable can share one: `$score` (points earned so far), `$possible` (points possible in the whole course), `$percent` (the points earned so far as a percentage of those possible, rounded), `$answered` (questions finished), `$questions` (questions in the course) and `$correct` (questions answered right). A number is written as it is, `true` and `false` as yes and no, a word as it is. A name with a brace or a line break in it, or longer than 80 characters, cannot be referenced. A reference is read in each stretch of words between tags, so a tag in the middle of one breaks it. A reference to nothing is shown as written, so the mistake can be seen, and the validator's `value-text-unknown` names it. Only `text` objects take references (a text bubble is one). If the text's `accessibility.role` is `status` it is a live region, and a screen reader says it again when a value in it changes; with any other role it is not announced. The transcript, being a fixed copy, writes a reference as its name in brackets (`[score]`). The editor changes a reference when its variable is renamed, and will not delete a variable a text shows.
 
 A `text` object's words sit on the left of its box unless `style.textAlign` is `center` or `right` (a deck imported from PowerPoint may also bring `justify`, which the player draws; the editor offers only the first three, because the uneven spaces in justified text are hard to read). Nothing is written for left. It needs no schema change: `style` takes any keys the player knows.
 
@@ -1434,6 +1436,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.30.0 | 0.31.0 | Adds values in a text: a `text` object's `html` can hold `{{Name}}`, naming a variable or one of the values the course works out (`$score`, `$possible`, `$percent`, `$answered`, `$questions`, `$correct`), and the player shows and updates it. Nothing in an existing project has to change, unless a text already had words in double braces, which now name a value (the validator says if they name nothing). |
 | 0.29.0 | 0.30.0 | Adds the speech and thought bubbles: the shapes `speech` and `thought`, the optional `tail` (`left` or `right`) of a shape that is one, and the optional `bubble` and `tail` of a `text` object (words in a bubble). Nothing in an existing project has to change: no shape is a bubble and no text has one. |
 | 0.28.0 | 0.29.0 | Adds the optional `poses` and `library` of a person in the cast (more pictures of them, each in a pose, and the character pack they came from) and the optional `pose` of a line of a scenario (which of its speaker's poses to show). Nothing in an existing project changes: no person has poses and no line has a pose. |
 | 0.27.0 | 0.28.0 | Adds the optional `altSuggestion` to an object's `accessibility`: a description the computer worked out and the author has not approved (`text` and `basis`). The course never uses it, and alt text is still required. Nothing in an existing project changes: no object has one. |

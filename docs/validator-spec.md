@@ -144,6 +144,7 @@ A person's voice that does not exist, or a line's narration with one that does n
 
 | Rule | Severity | Message |
 | --- | --- | --- |
+| A `{{Name}}` in a text names no variable and is not one of the values the course works out (`value-text-unknown`) | Error | A text shows a value that does not exist |
 | A text object's `content.bubble` is not `speech` or `thought` (`bubble-invalid`) | Error | A text bubble is neither a speech nor a thought bubble |
 | A bubble's `content.tail` is not `left` or `right` (`bubble-invalid`) | Error | A bubble's tail is on neither side |
 

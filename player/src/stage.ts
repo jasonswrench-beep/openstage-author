@@ -21,8 +21,9 @@ import { bubbleParts, bubblePaddingCss, isBubbleKind, tailOf, type BubbleKind, t
 import { buildIcon, strokeWidthOf } from "./icon.ts";
 import { lookLayers, spokenOnChange } from "./looks.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
+import { splitReferences, valueFor, type QuestionTotals } from "./valuetext.ts";
 import { backgroundCss, resolveStyle } from "./theme.ts";
-import type { Character, Effect, IconContent, OSObject, QuizContent, Slide, Style, Theme } from "./types.ts";
+import type { Character, Effect, IconContent, OSObject, QuizContent, Slide, Style, Theme, Variable } from "./types.ts";
 
 export type Activation = "click" | "keyActivate";
 
@@ -40,6 +41,8 @@ export interface StageBehavior {
   onInput?(obj: OSObject, change: InputChange): void;
   /** The current value of a variable, so an input shows what the learner chose before. */
   variableValue?(id: string): number | boolean | string | undefined;
+  /** The course's variables, so a text that holds `{{Name}}` can show the value (see valuetext.ts). */
+  variables?(): readonly Variable[];
   /** Where the learner stands in the quiz, for a results box and a certificate. */
   results?(): CourseResults | undefined;
   /** The course's title and language, for a certificate. */
@@ -89,6 +92,8 @@ export class StageRenderer {
   private readonly presenter = new Presenter();
   private layerEls = new Map<string, HTMLElement>();
   private fillers = new Map<string, { el: HTMLElement; html: string }[]>();
+  /** The places in text where a value is shown, so they can be changed when it changes. */
+  private valueSpans: { span: HTMLElement; name: string }[] = [];
   /** Shows a scenario's meters and character as they are now, by object id. */
   private scenarios = new Map<string, () => void>();
   private section: HTMLElement | null = null;
@@ -140,6 +145,7 @@ export class StageRenderer {
     this.mounted.clear();
     this.layerEls.clear();
     this.fillers.clear();
+    this.valueSpans = [];
     this.scenarios.clear();
     this.reflowNotes.clear();
     for (const layer of [slide.baseLayer, ...slide.layers]) {
@@ -207,7 +213,7 @@ export class StageRenderer {
       // In one column a layer comes after the slide's own content, so bring it into view if it opened out of sight.
       if (this.reflow && typeof layerEl.scrollIntoView === "function") layerEl.scrollIntoView({ block: "nearest" });
       // Fill live regions after they are on screen, so assistive technology announces them.
-      requestAnimationFrame(() => fillers.forEach((f) => appendSanitizedHtml(f.el, f.html)));
+      requestAnimationFrame(() => fillers.forEach((f) => this.fillText(f.el, f.html)));
     } else {
       layerEl.hidden = true;
       fillers.forEach((f) => (f.el.innerHTML = ""));
@@ -256,6 +262,55 @@ export class StageRenderer {
     return node.querySelector<HTMLMediaElement>("video, audio");
   }
 
+  /** Put an author's words in a text object, with the values their references stand for (`{{Score}}`) in place of the references. */
+  private fillText(host: HTMLElement, html: string): void {
+    appendSanitizedHtml(host, html);
+    if (!html.includes("{{")) return;
+    const doc = this.doc;
+    const walker = doc.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    const found: Text[] = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes("{{")) found.push(n as Text);
+    for (const node of found) {
+      const pieces = splitReferences(node.data);
+      if (!pieces.some((p) => p.kind === "value")) continue;
+      const parts: Node[] = pieces.map((p) => {
+        if (p.kind === "words") return doc.createTextNode(p.text);
+        const span = doc.createElement("span");
+        span.className = "os-value";
+        span.dataset["name"] = p.name;
+        span.textContent = this.valueText(p.name);
+        this.valueSpans.push({ span, name: p.name });
+        return span;
+      });
+      node.replaceWith(...parts);
+    }
+  }
+
+  /** What to show for one reference: its value now, or the reference itself if there is nothing by that name, so the mistake can be seen. */
+  private valueText(name: string): string {
+    const variables = this.behavior.variables?.() ?? [];
+    const results = this.behavior.results?.();
+    const totals = (): QuestionTotals => ({
+      earnedPoints: results?.earnedPoints ?? 0,
+      totalPoints: results?.totalPoints ?? 0,
+      percent: results?.percent ?? null,
+      questions: results?.questions.length ?? 0,
+      finished: results?.questions.filter((q) => q.state === "correct" || q.state === "partial" || q.state === "incorrect").length ?? 0,
+      correct: results?.questions.filter((q) => q.state === "correct").length ?? 0,
+    });
+    const shown = valueFor(name, { variables, valueOf: (id) => this.behavior.variableValue?.(id) ?? variables.find((v) => v.id === id)?.initial, totals });
+    return shown ?? `{{${name}}}`;
+  }
+
+  /** A variable changed, or a question was answered: every value on screen is written again, but only where it is different, so a screen reader hears a change once. */
+  refreshValues(): void {
+    this.valueSpans = this.valueSpans.filter((v) => v.span.isConnected);
+    for (const { span, name } of this.valueSpans) {
+      const now = this.valueText(name);
+      if (span.textContent !== now) span.textContent = now;
+    }
+  }
+
   /** The course's variables changed: a scenario on screen shows its meters, and the character the learner chose, as they are now. */
   refreshScenarios(): void {
     for (const refresh of this.scenarios.values()) refresh();
@@ -292,9 +347,9 @@ export class StageRenderer {
           const list = this.fillers.get(layerId) ?? [];
           list.push({ el: host, html });
           this.fillers.set(layerId, list);
-          if (layerVisible || this.behavior.editing) appendSanitizedHtml(host, html);
+          if (layerVisible || this.behavior.editing) this.fillText(host, html);
         } else {
-          appendSanitizedHtml(host, html);
+          this.fillText(host, html);
         }
         break;
       }
