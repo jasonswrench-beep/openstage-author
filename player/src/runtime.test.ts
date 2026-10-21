@@ -97,3 +97,24 @@ test("a trigger loop is stopped instead of hanging", () => {
   rt.goTo("slide-001");
   assert.equal(rt.currentSlide?.id, "slide-001");
 });
+
+test("a timer's rules run when its time is up, and a rule can stop a timer", () => {
+  const { rt, log } = setup();
+  rt.goTo("slide-001");
+  const slide = rt.currentSlide!;
+  const timer = {
+    ...slide.baseLayer.objects.find((o) => o.id === "obj-0004")!, id: "obj-timer", type: "timer" as const,
+    content: { seconds: 30, label: "Time left", extendBy: 30 },
+    triggers: [
+      { id: "t1", event: "timerEnd" as const, action: "showLayer" as const, target: "layer-correct", conditions: [] },
+      { id: "t2", event: "timerEnd" as const, action: "setVariable" as const, target: "var-attempts", value: 7, conditions: [] },
+    ],
+  };
+  slide.baseLayer.objects.push(timer);
+  slide.baseLayer.objects.push({ ...timer, id: "obj-stopper", type: "button" as const, triggers: [{ id: "stop", event: "click" as const, action: "stopTimer" as const, target: "obj-timer", conditions: [] }] });
+  log.length = 0;
+  rt.fire("obj-stopper", "click");
+  assert.ok(log.includes("stopTimer obj-timer"), "the host is asked to stop that timer");
+  assert.equal(rt.fire("obj-timer", "timerEnd"), 2, "both of the timer's rules run when its time is up");
+  assert.equal(rt.variables.get("var-attempts"), 7);
+});

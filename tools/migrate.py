@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CURRENT = "0.31.0"
+CURRENT = "0.32.0"
 
 
 def version_tuple(text):
@@ -266,6 +266,12 @@ def step_0_30_to_0_31(project, slides, files):
     return []
 
 
+def step_0_31_to_0_32(project, slides, files):
+    """0.31.0 to 0.32.0: Adds the timer: a countdown object, the timerEnd event and the stopTimer action. Nothing in an older course changes. Nothing in an existing project has to change."""
+    project["schemaVersion"] = "0.32.0"
+    return []
+
+
 def step_0_26_to_0_27(project, slides, files):
     """0.26.0 to 0.27.0: a slide the Capture module made from a recorded step can record what was made (provenance `base`: the slide's name, the picture
     it was made with, and a fingerprint of each object it made), so that when the steps change the lesson can be brought up to date without losing what the author
@@ -276,7 +282,7 @@ def step_0_26_to_0_27(project, slides, files):
 
 STEPS = {"0.1.0": ("0.2.0", step_0_1_to_0_2), "0.2.0": ("0.3.0", step_0_2_to_0_3), "0.3.0": ("0.4.0", step_0_3_to_0_4),
          "0.4.0": ("0.5.0", step_0_4_to_0_5), "0.5.0": ("0.6.0", step_0_5_to_0_6), "0.6.0": ("0.7.0", step_0_6_to_0_7),
-         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15), "0.15.0": ("0.16.0", step_0_15_to_0_16), "0.16.0": ("0.17.0", step_0_16_to_0_17), "0.17.0": ("0.18.0", step_0_17_to_0_18), "0.18.0": ("0.19.0", step_0_18_to_0_19), "0.19.0": ("0.20.0", step_0_19_to_0_20), "0.20.0": ("0.21.0", step_0_20_to_0_21), "0.21.0": ("0.22.0", step_0_21_to_0_22), "0.22.0": ("0.23.0", step_0_22_to_0_23), "0.23.0": ("0.24.0", step_0_23_to_0_24), "0.24.0": ("0.25.0", step_0_24_to_0_25), "0.25.0": ("0.26.0", step_0_25_to_0_26), "0.26.0": ("0.27.0", step_0_26_to_0_27), "0.27.0": ("0.28.0", step_0_27_to_0_28), "0.28.0": ("0.29.0", step_0_28_to_0_29), "0.29.0": ("0.30.0", step_0_29_to_0_30), "0.30.0": ("0.31.0", step_0_30_to_0_31)}
+         "0.7.0": ("0.8.0", step_0_7_to_0_8), "0.8.0": ("0.9.0", step_0_8_to_0_9), "0.9.0": ("0.10.0", step_0_9_to_0_10), "0.10.0": ("0.11.0", step_0_10_to_0_11), "0.11.0": ("0.12.0", step_0_11_to_0_12), "0.12.0": ("0.13.0", step_0_12_to_0_13), "0.13.0": ("0.14.0", step_0_13_to_0_14), "0.14.0": ("0.15.0", step_0_14_to_0_15), "0.15.0": ("0.16.0", step_0_15_to_0_16), "0.16.0": ("0.17.0", step_0_16_to_0_17), "0.17.0": ("0.18.0", step_0_17_to_0_18), "0.18.0": ("0.19.0", step_0_18_to_0_19), "0.19.0": ("0.20.0", step_0_19_to_0_20), "0.20.0": ("0.21.0", step_0_20_to_0_21), "0.21.0": ("0.22.0", step_0_21_to_0_22), "0.22.0": ("0.23.0", step_0_22_to_0_23), "0.23.0": ("0.24.0", step_0_23_to_0_24), "0.24.0": ("0.25.0", step_0_24_to_0_25), "0.25.0": ("0.26.0", step_0_25_to_0_26), "0.26.0": ("0.27.0", step_0_26_to_0_27), "0.27.0": ("0.28.0", step_0_27_to_0_28), "0.28.0": ("0.29.0", step_0_28_to_0_29), "0.29.0": ("0.30.0", step_0_29_to_0_30), "0.30.0": ("0.31.0", step_0_30_to_0_31), "0.31.0": ("0.32.0", step_0_31_to_0_32)}
 
 
 def migrate(project_dir):

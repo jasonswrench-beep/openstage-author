@@ -12,7 +12,7 @@
   "properties": {
     "id": { "$ref": "project.schema.json#/$defs/id" },
     "type": {
-      "enum": ["text", "image", "shape", "button", "hotspot", "video", "audio", "quizQuestion", "interaction", "table", "scrollingText", "input", "embed", "results", "certificate", "download", "scenario", "icon"]
+      "enum": ["text", "image", "shape", "button", "hotspot", "video", "audio", "quizQuestion", "interaction", "table", "scrollingText", "input", "embed", "results", "certificate", "download", "scenario", "icon", "timer"]
     },
     "name": { "type": "string", "minLength": 1 },
     "geometry": {
@@ -101,7 +101,7 @@
       "$comment": "Interactive objects must be reachable by keyboard: tabOrder 1 or more.",
       "if": {
         "required": ["type"],
-        "properties": { "type": { "enum": ["button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download"] } }
+        "properties": { "type": { "enum": ["button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download", "timer"] } }
       },
       "then": {
         "properties": {
@@ -243,6 +243,10 @@
       "then": { "properties": { "content": { "$ref": "#/$defs/contentDownload" } } }
     },
     {
+      "if": { "required": ["type"], "properties": { "type": { "const": "timer" } } },
+      "then": { "properties": { "content": { "$ref": "#/$defs/contentTimer" } } }
+    },
+    {
       "if": { "required": ["type"], "properties": { "type": { "const": "scenario" } } },
       "then": { "properties": { "content": { "$ref": "#/$defs/contentScenario" } } }
     },
@@ -303,6 +307,17 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "accessibleConfirmed": { "type": "boolean" }
+      }
+    },
+    "contentTimer": {
+      "$comment": "A countdown. It starts when the layer it is on is shown. The rules on the timer that answer timerEnd run when the time is up. The learner can always turn it off, and can add time when extendBy is more than 0.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seconds", "label", "extendBy"],
+      "properties": {
+        "seconds": { "type": "integer", "minimum": 5, "maximum": 3600, "description": "How long it counts down." },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60, "description": "The words above the clock, such as Time left." },
+        "extendBy": { "type": "integer", "minimum": 0, "maximum": 600, "description": "How many seconds the Add time button gives, or 0 for no such button." }
       }
     },
     "contentResults": {
@@ -821,10 +836,10 @@
       "properties": {
         "id": { "$ref": "project.schema.json#/$defs/id" },
         "event": {
-          "enum": ["click", "keyActivate", "slideStart", "slideEnd", "mediaComplete", "variableChange"]
+          "enum": ["click", "keyActivate", "slideStart", "slideEnd", "mediaComplete", "timerEnd", "variableChange"]
         },
         "action": {
-          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "changeState", "nextSlide", "previousSlide", "replaySlide"],
+          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "stopTimer", "changeState", "nextSlide", "previousSlide", "replaySlide"],
           "description": "nextSlide, previousSlide and replaySlide act on the course itself, so their target is empty."
         },
         "target": { "type": "string", "pattern": "^([a-z][a-z0-9_-]*)?$" },

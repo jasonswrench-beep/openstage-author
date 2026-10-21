@@ -192,4 +192,4 @@ What they have that the built games do not, and what each needs:
 7. **A "Submit" step** (choose an answer, then press Submit). The quiz questions already have Check answer.
 8. **Elimination** (Millionaire: a wrong answer shows "You lose"). **Not wanted**: decided 2026-10-21, every game goes to the end.
 
-The author also asked for a timer and for shuffling with question banks; neither appears in these four videos, and both are still planned.
+The author also asked for a timer and for shuffling with question banks; neither appears in these four videos. The timer was built 2026-10-21 (format 0.32.0, `docs/format-spec.md` under Timers): a game can put one on a question slide, send the learner to a "time is up" layer or the next question when it runs out, and stop it when the question is answered. Shuffling and question banks are still planned.

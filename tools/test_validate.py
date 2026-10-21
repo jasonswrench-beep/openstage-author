@@ -274,6 +274,91 @@ class FilesToDownload(unittest.TestCase):
             self.assertNotIn(ext, validate.DOWNLOAD_TYPES)
 
 
+def timer_object(oid="obj-0096", rules_=None, **content):
+    """A countdown, as the editor would write one."""
+    body = {"seconds": 30, "label": "Time left", "extendBy": 30}
+    body.update(content)
+    triggers = [{"id": "trg-9500", "event": "timerEnd", "action": "nextSlide", "target": "", "conditions": []}] if rules_ is None else rules_
+    return {"id": oid, "type": "timer", "name": "Timer", "geometry": {"x": 80, "y": 40, "width": 360, "height": 200, "rotation": 0, "z": 70},
+            "content": body, "style": {}, "accessibility": {"altText": "Time left", "role": "group", "tabOrder": 12, "decorative": False},
+            "states": {}, "triggers": triggers, "timing": {"appear": "time", "start": 0, "visibleFor": None}, "animation": {"enter": {"effect": "none", "duration": 500}, "exit": {"effect": "none", "duration": 500}}, "narration": None, "provenance": None, "simulation": None}
+
+
+class Timers(unittest.TestCase):
+    """A countdown. The schema holds its numbers to a range; the validator asks that running out leads somewhere, and that a rule stopping a timer names a timer."""
+
+    def with_timer(self, p, obj=None):
+        p.slide1(lambda d: d["baseLayer"]["objects"].append(obj or timer_object()))
+
+    def errors(self, p):
+        return [f for f in p.run() if f.severity == "error"]
+
+    def test_a_timer_with_a_rule_for_running_out_is_accepted(self):
+        with MutatedProject() as p:
+            self.with_timer(p)
+            found = p.run()
+            self.assertEqual([f for f in found if f.severity == "error"], [])
+            self.assertEqual(rules(found, "timer-no-end-rule"), [])
+
+    def test_a_timer_that_does_nothing_when_it_runs_out_is_a_warning(self):
+        with MutatedProject() as p:
+            self.with_timer(p, timer_object(rules_=[]))
+            found = rules(p.run(), "timer-no-end-rule", severity="warning")
+            self.assertEqual([f.object_id for f in found], ["obj-0096"])
+            self.assertIn("the time runs out", found[0].detail)
+
+    def test_the_time_and_the_extra_time_are_held_to_a_range(self):
+        for bad in ({"seconds": 4}, {"seconds": 3601}, {"seconds": 12.5}, {"extendBy": -1}, {"extendBy": 601}, {"label": ""}, {"label": "x" * 61}, {"seconds": "30"}):
+            with MutatedProject() as p:
+                self.with_timer(p, timer_object(**bad))
+                self.assertTrue(self.errors(p), bad)
+        for good in ({"seconds": 5}, {"seconds": 3600}, {"extendBy": 0}, {"extendBy": 600}, {"label": "Time to answer"}):
+            with MutatedProject() as p:
+                self.with_timer(p, timer_object(**good))
+                self.assertEqual(self.errors(p), [], good)
+
+    def test_a_timer_has_a_name_and_can_be_reached_by_keyboard(self):
+        with MutatedProject() as p:
+            obj = timer_object()
+            obj["accessibility"]["altText"] = ""
+            self.with_timer(p, obj)
+            self.assertTrue(rules(p.run(), "alt-text-missing", oid="obj-0096"))
+        with MutatedProject() as p:
+            obj = timer_object()
+            obj["accessibility"]["tabOrder"] = 0
+            self.with_timer(p, obj)
+            self.assertTrue(rules(p.run(), "not-keyboard-reachable", oid="obj-0096"))
+
+    def test_the_time_running_out_belongs_to_a_timer(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["triggers"].append({"id": "trg-9501", "event": "timerEnd", "action": "nextSlide", "target": "", "conditions": []}))
+            self.assertTrue(rules(p.run(), "trigger-event-never", severity="warning"))
+
+    def test_a_rule_that_stops_a_timer_must_name_one(self):
+        def stop(target):
+            return {"id": "trg-9502", "event": "slideStart", "action": "stopTimer", "target": target, "conditions": []}
+        with MutatedProject() as p:
+            self.with_timer(p)
+            p.obj(0, lambda o: o["triggers"].append(stop("obj-0096")))
+            found = p.run()
+            self.assertEqual(rules(found, "stop-timer-target"), [])
+            self.assertEqual(rules(found, "trigger-target-missing"), [])
+        with MutatedProject() as p:
+            self.with_timer(p)
+            p.obj(0, lambda o: o["triggers"].append(stop("obj-0004")))
+            self.assertTrue(rules(p.run(), "stop-timer-target", severity="error"), "a button is not a timer")
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["triggers"].append(stop("obj-9999")))
+            self.assertTrue(rules(p.run(), "trigger-target-missing", severity="error"))
+
+    def test_a_timer_that_disappears_is_a_warning_because_it_holds_the_buttons_a_learner_needs(self):
+        with MutatedProject() as p:
+            obj = timer_object()
+            obj["timing"] = {"appear": "time", "start": 0, "visibleFor": 10000}
+            self.with_timer(p, obj)
+            self.assertTrue(rules(p.run(), "timing-control-disappears", oid="obj-0096"))
+
+
 class Timing(unittest.TestCase):
     """Things that appear, disappear or advance on their own."""
 
@@ -2755,7 +2840,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.31.0")
+        self.assertEqual(project["schemaVersion"], "0.32.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

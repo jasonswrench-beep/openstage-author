@@ -13,7 +13,7 @@ import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newTimer, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -32,6 +32,7 @@ import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment, type B
 import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } from "./group.ts";
 import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
+import { TIMER_MAX_EXTEND, TIMER_MAX_SECONDS, TIMER_MIN_SECONDS, timerContentOf } from "../../player/src/timer.ts";
 import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { gameById, gameOptions } from "./gamesets.ts";
@@ -41,7 +42,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.31.0";
+export const FORMAT_VERSION = "0.32.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1802,6 +1803,67 @@ export class Model {
     return this.setNarrationScript(objectId, downloadScript(c)) ?? "The narration already says what the file shows.";
   }
 
+  // ---- timers
+
+  /** A countdown, selected. It has no rule yet; the author says what happens when the time runs out. */
+  addTimer(): OSObject | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const obj = newTimer(this.placement(this.allocator().object()));
+    this.record("");
+    layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  private timerOf(objectId: string): OSObject | null {
+    const obj = this.find(objectId);
+    return obj && obj.type === "timer" ? obj : null;
+  }
+
+  /** How long the timer counts down, in whole seconds. */
+  setTimerSeconds(objectId: string, seconds: number): string | null {
+    const obj = this.timerOf(objectId);
+    if (!obj) return null;
+    if (!Number.isFinite(seconds)) return "That needs a number of seconds.";
+    const next = Math.min(TIMER_MAX_SECONDS, Math.max(TIMER_MIN_SECONDS, Math.round(seconds)));
+    if (timerContentOf(obj).seconds === next && obj.content["seconds"] === next) return null;
+    this.record(`timer-seconds:${objectId}`);
+    obj.content = { ...obj.content, seconds: next };
+    this.emit({ kind: "content", objectId });
+    const clamped = Math.round(seconds) !== next ? ` ${Math.round(seconds) < next ? "That is the shortest" : "That is the longest"} a timer can be.` : "";
+    return `The timer counts down ${next} ${next === 1 ? "second" : "seconds"}.${clamped}`;
+  }
+
+  /** How much time the Add time button gives; 0 takes that button away. The Turn off button is always there. */
+  setTimerExtend(objectId: string, seconds: number): string | null {
+    const obj = this.timerOf(objectId);
+    if (!obj) return null;
+    if (!Number.isFinite(seconds)) return "That needs a number of seconds.";
+    const rounded = Math.round(seconds);
+    const next = rounded <= 0 ? 0 : Math.min(TIMER_MAX_EXTEND, Math.max(TIMER_MIN_SECONDS, rounded));
+    if (obj.content["extendBy"] === next) return null;
+    this.record(`timer-extend:${objectId}`);
+    obj.content = { ...obj.content, extendBy: next };
+    this.emit({ kind: "content", objectId });
+    return next === 0 ? "The timer has no Add time button now. Learners can still turn it off." : `The Add time button gives ${next} seconds.`;
+  }
+
+  /** The words above the clock. If the screen reader name was the old label, it follows. */
+  setTimerLabel(objectId: string, label: string): string | null {
+    const obj = this.timerOf(objectId);
+    if (!obj) return null;
+    const next = label.replace(/\s+/g, " ").trim().slice(0, 60);
+    const before = timerContentOf(obj).label;
+    if (next === "" || obj.content["label"] === next) return next === "" ? "The timer needs a label." : null;
+    this.record(`timer-label:${objectId}`);
+    obj.content = { ...obj.content, label: next };
+    if (obj.accessibility.altText === before) obj.accessibility = { ...obj.accessibility, altText: next };
+    this.emit({ kind: "content", objectId });
+    return "Label updated";
+  }
+
   private embedOf(objectId: string): OSObject | null {
     const obj = this.find(objectId);
     return obj && obj.type === "embed" ? obj : null;
@@ -2571,6 +2633,7 @@ export class Model {
     const slide = this.docs.find((d) => [d.slide.baseLayer, ...d.slide.layers].some((l) => l.objects.some((o) => o.id === objectId)))?.slide;
     if (!slide) return [];
     if (action === "showLayer" || action === "hideLayer") return slide.layers.map((l) => ({ value: l.id, label: l.name }));
+    if (action === "stopTimer") return [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).filter((o) => o.type === "timer").map((o) => ({ value: o.id, label: o.name }));
     // Only an object that has a look can be changed to one.
     if (action === "changeState") return [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).filter((o) => Object.keys(o.states).length > 0).map((o) => ({ value: o.id, label: o.name }));
     return [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).filter((o) => o.type === "video" || o.type === "audio").map((o) => ({ value: o.id, label: o.name }));
@@ -2666,7 +2729,7 @@ export class Model {
         const targets = this.targetsFor(objectId, patch.action);
         if (targets.length === 0) {
           return ({ jumpToSlide: "There is no slide to go to.", showLayer: "This slide has no layers. Add a layer first.", hideLayer: "This slide has no layers. Add a layer first.",
-            setVariable: "There are no variables yet. Add one first.", addToVariable: "There are no number variables yet. Add a number variable first.", playMedia: "This slide has no video or audio to play.", pauseMedia: "This slide has no video or audio to pause.",
+            setVariable: "There are no variables yet. Add one first.", addToVariable: "There are no number variables yet. Add a number variable first.", playMedia: "This slide has no video or audio to play.", stopTimer: "This slide has no timer. Add one first.", pauseMedia: "This slide has no video or audio to pause.",
             changeState: "No object on this slide has a look yet. Select an object, and under Looks in its Properties choose Add a look." } as Record<string, string>)[patch.action] ?? null;
         }
         next.action = patch.action;

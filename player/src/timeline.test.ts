@@ -345,3 +345,166 @@ test("an object listed only so its arrival can be animated is not timed, so the 
   m.timeline.setAdvance(5000);
   assert.equal(m.timeline.active, true, "a slide that moves on by itself still needs them");
 });
+
+// ---- timers
+
+function makeTimers() {
+  const clock = new FakeClock();
+  const readings: string[] = [];
+  const ends: string[] = [];
+  let advanced = 0;
+  let onEnd: (id: string) => void = () => {};
+  const timeline = new Timeline({
+    show: () => {}, hide: () => {},
+    advance: () => { advanced++; ends.push("advance"); },
+    timerChanged: (id, r) => readings.push(`${id} ${r.state} ${r.seconds}${r.paused ? " paused" : ""}`),
+    timerEnd: (id) => { ends.push(id); onEnd(id); },
+  }, clock);
+  return { clock, timeline, readings, ends, advanced: () => advanced, onEnd: (fn: (id: string) => void) => { onEnd = fn; }, take: () => readings.splice(0) };
+}
+
+test("a timer counts down a second at a time and runs out once", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 3);
+  m.clock.advance(3000);
+  assert.deepEqual(m.readings, ["t running 3", "t running 2", "t running 1", "t done 0"]);
+  assert.deepEqual(m.ends, ["t"]);
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, ["t"], "it does not run out again");
+  assert.equal(m.clock.pending(), 0, "and nothing is left waiting");
+});
+
+test("a second is counted up, so a timer reads 0 only when the time is up", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 10);
+  m.clock.advance(9999);
+  assert.equal(m.readings.at(-1), "t running 1");
+  assert.deepEqual(m.ends, []);
+  m.clock.advance(1);
+  assert.equal(m.readings.at(-1), "t done 0");
+  assert.deepEqual(m.ends, ["t"]);
+});
+
+test("pausing the timing holds the timer, and resuming carries on from where it was", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 30);
+  m.clock.advance(5000);
+  m.take();
+  m.timeline.pause();
+  assert.deepEqual(m.take(), ["t running 25 paused"]);
+  m.clock.advance(120000);
+  assert.deepEqual(m.readings, [], "nothing moves while it is held");
+  assert.deepEqual(m.ends, []);
+  m.timeline.resume();
+  assert.deepEqual(m.take(), ["t running 25"]);
+  m.clock.advance(25000);
+  assert.deepEqual(m.ends, ["t"]);
+});
+
+test("adding time moves the end later, and only while the timer is running", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 30);
+  m.clock.advance(10000);
+  m.take();
+  m.timeline.addTime("t", 30);
+  assert.deepEqual(m.take(), ["t running 50"]);
+  m.clock.advance(49000);
+  assert.deepEqual(m.ends, []);
+  m.clock.advance(1000);
+  assert.deepEqual(m.ends, ["t"]);
+  m.take();
+  m.timeline.addTime("t", 30);
+  assert.deepEqual(m.readings, [], "time that is up cannot be added to");
+  m.timeline.addTime("nothing", 30);
+});
+
+test("a rule can stop a timer: it holds the time it had left and does not run out", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 30);
+  m.clock.advance(12500);
+  m.timeline.stopTimer("t");
+  assert.equal(m.readings.at(-1), "t stopped 18");
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, []);
+  assert.equal(m.timeline.timing, false);
+  assert.equal(m.clock.pending(), 0);
+});
+
+test("turning the timer off stops it, and every timer that starts afterwards, even on another slide", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "a", 30);
+  m.timeline.addTimer("base", "b", 40);
+  m.clock.advance(4000);
+  m.timeline.turnOffTimers();
+  assert.deepEqual(m.readings.slice(-2), ["a off 26", "b off 36"]);
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, []);
+  m.timeline.reset();
+  m.take();
+  m.timeline.addTimer("base", "c", 20);
+  assert.deepEqual(m.take(), ["c off 20"], "the next slide's timer never starts");
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, []);
+});
+
+test("showing everything turns the slide's timers off, for people who need longer", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "t", 30);
+  m.clock.advance(1000);
+  m.timeline.showEverything();
+  assert.equal(m.readings.at(-1), "t off 29");
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, []);
+  m.timeline.reset();
+  m.timeline.addTimer("base", "u", 30);
+  m.clock.advance(30000);
+  assert.deepEqual(m.ends, ["u"], "but the next slide's timer works as usual");
+});
+
+test("a timer on a layer that is hidden is forgotten", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("question", "t", 30);
+  m.clock.advance(10000);
+  m.timeline.removeLayer("question");
+  m.clock.advance(60000);
+  assert.deepEqual(m.ends, []);
+  m.timeline.addTimer("question", "t", 30);
+  m.clock.advance(30000);
+  assert.deepEqual(m.ends, ["t"], "shown again, it starts again");
+});
+
+test("a running timer needs the timing controls, and they go when it is over", () => {
+  const m = makeTimers();
+  assert.equal(m.timeline.active, false);
+  m.timeline.addTimer("base", "t", 5);
+  assert.equal(m.timeline.active, true);
+  m.clock.advance(5000);
+  assert.equal(m.timeline.active, false);
+});
+
+test("a rule that takes the learner to another slide when time is up ends everything here", () => {
+  const m = makeTimers();
+  m.timeline.setAdvance(5000);
+  m.timeline.addTimer("base", "t", 5);
+  m.onEnd(() => m.timeline.reset());
+  m.clock.advance(5000);
+  assert.deepEqual(m.ends, ["t"], "the slide does not move on as well");
+  assert.equal(m.advanced(), 0);
+  assert.equal(m.clock.pending(), 0);
+});
+
+test("when a slide's time and a timer's time are the same moment, the timer's rules run first", () => {
+  const m = makeTimers();
+  m.timeline.setAdvance(5000);
+  m.timeline.addTimer("base", "t", 5);
+  m.clock.advance(5000);
+  assert.deepEqual(m.ends, ["t", "advance"]);
+});
+
+test("two timers run out in their own time", () => {
+  const m = makeTimers();
+  m.timeline.addTimer("base", "short", 2);
+  m.timeline.addTimer("base", "long", 4);
+  m.clock.advance(4000);
+  assert.deepEqual(m.ends, ["short", "long"]);
+});

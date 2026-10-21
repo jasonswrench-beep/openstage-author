@@ -13,7 +13,13 @@
 //   visibleFor:         hidden again this many ms after it appeared, or null to stay. For a clip it is that much of the clip.
 // A learner can pause the clock, and can show everything at once. Both are for people who need longer, and are the reason
 // timing is acceptable at all.
+//
+// A timer (see timer.ts) is the same clock with a deadline. It counts from when its layer is shown, is held by pausing, and is
+// added to or turned off by the learner. Turning one off turns off every timer after it for the rest of the visit, because a
+// learner who cannot work against the clock should not have to say so again on every slide. Showing everything turns the
+// timers on the slide off too.
 
+import type { TimerInfo, TimerState } from "./timer.ts";
 import type { Timing } from "./types.ts";
 
 /** Does this timing change anything about how the object is shown? The starting timing means always there. */
@@ -38,6 +44,10 @@ export interface TimelineHooks {
   advance(): void;
   /** Something the controls display has changed: paused, everything shown, or whether anything is timed at all. */
   changed?(): void;
+  /** What a timer shows has changed: a second passed, time was added, it was stopped or ran out, or the timing was paused or resumed. */
+  timerChanged?(id: string, reading: TimerInfo): void;
+  /** A timer's time ran out. */
+  timerEnd?(id: string): void;
 }
 
 /** A clock and a way to be called later. The player uses the real ones; the tests use one moved by hand. */
@@ -52,6 +62,19 @@ export const realClock: Clock = {
   set: (fn, ms) => setTimeout(fn, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
+
+interface Alarm {
+  layer: string;
+  /** The clock reading when its layer was shown. */
+  from: number;
+  /** How long it runs for, in milliseconds, with any time the learner added. */
+  ms: number;
+  state: TimerState;
+  /** Seconds left, kept from when it stopped being "running". */
+  left: number;
+  /** What the page was last told, so only changes are reported. */
+  told: string;
+}
 
 interface Entry extends TimedObject {
   layer: string;
@@ -75,6 +98,12 @@ export class Timeline {
   private advanceAt: number | null = null;
   private advanced = false;
   private handle: unknown = null;
+  /** The timers on this slide. */
+  private readonly alarms = new Map<string, Alarm>();
+  /** The learner turned a timer off: later timers do not start. Kept when a new slide starts. */
+  private timersOff = false;
+  /** Counts the times everything was forgotten, so a hook that moved to another slide can be noticed. */
+  private generation = 0;
   private readonly hooks: TimelineHooks;
   private readonly clock: Clock;
 
@@ -88,6 +117,8 @@ export class Timeline {
   reset(): void {
     this.cancel();
     this.entries.clear();
+    this.alarms.clear();
+    this.generation += 1;
     this.narrationStart.clear();
     this.shown.clear();
     this.clips.clear();
@@ -121,8 +152,69 @@ export class Timeline {
     this.sync();
   }
 
+  /** Start a timer on a layer that has just been shown. It counts from now. */
+  addTimer(layer: string, id: string, seconds: number): void {
+    this.advanceClock();
+    const off = this.timersOff || this.everything;
+    this.alarms.set(id, { layer, from: this.elapsed, ms: seconds * 1000, state: off ? "off" : "running", left: seconds, told: "" });
+    this.sync();
+  }
+
+  /** The learner added time to a timer that is still running. */
+  addTime(id: string, seconds: number): void {
+    const a = this.alarms.get(id);
+    if (!a || a.state !== "running" || !(seconds > 0)) return;
+    this.advanceClock();
+    a.ms += seconds * 1000;
+    this.sync();
+  }
+
+  /** A rule stopped a timer (the question was answered): it holds at the time left and does not run out. */
+  stopTimer(id: string): void {
+    const a = this.alarms.get(id);
+    if (!a || a.state !== "running") return;
+    this.advanceClock();
+    this.leave(a, "stopped");
+    this.sync();
+  }
+
+  /** The learner turned the timer off. This one stops, and so does every timer that starts after it. */
+  turnOffTimers(): void {
+    this.timersOff = true;
+    this.advanceClock();
+    for (const a of this.alarms.values()) if (a.state === "running") this.leave(a, "off");
+    this.sync();
+  }
+
+  /** Is any timer on the slide still counting down? */
+  get timing(): boolean {
+    return [...this.alarms.values()].some((a) => a.state === "running");
+  }
+
+  private secondsLeft(a: Alarm): number {
+    return Math.max(0, Math.ceil((a.from + a.ms - this.elapsed) / 1000));
+  }
+
+  /** A timer stops counting; it keeps the time it had left. */
+  private leave(a: Alarm, state: TimerState): void {
+    a.left = this.secondsLeft(a);
+    a.state = state;
+  }
+
+  /** Tell the page what each timer shows, for the ones whose reading changed. */
+  private reportTimers(): void {
+    for (const [id, a] of this.alarms) {
+      const reading: TimerInfo = { state: a.state, seconds: a.state === "running" ? this.secondsLeft(a) : a.left, paused: !this.running };
+      const told = `${reading.state}|${reading.seconds}|${reading.paused}`;
+      if (told === a.told) continue;
+      a.told = told;
+      this.hooks.timerChanged?.(id, reading);
+    }
+  }
+
   /** Stop timing a layer that has been hidden. */
   removeLayer(layer: string): void {
+    for (const [id, a] of [...this.alarms]) if (a.layer === layer) this.alarms.delete(id);
     for (const [id, e] of [...this.entries]) {
       if (e.layer !== layer) continue;
       this.entries.delete(id);
@@ -172,6 +264,7 @@ export class Timeline {
     this.advanceClock();
     this.running = false;
     this.cancel();
+    this.reportTimers();
     this.hooks.changed?.();
   }
 
@@ -201,7 +294,7 @@ export class Timeline {
    * that is only listed so its arrival can be animated, and is there from the start, is not timed.
    */
   get active(): boolean {
-    return [...this.entries.values()].some((e) => isTimed(e.timing)) || this.advanceAt !== null;
+    return [...this.entries.values()].some((e) => isTimed(e.timing)) || this.advanceAt !== null || this.timing;
   }
 
   /** Milliseconds since the slide opened, not counting time spent paused. */
@@ -252,6 +345,26 @@ export class Timeline {
       if (visible) this.hooks.show(id, this.everything);
       else this.hooks.hide(id, was === true);
     }
+    // A timer that has run out is marked first, so the rules it starts find everything as it is now. A rule may take the learner to
+    // another slide, which forgets everything here, so nothing may follow if that happened.
+    const ended: string[] = [];
+    for (const [id, a] of this.alarms) {
+      if (a.state !== "running") continue;
+      if (this.everything) this.leave(a, "off");
+      else if (this.elapsed >= a.from + a.ms) {
+        this.leave(a, "done");
+        ended.push(id);
+      }
+    }
+    this.reportTimers();
+    if (ended.length > 0) {
+      const generation = this.generation;
+      for (const id of ended) {
+        if (this.generation !== generation) return;
+        this.hooks.timerEnd?.(id);
+      }
+      if (this.generation !== generation) return;
+    }
     this.cancel();
     if (this.advanceAt !== null && !this.advanced && this.elapsed >= this.advanceAt) {
       this.advanced = true;
@@ -278,6 +391,13 @@ export class Timeline {
       }
     }
     if (this.advanceAt !== null && !this.advanced) consider(this.advanceAt);
+    // A timer's clock changes at each whole second left, and at its end.
+    for (const a of this.alarms.values()) {
+      if (a.state !== "running") continue;
+      const end = a.from + a.ms;
+      const left = end - this.elapsed;
+      if (left > 0) consider(end - (Math.ceil(left / 1000) - 1) * 1000);
+    }
     if (next === Infinity) return;
     this.handle = this.clock.set(() => {
       this.handle = null;

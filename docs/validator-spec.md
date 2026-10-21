@@ -247,7 +247,8 @@ project is reported as `asset-missing`, and an interaction with a tab order of 0
 | `setVariable` has a value of the wrong kind, or none for a variable that is not true or false (`trigger-value-type`) | Setting a variable to the wrong kind of value / Setting a variable needs a value |
 | An ordering comparison on text or true and false (`condition-operator`, warning) | Condition puts text or true and false in order |
 | A condition on a variable an input saves to asks for a value no answer saves, or a scale point past the end (`condition-never-true`, warning) | This condition can never be true |
-| A `click` or `keyActivate` rule on an object that cannot be pressed, or `mediaComplete` on one that is not media (`trigger-event-never`, warning) | This rule's event never happens on this kind of object |
+| A `click` or `keyActivate` rule on an object that cannot be pressed, `mediaComplete` on one that is not media, or `timerEnd` on one that is not a timer (`trigger-event-never`, warning) | This rule's event never happens on this kind of object |
+| A `stopTimer` rule whose target is an object that is not a timer (`stop-timer-target`) | Stop the timer needs a timer |
 
 | A rule that adds names a variable that is not a number (`trigger-operation-type`) | Adding needs a number variable |
 | A rule that adds has an amount that is not a number (`trigger-value-type`) | Adding something that is not a number |
@@ -289,6 +290,15 @@ millisecond values within an hour, nothing else allowed. A `duration` must be ab
 
 All are errors, so a course cannot be published until each is settled. A `download` is a control, so it also needs
 alt text and a tab order of 1 or more like the other controls.
+
+### Timers
+
+| Rule | Message |
+| --- | --- |
+| A `timer` has no rule for the event `timerEnd` (`timer-no-end-rule`, warning) | Nothing happens when this timer runs out |
+| `seconds` outside 5 to 3600 or not a whole number, `extendBy` outside 0 to 600, or `label` blank or over 60 letters (`schema`) | (the schema's message) |
+
+A `timer` holds buttons, so it also needs alt text (its name) and a tab order of 1 or more, and one with a `visibleFor` gets `timing-control-disappears`.
 
 ### Embedded video, media and credits
 

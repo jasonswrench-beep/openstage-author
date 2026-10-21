@@ -14,6 +14,8 @@ export interface Host {
   setLayerVisible(layerId: string, visible: boolean): void;
   playMedia(objectId: string): void;
   pauseMedia(objectId: string): void;
+  /** A rule stopped a timer: it holds at the time it has left and does not run out. */
+  stopTimer(objectId: string): void;
   /** Show an object in one of its looks. `quiet` is set when a resumed slide gets its looks back, so nothing is said about a change that is not one. */
   setObjectState(objectId: string, state: string, quiet?: boolean): void;
 }
@@ -375,6 +377,7 @@ export class Runtime {
         break;
       case "playMedia": this.host.playMedia(t.target); break;
       case "pauseMedia": this.host.pauseMedia(t.target); break;
+      case "stopTimer": this.host.stopTimer(t.target); break;
       // The state name travels in `value`; "normal" returns to the object's own style.
       case "changeState": this.host.setObjectState(t.target, String(t.value ?? "normal")); break;
     }

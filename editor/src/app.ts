@@ -20,6 +20,7 @@ import { backgroundColors, isThemeRef, resolveValue } from "../../player/src/the
 import { COLOR_ROLES, colorRef } from "./colors.ts";
 import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parseBody, parseVideoAddress, type RuleAction, type RuleEvent, isCourseAction, contrastNote, contrastRatio, FONT_CHOICES, normalizeHex, PALETTE, parseSimpleText, TEXT_BLOCKS, themeColorLabel, type Activation, type TextBlock } from "./content.ts";
 import { fileDetails } from "../../player/src/downloads.ts";
+import { timerContentOf } from "../../player/src/timer.ts";
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
@@ -155,6 +156,9 @@ function scenarioShape(o: OSObject, m: Model, selected: string): string {
   return `${selected}|${c.start}|${c.you ?? ""}|${c.finishedVariable ?? ""}|${c.allowRetry}|${c.meters.map((x) => `${x.id}:${x.variable}`).join(",")}|${nodes}|${m.variables.map((v) => `${v.id}${v.name}${v.type}`).join(",")}|${m.characters.map((p) => `${p.id}${p.name}${(p.poses ?? []).map((x) => `${x.id}${x.label}`).join("+")}${p.library ? "L" : ""}`).join(",")}`;
 }
 
+/** The count of problems is said at least this long after anything else was said, so it never talks over what an edit just did. */
+const PROBLEMS_AFTER_MS = 2500;
+
 export class App {
   private model: Model | null = null;
   private readonly root: HTMLElement;
@@ -233,6 +237,9 @@ export class App {
   private validateTimer = 0;
   private validateSeq = 0;
   private lastSummary = "";
+  /** When something was last said to a screen reader, so the count of problems does not talk over it. */
+  private lastSaid = 0;
+  private problemSayTimer: number | undefined;
   private regions: HTMLElement[] = [];
 
   constructor(root: HTMLElement) {
@@ -388,6 +395,7 @@ export class App {
   }
 
   private announce(message: string): void {
+    this.lastSaid = Date.now();
     this.announcer.textContent = "";
     window.setTimeout(() => (this.announcer.textContent = message), 30);
   }
@@ -1514,14 +1522,20 @@ ${errorText(err)}`);
       }
       if (group === "interaction") {
         const pickedInteraction = await askChoice({
-          heading: "Add an interaction or scenario", legend: "Interaction", confirm: "Add",
+          heading: "Add an interaction, scenario or timer", legend: "Interaction", confirm: "Add",
           choices: [
             ...INTERACTIONS.map((i) => ({ value: i.id, label: i.label, description: i.description, group: i.group, preview: interactionPreview(i.kind, i.orientation) })),
+            { value: "timer", label: "Timer", description: "A countdown clock for the slide or its layer. The learner can always add time or turn it off. A rule on the timer says what happens when the time runs out, such as showing a layer, going to another slide or changing a variable.", group: "Time limits" },
             { value: "scenario", label: "Branching scenario", description: "A story the learner steps through by choosing what to do. Each choice leads to another situation, until an ending. Choices can add to a number, and people from the cast can speak.", group: "Stories" },
           ],
         });
         this.addKind.focus();
         if (!pickedInteraction) return;
+        if (pickedInteraction === "timer") {
+          const made = m.addTimer();
+          if (made) this.announce(`Added a timer of 30 seconds, number ${made.accessibility.tabOrder ?? 0} in reading order. It starts when its layer is shown. In the Rules box, add a rule that happens when the time runs out, and set the time in the Properties panel.`);
+          return;
+        }
         if (pickedInteraction === "scenario") {
           const made = m.addScenario();
           if (made) this.announce(`Added a scenario with a small story to write over: one situation with two choices, each leading to its own ending. Give the scenario a name in the Alt text field, which a screen reader reads, then write the story in the Properties panel.`);
@@ -1816,6 +1830,28 @@ ${errorText(err)}`);
       h("p", { id: "dl-note", class: "note", text: "Learners read this before they download, so say what is in the file, how long it is and why they might want it. A blank line starts a new paragraph." }),
       h("div", { class: "field check" }, confirm, h("label", { for: "p-dl-confirmed", text: "I have checked that this file is accessible" })),
       h("p", { class: "note", text: "OpenStage cannot see inside a document, so this is your word. A tagged PDF, or a Word file with real headings and descriptions for its pictures, can be read with a screen reader. The file is saved to the learner's device, where they open it with their own programs. Nothing opens in a pop-up." }))];
+  }
+
+  /** A timer: how long, the words above it, and the time the Add time button gives. Turn off is always there, so no learner is held to the clock. */
+  private timerFields(m: Model, o: OSObject): HTMLElement[] {
+    const c = timerContentOf(o);
+    const say = (msg: string | null) => { if (msg) this.announce(msg); };
+    return [h("fieldset", {}, h("legend", { text: "Timer" }),
+      this.field("timer-seconds", "Seconds to count down (5 to 3600)", c.seconds, (v) => { say(m.setTimerSeconds(o.id, Number(v))); this.fillTimer(o); }, { number: true }),
+      this.field("timer-label", "Words above the clock", c.label, (v) => { say(m.setTimerLabel(o.id, v)); this.fillTimer(o); }),
+      this.field("timer-extend", "Seconds the Add time button gives (0 for no button)", c.extendBy, (v) => { say(m.setTimerExtend(o.id, Number(v))); this.fillTimer(o); }, { number: true, describedBy: "timer-note" }),
+      h("p", { id: "timer-note", class: "note", text: "The timer starts when its layer is shown (when the slide opens, for the base layer). It always has a Turn off the timer button: a learner who turns it off has no timer on any later slide in that visit, and pausing the timing or choosing Show everything now holds or ends it too. A rule on the timer that happens when the time runs out says what follows. To stop it when a question is answered, add a rule to the question or its button that stops the timer. The clock is read on request; a screen reader is told at a minute, thirty seconds and ten seconds to go, and when time is added or up." }))];
+  }
+
+  private fillTimer(o: OSObject): void {
+    const c = timerContentOf(o);
+    const set = (id: string, v: string | number) => {
+      const el = this.propsBody.querySelector<HTMLInputElement>(`#p-${id}`);
+      if (el && document.activeElement !== el) el.value = String(v);
+    };
+    set("timer-seconds", c.seconds);
+    set("timer-label", c.label);
+    set("timer-extend", c.extendBy);
   }
 
   private async changeDownloadFile(objectId: string): Promise<void> {
@@ -2248,11 +2284,23 @@ ${errorText(err)}`);
         );
       } else if (this.findings.length === 0) this.problemList.append(h("li", { class: "note", text: "No problems found." }));
     });
-    // Tell a screen reader when the count changes, but not on every keystroke.
-    if (summary !== this.lastSummary) {
-      this.lastSummary = summary;
-      this.announce(`Problems: ${summary}`);
+    // Tell a screen reader when the count changes, but not on every keystroke, and not on top of something just said: the checker
+    // finishes a moment after an edit, and what the edit did ("Added a timer...") is what the author wants to hear first.
+    window.clearTimeout(this.problemSayTimer);
+    this.sayProblems();
+  }
+
+  private sayProblems(): void {
+    const e = this.findings.filter((f) => f.severity === "error").length;
+    const summary = this.checkFailure ? "Could not check" : this.summaryText(e, this.findings.length - e);
+    if (summary === this.lastSummary) return;
+    const wait = this.lastSaid + PROBLEMS_AFTER_MS - Date.now();
+    if (wait > 0) {
+      this.problemSayTimer = window.setTimeout(() => this.sayProblems(), wait);
+      return;
     }
+    this.lastSummary = summary;
+    this.announce(`Problems: ${summary}`);
   }
 
   private gotoProblem(f: Finding): void {
@@ -2698,6 +2746,7 @@ ${errorText(err)}`);
     if (o.type === "results") this.fillResults(o);
     if (o.type === "certificate") this.fillCertificate(o);
     if (o.type === "download") this.fillDownload(o);
+    if (o.type === "timer") this.fillTimer(o);
     if (o.type === "embed") {
       const c = o.content as unknown as EmbedContent;
       set("embed-address", c.provider === "youtube" ? `https://www.youtube.com/watch?v=${c.id}` : `https://vimeo.com/${c.id}${c.hash ? `/${c.hash}` : ""}`);
@@ -2796,9 +2845,9 @@ ${errorText(err)}`);
         }, { number: true }),
       );
     }
-    if (o.type === "table" || o.type === "scrollingText" || o.type === "input" || o.type === "results" || o.type === "certificate" || o.type === "download") {
+    if (o.type === "table" || o.type === "scrollingText" || o.type === "input" || o.type === "results" || o.type === "certificate" || o.type === "download" || o.type === "timer") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true),
-        h("p", { class: "note", text: "A table, a scrolling text box, an input, a results box, a certificate and a file to download use the theme's colours, so they stay readable when you change the theme." }));
+        h("p", { class: "note", text: "A table, a scrolling text box, an input, a results box, a certificate, a file to download and a timer use the theme's colours, so they stay readable when you change the theme." }));
     }
     if (o.type === "interaction") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true),
@@ -2850,6 +2899,7 @@ ${errorText(err)}`);
       ...(o.type === "results" ? this.resultsFields(m, o) : []),
       ...(o.type === "certificate" ? this.certificateFields(m, o) : []),
       ...(o.type === "download" ? this.downloadFields(m, o) : []),
+      ...(o.type === "timer" ? this.timerFields(m, o) : []),
       h("fieldset", {}, h("legend", { text: "Position and size" }),
         this.field("x", "Left edge (X)", o.geometry.x, num("x"), { number: true }),
         this.field("y", "Top edge (Y)", o.geometry.y, num("y"), { number: true }),
@@ -2874,6 +2924,8 @@ ${errorText(err)}`);
           ? "This is the name a screen reader gives the certificate area, for example \"Certificate of achievement\"."
           : o.type === "download"
           ? "This is the name a screen reader gives the group, for example \"Course handbook, a PDF to download\". Say what the file is and what kind it is."
+          : o.type === "timer"
+          ? "This is the name a screen reader gives the timer group, for example \"Time left to answer\". It starts as the words above the clock and follows them until you change it."
           : o.type === "table" || o.type === "scrollingText"
           ? `This is the name a screen reader gives the ${o.type === "table" ? "table" : "box"}, for example "Quarterly results". Say what it shows.`
           : o.type === "interaction"
@@ -4243,6 +4295,7 @@ ${errorText(err)}`);
     const eventLabel = (e: RuleEvent): string => {
       if (e === "activate") return o.type === "quizQuestion" ? "the learner checks an answer" : "the learner presses it";
       if (e === "mediaComplete") return o.type === "audio" ? "the audio finishes" : "the video finishes";
+      if (e === "timerEnd") return "the time runs out";
       return { slideStart: "the slide opens", slideEnd: "the slide closes", variableChange: "any variable changes" }[e];
     };
     const ACTIONS: { value: RuleAction; label: string }[] = [
@@ -4250,6 +4303,7 @@ ${errorText(err)}`);
       { value: "showLayer", label: "Show a layer" }, { value: "hideLayer", label: "Hide a layer" },
       { value: "setVariable", label: "Set a variable" }, { value: "addToVariable", label: "Add to a number variable" },
       { value: "playMedia", label: "Play a video or audio" }, { value: "pauseMedia", label: "Pause a video or audio" },
+      { value: "stopTimer", label: "Stop a timer" },
       { value: "changeState", label: "Change an object's look" },
     ];
     const NEW = "__new";
@@ -4284,7 +4338,7 @@ ${errorText(err)}`);
         this.selectField(`rule-${i}-event`, "When", eventsFor(o.type).map((e) => ({ value: e, label: eventLabel(e) })), r.event, (v) => say(m.updateRule(o.id, i, { event: v as RuleEvent }))),
         this.selectField(`rule-${i}-action`, "Do", ACTIONS, r.action, (v) => say(m.updateRule(o.id, i, { action: v as RuleAction }))),
       ];
-      const targetLabel = ({ jumpToSlide: "Slide", showLayer: "Layer", hideLayer: "Layer", setVariable: "Variable", addToVariable: "Number variable", playMedia: "Which one", pauseMedia: "Which one", changeState: "Which object" } as Record<string, string>)[r.action] ?? "Target";
+      const targetLabel = ({ jumpToSlide: "Slide", showLayer: "Layer", hideLayer: "Layer", setVariable: "Variable", addToVariable: "Number variable", playMedia: "Which one", pauseMedia: "Which one", stopTimer: "Which timer", changeState: "Which object" } as Record<string, string>)[r.action] ?? "Target";
       if (isCourseAction(r.action)) {
         parts.push(h("p", { class: "note", text: r.action === "nextSlide" ? "Goes to whichever slide comes next in the course, even if the slides are moved about." : r.action === "previousSlide" ? "Goes to whichever slide comes before this one." : "Shows this slide again from the start: its timing, narration and layers." }));
       } else parts.push(this.selectField(`rule-${i}-target`, targetLabel, [

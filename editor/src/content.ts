@@ -256,12 +256,12 @@ export function parseVideoAddress(input: string, provider?: "youtube" | "vimeo")
 // difference is that a click always comes with a keyboard trigger that does the same thing, so the pair is
 // shown, and written, as a single rule that happens "when the learner presses the button".
 
-export type RuleEvent = "activate" | "slideStart" | "slideEnd" | "mediaComplete" | "variableChange";
+export type RuleEvent = "activate" | "slideStart" | "slideEnd" | "mediaComplete" | "timerEnd" | "variableChange";
 // "addToVariable" is the editor's name for setVariable with the operation "add": to an author, adding to a count is a different thing
 // from setting a variable, and it works on different variables (numbers).
-export type RuleAction = "jumpToSlide" | "nextSlide" | "previousSlide" | "replaySlide" | "showLayer" | "hideLayer" | "setVariable" | "addToVariable" | "playMedia" | "pauseMedia" | "changeState";
+export type RuleAction = "jumpToSlide" | "nextSlide" | "previousSlide" | "replaySlide" | "showLayer" | "hideLayer" | "setVariable" | "addToVariable" | "playMedia" | "pauseMedia" | "stopTimer" | "changeState";
 
-export const RULE_ACTIONS: RuleAction[] = ["jumpToSlide", "nextSlide", "previousSlide", "replaySlide", "showLayer", "hideLayer", "setVariable", "addToVariable", "playMedia", "pauseMedia", "changeState"];
+export const RULE_ACTIONS: RuleAction[] = ["jumpToSlide", "nextSlide", "previousSlide", "replaySlide", "showLayer", "hideLayer", "setVariable", "addToVariable", "playMedia", "pauseMedia", "stopTimer", "changeState"];
 
 /** The actions that act on the course itself, so they have no target. */
 export const COURSE_ACTIONS: RuleAction[] = ["nextSlide", "previousSlide", "replaySlide"];
@@ -360,6 +360,7 @@ export function eventsFor(type: string): RuleEvent[] {
   const events: RuleEvent[] = [];
   if (type === "button" || type === "hotspot" || type === "quizQuestion") events.push("activate");
   if (type === "video" || type === "audio") events.push("mediaComplete");
+  if (type === "timer") events.push("timerEnd");
   events.push("slideStart", "slideEnd", "variableChange");
   return events;
 }

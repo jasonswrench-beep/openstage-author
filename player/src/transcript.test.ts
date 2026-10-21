@@ -104,3 +104,11 @@ test("the example courses give a transcript with a section for every slide", () 
   assert.ok(t.sections.every((s) => s.title.length > 0));
   assert.ok(transcriptText(t).length > 40);
 });
+
+test("a timer is written in, so a reader knows the slide has a time limit and that it can be added to or turned off", () => {
+  const pkg = course([slide("s1", "Question", [
+    object("c1", "timer", { seconds: 90, label: "Time left", extendBy: 30 }),
+    object("c2", "timer", { seconds: 20, label: "Hurry", extendBy: 0 }),
+  ])]);
+  assert.deepEqual(buildTranscript(pkg).sections[0]!.paragraphs, ["Time left: a timer of 1 minute 30 seconds. Add 30 seconds or turn it off.", "Hurry: a timer of 20 seconds. It can be turned off."]);
+});

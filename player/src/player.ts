@@ -5,6 +5,7 @@ import { Runtime, type Host, type Snapshot } from "./runtime.ts";
 import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
+import { timerContentOf } from "./timer.ts";
 import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
 import { creditParts } from "./credits.ts";
@@ -88,6 +89,9 @@ export class Player implements Host {
       hide: (id, wasShowing) => this.stage.setObjectTimed(id, false, wasShowing ? this.motion(id, "exit") : undefined),
       advance: () => this.step(1),
       changed: () => this.syncTimingBar(),
+      timerChanged: (id, reading) => this.stage.setTimer(id, reading),
+      // The rules on the timer itself run when its time is up.
+      timerEnd: (id) => { this.runtime.fire(id, "timerEnd"); },
     });
     this.follower = new MediaFollower({
       time: (id, ms) => this.timeline.clipTime(id, ms),
@@ -153,6 +157,11 @@ export class Player implements Host {
       characters: () => pkg.project.characters ?? [],
       scenarioPath: (objectId) => this.runtime.scenarioPath(objectId),
       onScenarioMove: (obj, move) => this.runtime.scenarioMove(obj.id, move),
+      onTimerAddTime: (obj) => this.timeline.addTime(obj.id, timerContentOf(obj).extendBy),
+      onTimerOff: () => {
+        this.timeline.turnOffTimers();
+        this.say("Timers are off for the rest of this course.");
+      },
       announce: (msg) => {
         this.announcer.textContent = "";
         requestAnimationFrame(() => (this.announcer.textContent = msg));
@@ -272,6 +281,8 @@ export class Player implements Host {
     // An object with an entrance to play is listed even when it is there from the start, so its arrival can be animated.
     const timed = layer.objects.filter((o) => isTimed(o.timing) || o.animation.enter.effect !== "none");
     for (const o of timed) this.animations.set(o.id, o.animation);
+    // A timer starts counting when its layer is shown.
+    for (const o of layer.objects) if (o.type === "timer") this.timeline.addTimer(layer.id, o.id, timerContentOf(o).seconds);
     if (timed.length > 0) this.timeline.addLayer(layer.id, timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) })));
   }
 
@@ -327,6 +338,10 @@ export class Player implements Host {
 
   pauseMedia(objectId: string): void {
     this.stage.pauseMedia(objectId);
+  }
+
+  stopTimer(objectId: string): void {
+    this.timeline.stopTimer(objectId);
   }
 
   setObjectState(objectId: string, state: string, quiet = false): void {

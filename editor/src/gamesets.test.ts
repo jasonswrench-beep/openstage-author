@@ -306,6 +306,7 @@ function play(from: Model | FileText[]) {
     setLayerVisible: () => {},
     playMedia: () => {},
     pauseMedia: () => {},
+    stopTimer: () => {},
     setObjectState: (id, state, hush) => { looks.set(id, state); if (hush) quiet.add(id); else quiet.delete(id); },
   };
   const rt = new Runtime(pkg, host);

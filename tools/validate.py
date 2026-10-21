@@ -34,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 31, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 32, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -45,7 +45,7 @@ ITEM_LIMITS = {
 # The type of variable each kind of input writes. Keep in step with INPUT_VARIABLE_TYPE in player/src/inputs.ts.
 INPUT_VARIABLE_TYPE = {"checkbox": "boolean", "radio": "string", "dropdown": "string", "list": "string",
                        "likert": "number", "semantic": "number", "character": "string"}
-INTERACTIVE = ("button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download", "scenario")
+INTERACTIVE = ("button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download", "scenario", "timer")
 # In a scenario, a line spoken by this word is spoken by the learner's own character, not by someone in the cast.
 YOU = "you"
 
@@ -456,6 +456,7 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _scenario(rel, obj, variables, cast or {}, chosen or set(), add)
         _embed(rel, obj, add)
         _download(rel, obj, add)
+        _timer(rel, obj, add)
         _description(rel, obj, add)
         _narration(rel, obj, add)
         _bubble(rel, obj, add)
@@ -768,6 +769,11 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, objects_by_id, add, 
             ok = target in variables
         elif action in COURSE_ACTIONS:
             ok = target == ""
+        elif action == "stopTimer":
+            ok = target in objects_by_id
+            if ok and objects_by_id[target]["type"] != "timer":
+                add(ERROR, rel, obj["id"], "stop-timer-target", "Stop the timer needs a timer",
+                    f"Trigger {t['id']}: '{target}' is a {objects_by_id[target]['type']} object, not a timer.")
         else:  # playMedia, pauseMedia, changeState
             ok = target in objects_by_id
         if not ok:
@@ -810,7 +816,7 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, objects_by_id, add, 
                 add(ERROR, rel, obj["id"], "trigger-value-type", "Setting a variable to the wrong kind of value",
                     f"Trigger {t['id']}: '{target}' is a {want}, but the value {json.dumps(t['value'])} is a {_value_type(t['value'])}.")
         event, kind = t["event"], obj["type"]
-        if (event in ("click", "keyActivate") and kind not in ("button", "hotspot", "quizQuestion")) or (event == "mediaComplete" and kind not in ("video", "audio")):
+        if (event in ("click", "keyActivate") and kind not in ("button", "hotspot", "quizQuestion")) or (event == "mediaComplete" and kind not in ("video", "audio")) or (event == "timerEnd" and kind != "timer"):
             add(WARNING, rel, obj["id"], "trigger-event-never", "This rule's event never happens on this kind of object",
                 f"Trigger {t['id']}: a {kind} object cannot cause '{event}'. Move the rule to an object that can, or use a different event.")
 
@@ -1045,6 +1051,16 @@ def _embed(rel, obj, add):
 
 # The kinds of file a course can offer for download: tools/download-types.json, shared with the editor and the player.
 DOWNLOAD_TYPES = {t["ext"]: t["label"] for t in json.loads((ROOT / "tools" / "download-types.json").read_text(encoding="utf-8"))["types"]}
+
+
+def _timer(rel, obj, add):
+    """A countdown. Its numbers are checked by the schema. What the validator adds is that running out should lead somewhere, and that the
+    timer is not itself something that vanishes, because a learner who needs more time must be able to find the way to add it or turn it off."""
+    if obj["type"] != "timer":
+        return
+    if not any(t["event"] == "timerEnd" for t in obj["triggers"]):
+        add(WARNING, rel, obj["id"], "timer-no-end-rule", "Nothing happens when this timer runs out",
+            "A timer is only a clock until a rule answers 'the time runs out'. Add a rule to the timer that shows a layer, goes to a slide or changes a variable.")
 
 
 def _download(rel, obj, add):

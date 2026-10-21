@@ -373,7 +373,7 @@ function runtimeOf(m: Model): { rt: Runtime; log: string[]; pkg: CoursePackage }
   const pkg: CoursePackage = { project: get<Project>("project.json"), theme: get<Theme>("theme.json"), slides: order.map((id) => get<Slide>(`slides/${id}.json`)), narration: {} };
   const log: string[] = [];
   const host: Host = {
-    showSlide: (sl) => log.push(`show ${sl.id}`), setLayerVisible: (id, v) => log.push(`layer ${id} ${v}`), playMedia: () => undefined, pauseMedia: () => undefined,
+    showSlide: (sl) => log.push(`show ${sl.id}`), setLayerVisible: (id, v) => log.push(`layer ${id} ${v}`), playMedia: () => undefined, pauseMedia: () => undefined, stopTimer: () => undefined,
     setObjectState: (id, st) => log.push(`state ${id} ${st}`),
   };
   return { rt: new Runtime(pkg, host), log, pkg };

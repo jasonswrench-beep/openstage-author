@@ -9,6 +9,7 @@ import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNee
 import { buildInput, type InputChange } from "./inputs.ts";
 import { HIDDEN_CLASS, Presenter } from "./animation.ts";
 import { buildDownload } from "./downloads.ts";
+import { buildTimer, type TimerInfo, type TimerView } from "./timer.ts";
 import { buildInteraction, type ItemSound } from "./interactions.ts";
 import type { DescriptionHost } from "./description.ts";
 import { emptyMessage, isAnswered } from "./grading.ts";
@@ -63,6 +64,10 @@ export interface StageBehavior {
   scenarioPath?(objectId: string): string;
   /** A learner made a choice in a scenario, or took one back. */
   onScenarioMove?(obj: OSObject, move: Move): void;
+  /** A learner added time to a timer. */
+  onTimerAddTime?(obj: OSObject): void;
+  /** A learner turned a timer off. */
+  onTimerOff?(obj: OSObject): void;
 }
 
 const COLOR_PROPS: Record<string, string> = { color: "color", fill: "background-color", background: "background-color" };
@@ -96,6 +101,8 @@ export class StageRenderer {
   private valueSpans: { span: HTMLElement; name: string }[] = [];
   /** Shows a scenario's meters and character as they are now, by object id. */
   private scenarios = new Map<string, () => void>();
+  /** The timers on the slide, by object id. */
+  private timers = new Map<string, TimerView>();
   private section: HTMLElement | null = null;
   /** The slide is shown in one column instead of on the fixed stage (see reflow.ts). */
   private reflow = false;
@@ -147,6 +154,7 @@ export class StageRenderer {
     this.fillers.clear();
     this.valueSpans = [];
     this.scenarios.clear();
+    this.timers.clear();
     this.reflowNotes.clear();
     for (const layer of [slide.baseLayer, ...slide.layers]) {
       for (const [id, note] of planReflow(layer.objects, this.theme)) this.reflowNotes.set(id, note);
@@ -197,6 +205,11 @@ export class StageRenderer {
   setObjectTimed(objectId: string, visible: boolean, motion?: Effect): void {
     const el = this.mounted.get(objectId)?.el;
     if (el) this.presenter.set(objectId, el, visible, motion);
+  }
+
+  /** Show a timer as it is now. */
+  setTimer(objectId: string, info: TimerInfo): void {
+    this.timers.get(objectId)?.update(info);
   }
 
   /** Stop every effect that is running now: what was arriving is there, and what was leaving is gone. */
@@ -434,6 +447,12 @@ export class StageRenderer {
       case "embed":
         node = buildEmbed(doc, obj, !!this.behavior.editing);
         break;
+      case "timer": {
+        const view = buildTimer(doc, obj, { editing: !!this.behavior.editing, addTime: () => this.behavior.onTimerAddTime?.(obj), turnOff: () => this.behavior.onTimerOff?.(obj) });
+        this.timers.set(obj.id, view);
+        node = view.el;
+        break;
+      }
       case "download":
         node = buildDownload(doc, obj, { editing: !!this.behavior.editing, size: this.behavior.fileSize?.(String(obj.content["src"] ?? "")) });
         break;
@@ -618,7 +637,7 @@ export class StageRenderer {
       const stroke = paint(merged["stroke"]);
       if (fill) set("--os-bubble-fill", fill);
       if (stroke) set("--os-bubble-stroke", stroke);
-    } else if (obj.type === "interaction" || obj.type === "table" || obj.type === "scrollingText" || obj.type === "input" || obj.type === "embed" || obj.type === "results" || obj.type === "certificate" || obj.type === "download" || obj.type === "scenario") {
+    } else if (obj.type === "interaction" || obj.type === "table" || obj.type === "scrollingText" || obj.type === "input" || obj.type === "embed" || obj.type === "results" || obj.type === "certificate" || obj.type === "download" || obj.type === "scenario" || obj.type === "timer") {
       // An interaction, table or scrolling text box paints itself in the theme's colours, which are known to read well together,
       // so only the font and its size can be changed.
       for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => k === "fontFamily" || k === "fontSize")));

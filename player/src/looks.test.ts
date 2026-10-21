@@ -75,6 +75,7 @@ function recording(pkg: CoursePackage) {
     setLayerVisible: () => {},
     playMedia: () => {},
     pauseMedia: () => {},
+    stopTimer: () => {},
     setObjectState: (id, look, quiet) => void calls.push([id, look, quiet]),
   };
   return { rt: new Runtime(pkg, host), calls };

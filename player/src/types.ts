@@ -97,6 +97,7 @@ export type EventName =
   | "slideStart"
   | "slideEnd"
   | "mediaComplete"
+  | "timerEnd"
   | "variableChange";
 
 export type ActionName =
@@ -109,6 +110,7 @@ export type ActionName =
   | "setVariable"
   | "playMedia"
   | "pauseMedia"
+  | "stopTimer"
   | "changeState";
 
 export type Operator =
@@ -413,6 +415,16 @@ export interface ScenarioContent {
   reflection: string;
 }
 
+/** A countdown on a slide. It starts when its layer is shown. When the time runs out, the rules on the timer that answer "timerEnd" run. */
+export interface TimerContent {
+  /** How long it counts down, in seconds (5 to 3600). */
+  seconds: number;
+  /** The words shown above the clock, such as "Time left". */
+  label: string;
+  /** How many seconds the learner's Add time button gives (5 to 600), or 0 for no such button. The Turn off button is always there. */
+  extendBy: number;
+}
+
 export interface InteractionItem {
   id: string;
   title: string;
@@ -468,7 +480,7 @@ export interface AltSuggestion {
 
 export interface OSObject {
   id: string;
-  type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon";
+  type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon" | "timer";
   name: string;
   geometry: { x: number; y: number; width: number; height: number; rotation: number; z: number };
   content: Record<string, unknown>;

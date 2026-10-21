@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.31.0",
+  "schemaVersion": "0.32.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -256,7 +256,7 @@ uses it in the editor (it is copied into `altText` and removed) or writes their 
 
 ### Object types in v0.1
 
-`text`, `image`, `shape`, `button`, `hotspot`, `video`, `audio`, `quizQuestion`, `interaction`, `table`, `scrollingText`, `input`, `embed`, `results`, `certificate`, `download`, `scenario`, `icon`.
+`text`, `image`, `shape`, `button`, `hotspot`, `video`, `audio`, `quizQuestion`, `interaction`, `table`, `scrollingText`, `input`, `embed`, `results`, `certificate`, `download`, `scenario`, `icon`, `timer`.
 
 ### Machine-readable schema
 
@@ -418,6 +418,35 @@ the description if that changes later.
 Files to download are an asset kind like the others: the editor copies a chosen file into `assets/documents/`, the
 Assets dialog lists them, and the whole of `assets/` is copied into the published folder and the SCORM package.
 `assets.json` may record where one came from, with `kind` `document`.
+
+### Timers
+
+A `timer` is a countdown on a slide (added in 0.32.0). It is drawn as a label, a clock (`0:30`), a bar that shortens, and two buttons. It starts when the layer it is on is shown (when the slide opens, for the base layer), on the same clock as the
+slide's timing (see Timing): pausing the timing holds it, and **Show everything now** turns it off.
+
+```json
+{ "type": "timer", "content": { "seconds": 30, "label": "Time left", "extendBy": 30 } }
+```
+
+| Field | What it is |
+| --- | --- |
+| `seconds` | How long it counts down: a whole number from 5 to 3600. |
+| `label` | The words above the clock, 1 to 60 letters. |
+| `extendBy` | The seconds the **Add time** button gives, from 0 to 600. 0 takes that button away. |
+
+The **Turn off the timer** button is always there, and cannot be taken away: a time limit a learner cannot get out of is a barrier (WCAG 2.2.1). Turning one timer off turns off every timer that would start later in that visit to the course, so a
+learner who cannot work against a clock does not have to say so again on each slide. The timer is not saved with the learner's progress: coming back to a slide starts its timer again.
+
+**Rules.** The rules on the timer that answer the event `timerEnd` run once, when the time runs out. They are ordinary rules (show a layer, go to a slide, change a variable), so they can lead to a "time is up" layer, count a missed question or move on.
+They do not run if the learner turned the timer off, if a rule stopped it, or if **Show everything now** ended it. The action `stopTimer`, with a timer's id as its `target`, holds a running timer at the time it has left; it is how a question that has
+been answered stops the clock. A `stopTimer` rule that names something that is not a timer is an error (`stop-timer-target`), and a `timerEnd` rule on an object that is not a timer never runs (`trigger-event-never`, warning). A timer with no rule
+for running out is a warning (`timer-no-end-rule`).
+
+**What a screen reader hears.** The group has the name in `accessibility.altText` (the editor starts it as the label). The clock is read when the learner asks for it and is not read out as it changes. A status region of the timer's own says "1 minute
+left", "30 seconds left" and "10 seconds left" as the time passes those marks, but only for marks lower than the time the timer started with; it says "Time added. 45 seconds left.", "The timer is off." and "Time is up." A timer stopped by a rule
+says nothing, because the question's own feedback speaks. The transcript names each timer and says it can be added to or turned off. Nothing flashes and the bar does not animate.
+
+A timer is a control (it holds buttons), so it needs a tab order of 1 or more, and one that is timed to disappear (`visibleFor`) is a warning like any other control.
 
 ### Assets and credits
 
@@ -785,7 +814,7 @@ text and its own fill into what is behind them together, and is judged as it wil
 ```
 
 v0.1 action set, deliberately small: `jumpToSlide`, `showLayer`, `hideLayer`,
-`setVariable`, `playMedia`, `pauseMedia`, `changeState`.
+`setVariable`, `playMedia`, `pauseMedia`, `changeState`. `stopTimer` was added in 0.32.0 (see Timers).
 
 Three more act on the course itself, so their `target` is empty (`""`), and a trigger that has a target for one of them, or an empty target for any other action, is a
 schema error: `nextSlide` goes to the slide that follows this one in the course, `previousSlide` to the one before, and `replaySlide` shows this slide again from the
@@ -800,7 +829,7 @@ slide to go to (Next on the last slide, Back on the first) nothing moves, the li
 operation, like every other part of the rule. (Added in 0.18.0.)
 
 v0.1 event set: `click`, `keyActivate`, `slideStart`, `slideEnd`, `mediaComplete`,
-`variableChange`.
+`variableChange`. `timerEnd` was added in 0.32.0 (see Timers).
 
 `keyActivate` exists so that keyboard activation is a first-class event rather than
 something the renderer synthesises from `click`. Any interactive object must respond to
@@ -816,8 +845,8 @@ conditions hold decides. Triggers before the jump still run.
 
 Which object holds a trigger makes no difference to what it does. A trigger on any object that can reach
 the learner's slide runs when its event happens; the object only matters for `click`, `keyActivate`
-(the learner pressing a `button`, `hotspot`, or checking a `quizQuestion`) and `mediaComplete` (a `video`
-or `audio` finishing). A `variableChange` trigger is checked each time any variable changes, which is how
+(the learner pressing a `button`, `hotspot`, or checking a `quizQuestion`), `mediaComplete` (a `video`
+or `audio` finishing) and `timerEnd` (a `timer` running out). A `variableChange` trigger is checked each time any variable changes, which is how
 an input can send the learner somewhere, or show a layer, as soon as an answer is given.
 
 **Branching on a survey answer.** An input saves the answer in a variable (see Inputs and surveys), and a
@@ -1436,6 +1465,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.31.0 | 0.32.0 | Adds the timer: an object of type `timer` (`seconds`, `label`, `extendBy`), the event `timerEnd` and the action `stopTimer`. Nothing in an older course changes. |
 | 0.30.0 | 0.31.0 | Adds values in a text: a `text` object's `html` can hold `{{Name}}`, naming a variable or one of the values the course works out (`$score`, `$possible`, `$percent`, `$answered`, `$questions`, `$correct`), and the player shows and updates it. Nothing in an existing project has to change, unless a text already had words in double braces, which now name a value (the validator says if they name nothing). |
 | 0.29.0 | 0.30.0 | Adds the speech and thought bubbles: the shapes `speech` and `thought`, the optional `tail` (`left` or `right`) of a shape that is one, and the optional `bubble` and `tail` of a `text` object (words in a bubble). Nothing in an existing project has to change: no shape is a bubble and no text has one. |
 | 0.28.0 | 0.29.0 | Adds the optional `poses` and `library` of a person in the cast (more pictures of them, each in a pose, and the character pack they came from) and the optional `pose` of a line of a scenario (which of its speaker's poses to show). Nothing in an existing project changes: no person has poses and no line has a pose. |

@@ -9,6 +9,7 @@
 import { namesInBrackets } from "./valuetext.ts";
 import { descriptionCues } from "./description.ts";
 import { itemNarrationKey } from "./narration.ts";
+import { addTimeLabel, spokenTime, timerContentOf } from "./timer.ts";
 import { readingOrder } from "./stage.ts";
 import type { CoursePackage, InteractionContent, OSObject, TableContent } from "./types.ts";
 
@@ -84,6 +85,12 @@ function partsOf(o: OSObject, pkg: CoursePackage): string[] {
     case "embed":
       onScreen.push(...lines(String(o.content["transcript"] ?? "")));
       break;
+    case "timer": {
+      // A reader of the transcript should know there is a time limit, and that it can be added to or turned off.
+      const t = timerContentOf(o);
+      onScreen.push(`${t.label}: a timer of ${spokenTime(t.seconds)}. ${t.extendBy > 0 ? `${addTimeLabel(t.extendBy)} or turn it off.` : "It can be turned off."}`);
+      break;
+    }
     default:
       break;
   }

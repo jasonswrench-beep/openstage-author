@@ -25,6 +25,7 @@ export function newRuntime(pkg: CoursePackage = examplePackage()) {
     setLayerVisible: (id, v) => log.push(`layer ${id} ${v}`),
     playMedia: (id) => log.push(`play ${id}`),
     pauseMedia: (id) => log.push(`pause ${id}`),
+    stopTimer: (id) => log.push(`stopTimer ${id}`),
     setObjectState: (id, s) => log.push(`state ${id} ${s}`),
   };
   return { rt: new Runtime(pkg, host), log, pkg };

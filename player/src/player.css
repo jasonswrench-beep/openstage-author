@@ -24,7 +24,7 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-layer[hidden] { display: none; }
 .os-slide:focus { outline: none; }
 
-.os-text, .os-shape, .os-image, .os-icon, .os-button, .os-hotspot, .os-quiz, .os-media, .os-interaction, .os-table, .os-scrolltext, .os-input, .os-results, .os-certificate-box, .os-download { position: absolute; box-sizing: border-box; }
+.os-text, .os-shape, .os-image, .os-icon, .os-button, .os-hotspot, .os-quiz, .os-media, .os-interaction, .os-table, .os-scrolltext, .os-input, .os-results, .os-certificate-box, .os-download, .os-timer { position: absolute; box-sizing: border-box; }
 .os-timed-out { display: none !important; }
 /* The object's own font size is the size the author chose. Without this, a browser makes an
    h1 twice that size and the text runs into whatever sits below it. */
@@ -349,6 +349,19 @@ h3.os-scenario-heading { font-size: 1.05em; }
 a.os-download-link:hover { text-decoration: underline; }
 @media (forced-colors: active) { .os-download, .os-download-link { border-color: ButtonText; } }
 
+/* ---- a timer: the clock and a bar, then the two buttons a learner can always use */
+.os-timer { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; overflow: auto; font-size: 18px; line-height: 1.3; color: var(--os-text, #1a1a1a); background: var(--os-surface, #f4f5f7); border: 2px solid var(--os-accent-strong, #0b3fb3); border-radius: 10px; padding: 10px 16px; }
+.os-timer p { margin: 0; }
+.os-timer-label { font-size: 0.9em; color: var(--os-muted, #4a4f57); }
+.os-timer-clock { font-size: 2.2em; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.os-timer-bar { width: 100%; height: 10px; flex: none; border-radius: 5px; background: var(--os-line, #c9ced6); overflow: hidden; }
+.os-timer-fill { height: 100%; background: var(--os-accent-strong, #0b3fb3); }
+.os-timer-note { min-height: 1.3em; font-size: 0.9em; color: var(--os-muted, #4a4f57); }
+.os-timer-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.os-timer-btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: 2px solid var(--os-accent-strong, #0b3fb3); background: var(--os-accent-strong, #0b3fb3); color: var(--os-on-accent-strong, #fff); font: inherit; font-size: 0.9em; font-weight: 600; cursor: pointer; }
+.os-timer-btn[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+@media (forced-colors: active) { .os-timer, .os-timer-btn, .os-timer-bar { border-color: ButtonText; } .os-timer-bar { border: 1px solid ButtonText; } .os-timer-fill { forced-color-adjust: none; background: Highlight; } }
+
 /* ---- timing controls: pause what moves by itself, or show everything at once */
 .os-timing { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 12px; }
 .os-timing[hidden] { display: none; }
@@ -514,12 +527,14 @@ html[data-os-colors], html[data-os-colors] body { background: var(--os-c-bg); }
 .os-player[data-os-colors] { background: var(--os-c-bg); color: var(--os-c-text); --os-bg: var(--os-c-bg); --os-text: var(--os-c-text); --os-surface: var(--os-c-surface); --os-muted: var(--os-c-muted); --os-accent-strong: var(--os-c-accent); --os-on-accent-strong: var(--os-c-on-accent); }
 .os-player[data-os-colors] .os-slide { --os-bg: var(--os-c-bg) !important; --os-text: var(--os-c-text) !important; --os-surface: var(--os-c-surface) !important; --os-muted: var(--os-c-muted) !important; --os-line: var(--os-c-text) !important; --os-dark: var(--os-c-bg) !important; --os-on-dark: var(--os-c-text) !important; --os-accent-strong: var(--os-c-accent) !important; --os-on-accent-strong: var(--os-c-on-accent) !important; }
 .os-player[data-os-colors] :is(.os-viewport, .os-stage, .os-slide) { background: var(--os-c-bg) !important; }
-.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-interaction, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario, .os-embed-placeholder, .os-mediabox, .os-transcript) { color: var(--os-c-text) !important; background-color: var(--os-c-bg) !important; border-color: var(--os-c-text) !important; }
-.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-scenario) *:not(a, button, svg, svg *, input, select, textarea) { color: inherit !important; }
+.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-interaction, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-timer, .os-scenario, .os-embed-placeholder, .os-mediabox, .os-transcript) { color: var(--os-c-text) !important; background-color: var(--os-c-bg) !important; border-color: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage :is(.os-text, .os-scrolltext, .os-table, .os-quiz, .os-results, .os-certificate-box, .os-download, .os-timer, .os-scenario) *:not(a, button, svg, svg *, input, select, textarea, .os-timer-fill) { color: inherit !important; }
+.os-player[data-os-colors] .os-stage .os-timer-fill { background: var(--os-c-accent) !important; }
+.os-player[data-os-colors] .os-stage .os-timer-bar { background: var(--os-c-surface) !important; border: 1px solid var(--os-c-text); }
 /* A text bubble's colour is the drawn bubble's (below), so the box round it is left clear. */
 .os-player[data-os-colors] .os-stage .os-bubbled { background-color: transparent !important; }
 .os-player[data-os-colors] .os-stage a, .os-player[data-os-colors] .os-credits a { color: var(--os-c-accent) !important; text-decoration: underline; }
-.os-player[data-os-colors] .os-stage :is(.os-button, .os-quiz-check, .os-ix-turn, .os-ix-nav, .os-ix-listen, .os-download-link) { background: var(--os-c-accent) !important; color: var(--os-c-on-accent) !important; border-color: var(--os-c-text) !important; }
+.os-player[data-os-colors] .os-stage :is(.os-button, .os-quiz-check, .os-ix-turn, .os-ix-nav, .os-ix-listen, .os-download-link, .os-timer-btn) { background: var(--os-c-accent) !important; color: var(--os-c-on-accent) !important; border-color: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-stage :is(.os-shape, .os-bubble-fig) :is(path, rect, ellipse, polygon, circle, line, polyline) { fill: var(--os-c-surface) !important; stroke: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-stage.os-reflow .os-layer > .os-bubbled { background: var(--os-c-surface) !important; border-color: var(--os-c-text) !important; }
 .os-player[data-os-colors] .os-stage .os-icon { color: var(--os-c-text) !important; }

@@ -6,7 +6,7 @@
   "description": "Renders an OpenStage project to accessible HTML.",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/runtime.test.ts src/narration.test.ts src/scorm.test.ts src/theme.test.ts src/inputs.test.ts src/branching.test.ts src/publish-cli.test.ts src/results.test.ts src/downloads.test.ts src/timeline.test.ts src/animation.test.ts src/reflow.test.ts src/grading.test.ts src/questions.test.ts src/dragging.test.ts src/exclude.test.ts src/description.test.ts src/logo.test.ts src/scenario.test.ts src/icon.test.ts src/follow.test.ts src/looks.test.ts src/credits.test.ts src/a11y.test.ts src/transcript.test.ts src/bubble.test.ts src/valuetext.test.ts",
+    "test": "node --test src/runtime.test.ts src/narration.test.ts src/scorm.test.ts src/theme.test.ts src/inputs.test.ts src/branching.test.ts src/publish-cli.test.ts src/results.test.ts src/downloads.test.ts src/timeline.test.ts src/animation.test.ts src/reflow.test.ts src/grading.test.ts src/questions.test.ts src/dragging.test.ts src/exclude.test.ts src/description.test.ts src/logo.test.ts src/scenario.test.ts src/icon.test.ts src/follow.test.ts src/looks.test.ts src/credits.test.ts src/a11y.test.ts src/transcript.test.ts src/bubble.test.ts src/valuetext.test.ts src/timer.test.ts",
     "publish": "node publish.ts"
   },
   "devDependencies": {

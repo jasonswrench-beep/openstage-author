@@ -3,6 +3,7 @@
 // left empty so the validator flags it. Nothing is invented on their behalf.
 
 import type { IconContent } from "../../player/src/types.ts";
+import { TIMER_DEFAULT } from "../../player/src/timer.ts";
 import type { CertificateContent, DownloadContent, EmbedContent, InputContent, InteractionContent, InteractionItem, Layer, OSObject, QuizContent, ResultsContent, ScenarioContent, Slide, TableContent } from "../../player/src/types.ts";
 import { QUIZ_KINDS, quizKind, startingQuestion, type QuizType } from "./questionedit.ts";
 import type { InputKind } from "../../player/src/inputs.ts";
@@ -651,7 +652,7 @@ export const ADD_MENU: { value: string; label: string }[] = [
   { value: "group:shape", label: "Shape or bubble..." },
   { value: "group:content", label: "Table or scrolling text..." },
   { value: "group:question", label: "Question, input or survey..." },
-  { value: "group:interaction", label: "Interaction or scenario..." },
+  { value: "group:interaction", label: "Interaction, scenario or timer..." },
   { value: "group:course", label: "Results or certificate..." },
 ];
 
@@ -894,6 +895,20 @@ export function newDownload(p: Placement, src: string): OSObject {
     content: content as unknown as Record<string, unknown>,
     style: { fontFamily: "theme:font.body", fontSize: 18 },
     accessibility: { altText: "", role: "group", tabOrder: p.tabOrder, decorative: false },
+  };
+}
+
+/**
+ * A countdown. Its label is also its name for a screen reader to start with, because the label is what a sighted learner reads. It has no rule
+ * yet: the author says what happens when the time runs out, and the validator warns until they do.
+ */
+export function newTimer(p: Placement): OSObject {
+  const at = stagger(p, 200, 80);
+  return {
+    ...box(p.id, at.x, at.y, 360, 210, p.z), type: "timer", name: "Timer",
+    content: { ...TIMER_DEFAULT } as unknown as Record<string, unknown>,
+    style: { fontFamily: "theme:font.body", fontSize: 18 },
+    accessibility: { altText: TIMER_DEFAULT.label, role: "group", tabOrder: p.tabOrder, decorative: false },
   };
 }
 
