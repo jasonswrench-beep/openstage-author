@@ -314,6 +314,8 @@ reflows, and 24 is then what is left. (Defined in 0.18.0. The `hotspot` question
 vector graphics, so it stays sharp at any size, and it is hidden from assistive technology: the
 object around it carries the name, or is marked `decorative`. A line is a thin `rectangle`.
 
+A `text` object's words sit on the left of its box unless `style.textAlign` is `center` or `right` (a deck imported from PowerPoint may also bring `justify`, which the player draws; the editor offers only the first three, because the uneven spaces in justified text are hard to read). Nothing is written for left. It needs no schema change: `style` takes any keys the player knows.
+
 **Speech and thought bubbles** (added in 0.30.0). A bubble is the picture of something said or thought, with a tail that points at whoever is speaking or thinking. A `shape`
 whose `content.shape` is `speech` (a rounded box with a pointed tail) or `thought` (an ellipse with two small circles trailing away from it) is a plain, empty bubble: a picture
 with no words, like any other shape, and decorative unless the author says it carries meaning. A `text` object whose `content.bubble` is `"speech"` or `"thought"` is a bubble

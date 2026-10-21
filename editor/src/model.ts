@@ -775,6 +775,19 @@ export class Model {
     return `Shape changed to ${shape}`;
   }
 
+  /** Where the words of a text object sit across its box: "left" (how text starts, so it is not written down), "center" or "right". Justified text is not offered, because the uneven spaces are hard to read. */
+  setTextAlign(objectId: string, value: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text" || !["left", "center", "right"].includes(value)) return null;
+    const now = obj.style["textAlign"] ?? "left";
+    if (now === value) return null;
+    this.record(`align:${objectId}`);
+    const { textAlign: _was, ...rest } = obj.style;
+    obj.style = value === "left" ? rest : { ...rest, textAlign: value };
+    this.emit({ kind: "content", objectId });
+    return value === "left" ? "Words on the left" : value === "center" ? "Words in the centre" : "Words on the right";
+  }
+
   /** Which side of a bubble (a speech or thought bubble shape, or text in a bubble) its tail is on. */
   setBubbleTail(objectId: string, tail: string): string | null {
     const obj = this.find(objectId);
@@ -806,7 +819,7 @@ export class Model {
     obj.content = { ...rest, bubble: kind, tail: isBubbleTail(obj.content["tail"]) ? obj.content["tail"] : "left" };
     if (now === "") {
       const own = obj.style;
-      obj.style = { ...own, fill: own["fill"] ?? BUBBLE_LOOK.fill, stroke: own["stroke"] ?? BUBBLE_LOOK.stroke, strokeWidth: own["strokeWidth"] ?? BUBBLE_LOOK.strokeWidth, ...(own["fill"] === undefined ? { color: BUBBLE_TEXT_COLOR } : {}) };
+      obj.style = { ...own, fill: own["fill"] ?? BUBBLE_LOOK.fill, stroke: own["stroke"] ?? BUBBLE_LOOK.stroke, strokeWidth: own["strokeWidth"] ?? BUBBLE_LOOK.strokeWidth, textAlign: own["textAlign"] ?? "center", ...(own["fill"] === undefined ? { color: BUBBLE_TEXT_COLOR } : {}) };
     }
     this.emit({ kind: "structure", objectId });
     return kind === "speech" ? "In a speech bubble" : "In a thought bubble";
@@ -1111,6 +1124,25 @@ export class Model {
     const obj = newObject(kind, this.placement(this.allocator().object()), opts);
     this.record("");
     layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /**
+   * Put a picture from a character pack on the slide as an image, with the pack's words for it as the alt text (the author is told to read them, and can change them or mark the
+   * picture decorative) and a record of where it came from. One undo step. `size` is the picture's own size, so it is placed in proportion.
+   */
+  addPackPicture(picture: { src: string; size?: { w: number; h: number }; name: string; alt: string; credit: CreditEntry }): OSObject | null {
+    const layer = this.layer;
+    if (!layer || !picture.src.startsWith("assets/")) return null;
+    const obj = newObject("image", this.placement(this.allocator().object()), { imageSrc: picture.src, ...(picture.size ? { size: picture.size } : {}) });
+    obj.name = picture.name;
+    obj.accessibility = { ...obj.accessibility, altText: picture.alt };
+    this.record("");
+    layer.objects.push(obj);
+    const at = this.assets.findIndex((a) => a.path === picture.credit.path);
+    if (at === -1) this.assets.push(picture.credit); else this.assets[at] = picture.credit;
     this.sel = { ...this.sel, objectId: obj.id };
     this.emit({ kind: "structure", objectId: obj.id });
     return obj;

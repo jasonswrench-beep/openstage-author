@@ -64,7 +64,7 @@ import { editTheme as editThemeDialog } from "./themeeditor.ts";
 import { editCast } from "./castdialog.ts";
 import { chooseFromLibrary } from "./packdialog.ts";
 import { choosePoses as choosePosesDialog } from "./posedialog.ts";
-import { creditForBackground, creditForPicture } from "./packs.ts";
+import { creditForBackground, creditForPicture, creditForSlidePicture, slidePictures } from "./packs.ts";
 import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
@@ -790,6 +790,35 @@ export class App {
     }
   }
 
+  /** Put a person from the library on the slide: choose who, then which picture (their head and shoulders, or a pose). */
+  private async addPerson(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    try {
+      const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
+      if (!chosen) {
+        this.addKind.focus();
+        return;
+      }
+      const { pack, person } = chosen;
+      const picked = await choosePosesDialog({ backend, pack, person: { ...person, poses: slidePictures(person) }, have: new Set(), single: true, announce: (msg) => this.announce(msg) });
+      this.addKind.focus();
+      const pose = picked?.[0];
+      if (!pose) return;
+      // A picture the course already has is used again, not copied again.
+      const title = creditForSlidePicture(pack, person, pose, "").title;
+      const src = m.pathOfCredit(title) ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, pose.file, `${person.id}-${pose.id}`);
+      const size = await this.measure(m.dir, src);
+      const o = m.addPackPicture({ src, ...(size ? { size } : {}), name: `${person.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, alt: pose.alt, credit: creditForSlidePicture(pack, person, pose, src) });
+      if (o) {
+        this.announce(`Added ${o.name}. The description from the library is its alt text: read it, and change it if it is not right, or mark the picture decorative if it only decorates.`);
+        document.getElementById("p-alt")?.focus();
+      }
+    } catch (err) {
+      this.announce(`Could not add the person. ${errorText(err)}`);
+    }
+  }
+
   /** Choose a picture from the packs to put behind everything on a slide. */
   private async chooseBackground(slideId: string): Promise<void> {
     const m = this.model;
@@ -1305,6 +1334,7 @@ export class App {
             { value: "download", label: "File to download", description: "A PDF, Word document or other file learners can save to their own device. You describe what it is, and confirm it is accessible.", group: "From your computer" },
             { value: "youtube", label: "YouTube video", description: "Plays from YouTube. You confirm the captions and add a transcript.", group: "From the web" },
             { value: "vimeo", label: "Vimeo video", description: "Plays from Vimeo. You confirm the captions and add a transcript.", group: "From the web" },
+            { value: "person", label: "A person from the library", description: "A picture of a person from a character pack, waving, thinking, presenting. Its description becomes the alt text, for you to check.", group: "Assets" },
             { value: "icon", label: "Icon", description: "A simple line picture from the Lucide set, drawn in a colour you choose. Search by what it means.", group: "Assets" },
             { value: "library", label: "Browse the assets", description: "The project's own files, and stock images to add to it.", group: "Assets" },
           ],
@@ -1316,6 +1346,7 @@ export class App {
         if (pick === "download") return this.addDownloadFile();
         if (pick === "library") return this.openAssetsDialog();
         if (pick === "icon") return this.addIcon();
+        if (pick === "person") return this.addPerson();
         return this.addEmbedVideo(pick as "youtube" | "vimeo");
       }
       if (group === "question") {
@@ -2546,6 +2577,7 @@ export class App {
     this.fillLooks(o);
     set("shape", String(o.content["shape"] ?? "rectangle"));
     set("bubble", isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "");
+    set("align", o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? String(o.style["textAlign"]) : "left");
     set("tail", tailOf(o.content["tail"]));
     this.updateContrast(o);
     if (o.type === "quizQuestion") this.fillQuiz(o);
@@ -2625,6 +2657,10 @@ export class App {
     const looks: HTMLElement[] = [];
     if (o.type === "text" || o.type === "button") {
       looks.push(this.fontField(m, o), style("fontSize", "size", "Font size", true), this.colorField(m, o, "color", "Text colour", "Default"),
+        ...(o.type === "text" ? [this.selectField("align", "Words sit", [{ value: "left", label: "On the left" }, { value: "center", label: "In the centre" }, { value: "right", label: "On the right" }], String(o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? o.style["textAlign"] : "left"), (v) => {
+          const msg = m.setTextAlign(o.id, v);
+          if (msg) this.announce(msg);
+        })] : []),
         h("p", { id: "contrast-note", class: "note" }));
     }
     if (o.type === "text" && isBubbleKind(o.content["bubble"])) {

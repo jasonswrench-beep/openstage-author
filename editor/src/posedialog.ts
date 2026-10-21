@@ -24,6 +24,8 @@ export interface PoseDialogOptions {
   person: PackPerson;
   /** The ids of the poses the person already has in the course. */
   have: ReadonlySet<string>;
+  /** Choose one picture, with round buttons, to put on a slide, instead of ticking any number of poses to add to the cast. */
+  single?: boolean;
   announce(message: string): void;
 }
 
@@ -33,17 +35,22 @@ export function choosePoses(opts: PoseDialogOptions): Promise<PackPose[] | null>
   return new Promise((resolve) => {
     const dialog = h("dialog", { class: "dialog wide pose-dialog", "aria-labelledby": "po-title" });
     const form = h("form", { method: "dialog" });
-    const title = h("h2", { id: "po-title", text: `Add poses for ${person.name}` });
-    const intro = h("p", { class: "note", text: `A pose is another picture of ${person.name}, to show beside a line of a scenario instead of their face: waving, thinking, presenting. Tick the ones you want. Each one you add is copied into your project, so a course that uses only a few stays small. The picture is for the eye; what a line says is in its words.` });
+    const single = opts.single === true;
+    const title = h("h2", { id: "po-title", text: single ? `Choose a picture of ${person.name}` : `Add poses for ${person.name}` });
+    const intro = h("p", { class: "note", text: single
+      ? `Choose the picture of ${person.name} to put on the slide. The words beside it become the picture's alt text, and you can change them afterwards.`
+      : `A pose is another picture of ${person.name}, to show beside a line of a scenario instead of their face: waving, thinking, presenting. Tick the ones you want. Each one you add is copied into your project, so a course that uses only a few stays small. The picture is for the eye; what a line says is in its words.` });
     const status = h("p", { class: "note po-status", role: "status", "aria-live": "polite" });
     const failure = h("p", { class: "dialog-error", role: "alert" });
-    const group = h("fieldset", { class: "po-group" }, h("legend", { text: `${person.name}'s poses` }));
+    const group = h("fieldset", { class: "po-group" }, h("legend", { text: single ? `${person.name}'s pictures` : `${person.name}'s poses` }));
     const list = h("ul", { class: "po-list" });
     const boxes: { pose: PackPose; box: HTMLInputElement }[] = [];
 
     person.poses.forEach((pose, i) => {
       const had = opts.have.has(pose.id);
-      const box = h("input", { type: "checkbox", id: `po-${i}`, ...(had ? { checked: true, disabled: true } : {}) });
+      const box = single
+        ? h("input", { type: "radio", name: "po-pick", id: `po-${i}`, ...(i === 0 ? { checked: true } : {}) })
+        : h("input", { type: "checkbox", id: `po-${i}`, ...(had ? { checked: true, disabled: true } : {}) });
       const img = h("img", { class: "po-pic", alt: "", "aria-hidden": "true" });
       boxes.push({ pose, box });
       list.appendChild(h("li", { class: "po-item" }, h("label", { for: `po-${i}` }, img, h("span", { class: "po-label", text: `${pose.label}${had ? " (in the course already)" : ""}` })), box));
@@ -61,17 +68,17 @@ export function choosePoses(opts: PoseDialogOptions): Promise<PackPose[] | null>
     })();
 
     const chosen = () => boxes.filter(({ box }) => box.checked && !box.disabled).map(({ pose }) => pose);
-    const say = () => { status.textContent = chosenCount(chosen().length, opts.have.size); };
+    const say = () => { status.textContent = single ? `${chosen()[0]?.label ?? "No picture"} chosen.` : chosenCount(chosen().length, opts.have.size); };
     list.addEventListener("change", say);
     const all = h("button", { type: "button", text: "Tick all" });
     all.addEventListener("click", () => { for (const { box } of boxes) if (!box.disabled) box.checked = true; say(); opts.announce(status.textContent ?? ""); });
     const none = h("button", { type: "button", text: "Untick all" });
     none.addEventListener("click", () => { for (const { box } of boxes) if (!box.disabled) box.checked = false; say(); opts.announce(status.textContent ?? ""); });
-    const add = h("button", { type: "submit", text: "Add the chosen poses" });
+    const add = h("button", { type: "submit", text: single ? "Add this picture" : "Add the chosen poses" });
     const cancel = h("button", { type: "button", text: "Cancel" });
 
     group.append(list);
-    form.append(title, intro, h("div", { class: "btn-row" }, all, none), group, status, failure, h("div", { class: "dialog-actions" }, add, cancel));
+    form.append(title, intro, ...(single ? [] : [h("div", { class: "btn-row" }, all, none)]), group, status, failure, h("div", { class: "dialog-actions" }, add, cancel));
     dialog.appendChild(form);
     document.body.appendChild(dialog);
     say();

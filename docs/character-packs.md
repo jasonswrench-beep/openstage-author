@@ -19,6 +19,10 @@ What the pack's description does, and does not, do:
 * The picture is copied into the project (`assets/images`), so the course does not depend on the pack afterwards. Removing a pack from the computer changes nothing in a project that used it.
 * The credits page of a published course names who made the picture and under what licence, once, however many pictures of that person the course uses. The credit is saved in `assets.json` in the same step as the cast, and one press of Ctrl+Z takes both back. The credits page is on by default; if it is off, the checker warns, as it does for any picture that asks for credit.
 
+## A person on a slide
+
+A person can also go on a slide as a picture, not only in the cast: **Add > Image, video, audio or file... > A person from the library**. Choose who, then which picture (head and shoulders, or a pose). It is copied into the project, credited, and put on the slide as an image whose alt text is the pack's description, which you are told to check. A person put on a slide this way is just a picture: it is not linked to the cast, so a scenario's lines do not change it.
+
 ## Poses
 
 A pack has a head picture for each person and, usually, many poses: the whole person, waving, thinking, presenting, with arms crossed. A person chosen from the library has a **Poses** box in the cast dialog (**Add poses from the library...**); there the author ticks the poses they want and only those are copied into the project. In a scenario, a line spoken by that person can then be given one of their poses in its **Pose beside the line** box (`docs/editor.md`, `docs/format-spec.md`).

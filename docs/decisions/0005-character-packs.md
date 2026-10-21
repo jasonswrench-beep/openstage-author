@@ -43,7 +43,7 @@ Jason sent 58 empty-place pictures (offices, meeting and training rooms, recepti
 
 ## Not built
 
-* A person in a pose on a slide (an image object from the library, with the pack's description of the pose as its alt text). The pack already carries that description (`alt`) for every pose.
+* ~~A person in a pose on a slide~~ Built 2026-10-21: **Add > Image, video, audio or file... > A person from the library** (an image object, with the pack's description as its alt text, which the author is told to check).
 * A line spoken by "you" cannot be given a pose in the editor (who the learner chose is only known when the course is played). The format allows it.
 * Downloading a pack from the web. The zip file is the way in until there is a place to download from.
 * The full-length picture on a slide from the library (poses give it).

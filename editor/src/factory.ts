@@ -120,7 +120,7 @@ export function newObject(kind: NewKind, p: Placement, opts: NewOptions = {}): O
         return {
           ...box(p.id, at.x, at.y, 380, 180, p.z), type: "text", name: BUBBLE_NAMES[opts.bubble],
           content: { html: "<p>New text</p>", bubble: opts.bubble, tail: "left" },
-          style: { fontFamily: "theme:font.body", fontSize: BLOCK_SIZES.p, color: BUBBLE_TEXT_COLOR, ...BUBBLE_LOOK },
+          style: { fontFamily: "theme:font.body", fontSize: BLOCK_SIZES.p, color: BUBBLE_TEXT_COLOR, textAlign: "center", ...BUBBLE_LOOK },
           accessibility: { altText: "New text", role: "paragraph", tabOrder: p.tabOrder, decorative: false },
         };
       }

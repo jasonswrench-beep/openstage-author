@@ -168,6 +168,19 @@ export function creditForPicture(pack: Pack, person: PackPerson, path: string): 
   };
 }
 
+/**
+ * A picture of a person to put on a slide: the head and shoulders, or one of their poses. `HEAD_CHOICE` is the head picture offered as if it were a pose, so a person with no
+ * poses can still be chosen, and the dialog has one kind of thing to list.
+ */
+export function slidePictures(person: PackPerson): PackPose[] {
+  return [{ id: "head", label: "Head and shoulders", alt: person.alt, file: person.head }, ...person.poses];
+}
+
+/** The record for assets.json of a person's picture put on a slide. Each pose has its own title, so the same pose chosen twice is one file. */
+export function creditForSlidePicture(pack: Pack, person: PackPerson, pose: PackPose, path: string): CreditEntry {
+  return { ...creditForPicture(pack, person, path), title: `${person.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)} (character picture)` };
+}
+
 /** The record for assets.json of a background copied out of a pack. */
 export function creditForBackground(pack: Pack, background: PackBackground, path: string): CreditEntry {
   const c = pack.credit;

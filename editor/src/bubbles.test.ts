@@ -138,6 +138,36 @@ test("a shape made into a bubble has its tail on the left, one made into somethi
   assert.deepEqual(get(m, o.id).content, { shape: "diamond" });
 });
 
+test("the words in a new text bubble sit in the centre, and a text box made into a bubble gets the same unless it was aligned already", () => {
+  const m = fresh();
+  assert.equal(m.addObject("text", { bubble: "speech" })!.style["textAlign"], "center");
+  const plain = m.addObject("text")!;
+  assert.equal(plain.style["textAlign"], undefined);
+  m.setTextBubble(plain.id, "thought");
+  assert.equal(get(m, plain.id).style["textAlign"], "center");
+  const right = m.addObject("text")!;
+  m.setTextAlign(right.id, "right");
+  m.setTextBubble(right.id, "speech");
+  assert.equal(get(m, right.id).style["textAlign"], "right", "what the author chose stays");
+});
+
+test("where the words sit can be left, centre or right, and left is how text starts so it is not written down", () => {
+  const m = fresh();
+  const o = m.addObject("text")!;
+  assert.equal(m.setTextAlign(o.id, "left"), null, "already there");
+  assert.equal(m.setTextAlign(o.id, "center"), "Words in the centre");
+  assert.equal(get(m, o.id).style["textAlign"], "center");
+  assert.equal(m.setTextAlign(o.id, "right"), "Words on the right");
+  assert.equal(m.setTextAlign(o.id, "left"), "Words on the left");
+  assert.equal("textAlign" in get(m, o.id).style, false);
+  assert.equal(m.setTextAlign(o.id, "justify"), null, "justified text is not offered");
+  const shape = m.addObject("shape")!;
+  assert.equal(m.setTextAlign(shape.id, "center"), null, "only text has words to place");
+  m.setTextAlign(o.id, "center");
+  m.undo();
+  assert.equal("textAlign" in get(m, o.id).style, false, "one step to undo");
+});
+
 type Finding = { severity: string; rule: string; message: string; detail?: string };
 
 function validate(m: Model): Finding[] {
