@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, snapshotOf, type ConvertContext, type SlideContext } from "./convert.ts";
+import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, scriptFromNotes, snapshotOf, type ConvertContext, type SlideContext } from "./convert.ts";
 import { readDeck, type DeckShape } from "./deck.ts";
 import { describeImport } from "./import.ts";
+import { newNarration } from "../narration.ts";
 import { fingerprint, hashBytes, hashText } from "./hash.ts";
 import { openDeck, resolveTarget } from "./package.ts";
 import { buildDeck, chart, connector, fakePng, group, inch, pic, sp, table, timing, type DeckSpec } from "./testdeck.ts";
@@ -568,6 +569,56 @@ test("animation: the report says what was brought in and what was not", () => {
   assert.match(report, /2 objects had an entrance animation in PowerPoint and have it here\. 2 objects wait for the learner: a button, Show next item/);
   assert.match(report, /1 entrance used an effect this editor does not have, so it fades in instead/);
   assert.match(report, /Not brought in: 1 exit effect/);
+});
+
+
+// ---- speaker notes
+
+const NOTED = () => sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome" }] }] }) + sp({ id: 3, name: "Body", ph: { type: "body", idx: 1 }, paras: [{ runs: [{ t: "One" }] }] });
+
+test("notes: the speaker notes are read, a line for each paragraph, and the slide's number on the notes page is not part of them", () => {
+  const ds = one(NOTED(), {}, { notes: "First thing to say.\nAnd then another" });
+  assert.equal(ds.hasNotes, true);
+  assert.equal(ds.notes, "First thing to say.\nAnd then another");
+  assert.equal(one(NOTED()).hasNotes, false);
+  assert.equal(one(NOTED()).notes, "");
+});
+
+test("notes: read aloud, each paragraph ends in a stop, so the voice pauses between them", () => {
+  assert.equal(scriptFromNotes("First thing to say.\nAnd then another\n\nWhat now?"), "First thing to say. And then another. What now?");
+  assert.equal(scriptFromNotes("He said “stop.”"), "He said “stop.”");
+});
+
+test("notes: with the choice made, a slide's notes are the narration of its title, in the voice given, and the words are not put on the slide", () => {
+  const ds = one(NOTED(), {}, { notes: "Say this first.\nThen this" });
+  const c = ctx();
+  const out = convertSlide(ds, { ...slideCtx(), notes: c.notes, narrate: (script) => newNarration(script, undefined) });
+  const [title, body] = out.objects;
+  assert.equal((title!.narration as unknown as { script: string }).script, "Say this first. Then this.");
+  assert.equal(body!.narration, null);
+  assert.equal(out.objects.length, 2, "nothing was added to the slide");
+  assert.equal(c.notes.narrated, 1);
+});
+
+test("notes: without the choice nothing is made, and the report says how to ask for it", () => {
+  const ds = one(NOTED(), {}, { notes: "Say this." });
+  const notes = newNotes();
+  const converted = [convertSlide(ds, { ...slideCtx(), notes })];
+  assert.equal(converted[0]!.objects.every((o) => o.narration === null), true);
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, converted, notes, ppi96, [0]).join("\n");
+  assert.match(report, /Speaker notes on 1 slide were not brought in\. To have them as narration, tick "Use speaker notes as narration"/);
+});
+
+test("notes: the report says how many slides got them, and a slide with nothing to say them is named", () => {
+  const withTitle = one(NOTED(), {}, { notes: "Say this." });
+  const onlyBar = one(sp({ id: 9, name: "Bar", box: { x: 0, y: 0, w: 4, h: 0.1 }, geom: "rect", fill: "FF0000" }), {}, { notes: "Nobody can say this." });
+  const notes = newNotes();
+  const narrate = (script: string) => newNarration(script, undefined);
+  const converted = [convertSlide(withTitle, { ...slideCtx(), notes, narrate }), convertSlide(onlyBar, { ...slideCtx(), notes, narrate })];
+  assert.deepEqual([notes.narrated, notes.notesUnused], [1, 1]);
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [withTitle, onlyBar] }, converted, notes, ppi96, [0, 1]).join("\n");
+  assert.match(report, /Speaker notes became the narration of 1 slide/);
+  assert.match(report, /Speaker notes on 1 slide could not become narration, because everything on that slide is decoration/);
 });
 
 // ---- real decks, when someone points the test at a folder of them: set OPENSTAGE_REAL_DECKS to the folder, then run npm test

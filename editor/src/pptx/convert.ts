@@ -9,6 +9,7 @@
 //    left for the author, and the Problems list asks. Nothing is made up.
 
 import type { EffectName, OSObject, Slide } from "../../../player/src/types.ts";
+import type { Narration } from "../narration.ts";
 import { FONT_CHOICES } from "../content.ts";
 import { box } from "../factory.ts";
 import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide } from "./deck.ts";
@@ -46,9 +47,12 @@ export interface ConvertNotes {
   animationApproximated: number;
   /** Objects that wait for the learner to show them. */
   waiting: number;
+  /** Slides whose speaker notes became narration, and slides whose notes had no object to be the narration of. */
+  narrated: number;
+  notesUnused: number;
 }
 
-export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0 });
+export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0, narrated: 0, notesUnused: 0 });
 
 const bump = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
 
@@ -360,6 +364,8 @@ export interface ConvertedSlide {
 }
 
 export interface SlideContext extends ConvertContext {
+  /** Makes narration from words, in the voice the course already uses. When it is there, a slide's speaker notes become the narration of one of its objects. */
+  narrate?: (script: string) => Narration;
   deckId: string;
   importedAt: string;
   newId(): string;
@@ -424,6 +430,25 @@ export function draftsForSlide(ds: DeckSlide, ctx: ConvertContext & SlideGeometr
   return out;
 }
 
+const SENTENCE_END = /[.!?\u2026][\u201d"')\]\u2019]*$/;
+
+/** Speaker notes as words to be read aloud: a paragraph is a sentence at least, so the voice pauses and the captions break between them. */
+export function scriptFromNotes(notes: string): string {
+  return notes.split("\n").map((l) => l.trim()).filter((l) => l !== "").map((l) => (SENTENCE_END.test(l) ? l : `${l}.`)).join(" ");
+}
+
+/**
+ * Give a slide's speaker notes to one of its objects as narration: its title if it has one, else its first text, else its first object that is not decoration.
+ * Narration plays when the slide opens, in reading order, so notes on the title are heard first. Returns false if every object is decoration (or there are none).
+ */
+function narrateFromNotes(ds: DeckSlide, objects: OSObject[], narrate: (script: string) => Narration): boolean {
+  const live = objects.filter((o) => !o.accessibility.decorative);
+  const target = live.find((o) => o.type === "text" && o.accessibility.role === "heading") ?? live.find((o) => o.type === "text") ?? live[0];
+  if (!target) return false;
+  target.narration = narrate(scriptFromNotes(ds.notes)) as unknown as OSObject["narration"];
+  return true;
+}
+
 const FROM_SIDE: Record<number, EffectName> = { 1: "slideTop", 2: "slideRight", 4: "slideBottom", 8: "slideLeft" };
 
 /** The effect this editor has that comes nearest to a PowerPoint entrance, and whether it is the same effect. */
@@ -478,6 +503,10 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
     objects.push(objectFrom(draft, ctx.newId(), z, tab, provenanceFor(ctx.deckId, ds, key, hash, snapshotOf(draft), ctx.importedAt)));
   }
   applyEffects(ds, objects, keys, ctx.notes);
+  if (ctx.narrate && ds.notes !== "") {
+    if (narrateFromNotes(ds, objects, ctx.narrate)) ctx.notes.narrated += 1;
+    else ctx.notes.notesUnused += 1;
+  }
   const background = backgroundOf(ds, ctx.tones);
   return {
     deck: ds,

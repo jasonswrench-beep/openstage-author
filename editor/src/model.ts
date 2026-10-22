@@ -1379,10 +1379,13 @@ export class Model {
   }
 
   /** Everything needed to bring slides in from a deck, worked out without changing the project. The picture files have to be saved before `commitDeckImport`. */
-  prepareDeckImport(deck: Deck, pkg: Pkg, fileName: string, chosen: number[], now: string = new Date().toISOString(), tones?: Tones): PreparedImport {
+  prepareDeckImport(deck: Deck, pkg: Pkg, fileName: string, chosen: number[], now: string = new Date().toISOString(), tones?: Tones, options: { notesAsNarration?: boolean } = {}): PreparedImport {
     const alloc = this.allocator();
+    // The notes are said in the voice and speed the course already uses.
+    let like = this.narratedObjects().at(-1)?.narration;
     return prepareImport({
       deck, pkg, fileName, importedAt: now, chosen, stage: this.project.stage, existingDeckIds: this.deckSources.map((d) => d.id), ...(tones ? { tones } : {}),
+      ...(options.notesAsNarration ? { narrate: (script: string) => { like = newNarration(script, like); return like; } } : {}),
       newSlideId: this.slideIdMaker(), newObjectId: () => alloc.object(),
     });
   }

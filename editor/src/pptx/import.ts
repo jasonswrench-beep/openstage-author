@@ -6,6 +6,7 @@ import { convertSlide, newNotes, placementFor, slideFrom, type ConvertNotes, typ
 import { type Deck, type DeckSlide } from "./deck.ts";
 import { hashText } from "./hash.ts";
 import type { Pkg } from "./package.ts";
+import type { Narration } from "../narration.ts";
 
 /** Where a picture from a deck is kept in the project. Named from what is in it, so the same picture is one file however often it is brought in. */
 export const mediaPathFor = (hash: string, ext: string): string => `assets/images/pptx-${hash}.${ext === "jpeg" ? "jpg" : ext}`;
@@ -20,6 +21,8 @@ export interface ImportRequest {
   chosen: number[];
   stage: { width: number; height: number };
   existingDeckIds: string[];
+  /** Makes narration from words. When it is given, the speaker notes of each slide become that slide's narration. */
+  narrate?: (script: string) => Narration;
   /** Average colours of the decks' background pictures. */
   tones?: Tones;
   newSlideId(): string;
@@ -68,6 +71,7 @@ export function prepareImport(req: ImportRequest): PreparedImport {
   const ctx = {
     placement, notes, deckId, importedAt: req.importedAt, slideWidth: req.deck.slideWidth, slideHeight: req.deck.slideHeight,
     ...(req.tones ? { tones: req.tones } : {}),
+    ...(req.narrate ? { narrate: req.narrate } : {}),
     newId: req.newObjectId,
     mediaPath: mediaPathFor,
     bytesOf: (part: string) => req.pkg.bytes(part),
@@ -122,7 +126,9 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   const hiddenShapes = sum((s) => s.left.hidden);
   if (hiddenShapes > 0) out.push(`${plural(hiddenShapes, "hidden shape")} in PowerPoint ${hiddenShapes === 1 ? "was" : "were"} not brought in.`);
   const withNotes = taken.filter((s) => s.hasNotes).length;
-  if (withNotes > 0) out.push(`Speaker notes on ${plural(withNotes, "slide")} were not brought in. They are not narration unless you make them so.`);
+  if (notes.narrated > 0) out.push(`Speaker notes became the narration of ${plural(notes.narrated, "slide")}: each slide's first heading, or its first text, says them when the slide opens, in the course's usual voice, and the words are not shown on the slide. The audio is made when you generate narration, and you can change what any slide says, or its voice, in its Properties.`);
+  if (notes.notesUnused > 0) out.push(`Speaker notes on ${plural(notes.notesUnused, "slide")} could not become narration, because everything on ${notes.notesUnused === 1 ? "that slide is" : "those slides are"} decoration, so there is nothing to say them.`);
+  if (withNotes > 0 && notes.narrated + notes.notesUnused === 0) out.push(`Speaker notes on ${plural(withNotes, "slide")} were not brought in. To have them as narration, tick "Use speaker notes as narration" when you choose the slides.`);
   if (notes.animated > 0) {
     out.push(`${plural(notes.animated, "object")} had an entrance animation in PowerPoint and ${notes.animated === 1 ? "has" : "have"} it here.${notes.waiting > 0 ? ` ${plural(notes.waiting, "object")} wait${notes.waiting === 1 ? "s" : ""} for the learner: a button, Show next item, shows them one step at a time, in the order of PowerPoint's clicks, and Show everything now shows them all.` : ""}`);
     if (notes.animationApproximated > 0) out.push(`${plural(notes.animationApproximated, "entrance")} used an effect this editor does not have, so ${notes.animationApproximated === 1 ? "it fades" : "they fade"} in instead.`);

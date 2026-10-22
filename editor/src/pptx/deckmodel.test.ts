@@ -155,3 +155,62 @@ test("an imported project passes the real validator with only the problems the a
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---- speaker notes as narration
+
+function withNotes(): DeckSpec {
+  return {
+    media: { "image1.png": png1 },
+    slides: [
+      { id: 256, notes: "Welcome everyone.\nToday is about notes", shapes: sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome" }] }] }) + sp({ id: 3, name: "Body", ph: { type: "body", idx: 1 }, paras: [{ runs: [{ t: "One" }] }] }) },
+      { id: 257, shapes: sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Second" }] }] }) },
+    ],
+  };
+}
+
+test("speaker notes become narration only when asked, in the voice the course already uses, and it is one step to undo", () => {
+  const m = fresh();
+  const first = m.addObject("text")!;
+  m.setNarrationScript(first.id, "Existing narration.");
+  const voice = m.narratedObjects().at(-1)!.narration.voice;
+  const { pkg, deck } = open(withNotes());
+  const plain = m.prepareDeckImport(deck, pkg, "Intro.pptx", [0, 1], "2026-10-21T10:00:00Z");
+  assert.equal(plain.slides.flatMap((s) => s.baseLayer.objects).every((o) => o.narration === null), true, "not asked, so none");
+  assert.match(plain.report.join(" "), /To have them as narration, tick "Use speaker notes as narration"/);
+
+  const prepared = m.prepareDeckImport(deck, pkg, "Intro.pptx", [0, 1], "2026-10-21T10:00:00Z", undefined, { notesAsNarration: true });
+  const title = prepared.slides[0]!.baseLayer.objects.find((o) => o.name === "Title 1")!;
+  const said = title.narration as unknown as { script: string; voice: string };
+  assert.equal(said.script, "Welcome everyone. Today is about notes.");
+  assert.equal(said.voice, voice, "the course keeps one voice");
+  assert.equal(prepared.slides[1]!.baseLayer.objects.every((o) => o.narration === null), true, "a slide with no notes says nothing");
+  assert.match(prepared.report.join(" "), /Speaker notes became the narration of 1 slide/);
+
+  m.commitDeckImport(prepared);
+  assert.equal(m.narratedObjects().length, 2);
+  m.undo();
+  assert.equal(m.narratedObjects().length, 1);
+});
+
+test("a deck imported with notes as narration passes the real validator", () => {
+  const m = fresh();
+  const { pkg, deck } = open(withNotes());
+  const prepared = m.prepareDeckImport(deck, pkg, "Intro.pptx", [0, 1], "2026-10-21T10:00:00Z", undefined, { notesAsNarration: true });
+  m.commitDeckImport(prepared);
+  const dir = mkdtempSync(path.join(os.tmpdir(), "os-notes-"));
+  try {
+    for (const f of m.allFiles()) {
+      mkdirSync(path.dirname(path.join(dir, f.path)), { recursive: true });
+      writeFileSync(path.join(dir, f.path), f.text);
+    }
+    for (const a of prepared.assets) {
+      mkdirSync(path.dirname(path.join(dir, a.path)), { recursive: true });
+      writeFileSync(path.join(dir, a.path), a.bytes);
+    }
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
+    assert.deepEqual(found.filter((f) => f.severity === "error" && !/contrast/.test(f.rule)), [], r.stdout.slice(0, 600));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

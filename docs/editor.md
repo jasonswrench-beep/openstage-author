@@ -341,6 +341,8 @@ grid of text boxes for the cells, and buttons to insert or delete rows and colum
 columns. Scrolling text is a box of paragraphs that scrolls when it is long, and is a tab stop so the
 keyboard can scroll it. Both use the theme's colours, so only their font and size can be changed.
 
+**Speaker notes as narration.** When the PowerPoint dialog is choosing slides and the presentation has speaker notes, a box, **Use speaker notes as narration**, says how many slides have them. Ticked, each slide's notes become the narration of its heading, or of its first text, or of its first object that is not decoration, in the voice and speed the course already uses; nothing is added to the slide. If a slide's objects are all decoration the report says so. See `docs/powerpoint.md`.
+
 **Text boxes.** For a text, **Words start** (at the top, in the middle or at the bottom of the box) and **Shrink the words to fit the box** are among its looks, beside the font, size, colour and where the words sit across the box. Shrinking keeps the words inside the box on every screen, to no less than half the size or 12 pixels; text brought in from PowerPoint has it on if its box did. See `docs/format-spec.md`, "How words sit in their box".
 
 **Waiting for the learner.** In an object's Timing, **Appears** has a choice, **When the learner shows the next item**, and **Item number** appears: items with the same number show together, in order of the numbers. The learner has a button, **Show next item**, on the slide. The timeline draws such an object at its delay and marks it as a guess. Choosing this for several selected objects gives each the next number.

@@ -163,12 +163,15 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
       const o = opened!;
       const rows = o.deck.slides.map((s, i) => check(`${i + 1}. ${s.name}${s.hidden ? " (hidden in PowerPoint)" : ""}`, !s.hidden));
       const chosen = () => rows.flatMap((r, i) => (r.input.checked ? [i] : []));
+      // Speaker notes can become each slide's narration. It is the author's choice: it means narration to make audio for, in the course's voice.
+      const withNotes = o.deck.slides.filter((s) => s.hasNotes).length;
+      const notesBox = check("Use speaker notes as narration", false, [], withNotes === 0 ? "" : `${plural(withNotes, "slide")} in this presentation ${withNotes === 1 ? "has" : "have"} speaker notes. Each slide's notes become the narration of its heading, or of its first text, in the voice the rest of your course uses, and are not shown on the slide. The audio is made when you generate narration.`);
       const go = button("", async () => {
         const picks = chosen();
         if (picks.length === 0) return;
         busy = true;
         try {
-          const prepared = model.prepareDeckImport(o.deck, o.pkg, o.name, picks, undefined, o.tones);
+          const prepared = model.prepareDeckImport(o.deck, o.pkg, o.name, picks, undefined, o.tones, { notesAsNarration: withNotes > 0 && notesBox.input.checked });
           await saveAll(prepared);
           const message = model.commitDeckImport(prepared);
           opts.announce(message);
@@ -194,6 +197,7 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
       show(`Bring slides in from ${o.name}`, [
         h("p", { class: "note", text: `${summary(o)}. Each slide is drawn on the stage at the same size, in the middle if its shape is different. Pictures are saved in the project's images.` }),
         h("fieldset", {}, h("legend", { text: "Slides to bring in" }), h("div", { class: "btn-row" }, all, none), ...rows.map((r) => r.row)),
+        ...(withNotes > 0 ? [h("fieldset", {}, h("legend", { text: "Speaker notes" }), notesBox.row)] : []),
       ], [go, ...(model.deckSources.length > 0 ? [button("Back", stepMode)] : [button("Choose another file", stepChoose)])]);
       recount();
       status.textContent = "";

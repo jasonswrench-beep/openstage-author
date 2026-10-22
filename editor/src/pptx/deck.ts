@@ -127,6 +127,8 @@ export interface DeckSlide {
   /** How many shapes of each left-out kind: dates, footers and slide numbers; hidden shapes; empty placeholders. */
   left: { footers: number; hidden: number; empty: number };
   hasNotes: boolean;
+  /** The speaker notes, a line for each paragraph, or "". */
+  notes: string;
   /** The entrance effects of the slide, in the order of the deck. */
   effects: DeckEffect[];
   animationLeft: AnimationLeft;
@@ -607,6 +609,25 @@ function walk(nodes: XmlNode[], ctx: Context, t: Transform, out: DeckShape[], gr
   }
 }
 
+// ---- speaker notes
+
+/** The words of a notes page: its notes box, a line for each paragraph. The slide's picture, the page number, header and footer are not notes. */
+function notesText(notes: XmlNode | undefined): string {
+  const shapes = kids(path(notes, "p:cSld", "p:spTree"), "p:sp");
+  const phType = (sp: XmlNode) => attr(path(sp, "p:nvSpPr", "p:nvPr", "p:ph"), "type");
+  const isPh = (sp: XmlNode) => !!path(sp, "p:nvSpPr", "p:nvPr", "p:ph");
+  const body = shapes.filter((sp) => isPh(sp) && phType(sp) === "body");
+  const chosen = body.length > 0 ? body : shapes.filter((sp) => !["sldImg", "sldNum", "hdr", "ftr", "dt"].includes(phType(sp)));
+  const lines: string[] = [];
+  for (const sp of chosen) {
+    for (const p of kids(child(sp, "p:txBody"), "a:p")) {
+      const line = p.children.map((c) => (c.name === "a:br" ? "\n" : c.name === "a:r" || c.name === "a:fld" ? c.children.find((x) => x.name === "a:t")?.text ?? "" : "")).join("");
+      lines.push(...line.split("\n").map((l) => l.replace(/\s+/g, " ").trim()));
+    }
+  }
+  return lines.filter((l) => l !== "").join("\n");
+}
+
 // ---- animation
 
 /** A time in a timing condition: milliseconds, or "indefinite" (waits for the mouse). */
@@ -739,12 +760,13 @@ export function readDeck(pkg: Pkg): Deck {
     const bg = backgroundOf([{ tree: slide, part }, { tree: layout, part: layoutRel?.target ?? "" }, { tree: master, part: masterRel?.target ?? "" }], theme.pal, pkg);
     const notesRel = pkg.relOfKind(part, "notesSlide");
     const notes = notesRel ? pkg.xml(notesRel.target) : undefined;
-    const hasNotes = !!notes && descendants(notes, "a:t").some((t) => t.text.trim() !== "") && !!notesRel;
+    const notesWords = notesRel ? notesText(notes) : "";
+    const hasNotes = notesWords !== "";
     const anim = readAnimation(slide);
     const transition = !!child(slide, "p:transition") || descendants(slide ?? { name: "", attrs: {}, children: [], text: "" }, "p:transition").length > 0;
     const base = { slideId: entry.attrs["id"] ?? String(index), index, part, name: slideName.length > 80 ? `${slideName.slice(0, 77)}...` : slideName, hidden: slide?.attrs["show"] === "0", background: bg.color, backgroundPicture: bg.picture };
     slides.push({
-      ...base, ...(bg.note ? { backgroundNote: bg.note } : {}), shapes, skipped: ctx.skipped, left: ctx.left, hasNotes,
+      ...base, ...(bg.note ? { backgroundNote: bg.note } : {}), shapes, skipped: ctx.skipped, left: ctx.left, hasNotes, notes: notesWords,
       effects: anim.effects, animationLeft: anim.left, transition,
       animated: !!child(slide, "p:timing") || transition,
       hash: fingerprint({ name: base.name, background: bg.color, picture: bg.picture?.mediaHash ?? null }),

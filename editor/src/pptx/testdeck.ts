@@ -217,7 +217,12 @@ export function buildDeck(spec: DeckSpec): Uint8Array {
     for (const [rId, url] of Object.entries(s.links ?? {})) rels.push(`<Relationship Id="${rId}" Type="${REL}/hyperlink" Target="${url}" TargetMode="External"/>`);
     if (s.notes) {
       rels.push(`<Relationship Id="rIdN" Type="${REL}/notesSlide" Target="../notesSlides/notesSlide${n}.xml"/>`);
-      put(`ppt/notesSlides/notesSlide${n}.xml`, `<p:notes ${NS}><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>${s.notes}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:notes>`);
+      // The slide's own number sits on a notes page too, and is not a note.
+      put(`ppt/notesSlides/notesSlide${n}.xml`, `<p:notes ${NS}><p:cSld><p:spTree>` +
+        `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image"/><p:cNvSpPr/><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp>` +
+        `<p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>${s.notes.split("\n").map((l) => `<a:p><a:r><a:t>${l}</a:t></a:r></a:p>`).join("")}</p:txBody></p:sp>` +
+        `<p:sp><p:nvSpPr><p:cNvPr id="4" name="Number"/><p:cNvSpPr/><p:nvPr><p:ph type="sldNum" idx="5"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld type="slidenum"><a:t>7</a:t></a:fld></a:p></p:txBody></p:sp>` +
+        `</p:spTree></p:cSld></p:notes>`);
     }
     put(`ppt/slides/_rels/slide${n}.xml.rels`, `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join("")}</Relationships>`);
   });
