@@ -82,8 +82,10 @@ export interface AnimationLeft {
 }
 
 interface Common {
-  /** The shape's own number on its slide (the id in the deck). */
+  /** The shape's own number on its slide (the id in the deck), or for one that comes from the slide's layout or master, "l" or "m" and its number there. */
   id: string;
+  /** Set for a shape that is drawn on every slide made from a layout or master (a logo, a bar, a corner mark), not on the slide itself. */
+  template?: "layout" | "master";
   /** The numbers of the groups it is in, outermost first. An effect on a group is an effect on everything in it. Not part of its fingerprint. */
   groups?: string[];
   name: string;
@@ -119,6 +121,8 @@ export interface DeckSlide {
   background: string | null;
   /** A picture that fills the background, as the part name of the picture inside the deck. */
   backgroundPicture: { media: string; mediaHash: string; ext: string } | null;
+  /** A picture that repeats across the background, which is drawn here as its average colour. */
+  backgroundTile: { media: string; mediaHash: string; ext: string } | null;
   /** Said when the background is something other than one plain colour or one picture. */
   backgroundNote?: string;
   shapes: DeckShape[];
@@ -150,7 +154,9 @@ export interface Deck {
 
 const attr = (n: XmlNode | undefined, a: string): string => n?.attrs[a] ?? "";
 
-interface Transform { sx: number; sy: number; dx: number; dy: number }
+/** A group that is turned or flipped: everything in it is turned about the group's middle, innermost group first. */
+interface Spin { deg: number; cx: number; cy: number; flipH: boolean; flipV: boolean }
+interface Transform { sx: number; sy: number; dx: number; dy: number; spin?: Spin[] }
 const IDENTITY: Transform = { sx: 1, sy: 1, dx: 0, dy: 0 };
 
 interface Placeholder { type: string; idx: string; sp: XmlNode }
@@ -182,7 +188,7 @@ function assignDefined<T extends object>(target: T, source: Partial<T>): T {
   return target;
 }
 
-function xfrmOf(spPr: XmlNode | undefined): { box: Box; rot: number; chOff?: { x: number; y: number }; chExt?: { cx: number; cy: number } } | undefined {
+function xfrmOf(spPr: XmlNode | undefined): { box: Box; rot: number; flipH: boolean; flipV: boolean; chOff?: { x: number; y: number }; chExt?: { cx: number; cy: number } } | undefined {
   const x = child(spPr, "a:xfrm") ?? child(spPr, "p:xfrm");
   const off = child(x, "a:off");
   const ext = child(x, "a:ext");
@@ -192,6 +198,8 @@ function xfrmOf(spPr: XmlNode | undefined): { box: Box; rot: number; chOff?: { x
   return {
     box: { x: num(off, "x") ?? 0, y: num(off, "y") ?? 0, cx: num(ext, "cx") ?? 0, cy: num(ext, "cy") ?? 0 },
     rot: (num(x, "rot") ?? 0) / 60000,
+    flipH: x.attrs["flipH"] === "1" || x.attrs["flipH"] === "true",
+    flipV: x.attrs["flipV"] === "1" || x.attrs["flipV"] === "true",
     ...(chOff ? { chOff: { x: num(chOff, "x") ?? 0, y: num(chOff, "y") ?? 0 } } : {}),
     ...(chExt ? { chExt: { cx: num(chExt, "cx") ?? 0, cy: num(chExt, "cy") ?? 0 } } : {}),
   };
@@ -199,6 +207,30 @@ function xfrmOf(spPr: XmlNode | undefined): { box: Box; rot: number; chOff?: { x
 
 function place(box: Box, t: Transform): Box {
   return { x: Math.round(t.dx + box.x * t.sx), y: Math.round(t.dy + box.y * t.sy), cx: Math.round(box.cx * t.sx), cy: Math.round(box.cy * t.sy) };
+}
+
+/**
+ * Where a shape in a group is on the slide, and how far it is turned. A group that is turned (a thin tall group turned a quarter makes a bar across the slide) turns its
+ * shapes about its own middle: each shape's middle goes round it, and the shape itself is turned as far. A flipped group first mirrors where its shapes are.
+ */
+function placeSpun(box: Box, rot: number, t: Transform): { box: Box; rot: number } {
+  const placed = place(box, t);
+  let cx = placed.x + placed.cx / 2;
+  let cy = placed.y + placed.cy / 2;
+  let r = rot;
+  for (const s of t.spin ?? []) {
+    let vx = cx - s.cx;
+    let vy = cy - s.cy;
+    if (s.flipH) { vx = -vx; r = -r; }
+    if (s.flipV) { vy = -vy; r = -r; }
+    const a = (s.deg * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    cx = s.cx + vx * cos - vy * sin;
+    cy = s.cy + vx * sin + vy * cos;
+    r += s.deg;
+  }
+  return { box: { x: Math.round(cx - placed.cx / 2), y: Math.round(cy - placed.cy / 2), cx: placed.cx, cy: placed.cy }, rot: ((r % 360) + 360) % 360 };
 }
 
 function groupTransform(parent: Transform, x: ReturnType<typeof xfrmOf>): Transform {
@@ -210,7 +242,13 @@ function groupTransform(parent: Transform, x: ReturnType<typeof xfrmOf>): Transf
   // A point in the group's own space goes to the group's place, then through whatever the group sits in.
   const dx = x.box.x - ox * sx;
   const dy = x.box.y - oy * sy;
-  return { sx: sx * parent.sx, sy: sy * parent.sy, dx: parent.dx + dx * parent.sx, dy: parent.dy + dy * parent.sy };
+  const out: Transform = { sx: sx * parent.sx, sy: sy * parent.sy, dx: parent.dx + dx * parent.sx, dy: parent.dy + dy * parent.sy };
+  const turned = x.rot !== 0 || x.flipH || x.flipV;
+  if (turned || (parent.spin?.length ?? 0) > 0) {
+    const at = place(x.box, parent);
+    out.spin = [...(turned ? [{ deg: x.rot, cx: at.x + at.cx / 2, cy: at.y + at.cy / 2, flipH: x.flipH, flipV: x.flipV }] : []), ...(parent.spin ?? [])];
+  }
+  return out;
 }
 
 // ---- text styles
@@ -311,6 +349,8 @@ function themeFonts(theme: XmlNode | undefined): ThemeFonts {
 // ---- reading one slide
 
 interface Context {
+  /** Reading a layout's or master's own shapes: placeholders there are the template for a slide's, not shapes to bring in. */
+  templateOnly?: boolean;
   pkg: Pkg;
   part: string;
   pal: Palette;
@@ -364,6 +404,8 @@ function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | 
     const nodes = p.children.filter((c) => c.name === "a:r" || c.name === "a:br" || c.name === "a:fld");
     for (const c of nodes) {
       if (c.name === "a:br") { runs.push({ text: "", br: true }); continue; }
+      // A slide number or a date that PowerPoint fills in is not words to keep: it would say "<#>" on every slide.
+      if (c.name === "a:fld" && /^(slidenum|datetime)/i.test(c.attrs["type"] ?? "")) { ctx.left.footers += 1; continue; }
       const text = c.children.find((x) => x.name === "a:t")?.text ?? "";
       if (text === "") continue;
       const rPr = child(c, "a:rPr");
@@ -440,7 +482,8 @@ function readSp(sp: XmlNode, ctx: Context, t: Transform): DeckShape | null {
   if (!x) { ctx.skipped.push({ name, why: "it has no position" }); return null; }
   const own = xfrmOf(spPr);
   // A shape's own position is in the space of the group it is in; one inherited from a layout is in the slide's own space.
-  const box = place(x.box, own ? t : IDENTITY);
+  const spun = own ? placeSpun(x.box, x.rot, t) : { box: place(x.box, IDENTITY), rot: x.rot };
+  const box = spun.box;
 
   const style = child(sp, "p:style");
   const fontRefColor = colorOf(child(style, "a:fontRef")?.children[0], ctx.pal);
@@ -470,7 +513,7 @@ function readSp(sp: XmlNode, ctx: Context, t: Transform): DeckShape | null {
     alt: attr(cNvPr, "descr").trim(),
     decorative: isDecorative(cNvPr),
     box,
-    rot: x.rot,
+    rot: spun.rot,
     placeholder: ph ? type || "body" : "",
   };
 
@@ -516,8 +559,9 @@ function readPic(pic: XmlNode, ctx: Context, t: Transform): DeckShape | null {
   const bytes = mediaName ? ctx.pkg.bytes(mediaName) : undefined;
   const src = child(path(pic, "p:blipFill"), "a:srcRect");
   const cropped = !!src && ["l", "t", "r", "b"].some((k) => (num(src, k) ?? 0) !== 0);
+  const spun = placeSpun(x.box, x.rot, t);
   const shape: DeckShape = {
-    id: attr(cNvPr, "id"), name, alt: attr(cNvPr, "descr").trim(), decorative: isDecorative(cNvPr), box: place(x.box, t), rot: x.rot, placeholder: attr(path(nvPr, "p:ph"), "type"),
+    id: attr(cNvPr, "id"), name, alt: attr(cNvPr, "descr").trim(), decorative: isDecorative(cNvPr), box: spun.box, rot: spun.rot, placeholder: attr(path(nvPr, "p:ph"), "type"),
     kind: "picture", media: bytes && IMAGE_EXT.has(ext) ? mediaName : null, mediaHash: bytes ? hashBytes(bytes) : "", ext, cropped, hash: "",
   };
   if (!bytes) ctx.skipped.push({ name, why: "its picture is not in the file" });
@@ -573,16 +617,20 @@ function readConnector(cx: XmlNode, ctx: Context, t: Transform): DeckShape | nul
   const style = child(cx, "p:style");
   const line = lineOf(child(child(cx, "p:spPr"), "a:ln"), ctx, style);
   if (!line) { ctx.left.empty += 1; return null; }
+  const spunLine = placeSpun(x.box, x.rot, t);
   const shape: DeckShape = {
-    id: attr(cNvPr, "id"), name, alt: attr(cNvPr, "descr").trim(), decorative: isDecorative(cNvPr), box: place(x.box, t), rot: x.rot, placeholder: "",
+    id: attr(cNvPr, "id"), name, alt: attr(cNvPr, "descr").trim(), decorative: isDecorative(cNvPr), box: spunLine.box, rot: spunLine.rot, placeholder: "",
     kind: "line", color: line.color, width: line.width, hash: "",
   };
   shape.hash = fingerprint({ ...shape, hash: undefined });
   return shape;
 }
 
+const isPlaceholderNode = (n: XmlNode): boolean => !!(path(n, "p:nvSpPr", "p:nvPr", "p:ph") ?? path(n, "p:nvPicPr", "p:nvPr", "p:ph") ?? path(n, "p:nvGraphicFramePr", "p:nvPr", "p:ph"));
+
 function walk(nodes: XmlNode[], ctx: Context, t: Transform, out: DeckShape[], groups: string[] = []): void {
   for (const n of nodes) {
+    if (ctx.templateOnly && isPlaceholderNode(n)) continue;
     let made: DeckShape | null = null;
     switch (n.name) {
       case "p:sp": made = readSp(n, ctx, t); break;
@@ -690,17 +738,21 @@ function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; lef
 
 // ---- backgrounds
 
-function backgroundOf(sources: { tree: XmlNode | undefined; part: string }[], pal: Palette, pkg: Pkg): { color: string | null; picture: DeckSlide["backgroundPicture"]; note?: string } {
+function backgroundOf(sources: { tree: XmlNode | undefined; part: string }[], pal: Palette, pkg: Pkg): { color: string | null; picture: DeckSlide["backgroundPicture"]; tile?: DeckSlide["backgroundTile"]; note?: string } {
   for (const { tree, part } of sources) {
     const bg = path(tree, "p:cSld", "p:bg");
     if (!bg) continue;
     const pr = child(bg, "p:bgPr");
     const fill = child(pr, "a:blipFill");
     if (fill) {
-      if (child(fill, "a:tile")) return { color: null, picture: null, note: "the background is a tiled picture, which is left out" };
       const rel = pkg.rel(part, child(fill, "a:blip")?.attrs["r:embed"]);
       const bytes = rel && !rel.external ? pkg.bytes(rel.target) : undefined;
       const ext = rel ? (rel.target.split(".").pop() ?? "").toLowerCase() : "";
+      if (child(fill, "a:tile")) {
+        // A picture that repeats cannot be drawn as one, so the slide gets its average colour (worked out in the browser).
+        if (rel && bytes && IMAGE_EXT.has(ext)) return { color: null, picture: null, tile: { media: rel.target, mediaHash: hashBytes(bytes), ext } };
+        return { color: null, picture: null, note: "the background is a tiled picture a web page cannot show, so it is left out" };
+      }
       if (rel && bytes && IMAGE_EXT.has(ext)) return { color: null, picture: { media: rel.target, mediaHash: hashBytes(bytes), ext } };
       return { color: null, picture: null, note: "the background is a picture a web page cannot show, so it is left out" };
     }
@@ -751,8 +803,21 @@ export function readDeck(pkg: Pkg): Deck {
       pkg, part, pal: theme.pal, fonts: theme.fonts, layout, master, layoutPh: placeholdersOf(layout), masterPh: placeholdersOf(master),
       left: { footers: 0, hidden: 0, empty: 0 }, skipped: [],
     };
+    const own: DeckShape[] = [];
+    walk(path(slide, "p:cSld", "p:spTree")?.children ?? [], ctx, IDENTITY, own);
+    // What the layout and the master draw on every slide made from them (a logo, a bar, a corner mark) is drawn behind the slide's own shapes, unless the slide or its layout turns it off.
     const shapes: DeckShape[] = [];
-    walk(path(slide, "p:cSld", "p:spTree")?.children ?? [], ctx, IDENTITY, shapes);
+    if (slide?.attrs["showMasterSp"] !== "0") {
+      const layers: { tree: XmlNode | undefined; part: string; kind: "layout" | "master" }[] = [];
+      if (master && masterRel && layout?.attrs["showMasterSp"] !== "0") layers.push({ tree: master, part: masterRel.target, kind: "master" });
+      if (layout && layoutRel) layers.push({ tree: layout, part: layoutRel.target, kind: "layout" });
+      for (const { tree, part: where, kind } of layers) {
+        const found: DeckShape[] = [];
+        walk(path(tree, "p:cSld", "p:spTree")?.children ?? [], { ...ctx, part: where, templateOnly: true, left: { footers: 0, hidden: 0, empty: 0 }, skipped: [] }, IDENTITY, found);
+        for (const shape of found) shapes.push({ ...shape, id: `${kind === "master" ? "m" : "l"}${shape.id}`, template: kind });
+      }
+    }
+    shapes.push(...own);
 
     const titleShape = shapes.find((s) => s.kind === "text" && (s.placeholder === "title" || s.placeholder === "ctrTitle"));
     const titleText = titleShape && titleShape.kind === "text" ? textOfParas(titleShape.paras) : "";
@@ -764,7 +829,7 @@ export function readDeck(pkg: Pkg): Deck {
     const hasNotes = notesWords !== "";
     const anim = readAnimation(slide);
     const transition = !!child(slide, "p:transition") || descendants(slide ?? { name: "", attrs: {}, children: [], text: "" }, "p:transition").length > 0;
-    const base = { slideId: entry.attrs["id"] ?? String(index), index, part, name: slideName.length > 80 ? `${slideName.slice(0, 77)}...` : slideName, hidden: slide?.attrs["show"] === "0", background: bg.color, backgroundPicture: bg.picture };
+    const base = { slideId: entry.attrs["id"] ?? String(index), index, part, name: slideName.length > 80 ? `${slideName.slice(0, 77)}...` : slideName, hidden: slide?.attrs["show"] === "0", background: bg.color, backgroundPicture: bg.picture, backgroundTile: bg.tile ?? null };
     slides.push({
       ...base, ...(bg.note ? { backgroundNote: bg.note } : {}), shapes, skipped: ctx.skipped, left: ctx.left, hasNotes, notes: notesWords,
       effects: anim.effects, animationLeft: anim.left, transition,

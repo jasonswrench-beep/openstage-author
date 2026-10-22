@@ -38,7 +38,7 @@ export async function averageColour(bytes: Uint8Array, ext: string): Promise<str
 export async function deckTones(pkg: Pkg, deck: Deck): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   for (const s of deck.slides) {
-    const pic = s.backgroundPicture;
+    const pic = s.backgroundPicture ?? s.backgroundTile;
     if (!pic || out.has(pic.mediaHash)) continue;
     const bytes = pkg.bytes(pic.media);
     const colour = bytes ? await averageColour(bytes, pic.ext) : null;

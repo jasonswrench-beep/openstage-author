@@ -97,8 +97,8 @@ export function chart(id: number, name: string, box: { x: number; y: number; w: 
     `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"/></a:graphic></p:graphicFrame>`;
 }
 
-export function group(id: number, name: string, off: { x: number; y: number; w: number; h: number }, chOff: { x: number; y: number; w: number; h: number }, children: string): string {
-  return `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="${inch(off.x)}" y="${inch(off.y)}"/><a:ext cx="${inch(off.w)}" cy="${inch(off.h)}"/>` +
+export function group(id: number, name: string, off: { x: number; y: number; w: number; h: number }, chOff: { x: number; y: number; w: number; h: number }, children: string, turn: { rot?: number; flipH?: boolean; flipV?: boolean } = {}): string {
+  return `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm${turn.rot ? ` rot="${turn.rot * 60000}"` : ""}${turn.flipH ? ' flipH="1"' : ""}${turn.flipV ? ' flipV="1"' : ""}><a:off x="${inch(off.x)}" y="${inch(off.y)}"/><a:ext cx="${inch(off.w)}" cy="${inch(off.h)}"/>` +
     `<a:chOff x="${inch(chOff.x)}" y="${inch(chOff.y)}"/><a:chExt cx="${inch(chOff.w)}" cy="${inch(chOff.h)}"/></a:xfrm></p:grpSpPr>${children}</p:grpSp>`;
 }
 
@@ -114,6 +114,10 @@ export interface SlideSpec {
   shapes: string;
   background?: string;
   backgroundPicture?: string;
+  /** A picture that repeats across the background (the file name inside ppt/media). */
+  backgroundTile?: string;
+  /** The slide turns off what its layout and master draw ("hide background graphics"). */
+  hideMaster?: boolean;
   /** Media for this slide's relationships: rId to the file name inside ppt/media. */
   media?: Record<string, string>;
   links?: Record<string, string>;
@@ -170,6 +174,8 @@ export interface DeckSpec {
   /** The layout's and master's own shapes (placeholders), as XML. */
   layoutShapes?: string;
   masterShapes?: string;
+  /** The layout turns off the master's own shapes. */
+  layoutHidesMaster?: boolean;
   titleStyle?: string;
   bodyStyle?: string;
   otherStyle?: string;
@@ -204,16 +210,17 @@ export function buildDeck(spec: DeckSpec): Uint8Array {
     `<p:txStyles><p:titleStyle>${spec.titleStyle ?? DEFAULT_TITLE_STYLE}</p:titleStyle><p:bodyStyle>${spec.bodyStyle ?? DEFAULT_BODY_STYLE}</p:bodyStyle><p:otherStyle>${spec.otherStyle ?? DEFAULT_OTHER_STYLE}</p:otherStyle></p:txStyles></p:sldMaster>`);
   put("ppt/slideMasters/_rels/slideMaster1.xml.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/theme" Target="../theme/theme1.xml"/>` +
     Object.entries(spec.media ?? {}).map(([name], i) => `<Relationship Id="rIdMedia${i + 1}" Type="${REL}/image" Target="../media/${name}"/>`).join("") + "</Relationships>");
-  put("ppt/slideLayouts/slideLayout1.xml", `<p:sldLayout ${NS}><p:cSld name="Title and Content"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${spec.layoutShapes ?? ""}</p:spTree></p:cSld></p:sldLayout>`);
+  put("ppt/slideLayouts/slideLayout1.xml", `<p:sldLayout ${NS}${spec.layoutHidesMaster ? ' showMasterSp="0"' : ""}><p:cSld name="Title and Content"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${spec.layoutShapes ?? ""}</p:spTree></p:cSld></p:sldLayout>`);
   put("ppt/slideLayouts/_rels/slideLayout1.xml.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>`);
 
   spec.slides.forEach((s, i) => {
     const n = i + 1;
-    const bg = s.background ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${s.background}"/></a:solidFill></p:bgPr></p:bg>` : s.backgroundPicture ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:stretch/></a:blipFill></p:bgPr></p:bg>' : "";
-    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.timing ?? (s.animated ? '<p:timing><p:tnLst/></p:timing>' : "")}</p:sld>`);
+    const bg = s.background ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${s.background}"/></a:solidFill></p:bgPr></p:bg>` : s.backgroundTile ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/></a:blipFill></p:bgPr></p:bg>' : s.backgroundPicture ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:stretch/></a:blipFill></p:bgPr></p:bg>' : "";
+    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}${s.hideMaster ? ' showMasterSp="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.timing ?? (s.animated ? '<p:timing><p:tnLst/></p:timing>' : "")}</p:sld>`);
     const rels = [`<Relationship Id="rIdLayout" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`];
     for (const [rId, file] of Object.entries(s.media ?? {})) rels.push(`<Relationship Id="${rId}" Type="${REL}/image" Target="../media/${file}"/>`);
     if (s.backgroundPicture) rels.push(`<Relationship Id="rIdBg" Type="${REL}/image" Target="../media/${s.backgroundPicture}"/>`);
+    if (s.backgroundTile) rels.push(`<Relationship Id="rIdBg" Type="${REL}/image" Target="../media/${s.backgroundTile}"/>`);
     for (const [rId, url] of Object.entries(s.links ?? {})) rels.push(`<Relationship Id="${rId}" Type="${REL}/hyperlink" Target="${url}" TargetMode="External"/>`);
     if (s.notes) {
       rels.push(`<Relationship Id="rIdN" Type="${REL}/notesSlide" Target="../notesSlides/notesSlide${n}.xml"/>`);

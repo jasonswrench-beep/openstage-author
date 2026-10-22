@@ -237,7 +237,7 @@ export function planResync(req: PlanRequest): ResyncPlan {
     const slideFields: { field: "name" | "background"; base: string | null; ours: string | null; theirs: string | null; word: string }[] = [
       { field: "name", base: sb.name, ours: target.name, theirs: ds.name, word: "name" },
       // A picture whose average colour could not be worked out this time is not a change of background.
-      { field: "background", base: sb.background, ours: target.background, theirs: ds.backgroundPicture && !ds.background && !req.tones?.get(ds.backgroundPicture.mediaHash) ? sb.background : backgroundOf(ds, req.tones), word: "background colour" },
+      { field: "background", base: sb.background, ours: target.background, theirs: (ds.backgroundPicture ?? ds.backgroundTile) && !ds.background && !req.tones?.get((ds.backgroundPicture ?? ds.backgroundTile)!.mediaHash) ? sb.background : backgroundOf(ds, req.tones), word: "background colour" },
     ];
     for (const f of slideFields) {
       if (same(f.theirs, f.base) || same(f.ours, f.theirs)) continue;

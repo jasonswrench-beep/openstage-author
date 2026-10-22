@@ -108,11 +108,13 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   const hidden = taken.filter((s) => s.hidden);
   if (hidden.length > 0) out.push(`${plural(hidden.length, "slide")} ${hidden.length === 1 ? "is" : "are"} hidden in PowerPoint: ${list(hidden.map((s) => s.name))}. ${hidden.length === 1 ? "It was" : "They were"} brought in like the others.`);
 
-  const noAltPictures = objects.filter((o) => o.type === "image" && !o.accessibility.decorative && o.accessibility.altText.trim() === "");
+  // What a layout or master draws on every slide is furniture and is reported on its own; the lines about alt text are about what is on the slides themselves.
+  const furnitureOf = (o: OSObject) => /\/[lm]\d+$/.test(String((o.provenance as unknown as { shapeId?: string } | null)?.shapeId ?? ""));
+  const noAltPictures = objects.filter((o) => !furnitureOf(o) && o.type === "image" && !o.accessibility.decorative && o.accessibility.altText.trim() === "");
   if (noAltPictures.length > 0) out.push(`${plural(noAltPictures.length, "picture")} had no alt text in PowerPoint. Nothing was made up: the Problems list asks for each, and you can also mark one decorative.`);
-  const noNameTables = objects.filter((o) => o.type === "table" && !o.accessibility.decorative && o.accessibility.altText.trim() === "");
+  const noNameTables = objects.filter((o) => !furnitureOf(o) && o.type === "table" && !o.accessibility.decorative && o.accessibility.altText.trim() === "");
   if (noNameTables.length > 0) out.push(`${plural(noNameTables.length, "table")} had no alt text in PowerPoint, so ${noNameTables.length === 1 ? "it has" : "they have"} no name for a screen reader yet. The Problems list asks for one.`);
-  const decorative = objects.filter((o) => o.type === "shape" && o.accessibility.decorative);
+  const decorative = objects.filter((o) => !furnitureOf(o) && o.type === "shape" && o.accessibility.decorative);
   if (decorative.length > 0) out.push(`${plural(decorative.length, "shape")} with no alt text ${decorative.length === 1 ? "was" : "were"} marked decorative, as a new shape in this editor is. Open one to say what it means instead.`);
 
   const why = new Map<string, string[]>();
@@ -146,6 +148,11 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   const transitions = taken.filter((s) => s.transition).length;
   if (transitions > 0) out.push(`${plural(transitions, "slide")} had a transition (how the slide comes on). It was not brought in.`);
 
+  const tiled = taken.filter((s) => s.backgroundTile).length;
+  if (tiled > 0) out.push(`${plural(tiled, "slide")} had a picture that repeats across the background. It is drawn here as one colour, the picture's average, so the slide's look is close but plainer.`);
+  const furniture = new Set(converted.flatMap((c) => c.deck.shapes.filter((s) => s.template).map((s) => `${s.template}:${s.id}`)));
+  const furnished = converted.filter((c) => c.deck.shapes.some((s) => s.template)).length;
+  if (furniture.size > 0) out.push(`${plural(furniture.size, "shape")} that the layouts and master draw on every slide (a bar, a logo, a corner mark) ${furniture.size === 1 ? "was" : "were"} brought in on ${plural(furnished, "slide")} as decoration, behind each slide's own shapes.`);
   const pictured = converted.filter((c) => c.deck.backgroundPicture && c.background);
   if (pictured.length > 0) out.push(`${plural(pictured.length, "slide")} ${pictured.length === 1 ? "has" : "have"} a picture behind the text. The Problems list can only judge the text colour against the picture's average colour, which is ${list([...new Set(pictured.map((c) => c.background!))])}, so look at ${pictured.length === 1 ? "that slide" : "those slides"} yourself.`);
   const backgrounds = taken.filter((s) => s.backgroundNote);

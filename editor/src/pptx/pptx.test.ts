@@ -632,6 +632,96 @@ test("notes: the report says how many slides got them, and a slide with nothing 
   assert.match(report, /Speaker notes on 1 slide could not become narration, because everything on that slide is decoration/);
 });
 
+// ---- what a layout and a master draw on every slide, and a background that repeats
+
+const BAR = sp({ id: 20, name: "Colour bar", box: { x: 0, y: 7, w: 10, h: 0.2 }, geom: "rect", fill: "0F6BAE" });
+const LOGO = pic(21, "Logo", "rIdMedia1", { x: 8, y: 0.2, w: 1, h: 0.6 });
+const TITLE_PH = sp({ id: 22, name: "Title placeholder", ph: { type: "title" }, box: { x: 0.5, y: 0.3, w: 9, h: 1.2 }, paras: [{ runs: [{ t: "Click to edit the title" }] }] });
+const SLIDE_TITLE = sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome" }] }] });
+
+test("template: the shapes a layout and a master draw come in behind the slide's own, and placeholders there are not shapes", () => {
+  const ds = read({ layoutShapes: BAR + TITLE_PH, masterShapes: LOGO, media: { "image1.png": fakePng(1) }, slides: [{ id: 256, shapes: SLIDE_TITLE }] }).slides[0]!;
+  assert.deepEqual(ds.shapes.map((s) => [s.id, s.name, s.template]), [["m21", "Logo", "master"], ["l20", "Colour bar", "layout"], ["2", "Title 1", undefined]]);
+});
+
+test("template: they are decoration, hidden from a screen reader, and stacked behind", () => {
+  const ds = read({ layoutShapes: BAR + TITLE_PH, masterShapes: LOGO, media: { "image1.png": fakePng(1) }, slides: [{ id: 256, shapes: SLIDE_TITLE }] }).slides[0]!;
+  const out = convertSlide(ds, slideCtx());
+  assert.deepEqual(out.objects.map((o) => [o.name, o.accessibility.decorative, o.accessibility.tabOrder, o.accessibility.role]), [
+    ["Logo", true, 0, "presentation"], ["Colour bar", true, 0, "presentation"], ["Title 1", false, 1, "heading"],
+  ]);
+  assert.ok(out.objects[0]!.geometry.z < out.objects[2]!.geometry.z);
+});
+
+test("template: a slide that hides background graphics, or a layout that hides the master's, shows less", () => {
+  const spec = (over: Partial<DeckSpec>, slide: Partial<DeckSpec["slides"][number]> = {}) => read({ layoutShapes: BAR + TITLE_PH, masterShapes: LOGO, media: { "image1.png": fakePng(1) }, slides: [{ id: 256, shapes: SLIDE_TITLE, ...slide }], ...over }).slides[0]!.shapes.map((s) => s.name);
+  assert.deepEqual(spec({}), ["Logo", "Colour bar", "Title 1"]);
+  assert.deepEqual(spec({}, { hideMaster: true }), ["Title 1"]);
+  assert.deepEqual(spec({ layoutHidesMaster: true }), ["Colour bar", "Title 1"]);
+});
+
+test("template: a picture on the master is found in the master's own files, and comes in with its picture", () => {
+  const ds = read({ masterShapes: LOGO, media: { "image1.png": fakePng(7) }, slides: [{ id: 256, shapes: SLIDE_TITLE }] }).slides[0]!;
+  const logo = convertSlide(ds, { ...slideCtx(), bytesOf: () => fakePng(7) });
+  assert.equal(logo.objects[0]!.type, "image");
+  assert.equal(logo.assets.length, 1);
+});
+
+test("template: the report says how many, and that they are decoration", () => {
+  const ds = read({ layoutShapes: BAR + TITLE_PH, masterShapes: LOGO, media: { "image1.png": fakePng(1) }, slides: [{ id: 256, shapes: SLIDE_TITLE }, { id: 257, shapes: SLIDE_TITLE }] });
+  const notes = newNotes();
+  const converted = ds.slides.map((s) => convertSlide(s, { ...slideCtx(), notes }));
+  const report = describeImport(ds, converted, notes, ppi96, [0, 1]).join("\n");
+  assert.match(report, /2 shapes that the layouts and master draw on every slide \(a bar, a logo, a corner mark\) were brought in on 2 slides as decoration/);
+});
+
+test("background: a picture that repeats is not drawn, and the slide gets its average colour instead, and says so", () => {
+  const ds = read({ media: { "image1.png": fakePng(3) }, slides: [{ id: 256, shapes: SLIDE_TITLE, backgroundTile: "image1.png" }] }).slides[0]!;
+  assert.equal(ds.backgroundPicture, null);
+  assert.ok(ds.backgroundTile);
+  const tones = new Map([[ds.backgroundTile!.mediaHash, "#eeeeee"]]);
+  const out = convertSlide(ds, { ...slideCtx(), tones });
+  assert.equal(out.background, "#eeeeee");
+  assert.equal(out.objects.some((o) => o.name === "Background picture"), false, "no picture is put on the slide");
+  const notes = newNotes();
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, [out], notes, ppi96, [0]).join("\n");
+  assert.match(report, /1 slide had a picture that repeats across the background\. It is drawn here as one colour/);
+  assert.doesNotMatch(report, /tiled picture, which is left out/);
+});
+
+// ---- groups that are turned or flipped, and slide numbers
+
+const bar = (id: number, name: string, y: number) => sp({ id, name, box: { x: 0, y, w: 0.5, h: 2 }, geom: "rect", fill: "FF0000" });
+
+test("group: a thin tall group turned three quarters of a turn lies across the slide, its shapes in order from the left", () => {
+  const inner = bar(21, "A", 0) + bar(22, "B", 2);
+  const ds = one(group(20, "Stripe", { x: 3, y: 0.5, w: 0.5, h: 4 }, { x: 0, y: 0, w: 0.5, h: 4 }, inner, { rot: 270 }));
+  const [a, b] = ds.shapes;
+  assert.deepEqual([a!.box.x, a!.box.y, a!.box.cx, a!.box.cy, Math.round(a!.rot)], [inch(2), inch(1.5), inch(0.5), inch(2), 270]);
+  assert.deepEqual([b!.box.x, b!.box.y, Math.round(b!.rot)], [inch(4), inch(1.5), 270], "the shape that was lower is now to the right");
+});
+
+test("group: flipping a group first mirrors where its shapes are, and a group that is not turned is as it was", () => {
+  const inner = bar(21, "A", 0) + bar(22, "B", 2);
+  const plain = one(group(20, "Plain", { x: 3, y: 0.5, w: 0.5, h: 4 }, { x: 0, y: 0, w: 0.5, h: 4 }, inner));
+  assert.deepEqual(plain.shapes.map((s) => [s.box.x, s.box.y, s.rot]), [[inch(3), inch(0.5), 0], [inch(3), inch(2.5), 0]]);
+  const flipped = one(group(20, "Flipped", { x: 3, y: 0.5, w: 0.5, h: 4 }, { x: 0, y: 0, w: 0.5, h: 4 }, inner, { flipV: true }));
+  assert.deepEqual(flipped.shapes.map((s) => [s.box.x, s.box.y]), [[inch(3), inch(2.5)], [inch(3), inch(0.5)]], "A and B swap places");
+});
+
+test("group: a group inside a turned group is turned with it", () => {
+  const inside = group(30, "Inner", { x: 0, y: 0, w: 0.5, h: 2 }, { x: 0, y: 0, w: 0.5, h: 2 }, bar(31, "Deep", 0));
+  const ds = one(group(20, "Outer", { x: 3, y: 0.5, w: 0.5, h: 4 }, { x: 0, y: 0, w: 0.5, h: 4 }, inside, { rot: 90 }));
+  assert.equal(Math.round(ds.shapes[0]!.rot), 90);
+});
+
+test("text: a slide number or a date that PowerPoint fills in is not kept as words, and is counted with the footers", () => {
+  const withNumber = '<p:sp><p:nvSpPr><p:cNvPr id="9" name="Number"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="100000" y="100000"/><a:ext cx="900000" cy="300000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="F58426"/></a:solidFill></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="{1}" type="slidenum"><a:rPr lang="en-US"/><a:t>‹#›</a:t></a:fld></a:p></p:txBody></p:sp>';
+  const ds = one(withNumber);
+  assert.equal(ds.shapes[0]!.kind, "shape", "with no words left it is just the coloured shape");
+  assert.equal(ds.left.footers, 1);
+});
+
 // ---- real decks, when someone points the test at a folder of them: set OPENSTAGE_REAL_DECKS to the folder, then run npm test
 
 const REAL = process.env["OPENSTAGE_REAL_DECKS"] ?? "";

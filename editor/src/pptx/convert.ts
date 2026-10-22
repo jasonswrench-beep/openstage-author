@@ -104,7 +104,8 @@ export type Tones = ReadonlyMap<string, string>;
 /** The slide's background colour as the import sets it: the deck's own colour, or else the average colour of its background picture. */
 export function backgroundOf(ds: DeckSlide, tones: Tones | undefined): string | null {
   if (ds.background) return ds.background;
-  return (ds.backgroundPicture && tones?.get(ds.backgroundPicture.mediaHash)) || null;
+  const behind = ds.backgroundPicture ?? ds.backgroundTile;
+  return (behind && tones?.get(behind.mediaHash)) || null;
 }
 
 export interface ConvertContext {
@@ -432,7 +433,10 @@ export function draftsForSlide(ds: DeckSlide, ctx: ConvertContext & SlideGeometr
   }
   for (const shape of ds.shapes) {
     const draft = convertShape(shape, ctx);
-    if (draft) out.push({ key: shape.id, hash: shape.hash, draft });
+    if (!draft) continue;
+    // What a layout or master draws on every slide is furniture: it is hidden from a screen reader, so it is not read out again on each slide.
+    if (shape.template) Object.assign(draft, { decorative: true, altText: "", role: "presentation" });
+    out.push({ key: shape.id, hash: shape.hash, draft });
   }
   return out;
 }
