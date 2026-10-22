@@ -1438,9 +1438,14 @@ ${errorText(err)}`);
     const m = this.model;
     const set = gameById(id);
     if (!m || !set) return;
-    const options = await askGame(set);
-    if (!options) return;
-    const made = m.addGameSet(set.id, options);
+    const choice = await askGame(set, {
+      pickFile: () => backend.pickQuestionFile(),
+      readFile: (path) => backend.questionFileRead(path),
+      pickTemplateSave: (name) => backend.pickQuestionTemplateSave(name),
+      writeTemplate: (dest, text) => backend.questionTemplateWrite(dest, text),
+    });
+    if (!choice) return;
+    const made = m.addGameSet(set.id, choice.options, choice.content);
     if (!made) return;
     const first = made.slides[0]!;
     this.announce(`Added ${set.label}: ${made.slides.length} slides, starting with ${first.name}. ${made.notes.join(" ")} Press Control Z to undo it all at once.`);

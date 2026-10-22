@@ -10,6 +10,9 @@ import { colorRef } from "../../player/src/theme.ts";
 import { namesInBrackets } from "../../player/src/valuetext.ts";
 import type { Condition, Layer, OSObject, Slide, Trigger } from "../../player/src/types.ts";
 import { buildActivation, writeRules, type Rule, type RuleItem } from "./content.ts";
+import { BOARD_CATEGORIES, BOARD_TEMPLATE_CSV, BOARD_VALUES, LADDER_QUESTIONS, LADDER_TEMPLATE_CSV, readBoardTable, readLadderTable, type GameContent, type GameTableRead } from "./gameimport.ts";
+import { escapeHtml, fillQuiz, rightAnswerWords } from "./questionfill.ts";
+import type { ImportedQuestion } from "./questionimport.ts";
 import { box, buildQuiz, emptyLayer, emptySlide, heading, body, newObject, textRole, type Alloc, type PreviewBlock, type Rect, type SlideLayout, type Tone } from "./factory.ts";
 
 /** What a game set needs from the model while it is built: ids nobody else is using, and a way to make variables. */
@@ -58,7 +61,10 @@ export interface GameSet {
    * with "every slide seen", the validator rightly warns about every rule that jumps past slides.
    */
   completion?: "last";
-  build(ctx: GameContext, options: GameOptions): GameBuild;
+  /** If the game can be filled from a spreadsheet: the table to start from, and how a table is read for this game. */
+  table?: { template: string; templateName: string; columns: string; read(text: string, title: string): GameTableRead };
+  /** `content` is what an author's table gave the game, in place of its placeholders; the sizes in `options` then come from the table. */
+  build(ctx: GameContext, options: GameOptions, content?: GameContent): GameBuild;
 }
 
 /** The picker returns "game:<id>" for a game. */
@@ -78,7 +84,7 @@ export function gameOptions(set: GameSet, raw: Record<string, unknown> = {}): Ga
 
 const textBox = (alloc: Alloc, name: string, block: "h1" | "h2" | "p", text: string, rect: Rect, size: number, tone: Tone, tab: number, z: number, muted = false): OSObject => ({
   ...box(alloc.object(), rect[0], rect[1], rect[2], rect[3], z), type: "text", name,
-  content: { html: `<${block}>${text}</${block}>` },
+  content: { html: `<${block}>${escapeHtml(text)}</${block}>` },
   style: { fontFamily: block === "p" ? "theme:font.body" : "theme:font.heading", fontSize: size, color: colorRef(textRole(tone, muted)) },
   accessibility: { altText: namesInBrackets(text), role: block === "p" ? "paragraph" : "heading", tabOrder: tab, decorative: false },
 });
@@ -171,22 +177,33 @@ function hideBackAndNext(slides: Slide[]): void {
   for (const slide of slides.slice(0, -1)) slide.hideNavigation = true;
 }
 
-function questionSlide(ctx: GameContext, id: string, boardId: string, category: number, row: number, usedVariable: string, playedVariable: string): Slide {
+/** What the author's table gave one tile of a board. */
+interface TileContent { categoryName: string; value: number; question: ImportedQuestion }
+
+/** Fill a question the author wrote in a table, as a game asks: one try, worth `points`, and a wrong answer is told where the right one is if the table says nothing. */
+function fillGameQuestion(built: { objects: OSObject[]; layers: Layer[] }, q: ImportedQuestion, points: number): void {
+  fillQuiz(built, q, { points, attempts: 1, shuffleAnswers: false, right: "Correct.", wrong: `Not quite. ${rightAnswerWords(q)}`.trim() });
+}
+
+function questionSlide(ctx: GameContext, id: string, boardId: string, category: number, row: number, usedVariable: string, playedVariable: string, tile?: TileContent): Slide {
   const { alloc } = ctx;
-  const value = tileValue(row);
+  const value = tile?.value ?? tileValue(row);
   const points = textBox(alloc, "Points", "p", `${value} points. Score so far: {{$score}}`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
-  const built = buildQuiz("mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
+  const built = buildQuiz(tile ? (tile.question.type === "short" ? "short" : tile.question.type) : "mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
+  if (tile) fillGameQuestion(built, tile.question, value);
   const [, quiz] = built.objects as [OSObject, OSObject];
   // One try: the answer is final, so the tile is used up when it is given. Each question is worth its tile's points, which is what reaches the score.
   quiz.content = { ...quiz.content, scoring: { points: value, attemptsAllowed: 1 } };
   // The question's own rules run once, when an answer is accepted (the player does not run them again for a question already answered).
   const rule = (action: "setVariable" | "addToVariable", target: string, v: boolean | number): RuleItem => ({ kind: "rule", rule: { event: "activate", action, target, value: v, conditions: [] } });
   quiz.triggers = writeRules([rule("setVariable", usedVariable, true), rule("addToVariable", playedVariable, 1)], triggerIds());
-  // With one try there is no "try again", so the wrong-answer feedback says what to do instead.
-  const wrong = built.layers[1]!.objects[0]!;
-  const wrongText = "Not quite. Say what the right answer is, and why.";
-  wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
-  wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
+  // With one try there is no "try again", so the wrong-answer feedback says what to do instead. (A table's own feedback, or the right answer in words, is already there.)
+  if (!tile) {
+    const wrong = built.layers[1]!.objects[0]!;
+    const wrongText = "Not quite. Say what the right answer is, and why.";
+    wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
+    wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
+  }
   // The way back to the board is in the feedback, so it appears when the question is answered and not before: a player cannot skip a question and
   // go looking at the others. One try means any answer finishes the question, so one of the two layers always shows. A learner who comes back to an
   // answered question (resuming) finds the feedback, and the button, as they left it.
@@ -195,7 +212,7 @@ function questionSlide(ctx: GameContext, id: string, boardId: string, category: 
     back.triggers = buildActivation({ kind: "jump", slideId: boardId });
     layer.objects.push(back);
   }
-  return slideWith(id, `Category ${category + 1}: ${value}`, [points, ...built.objects], built.layers);
+  return slideWith(id, `${tile?.categoryName ?? `Category ${category + 1}`}: ${value}`, [points, ...built.objects], built.layers);
 }
 
 /** The last slide of a game: the score and each question, and, for a game that can be gone back into, a way back to `backTo`. */
@@ -215,10 +232,14 @@ function resultsSlide(ctx: GameContext, id: string, backTo: string | null, headl
   return slideWith(id, "Game results", objects);
 }
 
-function buildQuizBoard(ctx: GameContext, o: GameOptions): GameBuild {
-  const categories = o["categories"]!;
-  const rows = o["values"]!;
+function buildQuizBoard(ctx: GameContext, o: GameOptions, content?: GameContent): GameBuild {
+  const filled = content?.kind === "quiz-board" ? content : undefined;
+  const categories = filled ? filled.categories.length : o["categories"]!;
+  const rows = filled ? filled.categories[0]!.tiles.length : o["values"]!;
   const total = categories * rows;
+  const nameOf = (c: number): string => filled?.categories[c]?.name ?? `Category ${c + 1}`;
+  const valueOf = (c: number, r: number): number => filled?.categories[c]?.tiles[r]?.value ?? tileValue(r);
+  const title = filled?.title || "Quiz board";
   const grid = boardGrid(categories, rows);
   const { alloc } = ctx;
 
@@ -230,22 +251,22 @@ function buildQuizBoard(ctx: GameContext, o: GameOptions): GameBuild {
   const questionIds = Array.from({ length: categories }, () => Array.from({ length: rows }, () => ctx.slideId()));
   const resultsId = ctx.slideId();
   const played = ctx.variable("number", `${tag}Tiles played`);
-  const used = questionIds.map((column, c) => column.map((_, r) => ctx.variable("boolean", `${tag}Used: Category ${c + 1}, ${tileValue(r)}`)));
+  const used = questionIds.map((column, c) => column.map((_, r) => ctx.variable("boolean", `${tag}Used: ${nameOf(c)}, ${valueOf(c, r)}`)));
 
   // The board. Reading order goes down each category in turn (its name, then its tiles from the smallest value), then Finish.
   let tab = 3;
   let z = 20;
   const objects: OSObject[] = [
-    textBox(alloc, "Title", "h1", "Quiz board", [80, 24, 860, 64], 40, "dark", 1, 10),
+    textBox(alloc, "Title", "h1", title, [80, 24, 860, 64], 40, "dark", 1, 10),
     textBox(alloc, "Instructions", "p", BOARD_PROMPT, [80, 92, 1120, 44], 22, "dark", 2, 11, true),
     scoreBox(alloc, 3),
   ];
   for (let c = 0; c < categories; c++) {
-    objects.push(textBox(alloc, `Category ${c + 1}`, "h2", `Category ${c + 1}`, grid.header(c), 24, "dark", ++tab, ++z));
+    objects.push(textBox(alloc, `Category ${c + 1}`, "h2", nameOf(c), grid.header(c), 24, "dark", ++tab, ++z));
     for (let r = 0; r < rows; r++) {
       // The name starts with the words on the tile, so voice control and a screen reader agree, then says which category it is in.
-      const name = `${tileValue(r)}, Category ${c + 1}`;
-      const tile = button(alloc, name, String(tileValue(r)), grid.tile(c, r), ++z, ++tab, 32);
+      const name = `${valueOf(c, r)}, ${nameOf(c)}`;
+      const tile = button(alloc, name, String(valueOf(c, r)), grid.tile(c, r), ++z, ++tab, 32);
       tile.states = DIMMED;
       tile.triggers = [
         ...buildActivation({ kind: "jump", slideId: questionIds[c]![r]! }),
@@ -263,19 +284,27 @@ function buildQuizBoard(ctx: GameContext, o: GameOptions): GameBuild {
   ];
   objects.push(finish);
 
-  const slides: Slide[] = [slideWith(boardId, "Quiz board", objects, [], "theme:bg.dark")];
+  const slides: Slide[] = [slideWith(boardId, filled ? title : "Quiz board", objects, [], "theme:bg.dark")];
   for (let c = 0; c < categories; c++) {
-    for (let r = 0; r < rows; r++) slides.push(questionSlide(ctx, questionIds[c]![r]!, boardId, c, r, used[c]![r]!, played));
+    for (let r = 0; r < rows; r++) {
+      const made = filled?.categories[c]?.tiles[r];
+      slides.push(questionSlide(ctx, questionIds[c]![r]!, boardId, c, r, used[c]![r]!, played, made ? { categoryName: nameOf(c), value: made.value, question: made.question } : undefined));
+    }
   }
   slides.push(resultsSlide(ctx, resultsId, boardId));
   hideBackAndNext(slides);
 
   return {
     slides,
-    notes: [
-      `The board has ${total} tiles and ${total} questions, each worth its tile's points.`,
-      `Write over Category 1 to Category ${categories} and the questions. When you rename a category, also change the alt text of its tiles, which says the category.`,
-    ],
+    notes: filled
+      ? [
+        `The board has ${total} tiles, filled from your table: ${categories} categories, ${total} questions, each worth its tile's value.`,
+        "Check each question slide, and the feedback on it. When you rename a category, also change the alt text of its tiles, which says the category.",
+      ]
+      : [
+        `The board has ${total} tiles and ${total} questions, each worth its tile's points.`,
+        `Write over Category 1 to Category ${categories} and the questions. When you rename a category, also change the alt text of its tiles, which says the category.`,
+      ],
   };
 }
 
@@ -286,21 +315,22 @@ const quizBoard: GameSet = {
   layout: boardLayout,
   extras: boardPreview(4, 4),
   choices: [
-    { id: "categories", label: "Categories", help: "How many columns of tiles, each with its own heading.", min: 2, max: 6, initial: 4 },
-    { id: "values", label: "Questions in each category", help: "How many tiles in each column. The first is worth 100 points, the next 200, and so on.", min: 2, max: 5, initial: 4 },
+    { id: "categories", label: "Categories", help: "How many columns of tiles, each with its own heading.", min: BOARD_CATEGORIES.min, max: BOARD_CATEGORIES.max, initial: 4 },
+    { id: "values", label: "Questions in each category", help: "How many tiles in each column. The first is worth 100 points, the next 200, and so on.", min: BOARD_VALUES.min, max: BOARD_VALUES.max, initial: 4 },
   ],
   summary(o) {
     const questions = o["categories"]! * o["values"]!;
     return `This adds ${questions + 2} slides: the board, ${questions} question slides and a results slide. ${questions + 1} variables remember which tiles are used.`;
   },
   completion: "last",
+  table: { template: BOARD_TEMPLATE_CSV, templateName: "OpenStage quiz board questions.csv", columns: "Category, Value, Type, Question, A to E, Correct, Feedback if right, Feedback if wrong", read: readBoardTable },
   build: buildQuizBoard,
 };
 
 // ---- the prize ladder
 
-export const MIN_RUNGS = 5;
-export const MAX_RUNGS = 15;
+export const MIN_RUNGS = LADDER_QUESTIONS.min;
+export const MAX_RUNGS = LADDER_QUESTIONS.max;
 
 /** What the question on rung `level` (counting from 1) is worth: 100 points on the first, and 100 more on each one after it. */
 export const rungValue = (level: number): number => level * 100;
@@ -361,34 +391,40 @@ const ladderLayout: SlideLayout = {
   decorations: [],
 };
 
-function ladderQuestion(ctx: GameContext, id: string, nextId: string, level: number, rungs: number, group: string): Slide {
+function ladderQuestion(ctx: GameContext, id: string, nextId: string, level: number, rungs: number, group: string, asked?: ImportedQuestion): Slide {
   const { alloc } = ctx;
   const value = rungValue(level);
   const where = textBox(alloc, "Where you are", "p", `Question ${level} of ${rungs}, worth ${value} points. Points so far: {{$score}}`, [80, 24, 860, 36], 22, "light", 1, 10, true);
-  const built = buildQuiz("mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
+  const built = buildQuiz(asked ? (asked.type === "short" ? "short" : asked.type) : "mc", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
+  if (asked) fillGameQuestion(built, asked, value);
   const [prompt, quiz] = built.objects as [OSObject, OSObject];
   // The ladder takes the right-hand side, so the question and its feedback keep to the left of it.
   prompt.geometry = { ...prompt.geometry, width: 860 };
   // One try, and the right answer is shown whichever way it went: there is no "try again", and nobody is knocked out. Every question has to be
   // finished for the course to be complete, so a wrong answer cannot end the game and leave the rest unanswered.
   quiz.content = { ...quiz.content, scoring: { points: value, attemptsAllowed: 1 } };
-  const wrongText = "Not quite. Say what the right answer is, and why.";
-  const wrong = built.layers[1]!.objects[0]!;
-  wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
-  wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
-  // After an answer, the way on is in the feedback that appears, so it is there only when it can be used.
+  if (!asked) {
+    const wrongText = "Not quite. Say what the right answer is, and why.";
+    const wrong = built.layers[1]!.objects[0]!;
+    wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
+    wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
+  }
+  // After an answer, the way on is in the feedback that appears, so it is there only when it can be used. It sits below the answers, however many there are.
   const last = level === rungs;
+  const feedbackY = Math.max(460, quiz.geometry.y + quiz.geometry.height + 12);
   for (const layer of built.layers) {
-    layer.objects[0]!.geometry = { ...layer.objects[0]!.geometry, x: 80, y: 460, width: 860, height: 100 };
-    const next = button(alloc, last ? "See my results" : "Next question", last ? "See my results" : "Next question", [80, 580, 300, 56], 50, 2);
+    layer.objects[0]!.geometry = { ...layer.objects[0]!.geometry, x: 80, y: feedbackY, width: 860, height: 100 };
+    const next = button(alloc, last ? "See my results" : "Next question", last ? "See my results" : "Next question", [80, feedbackY + 120, 300, 56], 50, 2);
     next.triggers = buildActivation({ kind: "jump", slideId: nextId });
     layer.objects.push(next);
   }
   return slideWith(id, `Question ${level}: ${value}`, [where, prompt, quiz, ...ladder(alloc, rungs, level, group)], built.layers);
 }
 
-function buildPrizeLadder(ctx: GameContext, o: GameOptions): GameBuild {
-  const rungs = o["questions"]!;
+function buildPrizeLadder(ctx: GameContext, o: GameOptions, content?: GameContent): GameBuild {
+  const filled = content?.kind === "prize-ladder" ? content : undefined;
+  const rungs = filled ? filled.questions.length : o["questions"]!;
+  const title = filled?.title || "Prize ladder";
   const { alloc } = ctx;
   const introId = ctx.slideId();
   const questionIds = Array.from({ length: rungs }, () => ctx.slideId());
@@ -397,8 +433,8 @@ function buildPrizeLadder(ctx: GameContext, o: GameOptions): GameBuild {
   let groups = 0;
   const group = () => `group-${++groups}`;
 
-  const intro = slideWith(introId, "Prize ladder", [
-    textBox(alloc, "Title", "h1", "Prize ladder", [80, 24, 860, 64], 40, "dark", 1, 10),
+  const intro = slideWith(introId, title, [
+    textBox(alloc, "Title", "h1", title, [80, 24, 860, 64], 40, "dark", 1, 10),
     textBox(alloc, "Instructions", "p",
       `Climb the ladder one question at a time. There are ${rungs} questions. The first is worth ${rungValue(1)} points, and each question after it is worth ${rungValue(1)} more, up to ${rungValue(rungs)} for the last. Every question has one try, and the points you earn are your score.`,
       [80, 110, 860, 200], 24, "dark", 2, 11, true),
@@ -409,15 +445,17 @@ function buildPrizeLadder(ctx: GameContext, o: GameOptions): GameBuild {
   intro.baseLayer.objects.push(start);
 
   const slides: Slide[] = [intro];
-  for (let level = 1; level <= rungs; level++) slides.push(ladderQuestion(ctx, questionIds[level - 1]!, level === rungs ? resultsId : questionIds[level]!, level, rungs, group()));
+  for (let level = 1; level <= rungs; level++) slides.push(ladderQuestion(ctx, questionIds[level - 1]!, level === rungs ? resultsId : questionIds[level]!, level, rungs, group(), filled?.questions[level - 1]));
   slides.push(resultsSlide(ctx, resultsId, null));
   hideBackAndNext(slides);
 
   return {
     slides,
     notes: [
-      `The ladder has ${rungs} questions, worth ${rungValue(1)} to ${rungValue(rungs)} points. It needs no variables.`,
-      "Write over the title, the opening words and the questions. The ladder on each slide is a picture, and the line at the top of each question says where the learner is in words, so if you change the number of questions or their points, change those lines and the rungs together. A wrong answer does not end the game, because every question has to be answered for the course to be complete.",
+      `The ladder has ${rungs} questions${filled ? ", filled from your table" : ""}, worth ${rungValue(1)} to ${rungValue(rungs)} points. It needs no variables.`,
+      ...(filled ? ["Check each question slide, and the feedback on it. The ladder on each slide is a picture, and the line at the top of each question says where the learner is in words, so if you change the number of questions or their points, change those lines and the rungs together."] : []),
+      ...(filled ? [] : [
+      "Write over the title, the opening words and the questions. The ladder on each slide is a picture, and the line at the top of each question says where the learner is in words, so if you change the number of questions or their points, change those lines and the rungs together. A wrong answer does not end the game, because every question has to be answered for the course to be complete."]),
     ],
   };
 }
@@ -435,6 +473,7 @@ const prizeLadder: GameSet = {
     const n = o["questions"]!;
     return `This adds ${n + 2} slides: an opening slide, ${n} question slides and a results slide. It needs no variables.`;
   },
+  table: { template: LADDER_TEMPLATE_CSV, templateName: "OpenStage prize ladder questions.csv", columns: "Type, Question, A to E, Correct, Feedback if right, Feedback if wrong", read: readLadderTable },
   build: buildPrizeLadder,
 };
 

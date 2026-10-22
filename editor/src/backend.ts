@@ -129,7 +129,7 @@ export interface Backend {
   /** Ask which table of questions to read (a CSV file saved from a spreadsheet), with a file dialog. Null if the author cancelled. */
   pickQuestionFile(): Promise<string | null>;
   /** Ask where to save the blank table of questions, with a file dialog. Null if the author cancelled. */
-  pickQuestionTemplateSave(): Promise<string | null>;
+  pickQuestionTemplateSave(name?: string): Promise<string | null>;
   /** The words of a table of questions saved as CSV or text, whatever way the spreadsheet program saved them. */
   questionFileRead(source: string): Promise<string>;
   /** Write the blank table of questions to a file the author chose. */
@@ -374,10 +374,10 @@ const tauriBackend: Backend = {
     const picked = await openDialog({ multiple: false, title: "Choose a table of questions", filters: [{ name: "Tables of questions (CSV)", extensions: ["csv", "tsv", "txt"] }] });
     return typeof picked === "string" ? picked : null;
   },
-  async pickQuestionTemplateSave() {
+  async pickQuestionTemplateSave(name) {
     const forced = testPick("questionsave");
     if (forced !== undefined) return forced;
-    const picked = await saveDialog({ title: "Save the blank table of questions", defaultPath: "OpenStage questions template.csv", filters: [{ name: "CSV files", extensions: ["csv"] }] });
+    const picked = await saveDialog({ title: name ? "Save the sample spreadsheet" : "Save the blank table of questions", defaultPath: name ?? "OpenStage questions template.csv", filters: [{ name: "CSV files", extensions: ["csv"] }] });
     return typeof picked === "string" ? picked : null;
   },
   questionFileRead: (source) => invoke<string>("question_file_read", { source }),

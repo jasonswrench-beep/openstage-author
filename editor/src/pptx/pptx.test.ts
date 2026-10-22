@@ -583,6 +583,24 @@ test("animation: the report says what was brought in and what was not", () => {
 });
 
 
+// ---- a title off the slide
+
+test("a title placed off the slide is kept as the heading, first in reading order, and the report says so", () => {
+  const ds = one(
+    sp({ id: 2, name: "Title 1", ph: { type: "title" }, box: { x: 0.5, y: -1.5, w: 9, h: 1.2 }, paras: [{ runs: [{ t: "A Quick Disclaimer" }] }] }) +
+    pic(4, "Picture 4", "rIdP", { x: 0.2, y: 0, w: 9.6, h: 1.4 }, "A Quick Disclaimer"),
+    { media: { "image1.png": fakePng(1) } }, { media: { rIdP: "image1.png" } });
+  const notes = newNotes();
+  const converted = [convertSlide(ds, { ...slideCtx(), notes })];
+  const [title, picture] = converted[0]!.objects;
+  assert.deepEqual([title!.type, title!.accessibility.role, title!.accessibility.tabOrder, title!.accessibility.decorative, title!.geometry.y < 0], ["text", "heading", 1, false, true]);
+  assert.equal(picture!.accessibility.tabOrder, 2);
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, converted, notes, ppi96, [0]).join("\n");
+  assert.match(report, /1 slide has a title placed off the slide, as decks do when a picture is the title people see\. It is kept as the slide's heading, first in reading order/);
+  const visible = convertSlide(one(sp({ id: 2, name: "Title 1", ph: { type: "title" }, box: { x: 0.5, y: 0.3, w: 9, h: 1.2 }, paras: [{ runs: [{ t: "Seen" }] }] })), slideCtx());
+  assert.doesNotMatch(describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [] }, [visible], newNotes(), ppi96, []).join("\n"), /placed off the slide/);
+});
+
 // ---- speaker notes
 
 const NOTED = () => sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome" }] }] }) + sp({ id: 3, name: "Body", ph: { type: "body", idx: 1 }, paras: [{ runs: [{ t: "One" }] }] });

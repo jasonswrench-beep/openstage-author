@@ -460,6 +460,8 @@ colour, with **no alt text**: say what it means in the Alt text field ("Next", n
 panel an icon has its colour, its line width and **Change icon...**, which keeps its size, colour and alt text. An icon is saved as its shapes in the project, so it needs no file, and a course that uses one
 names Lucide on its credits page (the Problems list warns if that page is off).
 
+**Games from a spreadsheet.** The size dialog of a Quiz board or a Prize ladder starts with **Fill it from a spreadsheet**: **Choose a spreadsheet (CSV)...** reads a table of questions (a quiz board's table also has Category and Value columns) and makes the game with its questions in it, and **Save a sample spreadsheet...** writes a whole small game's table to start from. The dialog says what it found, row by row, before anything is added, and the sizes come from the table. See `docs/game-templates.md`.
+
 **Buttons.** "Button..." in the Add menu opens a picker: a plain **Button**, or a ready-made **Next**, **Back** or **Replay this slide** whose rule is already written for the mouse and the keyboard. These use
 the course actions (next slide, previous slide, replay this slide), which have no target, so they keep working when slides are moved, copied or deleted. In the Properties panel every button has a **Look**
 (Filled, Filled fully rounded, Outline, Outline fully rounded, Soft): a look sets the button's colours, outline and roundness from the theme's colours, so it follows the theme and stays readable, and leaves its words,

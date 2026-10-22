@@ -1,0 +1,9 @@
+﻿Type,Question,A,B,C,D,E,Correct,Feedback if right,Feedback if wrong
+MC,Which planet is closest to the Sun?,Venus,Mercury,Mars,,,B,Right: Mercury is the closest.,Not quite. Mercury is the closest.
+MC,How many sides does a hexagon have?,Six,Five,Eight,,,A,,
+TF,"Plants make their own food from light, water and air.",,,,,,True,,
+MC,Which is the largest ocean on Earth?,The Atlantic,The Pacific,The Indian,,,B,,
+MC,In which year did the first people land on the Moon?,1969,1959,1979,,,A,,
+SA,What is the chemical symbol for gold?,Au,,,,,,,
+MC,Which of these numbers is a prime number?,49,53,51,,,B,,
+MC,About how fast does light travel in empty space?,"300,000 kilometres a second","30,000 kilometres a second",3 million kilometres a second,,,A,,

@@ -40,7 +40,7 @@ test("the template reads without a single problem, and holds one of each kind", 
 test("a multiple choice question: the answers, the right one by its letter, and the optional parts", () => {
   const r = read([HEAD, 'MC,"Which is first?",One,Two,Three,Four,Five,C,5,"Right, it is.","Look again"']);
   assert.deepEqual(r.problems, []);
-  assert.deepEqual(r.questions[0], { row: 2, type: "mc", question: "Which is first?", answers: ["One", "Two", "Three", "Four", "Five"], correct: [2], points: 5, attempts: null, rightFeedback: "Right, it is.", wrongFeedback: "Look again" });
+  assert.deepEqual(r.questions[0], { row: 2, type: "mc", question: "Which is first?", answers: ["One", "Two", "Three", "Four", "Five"], correct: [2], points: 5, attempts: null, category: "", value: null, rightFeedback: "Right, it is.", wrongFeedback: "Look again" });
 });
 
 test("the right answer can be written as a letter in either case, or as the answer's own words", () => {

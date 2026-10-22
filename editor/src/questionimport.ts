@@ -23,6 +23,10 @@ export interface ImportedQuestion {
   /** Null when the table did not say, so the editor's own starting value is used. */
   points: number | null;
   attempts: number | null;
+  /** For a game filled from a table: the category a quiz board puts the question in, or "". Read only when the caller asks for it (see `readQuestions`). */
+  category: string;
+  /** For a quiz board: what the question's tile is worth, or null. Read only when the caller asks for it. */
+  value: number | null;
   rightFeedback: string;
   wrongFeedback: string;
 }
@@ -90,7 +94,7 @@ export function parseCsv(raw: string): string[][] {
 
 // ---- the columns
 
-type Column = "type" | "question" | "correct" | "points" | "attempts" | "right" | "wrong" | `a${number}`;
+type Column = "type" | "question" | "correct" | "points" | "attempts" | "right" | "wrong" | "category" | "value" | `a${number}`;
 
 const squash = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -99,6 +103,8 @@ const NAMES: Record<string, Column> = {
   question: "question", questiontext: "question", text: "question", prompt: "question", stem: "question",
   correct: "correct", correctanswer: "correct", correctanswers: "correct", answer: "correct", key: "correct", rightanswer: "correct",
   points: "points", score: "points", weight: "points",
+  category: "category", categoryname: "category", categorytitle: "category", topic: "category", columnname: "category",
+  value: "value", tilevalue: "value", tilepoints: "value", rowvalue: "value", amount: "value", dollars: "value",
   attempts: "attempts", tries: "attempts", attemptsallowed: "attempts",
   feedbackifright: "right", rightfeedback: "right", correctfeedback: "right", feedbackcorrect: "right", feedbackright: "right", ifright: "right", ifcorrect: "right", feedbackifcorrect: "right",
   feedbackifwrong: "wrong", wrongfeedback: "wrong", incorrectfeedback: "wrong", feedbackincorrect: "wrong", feedbackwrong: "wrong", ifwrong: "wrong", ifincorrect: "wrong", feedbackifincorrect: "wrong",
@@ -130,15 +136,24 @@ const FALSE_WORDS = new Set(["false", "f", "no", "n", "0"]);
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-/** Read a table of questions. Every row is checked; a row with a mistake is left out and says what the mistake is. */
-export function readQuestions(text: string): QuestionRead {
+/**
+ * Read a table of questions. Every row is checked; a row with a mistake is left out and says what the mistake is. A table for a game may also have a
+ * Category and a Value column; they are read only when `columns` asks for them, and are otherwise reported as columns that were not used.
+ */
+export function readQuestions(text: string, opts: { columns?: ("category" | "value")[] } = {}): QuestionRead {
   const table = parseCsv(text);
   const problems: ImportProblem[] = [];
   const questions: ImportedQuestion[] = [];
   if (table.length === 0) return { questions, problems: [{ row: 1, severity: "error", message: "The file is empty." }], unusedColumns: [], rows: 0 };
 
   const header = isHeader(table[0]!);
-  const order: (Column | null)[] = header ? table[0]!.map((c) => NAMES[squash(c)] ?? null) : DEFAULT_ORDER;
+  const wanted = new Set<string>(opts.columns ?? []);
+  const columnOf = (c: string): Column | null => {
+    const col = NAMES[squash(c)];
+    if (!col) return null;
+    return (col === "category" || col === "value") && !wanted.has(col) ? null : col;
+  };
+  const order: (Column | null)[] = header ? table[0]!.map(columnOf) : DEFAULT_ORDER;
   const unusedColumns = header ? table[0]!.filter((c, i) => c !== "" && order[i] === null) : [];
   const at = (cells: string[], col: Column): string => {
     const i = order.indexOf(col);
@@ -228,11 +243,12 @@ export function readQuestions(text: string): QuestionRead {
     };
     const points = number("points", "The points", false);
     const attempts = number("attempts", "The attempts", true);
+    const value = wanted.has("value") ? number("value", "The value", false) : null;
 
     if (seen.has(question.toLowerCase())) warn(`This is the same question as row ${seen.get(question.toLowerCase())}.`);
     else seen.set(question.toLowerCase(), row);
 
-    questions.push({ row, type, question, answers: shown, correct, points, attempts, rightFeedback: at(cells, "right").trim(), wrongFeedback: at(cells, "wrong").trim() });
+    questions.push({ row, type, question, answers: shown, correct, points, attempts, category: wanted.has("category") ? at(cells, "category").replace(/\s+/g, " ").trim() : "", value: value !== null && value > 0 ? value : null, rightFeedback: at(cells, "right").trim(), wrongFeedback: at(cells, "wrong").trim() });
   });
 
   if (questions.length > MAX_QUESTIONS) {

@@ -1,0 +1,10 @@
+﻿Category,Value,Type,Question,A,B,C,D,E,Correct,Feedback if right,Feedback if wrong
+Colour,100,MC,What is the smallest contrast ratio WCAG 2.2 level AA allows for normal-size text?,3 to 1,4.5 to 1,7 to 1,,,B,Right: 4.5 to 1.,Not quite. The smallest for normal-size text is 4.5 to 1.
+Colour,200,MC,"Which of these is not enough, on its own, to show that a form field has an error?",A red border,A message that says what is wrong,An icon with a text label,,,A,,
+Colour,300,TF,"Large text, such as 24 pixel text, is allowed a lower contrast ratio than small text.",,,,,,True,,
+Keyboard,100,MC,Which key moves the focus to the next control on a page?,Enter,Tab,Escape,,,B,,
+Keyboard,200,MC,What is a keyboard trap?,A place the focus can enter but cannot leave with the keyboard,A shortcut key that opens a menu,A key that has stopped working,,,A,,
+Keyboard,300,MC,A dialog is open. Which key should close it?,Space,Enter,Escape,,,C,,
+Words,100,MC,What is alt text for?,A text version of a picture for learners who cannot see it,A caption shown under every picture,The file name of a picture,,,A,,
+Words,200,MC,Which link text is best?,Click here,More,Download the course handbook (PDF),,,C,,
+Words,300,MR,Who can captions help?,Learners who are deaf,Learners learning the language,Learners in a noisy room,Only learners who use a screen reader,,"A, B, C",,

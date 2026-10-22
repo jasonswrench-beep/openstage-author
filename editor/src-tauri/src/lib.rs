@@ -2848,7 +2848,8 @@ fn write_question_template_at(dest: &Path, text: &str) -> Result<(), String> {
     if ext != "csv" {
         return Err("The template is saved as a .csv file.".into());
     }
-    if text.len() > 100 * 1024 || !text.starts_with("Type,Question") {
+    // The table of questions, or the table for a quiz board (which names the category and the value first).
+    if text.len() > 100 * 1024 || !(text.starts_with("Type,Question") || text.starts_with("Category,Value,Type,Question")) {
         return Err("That is not the template.".into());
     }
     let mut bytes = vec![0xEF, 0xBB, 0xBF];
@@ -4759,6 +4760,11 @@ mod tests {
         // The template: a .csv, the editor's own text, with the byte order mark put in front.
         write_question_template_at(&dir.join("t.csv"), "Type,Question,A\r\nMC,Why?,x\r\n").unwrap();
         assert_eq!(fs::read(dir.join("t.csv")).unwrap(), b"\xEF\xBB\xBFType,Question,A\r\nMC,Why?,x\r\n");
+        // A quiz board's table names the category and the value first.
+        write_question_template_at(&dir.join("board.csv"), "Category,Value,Type,Question,A
+Colour,100,MC,Why?,x
+").unwrap();
+        assert!(fs::read(dir.join("board.csv")).unwrap().starts_with(b"\xEF\xBB\xBFCategory,Value"));
         assert!(write_question_template_at(&dir.join("t.txt"), "Type,Question").is_err(), "only a .csv");
         assert!(write_question_template_at(&dir.join("u.csv"), "anything else at all").is_err(), "only the template");
         assert!(!dir.join("u.csv").exists());

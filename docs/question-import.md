@@ -47,6 +47,10 @@ Things that are only **mentioned**, with the row still added: an empty answer be
 * **Mixing the answers:** tick **Show the answers of each multiple choice question in a different order to each learner**. True or false keeps True before False, and a short answer has nothing to mix.
 * **The words:** a question or feedback is plain text. Angle brackets and ampersands are kept as written. A line break inside a feedback cell starts a new paragraph. There are no pictures, bold or links: add them afterwards in the editor.
 
+## Tables for games
+
+A quiz board and a prize ladder can also be made from a table, and their size dialog offers it (see `docs/game-templates.md`, "Filled from a spreadsheet"). The columns are the same, and a quiz board adds **Category** and **Value**. Here, in Add questions from a spreadsheet, those two columns are not used and are named as columns that were not used. The sample files for the games are `examples/quiz-board-questions.csv` and `examples/prize-ladder-questions.csv`.
+
 ## Files it can read
 
 A `.csv` file, or a `.tsv` or `.txt` table. It works out the separator (commas, semicolons, which some countries' Excel uses, or tabs) and the way the text was saved: UTF-8, UTF-16 (Excel's "Unicode Text"), or the Windows Western code page that Excel's plain CSV uses. An Excel file (`.xlsx`) is not read: open it and save it as CSV. A file larger than 2 MB is refused.

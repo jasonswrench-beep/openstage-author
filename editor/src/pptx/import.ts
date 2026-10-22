@@ -3,7 +3,7 @@
 
 import type { DeckSource, OSObject, Slide } from "../../../player/src/types.ts";
 import { convertSlide, newNotes, placementFor, slideFrom, type ConvertNotes, type ConvertedSlide, type Placement, type Tones } from "./convert.ts";
-import { type Deck, type DeckSlide } from "./deck.ts";
+import { EMU_PER_INCH, type Deck, type DeckSlide } from "./deck.ts";
 import { hashText } from "./hash.ts";
 import type { Pkg } from "./package.ts";
 import type { Narration } from "../narration.ts";
@@ -153,6 +153,12 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   const furniture = new Set(converted.flatMap((c) => c.deck.shapes.filter((s) => s.template).map((s) => `${s.template}:${s.id}`)));
   const furnished = converted.filter((c) => c.deck.shapes.some((s) => s.template)).length;
   if (furniture.size > 0) out.push(`${plural(furniture.size, "shape")} that the layouts and master draw on every slide (a bar, a logo, a corner mark) ${furniture.size === 1 ? "was" : "were"} brought in on ${plural(furnished, "slide")} as decoration, behind each slide's own shapes.`);
+  // A title placed off the slide is how a deck gives a slide a heading for a screen reader when a picture is the title people see. It is kept, and says so.
+  const stageW = (deck.slideWidth / EMU_PER_INCH) * placement.pixelsPerInch + 2 * placement.offsetX;
+  const stageH = (deck.slideHeight / EMU_PER_INCH) * placement.pixelsPerInch + 2 * placement.offsetY;
+  const unseen = converted.filter((c) => c.objects.some((o) => o.type === "text" && !o.accessibility.decorative && o.accessibility.role === "heading"
+    && (o.geometry.y + o.geometry.height <= 0 || o.geometry.y >= stageH || o.geometry.x + o.geometry.width <= 0 || o.geometry.x >= stageW))).length;
+  if (unseen > 0) out.push(`${plural(unseen, "slide")} ${unseen === 1 ? "has" : "have"} a title placed off the slide, as decks do when a picture is the title people see. It is kept as the slide's heading, first in reading order, so a screen reader still has it. It is not seen on the slide.`);
   const pictured = converted.filter((c) => c.deck.backgroundPicture && c.background);
   if (pictured.length > 0) out.push(`${plural(pictured.length, "slide")} ${pictured.length === 1 ? "has" : "have"} a picture behind the text. The Problems list can only judge the text colour against the picture's average colour, which is ${list([...new Set(pictured.map((c) => c.background!))])}, so look at ${pictured.length === 1 ? "that slide" : "those slides"} yourself.`);
   const backgrounds = taken.filter((s) => s.backgroundNote);
