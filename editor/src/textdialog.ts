@@ -91,12 +91,14 @@ export function openTextEditor(opts: TextEditorOptions): Promise<string | null> 
       const sel = document.getSelection();
       if (sel && sel.rangeCount > 0 && inBox(sel.anchorNode)) saved = sel.getRangeAt(0).cloneRange();
     };
-    const restoreSelection = () => {
-      box.focus();
+    /** Put the author's selection back. `focus` also gives the box the keyboard; a toolbar button used from the keyboard keeps it instead. */
+    const restoreSelection = (focus = true) => {
+      if (focus) box.focus();
       const sel = document.getSelection();
       if (saved && sel) { sel.removeAllRanges(); sel.addRange(saved); }
     };
 
+    const safeState = (command: string): boolean => { try { return document.queryCommandState(command); } catch { return false; } };
     const inList = () => { try { return document.queryCommandState("insertUnorderedList") || document.queryCommandState("insertOrderedList"); } catch { return false; } };
     /** Show what the words at the cursor are: bold or not, in a list or not, which kind of paragraph. */
     const showState = () => {
@@ -113,8 +115,10 @@ export function openTextEditor(opts: TextEditorOptions): Promise<string | null> 
           if (inList()) b.removeAttribute("aria-disabled"); else b.setAttribute("aria-disabled", "true");
         }
       }
-      let block = "p";
-      try { block = String(document.queryCommandValue("formatBlock")).toLowerCase().replace(/[<>]/g, ""); } catch { block = "p"; }
+      // The kind of the paragraph the cursor is in: the block of the box that holds it.
+      let node: Node | null = sel.anchorNode;
+      while (node && node.parentNode !== box) node = node.parentNode;
+      const block = node?.nodeName.toLowerCase() ?? "p";
       style.value = STYLES.some((s) => s.value === block) ? block : "p";
     };
 
@@ -122,11 +126,21 @@ export function openTextEditor(opts: TextEditorOptions): Promise<string | null> 
       error.textContent = "";
       if (t.id === "link") { openLink(); return; }
       if (t.listOnly && !inList()) { say("This works on an item of a list. Make a list first."); return; }
-      restoreSelection();
+      // Used from the keyboard, the button keeps the keyboard, so a screen reader says the button's new state (pressed or not) where the author is. A browser that will
+      // not edit while the box has no focus is given it for the command.
+      const button = buttons.get(t.id)!;
+      const fromKeyboard = document.activeElement === button;
+      const stateBefore = t.state ? safeState(t.command) : false;
+      const htmlBefore = box.innerHTML;
+      restoreSelection(!fromKeyboard);
       document.execCommand(t.command);
-      box.focus();
+      if (fromKeyboard && (t.state ? safeState(t.command) === stateBefore : box.innerHTML === htmlBefore)) {
+        restoreSelection(true);
+        document.execCommand(t.command);
+      }
+      if (fromKeyboard) button.focus(); else box.focus();
       showState();
-      if (t.state) say(`${t.label} ${buttons.get(t.id)!.getAttribute("aria-pressed") === "true" ? "on" : "off"}.`);
+      if (t.state) say(`${t.label} ${button.getAttribute("aria-pressed") === "true" ? "on" : "off"}.`);
       else if (t.id === "unlink") say("Link removed.");
       else if (t.listOnly) say(t.id === "indent" ? "Deeper level." : "Shallower level.");
     };
@@ -152,11 +166,30 @@ export function openTextEditor(opts: TextEditorOptions): Promise<string | null> 
       b.tabIndex = 0;
     });
 
+    // Changing the kind of paragraph keeps the keyboard on the drop-down, so the arrow keys can step through the kinds (a browser applies each one as it is chosen). The
+    // paragraphs the cursor touches are given the new tag directly; the items of a list are not paragraphs, and are left alone.
     style.addEventListener("change", () => {
-      restoreSelection();
-      document.execCommand("formatBlock", false, `<${style.value}>`);
-      say(`${STYLES.find((s) => s.value === style.value)?.label ?? "Paragraph"}.`);
-      showState();
+      const want = style.value;
+      const range = saved;
+      const label = STYLES.find((s) => s.value === want)?.label ?? "Paragraph";
+      if (!range || !inBox(range.startContainer)) { say("Put the cursor in the text first."); return; }
+      const blocks = [...box.children].filter((c) => /^(P|H[1-6])$/.test(c.tagName) && range.intersectsNode(c));
+      if (blocks.length === 0) { say("The kind of paragraph is changed for paragraphs and headings, not for the items of a list."); showState(); return; }
+      // The words are moved, not copied, so the place the cursor was in them is kept (a range tied to the old paragraph would collapse when it is taken away).
+      const [sc, so, ec, eo] = [range.startContainer, range.startOffset, range.endContainer, range.endOffset];
+      let first: HTMLElement | null = null;
+      for (const b of blocks) {
+        if (b.tagName.toLowerCase() === want) { first ??= b as HTMLElement; continue; }
+        const made = document.createElement(want);
+        while (b.firstChild) made.appendChild(b.firstChild);
+        b.replaceWith(made);
+        first ??= made;
+      }
+      const kept = document.createRange();
+      if (sc.nodeType === Node.TEXT_NODE && ec.nodeType === Node.TEXT_NODE && box.contains(sc) && box.contains(ec)) { kept.setStart(sc, so); kept.setEnd(ec, eo); }
+      else if (first) { kept.selectNodeContents(first); kept.collapse(false); }
+      saved = kept;
+      say(`${label}.`);
     });
 
     // ---- a link
@@ -191,7 +224,13 @@ export function openTextEditor(opts: TextEditorOptions): Promise<string | null> 
 
     // ---- the box
     box.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") { e.preventDefault(); openLink(); }
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "k") { e.preventDefault(); openLink(); return; }
+      // The browser makes the words bold, italic or underlined on its own; a screen reader hears nothing of it, so it is said here once it has happened.
+      const marks: Record<string, [string, string]> = { b: ["bold", "Bold"], i: ["italic", "Italic"], u: ["underline", "Underline"] };
+      const mark = marks[key];
+      if (mark) setTimeout(() => { showState(); say(`${mark[1]} ${safeState(mark[0]) ? "on" : "off"}.`); }, 0);
     });
     // Words pasted or dropped in come in as plain words: formatting from another program is not kept, and nothing it carries gets in.
     box.addEventListener("paste", (e) => {
