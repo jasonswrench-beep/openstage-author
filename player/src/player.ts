@@ -284,6 +284,9 @@ export class Player implements Host {
     this.labelEl.textContent = `Slide ${idx + 1} of ${total}`;
     this.backBtn.disabled = idx <= 0;
     this.nextBtn.disabled = idx >= total - 1;
+    // A game slide leaves Back and Next out: the way on is the game's own (a tile, an answer, a Continue button). Hidden, not dimmed, so there is nothing to find and press.
+    this.backBtn.hidden = slide.hideNavigation === true;
+    this.nextBtn.hidden = slide.hideNavigation === true;
     this.root.ownerDocument.title = `${slide.name} - ${this.pkg.project.meta.title}`;
 
     // Move focus to the new slide so a screen reader announces it, and keyboard users

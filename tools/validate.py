@@ -34,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 33, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 34, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1531,6 +1531,7 @@ def validate_project(project_dir, asset_root=None):
     _banks(project, slides, listed, add)
     _results(slides, add)
     _timing(slides, add)
+    _hidden_navigation(slides, listed, add)
 
     # Where assets came from. The file is optional.
     if (project_dir / "assets.json").is_file():
@@ -1620,6 +1621,21 @@ def _shuffle_words(rel, obj, add):
     if odd:
         add(WARNING, rel, obj["id"], "shuffle-position-words", "A question that mixes its answers has an answer that depends on its place",
             f"'{odd[0]}' only makes sense if the answers stay in order, and they will not. Reword it, or turn off Shuffle the answers.")
+
+
+def _hidden_navigation(slides, order, add):
+    """A slide that leaves out the course's Back and Next (hideNavigation) must have a way out of its own: a rule on something on it that goes to a slide,
+    or a time after which it moves on by itself. Without one a learner is stuck there. The last slide of the course has nowhere to go and is let be."""
+    last = list(dict.fromkeys(order))[-1] if order else None
+    for rel, slide in slides.items():
+        if not slide.get("hideNavigation") or slide["id"] == last:
+            continue
+        leaves = slide["duration"] is not None or any(
+            t["action"] in ("jumpToSlide", "nextSlide", "previousSlide") for _, obj in _objects(slide) for t in obj["triggers"])
+        if not leaves:
+            add(ERROR, rel, slide["id"], "navigation-no-way-out", "A slide with no Back and Next has no way out",
+                "Back and Next are left out of this slide, and nothing on it (on any layer) goes to another slide, so a learner would be stuck here. "
+                "Add a button with a rule that goes to a slide, or show Back and Next again.")
 
 
 def _completion(project, slides, order, add):

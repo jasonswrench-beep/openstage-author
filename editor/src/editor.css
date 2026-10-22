@@ -28,6 +28,9 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 
 .panel { overflow: auto; background: #f4f5f7; border-right: 1px solid #8c929b; padding: 8px 10px; min-width: 0; }
 .props { border-right: 0; border-left: 1px solid #8c929b; }
+/* The top of a long panel stays in view while its list scrolls: the panel is padded 8px 10px, so the block reaches over the padding to cover the list as it passes under. */
+.panel-tools { position: sticky; top: 0; z-index: 3; margin: -8px -10px 6px; padding: 8px 10px 6px; background: #f4f5f7; border-bottom: 1px solid #c3c8d0; }
+.panel-tools h2 { margin-bottom: 4px; }
 .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; color: #2b3340; }
 .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .panel-head h2 { margin: 0; flex: 1; }

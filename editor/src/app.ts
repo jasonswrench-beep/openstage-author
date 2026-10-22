@@ -30,9 +30,9 @@ import { askText } from "./textprompt.ts";
 import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
 import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
-import type { Style } from "../../player/src/types.ts";
+import type { CreditEntry, Style } from "../../player/src/types.ts";
 import { askChoice, bubblePreview, interactionPreview, shapePreview } from "./choicepicker.ts";
-import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
+import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, isPictureBox, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
 import { askLayout } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
 import { GAME_PREFIX, gameById } from "./gamesets.ts";
@@ -293,11 +293,13 @@ export class App {
     this.questionsFileBtn = this.small("Questions from a file...", "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide", () => void this.addQuestionsFromFile());
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
+    // The heading and the buttons stay where they are while a long list of slides scrolls under them, so Add slide is never a long scroll away.
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
-      h("h2", { id: "slides-h", text: "Slides" }),
-      h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
-      h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
-      h("div", { class: "btn-row" }, this.questionsFileBtn, this.banksBtn),
+      h("div", { class: "panel-tools" },
+        h("h2", { id: "slides-h", text: "Slides" }),
+        h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
+        h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
+        h("div", { class: "btn-row" }, this.questionsFileBtn, this.banksBtn)),
       this.slideList);
 
     // Canvas and layers
@@ -899,25 +901,31 @@ ${errorText(err)}`);
   }
 
   /** Put a person from the library on the slide: choose who, then which picture (their head and shoulders, or a pose). */
+  /** Ask for a person from the library of people and which picture of them. Null if the author gave up. The picture is copied into the project, once. */
+  private async libraryPicture(): Promise<{ src: string; size?: { w: number; h: number }; name: string; alt: string; credit: CreditEntry } | null> {
+    const m = this.model;
+    if (!m) return null;
+    const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
+    if (!chosen) return null;
+    const { pack, person } = chosen;
+    const picked = await choosePosesDialog({ backend, pack, person: { ...person, poses: slidePictures(person) }, have: new Set(), single: true, announce: (msg) => this.announce(msg) });
+    const pose = picked?.[0];
+    if (!pose) return null;
+    // A picture the course already has is used again, not copied again.
+    const title = creditForSlidePicture(pack, person, pose, "").title;
+    const src = m.pathOfCredit(title) ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, pose.file, `${person.id}-${pose.id}`);
+    const size = await this.measure(m.dir, src);
+    return { src, ...(size ? { size } : {}), name: `${person.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, alt: pose.alt, credit: creditForSlidePicture(pack, person, pose, src) };
+  }
+
   private async addPerson(): Promise<void> {
     const m = this.model;
     if (!m) return;
     try {
-      const chosen = await chooseFromLibrary({ backend, announce: (msg) => this.announce(msg) });
-      if (!chosen) {
-        this.addKind.focus();
-        return;
-      }
-      const { pack, person } = chosen;
-      const picked = await choosePosesDialog({ backend, pack, person: { ...person, poses: slidePictures(person) }, have: new Set(), single: true, announce: (msg) => this.announce(msg) });
+      const picture = await this.libraryPicture();
       this.addKind.focus();
-      const pose = picked?.[0];
-      if (!pose) return;
-      // A picture the course already has is used again, not copied again.
-      const title = creditForSlidePicture(pack, person, pose, "").title;
-      const src = m.pathOfCredit(title) ?? await backend.packUsePicture(m.dir, pack.source, pack.folder, pose.file, `${person.id}-${pose.id}`);
-      const size = await this.measure(m.dir, src);
-      const o = m.addPackPicture({ src, ...(size ? { size } : {}), name: `${person.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, alt: pose.alt, credit: creditForSlidePicture(pack, person, pose, src) });
+      if (!picture) return;
+      const o = m.addPackPicture(picture);
       if (o) {
         this.announce(`Added ${o.name}. The description from the library is its alt text: read it, and change it if it is not right, or mark the picture decorative if it only decorates.`);
         document.getElementById("p-alt")?.focus();
@@ -925,6 +933,67 @@ ${errorText(err)}`);
     } catch (err) {
       this.announce(`Could not add the person. ${errorText(err)}`);
     }
+  }
+
+  /** Ask for one of the people in the project's cast, and which of their pictures. Null if the author gave up, or the cast has no pictures. */
+  private async castPicture(): Promise<{ src: string; size?: { w: number; h: number }; name: string; alt: string; decorative: boolean } | null> {
+    const m = this.model;
+    if (!m) return null;
+    const options = m.characters.flatMap((c) => [
+      ...(c.picture ? [{ value: `${c.id}|`, label: c.name, description: c.role ? `${c.role}. Their own picture.` : "Their own picture.", src: c.picture.src, alt: c.picture.decorative ? "" : c.picture.alt, decorative: c.picture.decorative, name: c.name }] : []),
+      ...(c.poses ?? []).map((pose) => ({ value: `${c.id}|${pose.id}`, label: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, description: "A pose.", src: pose.src, alt: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, decorative: false, name: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}` })),
+    ]);
+    if (options.length === 0) {
+      this.announce("The cast has no pictures yet. Open Characters in the toolbar and give a person a picture, or choose a person from the library.");
+      return null;
+    }
+    const value = await askChoice({
+      heading: "A person from your cast", legend: "Which picture", confirm: "Use this picture",
+      choices: options.map((o) => ({ value: o.value, label: o.label, description: o.description })),
+    });
+    const hit = options.find((o) => o.value === value);
+    if (!hit) return null;
+    const size = await this.measure(m.dir, hit.src);
+    return { src: hit.src, ...(size ? { size } : {}), name: hit.name, alt: hit.alt, decorative: hit.decorative };
+  }
+
+  /** The buttons for a grey picture box from a layout: it is filled from a file, the cast or the library, and the picture takes its place. */
+  private pictureBoxFields(m: Model, o: OSObject): HTMLElement[] {
+    const chart = o.name === "Chart area";
+    const done = (put: { name: string; decorative?: boolean } | null) => {
+      if (!put) return;
+      this.announce(put.decorative ? `${put.name} is in the box. It is marked as decoration.` : `${put.name} is in the box. Read its alt text in the Properties panel, and change it if it is not right.`);
+      document.getElementById("p-alt")?.focus();
+    };
+    const guard = (f: () => Promise<void>) => () => void f().catch((err) => this.announce(`Could not put the picture in. ${errorText(err)}`));
+    const fromComputer = guard(async () => {
+      const picked = await backend.pickImage();
+      if (!picked) return;
+      const src = await backend.importImage(m.dir, picked);
+      const size = await this.measure(m.dir, src);
+      const stem = (src.split("/").pop() ?? src).replace(/\.[^.]*$/, "");
+      const put = m.fillPictureBox(o.id, { src, ...(size ? { size } : {}), name: stem, alt: "" });
+      if (put) this.announce(`${stem} is in the box. It needs alt text: describe it in the Alt text field, or mark it decorative.`);
+      document.getElementById("p-alt")?.focus();
+    });
+    const fromCast = guard(async () => {
+      const pic = await this.castPicture();
+      if (!pic) return;
+      const put = m.fillPictureBox(o.id, pic);
+      done(put ? { name: put.name, decorative: pic.decorative } : null);
+    });
+    const fromLibrary = guard(async () => {
+      const pic = await this.libraryPicture();
+      if (!pic) return;
+      const put = m.fillPictureBox(o.id, pic);
+      done(put ? { name: put.name } : null);
+    });
+    return [h("fieldset", {}, h("legend", { text: chart ? "Chart picture box" : "Picture box" }),
+      h("p", { class: "note", text: `This grey box marks where ${chart ? "a picture of a chart" : "a picture"} goes. Choose where the picture comes from: it takes the box's place and fills it as far as its own shape allows. The picture is described for a screen reader in its Alt text.` }),
+      h("div", { class: "btn-row" },
+        this.small("Picture from my computer...", "Choose a picture file to put in this box", fromComputer),
+        this.small("A person from your cast...", "Put one of the people in the cast, with their pose, in this box", fromCast),
+        this.small("A person from the library...", "Put a person from the library of people in this box", fromLibrary)))];
   }
 
   /** Choose a picture from the packs to put behind everything on a slide. */
@@ -1097,6 +1166,15 @@ ${errorText(err)}`);
       }, { number: true, describedBy: "slide-advance-note" }),
       h("p", { id: "slide-advance-note", class: "note", text: "A slide that moves on by itself takes time away from slow readers, so use it only where it helps and not on a slide with a question. Learners can pause it." }),
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())));
+  }
+
+  /** Whether the course's Back and Next are shown on the slide being edited. Shown when nothing is selected. */
+  private slideNavigationFields(m: Model): HTMLElement {
+    const slide = m.slide!;
+    const box = this.tick("checkbox", "slide-hide-nav", "Leave out Back and Next on this slide", slide.hideNavigation === true, (on) => { const msg = m.setHideNavigation(slide.id, on); if (msg) this.announce(msg); });
+    return h("fieldset", {}, h("legend", { text: "Moving through the course" }),
+      h("div", { class: "field check" }, box, h("label", { for: "p-slide-hide-nav", text: "Leave out Back and Next on this slide" })),
+      h("p", { class: "note", text: "The learner then leaves this slide only through something on it, such as a Continue button or a tile on a game board. The games use this so players stay in the game, and keep Back and Next on the last slide. The Problems list warns if nothing on the slide goes anywhere." }));
   }
 
   /** What the selected object says, in which voice, and how to listen to it. */
@@ -2644,6 +2722,7 @@ ${errorText(err)}`);
       h("fieldset", {}, h("legend", { text: "Layer" }),
         this.field("layer-name", "Layer name", layer.name, (v) => { const msg = m.renameLayer(layer.id, v); if (msg) this.announce(msg); else (document.getElementById("p-layer-name") as HTMLInputElement).value = layer.name; })),
       this.slideTimingFields(m),
+      this.slideNavigationFields(m),
       this.courseFields(m),
     );
   }
@@ -2940,6 +3019,7 @@ ${errorText(err)}`);
       ...(o.type === "certificate" ? this.certificateFields(m, o) : []),
       ...(o.type === "download" ? this.downloadFields(m, o) : []),
       ...(o.type === "timer" ? this.timerFields(m, o) : []),
+      ...(isPictureBox(o) ? this.pictureBoxFields(m, o) : []),
       h("fieldset", {}, h("legend", { text: "Position and size" }),
         this.field("x", "Left edge (X)", o.geometry.x, num("x"), { number: true }),
         this.field("y", "Top edge (Y)", o.geometry.y, num("y"), { number: true }),

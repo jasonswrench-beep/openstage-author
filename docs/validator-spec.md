@@ -291,6 +291,15 @@ millisecond values within an hour, nothing else allowed. A `duration` must be ab
 All are errors, so a course cannot be published until each is settled. A `download` is a control, so it also needs
 alt text and a tab order of 1 or more like the other controls.
 
+### Slides that leave out Back and Next
+
+| Rule | Message |
+| --- | --- |
+| A slide with `hideNavigation` has nothing that goes to another slide: it has no `duration`, and none of its objects, on any layer, has a rule that jumps to a slide, goes to the next slide or goes to the previous slide (`navigation-no-way-out`) | A slide with no Back and Next has no way out |
+
+An error, because a learner who reached the slide could never leave it. The last slide of the course is let be (it has nowhere to go), so is a slide that moves on by itself. The editor
+warns when **Leave out Back and Next** is ticked on a slide with no way out yet, and the three game sets hide Back and Next on every slide but their last, each of which has a way on of its own.
+
 ### Question banks and shuffled answers
 
 | Rule | Message |

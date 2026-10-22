@@ -511,6 +511,9 @@ const decoration = (alloc: Alloc, d: Decoration): OSObject => ({
 export const isLayoutDecoration = (o: OSObject): boolean =>
   o.type === "shape" && o.accessibility.decorative && (o.name === "Accent" || o.name === "Picture area" || o.name === "Chart area");
 
+/** A grey box from a layout that marks where a picture (or a picture of a chart) goes. */
+export const isPictureBox = (o: OSObject): boolean => isLayoutDecoration(o) && (o.name === "Picture area" || o.name === "Chart area");
+
 const SLOT_NAMES = new Set([...SLIDE_LAYOUTS.flatMap((l) => l.slots.map((s) => s.name)), "Text box"]);
 const PLACEHOLDER_TEXTS = new Set(SLIDE_LAYOUTS.flatMap((l) => l.slots.map((s) => s.text)));
 

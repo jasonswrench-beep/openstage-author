@@ -21,6 +21,10 @@
       "description": "A theme background such as theme:bg.dark, a hex colour, or null for the theme's default.",
       "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^(#[0-9a-fA-F]{6}|theme:bg\\.(default|dark|accent))$" }]
     },
+    "hideNavigation": {
+      "description": "Optional, added in 0.34.0. true means the course's own Back and Next are not shown on this slide, so the learner leaves it only through a button or link on the slide itself. Absent means they are shown. Used by the games, where the way on is the game.",
+      "const": true
+    },
     "provenance": {
       "description": "Optional. Set on a slide that the Capture module made from a recorded step, or that was imported from a slide of a PowerPoint deck, so a changed recording or deck can be brought forward without losing the author's edits.",
       "oneOf": [{ "type": "null" }, { "$ref": "object.schema.json#/$defs/captureProvenance" }, { "$ref": "object.schema.json#/$defs/slideImportProvenance" }]

@@ -606,6 +606,8 @@ export interface Slide {
   /** Present on a slide the Capture module made from a recorded step, or that was imported from a PowerPoint deck. */
   provenance?: CaptureProvenance | SlideImportProvenance | null;
   duration: number | null;
+  /** True means the course's own Back and Next are not shown on this slide: the learner leaves it only through something on the slide. Absent means shown. */
+  hideNavigation?: true;
   /** The layout the slide was made from, or null. Layouts are built into the editor. */
   layout: string | null;
   /** A theme background such as "theme:bg.dark", a hex colour, or null for the theme's default. */

@@ -822,5 +822,6 @@
         }
       ]
     }
-  ]
+  ],
+  "hideNavigation": true
 }

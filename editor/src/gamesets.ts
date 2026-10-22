@@ -163,6 +163,14 @@ const triggerIds = (): (() => string) => {
   return () => `trg-${String(++n).padStart(4, "0")}`;
 };
 
+/**
+ * Every slide of a game but the last leaves out the course's Back and Next, so a player cannot page through the game to see its slides: they go on only by
+ * playing (a tile, an answer, the door). The last slide, the score, keeps them. The validator checks that each of these slides has a way out of its own.
+ */
+function hideBackAndNext(slides: Slide[]): void {
+  for (const slide of slides.slice(0, -1)) slide.hideNavigation = true;
+}
+
 function questionSlide(ctx: GameContext, id: string, boardId: string, category: number, row: number, usedVariable: string, playedVariable: string): Slide {
   const { alloc } = ctx;
   const value = tileValue(row);
@@ -179,11 +187,15 @@ function questionSlide(ctx: GameContext, id: string, boardId: string, category: 
   const wrongText = "Not quite. Say what the right answer is, and why.";
   wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
   wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
-  // Always there, so a learner who arrives at a question already answered (resuming at the board, say) is never stuck. It does not mark the tile
-  // as used: only answering does, so leaving a question alone leaves its tile open.
-  const back = button(alloc, "Back to the board", "Back to the board", [80, 640, 280, 56], 30, 4);
-  back.triggers = buildActivation({ kind: "jump", slideId: boardId });
-  return slideWith(id, `Category ${category + 1}: ${value}`, [points, ...built.objects, back], built.layers);
+  // The way back to the board is in the feedback, so it appears when the question is answered and not before: a player cannot skip a question and
+  // go looking at the others. One try means any answer finishes the question, so one of the two layers always shows. A learner who comes back to an
+  // answered question (resuming) finds the feedback, and the button, as they left it.
+  for (const layer of built.layers) {
+    const back = button(alloc, "Back to the board", "Back to the board", [80, 640, 280, 56], 30, 2);
+    back.triggers = buildActivation({ kind: "jump", slideId: boardId });
+    layer.objects.push(back);
+  }
+  return slideWith(id, `Category ${category + 1}: ${value}`, [points, ...built.objects], built.layers);
 }
 
 /** The last slide of a game: the score and each question, and, for a game that can be gone back into, a way back to `backTo`. */
@@ -256,6 +268,7 @@ function buildQuizBoard(ctx: GameContext, o: GameOptions): GameBuild {
     for (let r = 0; r < rows; r++) slides.push(questionSlide(ctx, questionIds[c]![r]!, boardId, c, r, used[c]![r]!, played));
   }
   slides.push(resultsSlide(ctx, resultsId, boardId));
+  hideBackAndNext(slides);
 
   return {
     slides,
@@ -398,6 +411,7 @@ function buildPrizeLadder(ctx: GameContext, o: GameOptions): GameBuild {
   const slides: Slide[] = [intro];
   for (let level = 1; level <= rungs; level++) slides.push(ladderQuestion(ctx, questionIds[level - 1]!, level === rungs ? resultsId : questionIds[level]!, level, rungs, group()));
   slides.push(resultsSlide(ctx, resultsId, null));
+  hideBackAndNext(slides);
 
   return {
     slides,
@@ -602,6 +616,7 @@ function buildEscapeRoom(ctx: GameContext, o: GameOptions): GameBuild {
     slides.push(lockSlide(ctx, lockIds[k]!, roomIds[k]!, k === rooms - 1 ? resultsId : roomIds[k + 1]!, k + 1, rooms, tries, used[k]!));
   }
   slides.push(resultsSlide(ctx, resultsId, null, "You escaped"));
+  hideBackAndNext(slides);
 
   return {
     slides,

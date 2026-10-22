@@ -208,70 +208,6 @@
           "tabOrder": 3,
           "decorative": false
         }
-      },
-      {
-        "id": "obj-0042",
-        "geometry": {
-          "x": 80,
-          "y": 640,
-          "width": 280,
-          "height": 56,
-          "rotation": 0,
-          "z": 30
-        },
-        "states": {},
-        "triggers": [
-          {
-            "id": "trg-0001",
-            "event": "click",
-            "action": "jumpToSlide",
-            "target": "slide-002",
-            "conditions": []
-          },
-          {
-            "id": "trg-0002",
-            "event": "keyActivate",
-            "action": "jumpToSlide",
-            "target": "slide-002",
-            "conditions": []
-          }
-        ],
-        "timing": {
-          "appear": "time",
-          "start": 0,
-          "visibleFor": null
-        },
-        "animation": {
-          "enter": {
-            "effect": "none",
-            "duration": 500
-          },
-          "exit": {
-            "effect": "none",
-            "duration": 500
-          }
-        },
-        "narration": null,
-        "provenance": null,
-        "simulation": null,
-        "type": "button",
-        "name": "Back to the board",
-        "content": {
-          "label": "Back to the board"
-        },
-        "style": {
-          "fontFamily": "theme:font.body",
-          "fontSize": 18,
-          "color": "theme:color.onAccentStrong",
-          "fill": "theme:color.accentStrong",
-          "radius": 8
-        },
-        "accessibility": {
-          "altText": "Back to the board",
-          "role": "button",
-          "tabOrder": 4,
-          "decorative": false
-        }
       }
     ]
   },
@@ -324,6 +260,70 @@
             "altText": "Correct. Tab moves forward and Shift with Tab moves back.",
             "role": "status",
             "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0083",
+          "geometry": {
+            "x": 80,
+            "y": 640,
+            "width": 280,
+            "height": 56,
+            "rotation": 0,
+            "z": 30
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0017",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-002",
+              "conditions": []
+            },
+            {
+              "id": "trg-0018",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-002",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Back to the board",
+          "content": {
+            "label": "Back to the board"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Back to the board",
+            "role": "button",
+            "tabOrder": 2,
             "decorative": false
           }
         }
@@ -379,8 +379,73 @@
             "tabOrder": 1,
             "decorative": false
           }
+        },
+        {
+          "id": "obj-0084",
+          "geometry": {
+            "x": 80,
+            "y": 640,
+            "width": 280,
+            "height": 56,
+            "rotation": 0,
+            "z": 30
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0019",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-002",
+              "conditions": []
+            },
+            {
+              "id": "trg-0020",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-002",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "Back to the board",
+          "content": {
+            "label": "Back to the board"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "Back to the board",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
         }
       ]
     }
-  ]
+  ],
+  "hideNavigation": true
 }

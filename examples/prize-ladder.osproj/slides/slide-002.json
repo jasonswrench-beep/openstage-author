@@ -584,5 +584,6 @@
       }
     ]
   },
-  "layers": []
+  "layers": [],
+  "hideNavigation": true
 }

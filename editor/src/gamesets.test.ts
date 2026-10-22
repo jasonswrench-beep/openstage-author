@@ -205,15 +205,30 @@ test("the wrong-answer feedback does not offer another try, because there is onl
   assert.equal(wrong.accessibility.altText, "Not quite. Say what the right answer is, and why.");
 });
 
-test("every question slide always has a way back to the board, so nobody is stuck on a question that is already answered", () => {
+/** The way back to the board on a question slide: it is in the feedback, on both layers, so it is only there once the question is answered. */
+const backOf = (slide: Slide): OSObject => [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).find((o) => o.name === "Back to the board")!;
+
+test("a question's way back to the board is in its feedback, so it shows once the question is answered and not before, and every answer has it", () => {
   const { board: b, questions } = board();
   for (const slide of questions) {
-    const back = slide.baseLayer.objects.find((o) => o.name === "Back to the board")!;
-    assert.deepEqual(readActivation(back.triggers), { kind: "jump", slideId: b.id });
-    assert.equal(back.content["label"], "Back to the board");
-    assert.equal(back.accessibility.altText, "Back to the board");
-    assert.equal(back.triggers.some((t) => t.action === "setVariable"), false, "leaving does not use the tile up; only answering does");
+    assert.ok(!slide.baseLayer.objects.some((o) => o.name === "Back to the board"), "not on the slide itself: nobody can skip the question");
+    assert.equal(slide.layers.length, 2);
+    for (const layer of slide.layers) {
+      const back = layer.objects.find((o) => o.name === "Back to the board")!;
+      assert.ok(back, `the ${layer.name} has it`);
+      assert.deepEqual(readActivation(back.triggers), { kind: "jump", slideId: b.id });
+      assert.equal(back.content["label"], "Back to the board");
+      assert.equal(back.accessibility.altText, "Back to the board");
+      assert.equal(back.triggers.some((t) => t.action === "setVariable"), false, "leaving does not use the tile up; only answering does");
+    }
   }
+});
+
+test("a game's slides leave out Back and Next, except the last, where the score is", () => {
+  const { board: b, questions, results } = board();
+  assert.equal(b.hideNavigation, true);
+  for (const q of questions) assert.equal(q.hideNavigation, true);
+  assert.equal(results.hideNavigation, undefined, "the score slide keeps Back and Next");
 });
 
 test("Finish is dimmed until every tile is used, then goes to the results, which have a way back to the board", () => {
@@ -326,7 +341,7 @@ function answer(p: Played, tile: OSObject, questionSlide: Slide, how: "right" | 
   assert.equal(p.rt.currentSlide!.id, questionSlide.id, "the tile opens its own question");
   const choice = answersOf(questionSlide)[how];
   assert.ok(p.rt.submitQuiz(quizOf(questionSlide).id, choice, "click"));
-  p.rt.fire(questionSlide.baseLayer.objects.find((o) => o.name === "Back to the board")!.id, "click");
+  p.rt.fire(backOf(questionSlide).id, "click");
 }
 
 test("the game plays: pick a tile, answer, come back to a board where that tile is dimmed, and Finish opens when every tile has been used", () => {
@@ -368,7 +383,8 @@ test("leaving a question alone leaves its tile open, and answering twice does no
   const played = variableByName(m, "Tiles played").id;
   p.rt.goTo(b.id);
   p.rt.fire(tile(0, 0).id, "click");
-  p.rt.fire(questions[0]!.baseLayer.objects.find((o) => o.name === "Back to the board")!.id, "click");
+  assert.ok(questions[0]!.layers.every((l) => !p.rt.visibleLayers.has(l.id)), "on a question not yet answered, neither feedback is showing, so there is no way back yet");
+  p.rt.fire(backOf(questions[0]!).id, "click");
   assert.equal(p.rt.currentSlide!.id, b.id);
   assert.equal(p.rt.variables.get(played), 0);
   assert.equal(p.looks.get(tile(0, 0).id), undefined, "still open");
@@ -513,7 +529,7 @@ test("the quiz-board example passes the real validator with no findings at all, 
     p.rt.fire(t.id, "click");
     assert.equal(p.rt.currentSlide!.id, question.id);
     assert.ok(p.rt.submitQuiz(quizOf(question).id, answersOf(question).right, "click")!.correct);
-    p.rt.fire(question.baseLayer.objects.find((o) => o.name === "Back to the board")!.id, "click");
+    p.rt.fire(backOf(question).id, "click");
   }
   assert.equal(p.looks.get(finish.id), undefined, "every tile used, so Finish is open");
   assert.equal(tiles.filter((t) => p.looks.get(t.id) === "disabled").length, 9);
@@ -1304,4 +1320,16 @@ test("the score a game shows is the quiz points the course already counts: answe
   answer(p, tile(1, 1), questions[3]!, "right");
   assert.equal(shown(), "400");
   assert.equal(percent(), "67", "400 of the 600 points there were");
+});
+
+test("the prize ladder and the escape room leave out Back and Next on every slide but the score, and every one of those slides has a way out of its own", () => {
+  for (const game of [ladderGame(), escapeGame()]) {
+    const slides = game.made.slides;
+    assert.ok(slides.slice(0, -1).every((s) => s.hideNavigation === true), "all but the last leave them out");
+    assert.equal(slides[slides.length - 1]!.hideNavigation, undefined, "the score keeps them");
+    for (const slide of slides.slice(0, -1)) {
+      const ways = [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).flatMap((o) => o.triggers).filter((t) => t.action === "jumpToSlide");
+      assert.ok(ways.length > 0, `${slide.name} has a button that goes somewhere`);
+    }
+  }
 });

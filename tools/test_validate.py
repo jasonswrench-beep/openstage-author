@@ -513,6 +513,58 @@ class ShuffledAnswers(unittest.TestCase):
             self.assertTrue([f for f in p.run() if f.severity == "error"])
 
 
+class HiddenNavigation(unittest.TestCase):
+    """A slide that leaves out the course's Back and Next must have a way out of its own."""
+
+    def hide(self, p, slide="slides/slide-001.json", **over):
+        def go(d):
+            d["hideNavigation"] = True
+            d.update(over)
+        p.edit(slide, go)
+        return p.run()
+
+    def test_a_slide_with_a_button_that_goes_to_a_slide_is_fine(self):
+        with MutatedProject() as p:
+            found = self.hide(p)
+            self.assertEqual(rules(found, "navigation-no-way-out"), [])
+            self.assertEqual([f for f in found if f.severity == "error"], [])
+
+    def test_a_slide_with_nothing_that_goes_anywhere_is_an_error(self):
+        with MutatedProject() as p:
+            p.obj(3, lambda o: o["triggers"].clear())
+            found = rules(self.hide(p), "navigation-no-way-out", severity="error")
+            self.assertEqual([f.object_id for f in found], ["slide-001"])
+            self.assertIn("stuck", found[0].detail)
+
+    def test_a_way_out_on_a_layer_counts(self):
+        with MutatedProject() as p:
+            p.obj(3, lambda o: o["triggers"].clear())
+            def add_layer(d):
+                button = json.loads(json.dumps(d["baseLayer"]["objects"][3]))
+                button["id"] = "obj-0099"
+                button["accessibility"]["tabOrder"] = 1
+                button["triggers"] = [{"id": "trg-9998", "event": "click", "action": "nextSlide", "target": "", "conditions": []},
+                                      {"id": "trg-9999", "event": "keyActivate", "action": "nextSlide", "target": "", "conditions": []}]
+                d["layers"].append({"id": "layer-more", "name": "More", "objects": [button]})
+            p.slide1(add_layer)
+            self.assertEqual(rules(self.hide(p), "navigation-no-way-out"), [])
+
+    def test_a_slide_that_moves_on_by_itself_has_a_way_out(self):
+        with MutatedProject() as p:
+            p.obj(3, lambda o: o["triggers"].clear())
+            self.assertEqual(rules(self.hide(p, duration=5000), "navigation-no-way-out"), [])
+
+    def test_the_last_slide_of_the_course_has_nowhere_to_go_and_is_let_be(self):
+        with MutatedProject() as p:
+            found = self.hide(p, slide="slides/slide-002.json")
+            self.assertEqual(rules(found, "navigation-no-way-out"), [])
+
+    def test_only_true_is_allowed(self):
+        with MutatedProject() as p:
+            p.slide1(lambda d: d.__setitem__("hideNavigation", False))
+            self.assertTrue([f for f in p.run() if f.severity == "error"])
+
+
 class Timing(unittest.TestCase):
     """Things that appear, disappear or advance on their own."""
 
@@ -2994,7 +3046,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.33.0")
+        self.assertEqual(project["schemaVersion"], "0.34.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

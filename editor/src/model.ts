@@ -13,7 +13,7 @@ import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newTimer, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { isPictureBox, box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newTimer, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -43,7 +43,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.33.0";
+export const FORMAT_VERSION = "0.34.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1129,6 +1129,37 @@ export class Model {
     const obj = newObject(kind, this.placement(this.allocator().object()), opts);
     this.record("");
     layer.objects.push(obj);
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /**
+   * Put a picture in a grey picture box from a layout: the box is taken away and the picture takes its place, as large as fits inside the box (in the
+   * picture's own proportions) and centred in it. The picture is described by `alt`, which the author is told to check, unless it is decorative.
+   * `credit` is the record of where a library picture came from. One undo step. Null if the box is not a picture box on the layer being edited.
+   */
+  fillPictureBox(boxId: string, picture: { src: string; size?: { w: number; h: number }; name: string; alt: string; decorative?: boolean; credit?: CreditEntry }): OSObject | null {
+    const layer = this.layer;
+    const at = layer ? layer.objects.findIndex((o) => o.id === boxId) : -1;
+    const box = layer && at !== -1 ? layer.objects[at]! : null;
+    if (!layer || !box || !isPictureBox(box) || !picture.src.startsWith("assets/")) return null;
+    const obj = newObject("image", this.placement(this.allocator().object()), { imageSrc: picture.src, ...(picture.size ? { size: picture.size } : {}) });
+    const g = box.geometry;
+    const scale = picture.size ? Math.min(g.width / picture.size.w, g.height / picture.size.h) : 1;
+    const w = picture.size ? Math.round(picture.size.w * scale) : g.width;
+    const h = picture.size ? Math.round(picture.size.h * scale) : g.height;
+    obj.geometry = { ...obj.geometry, x: Math.round(g.x + (g.width - w) / 2), y: Math.round(g.y + (g.height - h) / 2), width: w, height: h, z: g.z };
+    obj.name = picture.name;
+    obj.accessibility = picture.decorative
+      ? { ...obj.accessibility, altText: "", role: "presentation", tabOrder: 0, decorative: true }
+      : { ...obj.accessibility, altText: picture.alt };
+    this.record("");
+    layer.objects.splice(at, 1, obj);
+    if (picture.credit) {
+      const known = this.assets.findIndex((a) => a.path === picture.credit!.path);
+      if (known === -1) this.assets.push(picture.credit); else this.assets[known] = picture.credit;
+    }
     this.sel = { ...this.sel, objectId: obj.id };
     this.emit({ kind: "structure", objectId: obj.id });
     return obj;
@@ -2605,6 +2636,22 @@ export class Model {
     this.emit({ kind: "structure" });
     const question = ms !== null && slide.baseLayer.objects.some((o) => o.type === "quizQuestion");
     return { ok: true, message: ms === null ? "This slide waits for the learner." : `This slide moves on by itself after ${plainSeconds(ms)}.${question ? " It has a question, and a learner could be moved past it." : ""}` };
+  }
+
+  /**
+   * Leave out the course's Back and Next on a slide, or put them back. The learner then leaves the slide only through something on it (a Continue button, a tile),
+   * which is how a game keeps its players in the game. One undo step. The message says what it did, and warns when nothing on the slide goes anywhere.
+   */
+  setHideNavigation(slideId: string, hide: boolean): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc || (doc.slide.hideNavigation === true) === hide) return null;
+    this.record("");
+    if (hide) doc.slide.hideNavigation = true;
+    else delete doc.slide.hideNavigation;
+    this.emit({ kind: "structure" });
+    if (!hide) return "Back and Next are shown on this slide again.";
+    const leaves = doc.slide.duration !== null || [doc.slide.baseLayer, ...doc.slide.layers].some((l) => l.objects.some((o) => o.triggers.some((t) => ["jumpToSlide", "nextSlide", "previousSlide"].includes(t.action))));
+    return `Back and Next are left out of this slide.${leaves ? "" : " Nothing on it goes to another slide yet, so a learner would be stuck: add a button with a rule that goes to a slide."}`;
   }
 
   // ---- rules: what an object makes the course do

@@ -341,6 +341,13 @@ grid of text boxes for the cells, and buttons to insert or delete rows and colum
 columns. Scrolling text is a box of paragraphs that scrolls when it is long, and is a tab stop so the
 keyboard can scroll it. Both use the theme's colours, so only their font and size can be changed.
 
+**Leaving out Back and Next.** With nothing selected, the slide's Properties have a **Moving through the course** box with **Leave out Back and Next on this slide**. The learner then leaves the slide only through something on it
+(a Continue button, a tile) or when its time is up, which is how the games keep players in the game. Ticking it says what it did, and warns if nothing on the slide goes to another slide yet; the Problems list reports the same as an error.
+One step for Undo. The score slide at the end of a game keeps Back and Next.
+
+**The Slides panel's buttons stay in view.** Add slide, Share slides, Slides from a file, Questions from a file and Question banks are pinned to the top of the Slides panel; only the list of slides scrolls under them, so
+in a long course they are never scrolled out of reach.
+
 **Timing.** Everything starts as always there. In the Properties panel every object has a **Timing** section: **Appears**
 (after the slide opens, or after its own narration starts, which needs narration), **Seconds** to wait, and **Stays for**
 (blank: until the slide ends), with a sentence underneath that says it in words ("Appears 2.5 seconds after its narration starts,
@@ -457,7 +464,8 @@ built into the editor and need no format change. Their buttons are already wired
 ordinary slide, not tied to the template, and adding one is a single step for Undo.
 
 **Games.** The Add slide picker has a second group, **Games, ready-made**, after the lesson slides. A game is several slides that jump between each other, with the variables and rules that make it play, built from
-the editor's own parts, so it needed no format change. Choosing one asks how big it should be (a drop-down for each number, labelled, with a line that says how many slides it will add), then adds all its slides after the
+the editor's own parts. A game leaves out the course's Back and Next on every slide but its last (the score), using a slide's `hideNavigation`, so a player goes on only by playing:
+a tile, an answer, the door. On the quiz board a question's **Back to the board** button is in its feedback, so it appears once the question is answered and not before. Choosing one asks how big it should be (a drop-down for each number, labelled, with a line that says how many slides it will add), then adds all its slides after the
 one you are on and selects the first, as one step for Undo that also takes back the variables and the completion setting. Everything you have to write is a placeholder, and what it makes is ordinary slides, not tied to the game afterwards.
 The first game is the **Quiz board**: a board slide with 2 to 6 categories of 2 to 5 tiles each (worth 100 points, then 200, and so on), a question slide for every tile (multiple choice, one try, worth its tile's points), and a results slide.
 A tile opens its question. Answering marks the tile as used and counts it (the question's own rules, which the player runs once, when an answer is accepted), and each time the board opens, a rule dims every used tile, and
@@ -541,8 +549,8 @@ for example taking away the last right answer, is refused and says why. The vali
 
 Questions are not layouts: add a quiz question to any slide as an object. There is no chart object, so a
 chart is a grey "Chart area" and a picture is a "Picture area": decorative boxes that mark where an image
-goes. Export a chart as a picture, add it as an Image, give it alt text that says what the chart shows, and
-delete the box. A table is its own kind of object (see Tables and scrolling text) and can go on any slide, so
+goes. Select the box and its Properties begin with a **Picture box** section with three buttons: **Picture from my computer...** (export a chart as a picture first), **A person from your cast...** (a person's own picture or one of their poses; its alt text starts as their name and pose, or the person's own alt text, and is yours to check) and **A person from the library...** (the character packs; their credit is recorded with the picture). The picture takes the box's place, as large as fits inside it in its own proportions, centred, in one step for Undo,
+and focus moves to its Alt text, which is left empty for a picture from your computer (the editor never makes up a description) and must be written or the picture marked decorative. A table is its own kind of object (see Tables and scrolling text) and can go on any slide, so
 no layout is built around one.
 
 Change layout can be used on a slide that already has content. The words already written move into the
@@ -581,8 +589,7 @@ bars and picture area are recognised by their names ("Accent" and "Picture area"
 
 A layout's own shapes are not stored separately. A slide made from one is an ordinary slide; the editor
 recognises a layout's decorative bars and picture area by their names ("Accent" and "Picture area").
-The picture area is a grey decorative box that marks where a picture goes: add an image, then delete
-the box. Every layout follows the format's accessibility rules, with real headings first in reading
+The picture area is a grey decorative box that marks where a picture goes: select it and use the **Picture box** buttons in Properties, which put the picture in and take the box away. Every layout follows the format's accessibility rules, with real headings first in reading
 order, alt text, a tab order that runs 1, 2, 3, and decoration hidden from screen readers.
 
 **Button actions.** A button can do nothing, go to a slide, show a layer or hide a layer. The editor

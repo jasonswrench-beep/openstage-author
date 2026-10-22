@@ -168,5 +168,6 @@
       }
     ]
   },
-  "layers": []
+  "layers": [],
+  "hideNavigation": true
 }

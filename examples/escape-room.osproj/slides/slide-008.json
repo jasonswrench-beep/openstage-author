@@ -594,5 +594,6 @@
         }
       ]
     }
-  ]
+  ],
+  "hideNavigation": true
 }

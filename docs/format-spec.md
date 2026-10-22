@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.33.0",
+  "schemaVersion": "0.34.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -217,6 +217,12 @@ theme's default. Switching the theme restyles every slide through these two fiel
 `duration` is null for a slide that waits for the learner, or a number of milliseconds
 for one that advances on its own (see Timing). The base layer always exists. Additional layers are
 shown and hidden by triggers.
+
+`hideNavigation` is optional (added in 0.34.0) and, when present, is `true`: the player leaves out the course's **Back** and **Next** buttons while this slide is showing, so the
+learner leaves it only through something on it (a button with a rule that goes to a slide, a tile on a game board) or, if the slide has a `duration`, when its time is up. The three
+game sets set it on every slide but the last, which is how a player stays in the game until it is over. It is written only when true; leaving it out (or removing it) shows Back and Next
+as for any other slide. The validator reports `navigation-no-way-out` when a slide that leaves them out has no way on (see `docs/validator-spec.md`). Only the two buttons are
+left out: the slide counter stays, and the player has no other way of paging through a course, so a slide like this really can only be left in the ways above.
 
 ## An object
 
@@ -1483,6 +1489,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.33.0 | 0.34.0 | Adds the optional `hideNavigation` of a slide (leave out Back and Next on it). Nothing in an older course changes. |
 | 0.32.0 | 0.33.0 | Adds question banks (the optional `banks` of `project.json`) and the optional `shuffle` of a multiple choice or multiple response question. Nothing in an older course changes. |
 | 0.31.0 | 0.32.0 | Adds the timer: an object of type `timer` (`seconds`, `label`, `extendBy`), the event `timerEnd` and the action `stopTimer`. Nothing in an older course changes. |
 | 0.30.0 | 0.31.0 | Adds values in a text: a `text` object's `html` can hold `{{Name}}`, naming a variable or one of the values the course works out (`$score`, `$possible`, `$percent`, `$answered`, `$questions`, `$correct`), and the player shows and updates it. Nothing in an existing project has to change, unless a text already had words in double braces, which now name a value (the validator says if they name nothing). |
