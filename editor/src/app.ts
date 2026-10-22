@@ -2515,7 +2515,7 @@ ${errorText(err)}`);
     // The panel is rebuilt only when its shape changes: another object, or a button whose
     // action now needs a different set of controls. Otherwise values change in place.
     const shape = !o ? "" : o.type === "button" ? `${m.activationOf(o).kind}|${o.content["icon"] ? "icon" : ""}`
-      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}|${referencesIn(String(o.content["html"] ?? "")).length > 0 ? "values" : ""}`
+      : o.type === "text" ? `${parseSimpleText(String(o.content["html"] ?? "")) ? "simple" : "raw"}|${isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : ""}|${referencesIn(String(o.content["html"] ?? "")).length > 0 ? "values" : ""}|${/<(ul|ol)>[\s\S]*<(ul|ol)>/.test(String(o.content["html"] ?? "")) ? "nested" : ""}`
       : o.type === "shape" ? (isBubbleKind(o.content["shape"]) ? "bubble" : "")
       : o.type === "interaction" ? interactionShape(o)
       : o.type === "video" || o.type === "audio" ? `${String(o.content["captions"] ?? "")}|${parseBody(String(o.content["transcript"] ?? "")) === null}`
@@ -2871,6 +2871,7 @@ ${errorText(err)}`);
     set("bubble", isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "");
     set("align", o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? String(o.style["textAlign"]) : "left");
     set("vertical", o.style["verticalAlign"] === "middle" || o.style["verticalAlign"] === "bottom" ? String(o.style["verticalAlign"]) : "top");
+    set("nested", typeof o.style["nestedSize"] === "number" ? Math.round(o.style["nestedSize"] * 100) : 100);
     const fitBox = this.propsBody.querySelector<HTMLInputElement>("#p-fit");
     if (fitBox) fitBox.checked = o.style["autoFit"] === "shrink";
     set("tail", tailOf(o.content["tail"]));
@@ -2964,7 +2965,13 @@ ${errorText(err)}`);
         h("div", { class: "field check" },
           this.tick("checkbox", "fit", "Shrink the words to fit the box", o.style["autoFit"] === "shrink", (on) => { const msg = m.setTextFit(o.id, on); if (msg) this.announce(msg); }),
           h("label", { for: "p-fit", text: "Shrink the words to fit the box" })),
-        h("p", { class: "note", text: "When there are more words than the box holds, they shrink, to no less than half their size or 12 pixels, so they stay inside. Text brought in from PowerPoint has this on if its box did." })] : []),
+        h("p", { class: "note", text: "When there are more words than the box holds, they shrink, to no less than half their size or 12 pixels, so they stay inside. Text brought in from PowerPoint has this on if its box did." }),
+        ...(/<(ul|ol)>[\s\S]*<(ul|ol)>/.test(String(o.content["html"] ?? "")) ? [this.field("nested", "Deeper list levels, as a percent of the level above", typeof o.style["nestedSize"] === "number" ? Math.round(o.style["nestedSize"] * 100) : 100, (v) => {
+          const n = v.trim() === "" ? null : Number(v);
+          const r = m.setNestedSize(o.id, n);
+          if (r.message) this.announce(r.message);
+          this.fillValues(o);
+        }, { number: true })] : [])] : []),
         h("p", { id: "contrast-note", class: "note" }));
     }
     if (o.type === "text" && isBubbleKind(o.content["bubble"])) {

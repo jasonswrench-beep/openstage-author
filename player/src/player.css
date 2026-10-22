@@ -34,6 +34,8 @@ html, body { margin: 0; background: #f3f3f3; }
 /* The space between paragraphs is the number the text says, and nothing else. */
 .os-text.os-spaced :where(p, ul, ol, li, h1, h2, h3, h4, h5, h6) { margin-top: 0; margin-bottom: 0; }
 .os-text.os-spaced > * + *, .os-text.os-spaced li + li, .os-text.os-spaced li > :is(ul, ol) { margin-top: var(--os-gap, 0); }
+/* A list inside a list is drawn as a share of the size of the one it is in (a text from PowerPoint says what share), one level after another. */
+.os-text.os-nested :is(ul, ol) :is(ul, ol) { font-size: calc(var(--os-nest, 1) * 100%); }
 .os-shape { line-height: 0; }
 .os-shape svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .os-text > :first-child { margin-top: 0; }

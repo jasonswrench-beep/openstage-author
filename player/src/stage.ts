@@ -683,6 +683,9 @@ export class StageRenderer {
     const gap = number("paragraphSpacing");
     node.classList.toggle("os-spaced", gap !== undefined);
     if (gap !== undefined) node.style.setProperty("--os-gap", `${gap}px`);
+    const nest = number("nestedSize");
+    node.classList.toggle("os-nested", nest !== undefined && nest > 0);
+    if (nest !== undefined && nest > 0) node.style.setProperty("--os-nest", String(nest));
     // A weight the author chose for a text applies to its headings too.
     node.classList.toggle("os-weighted", style["fontWeight"] !== undefined);
     const fit = style["autoFit"] === "shrink" && !this.reflow;

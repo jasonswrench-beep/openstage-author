@@ -49,6 +49,22 @@ test("each change is one step to undo, and the other style is kept", () => {
   assert.equal(m.object!.style["color"], "#112233");
 });
 
+test("a deeper level of a list can be a share of the level above, from 50 to 150 percent, and 100 is how text starts", () => {
+  const m = fresh();
+  const o = m.addObject("text")!;
+  assert.deepEqual(m.setNestedSize(o.id, 80), { ok: true, message: "Each deeper level of a list is 80 percent of the level above" });
+  assert.equal(o.style["nestedSize"], 0.8);
+  assert.equal(m.setNestedSize(o.id, 80).message, "", "already so");
+  assert.equal(m.setNestedSize(o.id, 49).ok, false);
+  assert.equal(m.setNestedSize(o.id, 151).ok, false);
+  assert.equal(o.style["nestedSize"], 0.8);
+  assert.deepEqual(m.setNestedSize(o.id, 100), { ok: true, message: "Deeper levels of a list are the same size as the level above" });
+  assert.equal("nestedSize" in o.style, false);
+  m.setNestedSize(o.id, 75);
+  m.undo();
+  assert.equal(m.object!.style["nestedSize"], undefined);
+});
+
 test("only a text object takes them", () => {
   const m = fresh();
   const shape = m.addObject("shape")!;

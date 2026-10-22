@@ -486,6 +486,17 @@ test("text: line spacing and the space between paragraphs are kept, and a title 
   assert.equal(title!.style["fontWeight"], "normal");
 });
 
+test("text: a list whose deeper levels are a different size from its first says how much, and the size is the first level's", () => {
+  const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 6, h: 3 }, paras: [
+    { bullet: "char", runs: [{ t: "Main point", sz: 20 }] }, { bullet: "char", lvl: 1, runs: [{ t: "A detail that is much longer than the main point, so most of the words are small", sz: 15 }] },
+    { bullet: "char", runs: [{ t: "Another point", sz: 20 }] },
+  ] }));
+  assert.equal(d!.style["fontSize"], 27, "20 points at 96 to the inch");
+  assert.equal(d!.style["nestedSize"], 0.75, "15 is three quarters of 20");
+  const [same] = convert1(sp({ id: 6, name: "Same", txBox: true, box: { x: 1, y: 1, w: 6, h: 3 }, paras: [{ bullet: "char", runs: [{ t: "One", sz: 20 }] }, { bullet: "char", lvl: 1, runs: [{ t: "Two", sz: 20 }] }] }));
+  assert.equal(same!.style["nestedSize"], undefined, "the same size needs nothing said");
+});
+
 test("text: empty paragraphs between paragraphs were space, so the space is kept and the empty paragraphs are not", () => {
   const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 4, h: 3 }, paras: [
     { runs: [{ t: "One", sz: 20 }] }, { runs: [], endSz: 20 }, { runs: [{ t: "Two", sz: 20 }] },

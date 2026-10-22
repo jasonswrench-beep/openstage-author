@@ -263,7 +263,10 @@ export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | nul
       const runs = shape.paras.flatMap((r) => r.runs).filter((r) => !r.br && r.text.trim() !== "");
       const title = shape.placeholder === "title" || shape.placeholder === "ctrTitle";
       const allBold = runs.length > 0 && runs.every((r) => r.bold);
-      const size = dominant(runs, (r) => r.size);
+      // The size is the one most of the first level's words have; deeper levels of a list are drawn as a share of the level above (see `nestedSize`).
+      const wordsOf = (level: (l: number) => boolean) => shape.paras.filter((q) => level(q.level)).flatMap((q) => q.runs).filter((r) => !r.br && r.text.trim() !== "");
+      const top = wordsOf((l) => l === 0);
+      const size = dominant(top.length > 0 ? top : runs, (r) => r.size);
       const colour = dominant(runs, (r) => r.color);
       const font = dominant(runs, (r) => r.font);
       if (size.mixed) notes.mixedSize += 1;
@@ -278,6 +281,10 @@ export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | nul
       const align = shape.paras[0]?.align;
       if (align) style["textAlign"] = align === "ctr" ? "center" : align === "r" ? "right" : align === "j" ? "justify" : "left";
       Object.assign(style, boxStyle(shape, size.value, p, notes));
+      const deeper = dominant(wordsOf((l) => l === 1), (r) => r.size).value;
+      if (top.length > 0 && size.value !== undefined && deeper !== undefined && deeper !== size.value) {
+        style["nestedSize"] = Math.round(Math.min(1.5, Math.max(0.5, deeper / size.value)) * 100) / 100;
+      }
       if (shape.fill) { style["fill"] = shape.fill; }
       Object.assign(style, strokeStyle(shape.line, p));
       if (shape.fill || shape.line) {

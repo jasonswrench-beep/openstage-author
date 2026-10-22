@@ -806,6 +806,24 @@ export class Model {
     return value === "top" ? "Words start at the top of the box" : value === "middle" ? "Words sit in the middle of the box" : "Words sit at the bottom of the box";
   }
 
+  /**
+   * How big a list inside a list is, as a percent of the list it is in (50 to 150, one level after another). 100, or blank, is how text starts, so nothing is written.
+   * Returns a sentence if it is refused, or says what it did.
+   */
+  setNestedSize(objectId: string, percent: number | null): { ok: boolean; message: string } {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text") return { ok: false, message: "" };
+    if (percent !== null && !(Number.isFinite(percent) && percent >= 50 && percent <= 150)) return { ok: false, message: "A deeper level of a list is from 50 to 150 percent of the level above it." };
+    const next = percent === null || percent === 100 ? null : Math.round(percent) / 100;
+    const now = typeof obj.style["nestedSize"] === "number" ? obj.style["nestedSize"] : null;
+    if (next === now) return { ok: true, message: "" };
+    this.record(`nested:${objectId}`);
+    const { nestedSize: _was, ...rest } = obj.style;
+    obj.style = next === null ? rest : { ...rest, nestedSize: next };
+    this.emit({ kind: "content", objectId });
+    return { ok: true, message: next === null ? "Deeper levels of a list are the same size as the level above" : `Each deeper level of a list is ${Math.round(next * 100)} percent of the level above` };
+  }
+
   /** Whether the words of a text object shrink to fit when there are more than its box holds. Off is how text starts, so it is not written down. */
   setTextFit(objectId: string, on: boolean): string | null {
     const obj = this.find(objectId);
