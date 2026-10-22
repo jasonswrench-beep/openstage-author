@@ -341,6 +341,8 @@ grid of text boxes for the cells, and buttons to insert or delete rows and colum
 columns. Scrolling text is a box of paragraphs that scrolls when it is long, and is a tab stop so the
 keyboard can scroll it. Both use the theme's colours, so only their font and size can be changed.
 
+**Editing formatted text.** Select a text and press **Edit text...** in its Properties, press F2 on the canvas, or double click the text, and the Edit text dialog opens with the words in a box. The buttons make words **Bold**, **Italic** or **Underline**, make or remove a **Link**, make a **Bulleted list** or **Numbered list**, move a list item to a **Deeper level** or a **Shallower level**, and a drop-down changes a paragraph into a heading (Heading 1 to 6) or back. Ctrl+B, Ctrl+I and Ctrl+U work in the box, and Ctrl+K makes a link: it asks for a web or mail address (a plain address such as example.org is given https://), and the words you chose become the link, or, with none chosen, the address itself. The toolbar is one tab stop and the arrow keys move along it; Bold, Italic, Underline and the list buttons say whether they are on (pressed) where the cursor is. **Done** keeps the changes, as one step to undo; **Cancel** throws them away; Escape asks first if you have changed anything. Words pasted in come in as plain words, so nothing a word processor carries gets in. This works for every text, including the lists and several paragraphs a PowerPoint import brings in. **Edit the HTML instead** (under the box) shows the HTML and lets you write it: only paragraphs, headings, lists, bold, italic, underline, links, line breaks, superscript and subscript are kept, and anything else is taken out and its words stay. What is kept is always that plain kind of HTML, whatever the browser's editing box made of it (`editor/src/richtext.ts`).
+
 **Speaker notes as narration.** When the PowerPoint dialog is choosing slides and the presentation has speaker notes, a box, **Use speaker notes as narration**, says how many slides have them. Ticked, each slide's notes become the narration of its heading, or of its first text, or of its first object that is not decoration, in the voice and speed the course already uses; nothing is added to the slide. If a slide's objects are all decoration the report says so. See `docs/powerpoint.md`.
 
 **Text boxes.** For a text, **Words start** (at the top, in the middle or at the bottom of the box) and **Shrink the words to fit the box** are among its looks, beside the font, size, colour and where the words sit across the box. Shrinking keeps the words inside the box on every screen, to no less than half the size or 12 pixels; text brought in from PowerPoint has it on if its box did. See `docs/format-spec.md`, "How words sit in their box".
@@ -636,7 +638,7 @@ background, so the editor stays usable. Only one of them runs at a time. Both ne
 also needs Python, for the problem check.
 
 Not built yet: a background picture for slides (a theme has colours, fonts and one logo); keeping a theme to use in other projects; question banks, shuffled choices and timed questions; scenario situations laid out as a map you can drag (they are edited as a list); setting an object's states (so no rule can change a state yet); narration that is not tied to an object (a slide with nothing to attach it to
-needs an object for it, such as its heading); editing formatted text beyond one paragraph or heading; and a project's `modified` date (it is not updated
+needs an object for it, such as its heading); and a project's `modified` date (it is not updated
 on save).
 
 ## Keyboard
@@ -653,6 +655,8 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | Objects list | Alt+Up and Alt+Down change reading order; Delete removes the object, or all selected objects if it is one of them; Shift with Up, Down, Home or End selects a range; Ctrl+Space adds or removes the focused object |
 | Dragging on the canvas | Hold Alt to drag without snapping |
 | Clicking on the canvas | Clicking an object in a group chooses the whole group; hold Alt and click to choose just that object |
+| Canvas | F2 edits the words of the chosen text (so does a double click on it) |
+| Edit text dialog | Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, Ctrl+K link; the toolbar is one tab stop and Left, Right, Home and End move along it; Escape asks before throwing changes away |
 | Canvas | Arrow keys move 1 pixel, with Shift 10, all the selected objects together; Alt+arrows resize one object or one whole group; Page Down and Page Up choose the next or previous object, and with Shift add it to the selection; Delete removes the selected objects; Escape clears the selection |
 
 Moves, resizes and selections made on the canvas are announced in a polite live region. Alt text and

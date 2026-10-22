@@ -433,3 +433,24 @@ button.small:hover { background: #e3e6eb; }
   .pron-row { grid-template-columns: minmax(0, 1fr); }
   .tl-row { grid-template-columns: 7em minmax(0, 1fr); }
 }
+
+/* The Edit text dialog: a box to write in, a toolbar over it, and the HTML for anyone who would rather write that. */
+.text-dialog .te-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 6px; background: #f4f5f7; border: 1px solid #c3c8d0; border-radius: 6px; }
+.text-dialog .te-toolbar button { padding: 4px 10px; }
+.text-dialog .te-toolbar button[aria-pressed="true"] { background: #d6e3ff; border-color: #0b3fb3; font-weight: 700; }
+.text-dialog .te-toolbar button[aria-disabled="true"] { opacity: .5; cursor: default; }
+.text-dialog .te-link { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 8px; }
+.text-dialog .te-link input { flex: 1 1 18em; min-width: 12em; }
+.text-dialog .te-link[hidden] { display: none; }
+.text-dialog .te-box-label { margin: 10px 0 4px; font-weight: 600; }
+.text-dialog .te-box { min-height: 220px; max-height: 46vh; overflow: auto; padding: 10px 14px; border: 2px solid #1d2530; border-radius: 6px; background: #fff; color: #111; font-size: 18px; line-height: 1.45; }
+.text-dialog .te-box:focus-visible { outline: 3px solid #0b3fb3; outline-offset: 2px; }
+.text-dialog .te-box h1 { font-size: 1.7em; margin: .3em 0; }
+.text-dialog .te-box h2 { font-size: 1.45em; margin: .3em 0; }
+.text-dialog .te-box h3 { font-size: 1.25em; margin: .3em 0; }
+.text-dialog .te-box h4, .text-dialog .te-box h5, .text-dialog .te-box h6 { font-size: 1.05em; margin: .3em 0; }
+.text-dialog .te-box p { margin: .4em 0; }
+.text-dialog .te-box ul, .text-dialog .te-box ol { margin: .4em 0; padding-left: 1.6em; }
+.text-dialog .te-details { margin: 10px 0; }
+.text-dialog .te-details summary { cursor: pointer; padding: 4px 0; }
+.text-dialog .te-html { width: 100%; font-family: Consolas, "Courier New", monospace; font-size: 14px; box-sizing: border-box; }

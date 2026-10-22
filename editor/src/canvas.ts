@@ -25,7 +25,7 @@ export const CANVAS_HINT =
   "Shift and click adds or removes an object, and dragging a box round objects selects them. Ctrl and A selects everything. " +
   "Clicking an object that is in a group chooses the whole group: hold Alt while you click to choose just that object. " +
   "Dragging snaps to the slide's edges and middle and to other objects: hold Alt to drag freely, or use the Snap button. " +
-  "Escape clears the selection. You can also type exact values in the Properties panel, and use Line up.";
+  "F2, or a double click, edits the words of a chosen text. Escape clears the selection. You can also type exact values in the Properties panel, and use Line up.";
 
 const SNAP_KEY = "openstage.snap";
 
@@ -104,6 +104,9 @@ export class Canvas {
   private readonly assetUrls = new Map<string, string>();
   private readonly failedAssets = new Set<string>();
 
+  /** Called when the author asks to edit the words of the chosen text: a double click on it, or F2. The app opens the Edit text dialog. */
+  onEditText: (() => void) | null = null;
+
   constructor(doc: Document, model: () => Model | null, backend: Backend, announce: (m: string) => void) {
     this.model = model;
     this.backend = backend;
@@ -176,6 +179,7 @@ export class Canvas {
     this.overlay.addEventListener("pointermove", (e) => this.onPointerMove(e));
     this.overlay.addEventListener("pointerup", (e) => this.onPointerUp(e));
     this.overlay.addEventListener("pointercancel", (e) => this.onPointerUp(e));
+    this.overlay.addEventListener("dblclick", () => { if (this.model()?.object?.type === "text") this.onEditText?.(); });
     new ResizeObserver(() => this.fit()).observe(this.viewport);
   }
 
@@ -397,6 +401,11 @@ export class Canvas {
 
   private onKey(e: KeyboardEvent): void {
     const m = this.model();
+    if (e.key === "F2" && m?.object?.type === "text" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      this.onEditText?.();
+      return;
+    }
     if (!m || e.ctrlKey || e.metaKey) return;
     const step = e.shiftKey ? 10 : 1;
     const arrows: Record<string, [number, number]> = {

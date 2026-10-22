@@ -76,6 +76,7 @@ import { sizeWords } from "./slidesets.ts";
 import { referencesIn } from "../../player/src/valuetext.ts";
 import { averageColourOf, chooseBackgroundPicture } from "./backgrounddialog.ts";
 import { pickIcon } from "./icondialog.ts";
+import { openTextEditor } from "./textdialog.ts";
 import { chooseMoments } from "./momentdialog.ts";
 import { contentOf as iconContent, iconWords, loadIcons } from "./icons.ts";
 import { BUTTON_LOOKS, CUSTOM_LOOK } from "./buttonlooks.ts";
@@ -250,6 +251,7 @@ export class App {
     this.root = root;
     this.announcer = h("div", { class: "sr-only", role: "status", "aria-live": "polite" });
     this.canvas = new Canvas(document, () => this.model, backend, (m) => this.announce(m));
+    this.canvas.onEditText = () => void this.editText();
 
     this.newBtn = this.tool("New project", "Make a new project (Ctrl+N)", () => void this.newProject());
     this.openBtn = this.tool("Open project", "Open a project folder (Ctrl+O)", () => void this.open());
@@ -4349,16 +4351,36 @@ ${errorText(err)}`);
     });
   }
 
+  /** Edit the words of the chosen text in the Edit text dialog: bold, italic, underline, lists, headings and links. */
+  private async editText(): Promise<void> {
+    const m = this.model;
+    const o = m?.object;
+    if (!m || !o || o.type !== "text") return;
+    const html = await openTextEditor({ name: o.name, html: String(o.content["html"] ?? ""), announce: (msg) => this.announce(msg) });
+    if (html !== null) {
+      const msg = m.setHtml(o.id, html);
+      this.announce(msg ? `${msg}. Press Control Z to undo.` : "The text is as it was.");
+    }
+    this.renderProps(true);
+    document.getElementById("p-edit-text")?.focus();
+  }
+
   private textFields(m: Model, o: OSObject): HTMLElement[] {
     const html = String(o.content["html"] ?? "");
     const simple = parseSimpleText(html);
+    const editButton = this.small("Edit text...", "Edit the words with bold, italic, underline, lists, headings and links (F2, or double click the text)", () => void this.editText());
+    editButton.id = "p-edit-text";
+    editButton.dataset["key"] = "prop:edit-text";
+    const edit = h("div", { class: "btn-row" }, editButton);
     if (!simple) {
       return [
-        h("p", { class: "note", id: "html-note", text: "This text has formatting the editor cannot edit as plain text yet. Its HTML is shown so you can change it by hand." }),
+        h("p", { class: "note", id: "html-note", text: "This text has formatting: lists, bold, several paragraphs or the like. Edit text... opens it with buttons for each. Its HTML is shown below too, for changing by hand." }),
+        edit,
         this.field("html", "HTML", html, (v) => { const msg = m.setHtml(o.id, v); if (msg) this.announce(msg); else this.fillValues(o); }, { area: true, rows: 6, describedBy: "html-note" }),
       ];
     }
     return [
+      edit,
       this.selectField("block", "Style", TEXT_BLOCKS.map((b) => ({ value: b, label: `${BLOCK_LABELS[b]} (size ${BLOCK_SIZES[b]})` })), simple.block, (v) => {
         const cur = parseSimpleText(String(m.object?.content["html"] ?? "")) ?? simple;
         const msg = m.setBlock(o.id, v as TextBlock, cur.text);
