@@ -1,6 +1,6 @@
 # Screen reader pass on the editor
 
-This is a script for testing OpenStage Author with a screen reader, and the place to write down what happened. Nothing in it has been run yet: every result line below is empty on purpose. Please fill them in with exactly what the screen reader said, not a summary.
+This is a script for testing OpenStage Author with a screen reader, and the place to write down what happened. The NVDA half was run on 2026-10-21 (the results are in the tables, and the problems it found are at the end); the Narrator half has not been run. A person who uses a screen reader every day should still run it, because this run could not use NVDA's own keys or the keyboard. Please fill in what is missing with exactly what the screen reader said, not a summary.
 
 **Why this matters.** The release gate says the whole editor is usable with a keyboard alone and with NVDA. The Timeline panel, the lists, the dialogs and the Properties panel are the patterns that new panels (the recorder panel, a clip list, a multi-track timeline) will be built from. If a pattern does not work with a screen reader, it is far cheaper to find out now.
 
@@ -19,9 +19,9 @@ This is a script for testing OpenStage Author with a screen reader, and the plac
 
 | | NVDA | Narrator |
 | --- | --- | --- |
-| Version | | |
-| Speech settings that matter (rate, punctuation level, "report" options) | | |
-| Date and tester | | |
+| Version | 2026.2, portable copy (signed by NV Access), voice turned off and its log read instead | Not run |
+| Speech settings that matter (rate, punctuation level, "report" options) | The defaults of a new profile. Live regions, dialog descriptions and "report dynamic content changes" were on. | |
+| Date and tester | 2026-10-21, run by Claude (an AI) with keys sent through the debugging port. Not a person who uses NVDA every day. | |
 
 ## How to record a result
 
@@ -42,8 +42,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | F6 named each panel as focus arrived: Slides (navigation landmark), Canvas (main landmark), Properties (complementary landmark), Objects, Problems, and Timeline only while it was showing. Shift+F6 went back the same way. Focus was never lost. | works |  |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 2. The Slides, Objects and Problems lists
 
@@ -59,8 +59,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Slides: "list with 9 items, 1. Welcome, button, current"; Down said "2. Knowledge check"; Home and End worked; Enter said "Slide 1 of 9: Welcome."; Alt+Down said "Welcome is now slide 2 of 9". Objects: "Heading is now number 2 of 3 in reading order"; Delete said "Deleted Heading. Press Control Z to undo."; Control+Z said "Undone". Problems: Enter went to the object and said "Selected Timer, timer, at 900, 40, size 340 by 200", but the canvas was first read with the old slide's name. | works, after one fix | The canvas was read as "Slide canvas: Welcome" when a problem on another slide was chosen (fixed: focus now waits a moment). The reading order said "of 3" in a list of 4 objects (one is outside the reading order). |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 3. Working on the slide by keyboard
 
@@ -75,8 +75,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Page Down: "Selected Heading, text, at 80, 72, size 1120 by 96"; Right arrow: "at 81, 72..."; Shift+arrow moved by 10; Alt+arrow: "size 1121 by 96"; Escape: "Selection cleared"; Shift+Page Down: "2 objects selected: Heading, Body."; Ctrl+G: "Grouped 2 objects. Clicking one on the slide now chooses them all...". The slide itself was not read. Each key said one thing. | works |  |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 4. The Properties panel
 
@@ -90,8 +90,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | F6 into Properties: "Properties, Name edit Heading". Each field read with its label and its note as the description; groups were named (Content, Appearance, Text colour, Timing, Animation, Rules). Palette buttons read "Theme colour: Background, toggle button, not pressed". Move earlier read "unavailable". After typing in Name and pressing Tab, focus fell to the top of the page ("OpenStage Author document"). | awkward, fixed | Name (and the narration text) lost focus on Tab because the panel was redrawn (fixed: focus goes to the next control). "Suggestion available, has auto complete" was read on text boxes (fixed). A bare "Default" was read as "default button" (fixed: "Text colour: default"). The native custom-colour picker is read by its colour only ("7% red 7% green 7% blue") whatever its name; the palettes and the Hex code box do the same job. |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 5. Dialogs
 
@@ -104,18 +104,18 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Dialog | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- | --- |
-| New project | NVDA | | | |
-| New project | Narrator | | | |
-| A picker (layout or Add) | NVDA | | | |
-| A picker (layout or Add) | Narrator | | | |
-| Variables | NVDA | | | |
-| Variables | Narrator | | | |
-| Timing | NVDA | | | |
-| Timing | Narrator | | | |
-| Narration | NVDA | | | |
-| Narration | Narrator | | | |
-| Publish and cancel | NVDA | | | |
-| Publish and cancel | Narrator | | | |
+| New project | NVDA | Opened as "New project dialog" and then every word in it (before the fix); "Project title (required) edit required blank"; Tab: Author, Language code, Theme combo box. | works, after the fix to every dialog | |
+| New project | Narrator | Not run (only NVDA was available) | | |
+| A picker (layout or Add) | NVDA | The layout picker read all 35 layouts with what each is for, twice, when it opened (before the fix); now it says its first paragraph. A layout is "radio button, checked, 2 of 35"; Tab reached Add slide and Cancel. The Add list's picker, with Timer in it, was reached; its first Tab stops were read after a delay. | awkward, fixed | |
+| A picker (layout or Add) | Narrator | Not run (only NVDA was available) | | |
+| Variables | NVDA | "Variables dialog" and its note; Name edit, Kind combo box, Add variable, Close. Escape: "Variables closed." and focus back on the button. | works, after the fix to every dialog | |
+| Variables | Narrator | Not run (only NVDA was available) | | |
+| Timing | NVDA | As pattern 7. | works | |
+| Timing | Narrator | Not run (only NVDA was available) | | |
+| Narration | NVDA | "Narration dialog", its status (35 narrations, none with audio, no speech engine) and "Make all missing audio (35), button, unavailable". Escape: "Narration closed." | works | |
+| Narration | Narrator | Not run (only NVDA was available) | | |
+| Publish and cancel | NVDA | Not run. |  | |
+| Publish and cancel | Narrator | Not run (only NVDA was available) | | |
 
 ### 6. Announcements
 
@@ -125,8 +125,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Move: "Heading, text, at 81, 72..."; resize: "size 1121 by 96"; Control+Z: "Undone"; Control+Y: "Redone"; Delete: "Deleted Heading. Press Control Z to undo."; Control+S: "Saved. 1 file written". Each once, in plain words. The count of problems ("Problems: 2 warnings") now waits until 2.5 seconds after anything else was said, so it does not talk over "Added ...". | works | NVDA's own echo of typed letters could not be tried (keys are sent through the debugging port, not the keyboard). |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 7. The Timing list
 
@@ -139,8 +139,8 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Opened as "Timing: Welcome dialog" with its note. The table was read as a table: "Timing of each object on this slide table", then each box with its row and column ("Heading row 2 Appears column 2, Heading: when it appears, combo box"). Escape: "Timing closed." and focus back on the Timing button. | works |  |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 8. The Timeline panel (the most important one)
 
@@ -155,16 +155,16 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Grip: "Heading: when it appears, slider, 0 seconds after the slide opens". Right: "0.1 seconds after the slide opens"; Shift+Right: "1.1 seconds..."; Page Up and Page Down moved by 5 seconds; Home and End worked; the second grip said "disappears 9.9 seconds after it appears", and End "stays until the slide ends". Before the fix every key also said the row's name before and after the grip; now it says the new value and the row's new timing once. | works, after one fix | Every key press used to say the row name, then the grip, then the row name again (the row was redrawn each time; fixed: the row is changed where it stands, and the axis too). |
+| Narrator | Not run (only NVDA was available) | | |
 
 **Answer these three questions too.** They decide how a multi-track timeline for recordings should be built.
 
 | Question | NVDA | Narrator |
 | --- | --- | --- |
-| Do you have to switch to focus mode to use the grips, or does the screen reader switch by itself? | | |
-| Is the value in words read ("0.3 seconds after the slide opens"), or only the number? | | |
-| When focus moves from one row to the next, is the row's name (the group label) read? | | |
+| Do you have to switch to focus mode to use the grips, or does the screen reader switch by itself? | No switch was needed in the way the pass was run: focus went to a grip and NVDA spoke it as a slider. (The pass could not press NVDA's browse mode keys.) | Not run (only NVDA was available) |
+| Is the value in words read ("0.3 seconds after the slide opens"), or only the number? | Yes: "0.1 seconds after the slide opens", "stays until the slide ends", not only the number. | Not run (only NVDA was available) |
+| When focus moves from one row to the next, is the row's name (the group label) read? | Yes: "Body: Always there, grouping" was read, then the grip. | Not run (only NVDA was available) |
 
 ### 9. A scenario in the published course (the most important one for learners)
 
@@ -181,8 +181,8 @@ This pattern is about the course a learner opens, not the editor. Publish `examp
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Cards: "Alex Kim, radio button, not checked, Analyst on Maya's team, Alex, a man with light skin, short black hair and glasses..., 1 of 2"; the arrow keys moved and chose ("Jordan Lee, radio button, checked, ... 2 of 2"). The scenario slide was read as a region with meters, heading and choices. After a choice: "Maya's trust in you is now 2, up 2. How clear you have been is now 2, up 2." then the new situation's heading. Take back my last choice worked and said what the meters were now. | works | A meter is read as "Maya's trust in you: 0 0, on a scale from -5 to 5" (the number twice). Start again was not reached. |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 10. Looks, and the rule that applies one
 
@@ -205,8 +205,8 @@ Submit is read as unavailable and cannot be pressed; after Unlock Submit, "Submi
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | In the course: Mark done said "Step 1 is marked as done" once; Not done yet said nothing; Submit was read as "unavailable"; Unlock Submit said "Submit is ready". The editor half (the Looks box) was not run. | works (course half) | A button that is really disabled is left out of the Tab order; the screen reader finds it by reading the slide. |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 11. The PowerPoint dialog
 
@@ -222,8 +222,8 @@ Use `examples/powerpoint/Introduction to Communication.pptx` and then `Introduct
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Not run: the PowerPoint dialog starts with a file chooser belonging to Windows, which could not be driven. | | |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 12. The learner accessibility panel in the published course
 
@@ -241,8 +241,8 @@ The transcript window is read as a dialog titled with the course, with a heading
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | The button: "Accessibility, button, collapsed" and then "expanded"; the panel: "Accessibility region, heading level 2", its note, and groups Text, Colours and Reading; each control with its label and value; Text size: "125% // Now text size 125 percent.", then "150%..."; Colours: "Dark // Now text size 150 percent, colours: dark."; Reading line: "checked // Now ..., reading line on."; Put everything back: "Everything is as the course has it.". The transcript used to open in silence; now: "Transcript: <title> dialog, heading level 2" and "The words of the transcript region". Escape closed the transcript and focus went to the Accessibility button. | works, after one fix | The transcript window said nothing when it opened (focus was on a box with no name; fixed: focus starts on the title). Read aloud was not run. |
+| Narrator | Not run (only NVDA was available) | | |
 
 ### 13. Captions from the voice, in the captions window
 
@@ -258,16 +258,23 @@ This is about the editor. Select a video on a slide, press **Write captions...**
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | | | |
-| Narrator | | | |
+| NVDA | Not run: the speech model (488 MB) is not on this computer, and the pass did not download it. | | |
+| Narrator | Not run (only NVDA was available) | | |
 
 ## Problems found
 
 | # | Pattern | Screen reader and version | What was said | What should have been said | How bad |
 | --- | --- | --- | --- | --- | --- |
-| 1 | | | | | |
-| 2 | | | | | |
-| 3 | | | | | |
+| 5 | Every dialog | NVDA 2026.2 | On opening, every word in the dialog, and again when focus landed (the layout picker read all 35 layouts) | Its name and one paragraph of what it is for | awkward. Fixed: every dialog now names its first paragraph as its description (`dialogdesc.ts`). |
+| 4 | Properties | NVDA 2026.2 | After typing a new name and pressing Tab: "OpenStage Author document", focus at the top of the page | The next field | awkward. Fixed: when a redraw loses the place Tab was heading for, focus goes there (`keepFocus`). NVDA still says "document" for a moment on the way. |
+| 8 | Timeline | NVDA 2026.2 | Each key press said the row's name, the grip and the row's name again | The new value, and the row's timing once | awkward. Fixed: the row and the axis are changed where they stand (`nudge`, `reshape`). |
+| 2 | Problems list | NVDA 2026.2 | Choosing a problem on another slide read the canvas as "Slide canvas: Welcome" (the old slide) | The new slide's name | awkward. Fixed: focus goes to the canvas 120 ms later, after the browser has passed the new name on. |
+| 4 | Properties | NVDA 2026.2 | "Suggestion available, has auto complete" on text boxes; a bare "Default, button" | No browser suggestions; "Text colour: default" | cosmetic. Fixed (`autocomplete=off`, a label on the button). |
+| 9, 10 | The course (feedback) | NVDA 2026.2 | After Check answer, nothing: the right or wrong feedback was not spoken. A timer's layer text was not spoken either. | "Not quite. Think about how many people..." and "Time is up. The clock ran out." | **blocks a task** for a learner who cannot see the feedback. Fixed: words in a layer's live regions are put in 350 ms after the layer opens, not on the next frame (`stage.ts`). Checked again with NVDA. |
+| 12 | The transcript window | NVDA 2026.2 | Nothing said when it opened | Its name and what it is | awkward. Fixed: focus starts on the title; the words are a named region. |
+| 4 | Properties | NVDA 2026.2 | The custom-colour picker is read as "7% red 7% green 7% blue", without its name, even with the name set | "Text colour: choose any colour..." | cosmetic. Open: a limit of NVDA with the browser's own colour control. The palettes and the Hex code box are the accessible way and are read well. |
+| 9 | A scenario | NVDA 2026.2 | A meter was read as "0 0, on a scale from -5 to 5" | "0, on a scale from -5 to 5" | cosmetic. Open. |
+| 2 | Objects list | NVDA 2026.2 | "Heading is now number 2 of 3 in reading order" in a list of 4 objects | The count that matches the list, or a word about the one outside the reading order | cosmetic. Open. |
 
 How bad: **blocks a task** (you could not do it), **awkward** (you could, with difficulty or confusion), **cosmetic** (a small oddity).
 
@@ -285,6 +292,16 @@ This is not the pass above and does not replace it. It is what the browser tells
 * **The Questions from a file dialog (2026-10-21):** the dialog has its name and a level 2 heading; the steps below it are level 3 headings ("What was found", "Rows to look at", "The questions"); the rows to look at and the questions are named lists; the choices for how to add them are a group with a legend and every box has its own label; focus moves to the summary after a file is read, so it is read out; the add button names how many questions and where they go.
 * **The timer in a published course (2026-10-21, read from the page, not the accessibility tree):** a group named by the author's name for it; the clock is a `timer` named by the label above it and set not to be read as it changes; the bar is hidden from assistive technology; the two buttons are real buttons with their words as names, and a button that cannot be used is dimmed with `aria-disabled` (not `disabled`), so the keyboard is not lost when it is pressed; a status region of the timer's own says the marks, time added, the timer off and time up. What NVDA actually says, and whether it says those messages in turn, is for the pass.
 * **Not looked at this way:** the Properties panel (it uses the same labelled boxes as every other object's), the scenario editor, and the editors for questions and interactions.
+
+## How the NVDA pass was run, and what it cannot say (2026-10-21)
+
+NVDA 2026.2 (a portable copy, signed by NV Access, downloaded with the author's yes) ran with its voice turned off and its debug log on, which records every line it would speak. The editor (a desktop window made of web content) and the published course pages (in Edge) were driven through the browser debugging port: keys, focus changes and clicks were sent to the page, and each key's speech was read from the log and written down. The scripts are not part of the repository; the results above are.
+
+**Privacy.** NVDA hears the whole computer, including a window in the background that is changing its own text. A line of speech was kept only if the program being tested was in front the whole time and every piece of it was either NVDA's own wording ("button", "collapsed") or something the page being tested says (its text, labels and what the browser gives assistive technology). Anything else was thrown away unseen, and the raw log was deleted when each run ended. Even so, text from another window reached the first notes of this pass once, before the filter was strict; it was deleted, and none of it is kept.
+
+**What it could not tell.** The keys were not typed on a keyboard, so NVDA's echo of typed letters and its browse mode keys (for reading a page line by line) were not tried. Narrator was not tried. Reading a page with NVDA's own cursor was not tried: the pass moved focus with Tab, the arrow keys and F6 and listened to what came. A person who uses NVDA every day will find more.
+
+**Not covered.** Pattern 11 (the PowerPoint dialog: a Windows file chooser) and pattern 13 (captions from a voice: the model is not installed), the Publish dialog, the editor half of pattern 10 (the Looks box), Read aloud in the course, and the folder chooser of the New project dialog. The Share slides, Question banks and Questions from a file dialogs, the timer's Properties, a question that mixes its answers, and the timer, a bank and the feedback in a course page were covered, because they are new.
 
 ## When it is done
 

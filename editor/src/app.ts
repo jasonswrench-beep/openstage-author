@@ -379,6 +379,9 @@ export class App {
     this.workspace.hidden = true;
 
     document.addEventListener("keydown", (e) => this.onGlobalKey(e));
+    // Remembered so that a redraw that loses focus can put it where Tab was taking it (see keepFocus).
+    document.addEventListener("keydown", (e) => { if (e.key === "Tab") this.lastTab = { at: Date.now(), back: e.shiftKey }; }, true);
+    document.addEventListener("focusin", (e) => { const k = (e.target as HTMLElement).dataset?.["key"]; if (k) this.lastKey = k; }, true);
     backend.guardClose(() => this.model?.dirty ?? false);
     this.updateChrome();
   }
@@ -1846,7 +1849,8 @@ ${errorText(err)}`);
     return [h("fieldset", {}, h("legend", { text: "Timer" }),
       this.field("timer-seconds", "Seconds to count down (5 to 3600)", c.seconds, (v) => { say(m.setTimerSeconds(o.id, Number(v))); this.fillTimer(o); }, { number: true }),
       this.field("timer-label", "Words above the clock", c.label, (v) => { say(m.setTimerLabel(o.id, v)); this.fillTimer(o); }),
-      this.field("timer-extend", "Seconds the Add time button gives (0 for no button)", c.extendBy, (v) => { say(m.setTimerExtend(o.id, Number(v))); this.fillTimer(o); }, { number: true, describedBy: "timer-note" }),
+      this.field("timer-extend", "Seconds the Add time button gives (0 for no button)", c.extendBy, (v) => { say(m.setTimerExtend(o.id, Number(v))); this.fillTimer(o); }, { number: true, describedBy: "timer-extend-note" }),
+      h("p", { id: "timer-extend-note", class: "note", text: "The Turn off the timer button is always there." }),
       h("p", { id: "timer-note", class: "note", text: "The timer starts when its layer is shown (when the slide opens, for the base layer). It always has a Turn off the timer button: a learner who turns it off has no timer on any later slide in that visit, and pausing the timing or choosing Show everything now holds or ends it too. A rule on the timer that happens when the time runs out says what follows. To stop it when a question is answered, add a rule to the question or its button that stops the timer. The clock is read on request; a screen reader is told at a minute, thirty seconds and ten seconds to go, and when time is added or up." }))];
   }
 
@@ -2175,8 +2179,33 @@ ${errorText(err)}`);
   /** Redraw part of the window but put focus back on the same control, so keyboard users keep their place. */
   private keepFocus(fn: () => void): void {
     const key = (document.activeElement as HTMLElement | null)?.dataset?.["key"];
+    // A text box that is left with Tab changes its value at the moment focus moves on, when the page already says nothing has focus. If that
+    // redraws the panel, the place focus was moving to is gone, and focus falls to the top of the page (found with NVDA, 2026-10-21). So the
+    // box that was being left is remembered, and once the key press is over, if focus did fall, it goes to the control Tab was heading for.
+    const tab = this.lastTab;
+    const leaving = tab && Date.now() - tab.at < 600 ? this.lastKey : "";
     fn();
     if (key) this.refocus(key);
+    if (leaving && tab) {
+      window.setTimeout(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        this.focusBeside(leaving, tab.back);
+      }, 0);
+    }
+  }
+
+  /** The key of the control that last had focus, for the same purpose. */
+  private lastKey = "";
+
+  /** The key of a Tab press just made, so a redraw that loses focus can put it where Tab was taking it. */
+  private lastTab: { at: number; back: boolean } | null = null;
+
+  private focusBeside(key: string, back: boolean): void {
+    const stops = [...this.root.querySelectorAll<HTMLElement>("input, select, textarea, button, [tabindex]")]
+      .filter((e) => e.tabIndex >= 0 && !(e as HTMLInputElement).disabled && e.offsetParent !== null && !e.closest("[hidden]"));
+    const at = stops.findIndex((e) => e.dataset["key"] === key);
+    if (at === -1) return;
+    stops[Math.min(stops.length - 1, Math.max(0, at + (back ? -1 : 1)))]?.focus();
   }
 
   private refocus(key: string): void {
@@ -2318,8 +2347,10 @@ ${errorText(err)}`);
     const slideId = f.file.startsWith("slides/") ? f.file.slice("slides/".length).replace(/\.json$/, "") : "";
     if (slideId && m.slides.some((s) => s.id === slideId)) {
       if (!m.reveal(slideId, f.object_id)) m.selectSlide(slideId);
-      this.canvas.focus();
-      this.announce(m.object ? `Selected ${m.describe(m.object)}. ${f.message}` : `${f.message}`);
+      const said = m.object ? `Selected ${m.describe(m.object)}. ${f.message}` : `${f.message}`;
+      // The canvas is named for the slide it shows, and the browser passes the new name to a screen reader a moment after the page changes. Focus that
+      // goes to the canvas at once gets the old slide's name read out (found with NVDA, 2026-10-21), so it waits a moment.
+      window.setTimeout(() => { this.canvas.focus(); this.announce(said); }, 120);
     } else {
       this.announce(`${f.message}. ${f.detail}`);
     }
@@ -2360,7 +2391,7 @@ ${errorText(err)}`);
   private field(id: string, label: string, value: string | number | null, onChange: (v: string) => void, opts: { number?: boolean; area?: boolean; describedBy?: string; rows?: number } = {}): HTMLElement {
     const input = opts.area
       ? h("textarea", { id: `p-${id}`, rows: opts.rows ?? 3 })
-      : h("input", { id: `p-${id}`, type: opts.number ? "number" : "text", ...(opts.number ? { step: "any" } : {}) });
+      : h("input", { id: `p-${id}`, type: opts.number ? "number" : "text", autocomplete: "off", ...(opts.number ? { step: "any" } : {}) });
     input.value = value === null ? "" : String(value);
     input.dataset["key"] = `prop:${id}`;
     if (opts.describedBy) input.setAttribute("aria-describedby", opts.describedBy);
@@ -3143,7 +3174,8 @@ ${errorText(err)}`);
     const themed = group(`${label}: theme colours`, COLOR_ROLES.map((r) => ({ name: `Theme colour: ${COLOR_ROLE_NAMES[r] ?? r}`, hex: m.theme.colors[r], value: colorRef(r), id: `theme-${r}` })));
     const fixed = group(`${label}: other colours`, PALETTE.map((c) => ({ name: c.name, hex: c.hex, value: c.hex, id: c.hex })));
 
-    const picker = h("input", { id: `p-${idKey}-picker`, type: "color" });
+    // NVDA reads a colour well by its colour alone ("7% red 7% green 7% blue") and drops its label, so the name is put on the control itself.
+    const picker = h("input", { id: `p-${idKey}-picker`, type: "color", "aria-label": `${label}: choose any colour with the system colour chooser` });
     picker.dataset["key"] = `prop:${idKey}-picker`;
     picker.addEventListener("change", () => apply(picker.value));
     const hex = h("input", { id: `p-${idKey}`, type: "text", size: 9 });
@@ -3155,7 +3187,8 @@ ${errorText(err)}`);
       else if (n) apply(n);
       else { this.announce("A colour must be a hex code such as #1a1a1a. You can also pick one from the palettes."); update(String(styleNow()[key] ?? "")); }
     });
-    const none = h("button", { type: "button", class: "small", text: noneLabel });
+    // A bare "Default" is read as "default button", which means something else on a form, so the button says what it is the default of.
+    const none = h("button", { type: "button", class: "small", text: noneLabel, "aria-label": `${label}: ${noneLabel.toLowerCase()}` });
     none.dataset["key"] = `prop:${idKey}-none`;
     none.addEventListener("click", () => apply(cleared));
 

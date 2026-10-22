@@ -382,7 +382,12 @@ export class AccessibilityPanel {
     const h = make(this.doc, "h2", "");
     h.id = "os-a11y-transcript-title";
     h.textContent = `Transcript: ${t.title}`;
+    // The words scroll, so they can be reached by keyboard; a region with a name, so a screen reader says what it is when focus lands there.
+    h.tabIndex = -1;
     const body = make(this.doc, "div", "os-a11y-transcript-body");
+    body.setAttribute("role", "region");
+    body.setAttribute("aria-label", "The words of the transcript");
+    body.tabIndex = 0;
     for (const s of t.sections) {
       const sh = make(this.doc, "h3", "");
       sh.textContent = s.title;
@@ -408,6 +413,9 @@ export class AccessibilityPanel {
     d.append(h, body, actions);
     d.addEventListener("close", () => this.button.focus(), { once: true });
     d.showModal();
+    // Focus starts on the title, so a screen reader says the transcript's name and what it is. Left to itself the browser put it on the scrolling box,
+    // which had no name, and NVDA said nothing when the transcript opened (found 2026-10-21).
+    h.focus();
   }
 
   private downloadTranscript(): void {

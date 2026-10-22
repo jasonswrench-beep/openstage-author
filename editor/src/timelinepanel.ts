@@ -46,6 +46,8 @@ export class TimelinePanel {
   private readonly opts: TimelinePanelOptions;
   /** True while a grip or a bar is being dragged: the panel is not redrawn under the pointer. */
   private dragging = false;
+  /** A key press is changing one row. The row is changed in place, so a screen reader says the new value and not the whole row again. */
+  private nudging = false;
 
   constructor(opts: TimelinePanelOptions) {
     this.opts = opts;
@@ -73,13 +75,12 @@ export class TimelinePanel {
   /** Draw the timeline again from the model, keeping the grip the author is on. */
   render(): void {
     const m = this.opts.model();
-    if (!m || this.element.hidden || this.dragging) return;
+    if (!m || this.element.hidden || this.dragging || this.nudging) return;
     const focused = document.activeElement instanceof HTMLElement && this.body.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused ? { id: focused.closest<HTMLElement>(".tl-row")?.dataset["id"], grip: focused.dataset["grip"], name: focused.classList.contains("tl-name") } : null;
 
     const view = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs);
-    const timed = view.bars.filter((b) => !isStartingTiming(b.timing)).length;
-    this.summary.textContent = view.bars.length === 0 ? "Nothing on this slide" : `${view.bars.length} ${view.bars.length === 1 ? "object" : "objects"}, ${timed} timed${view.advanceAt === null ? "" : ", moves on by itself"}`;
+    this.summarize(view);
 
     const children: HTMLElement[] = [this.axis(view)];
     let layerId = "";
@@ -103,6 +104,11 @@ export class TimelinePanel {
       const row = [...this.body.querySelectorAll<HTMLElement>(".tl-row")].find((r) => r.dataset["id"] === keep.id);
       (keep.name ? row?.querySelector<HTMLElement>(".tl-name") : keep.grip ? row?.querySelector<HTMLElement>(`[data-grip="${keep.grip}"]`) : null)?.focus();
     }
+  }
+
+  private summarize(view: TimelineView): void {
+    const timed = view.bars.filter((b) => !isStartingTiming(b.timing)).length;
+    this.summary.textContent = view.bars.length === 0 ? "Nothing on this slide" : `${view.bars.length} ${view.bars.length === 1 ? "object" : "objects"}, ${timed} timed${view.advanceAt === null ? "" : ", moves on by itself"}`;
   }
 
   /** The row of times along the top, and the line where the slide moves on. */
@@ -135,15 +141,15 @@ export class TimelinePanel {
       const next = nudged(bar.timing.start, e.key, e.shiftKey, 0, startMax(bar, view.horizon));
       if (next === null) return;
       e.preventDefault();
-      this.apply(m, bar.id, { start: next });
+      this.nudge(m, bar, row, view, { start: next });
     });
     end.addEventListener("keydown", (e) => {
       const room = stayMax(bar, view.horizon);
-      if (e.key === "End") { e.preventDefault(); this.apply(m, bar.id, { visibleFor: null }); return; }
+      if (e.key === "End") { e.preventDefault(); this.nudge(m, bar, row, view, { visibleFor: null }); return; }
       const next = nudged(bar.timing.visibleFor ?? room, e.key, e.shiftKey, MIN_STAY_MS, room);
       if (next === null) return;
       e.preventDefault();
-      this.apply(m, bar.id, { visibleFor: stayFromValue(next, bar, view.horizon) });
+      this.nudge(m, bar, row, view, { visibleFor: stayFromValue(next, bar, view.horizon) });
     });
     // pointer: each grip moves its own time, and the bar moves the whole thing
     const track0 = () => track.getBoundingClientRect();
@@ -231,6 +237,68 @@ export class TimelinePanel {
     end.setAttribute("aria-valuenow", seconds(bar.timing.visibleFor ?? room));
     end.setAttribute("aria-valuetext", endText(bar.timing));
     row.setAttribute("aria-label", `${bar.name}: ${describeTiming(bar.timing, !bar.onBase, bar.clipName)}${bar.approximate ? ". Its narration has no audio yet, so its place on the timeline is only a guess" : ""}`);
+  }
+
+  /**
+   * A change from a key press on a grip. The row is updated where it stands, because drawing the panel again replaced the grip, and
+   * NVDA then said the whole row (its name and its new timing), the grip, and the row's name again for every key (found 2026-10-21).
+   * The panel is drawn again only if something else has to move: the axis, when the timing runs past it, or another object.
+   */
+  private nudge(m: Model, bar: Bar, row: HTMLElement, view: TimelineView, patch: { start?: number; visibleFor?: number | null }): void {
+    if (m.sel.objectId !== bar.id) { this.apply(m, bar.id, patch); return; } // choosing the object redraws the panel, once
+    this.nudging = true;
+    let message = "";
+    try {
+      message = m.setTiming(bar.id, patch).message;
+    } finally {
+      this.nudging = false;
+    }
+    if (message) this.opts.announce(message);
+    const fresh = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs);
+    const now = fresh.bars.find((b) => b.id === bar.id);
+    const others = (v: TimelineView) => v.bars.filter((b) => b.id !== bar.id).map((b) => `${b.id}:${b.from}:${b.to}`).join();
+    if (!now) { this.render(); return; }
+    // The axis may have moved (the timing now runs past the edge) and other rows may have moved with it. They are moved where they stand too: drawing the
+    // panel again would replace the grip the author is on, and the screen reader would say the whole row again.
+    if (fresh.horizon !== view.horizon || fresh.advanceAt !== view.advanceAt || others(fresh) !== others(view)) {
+      if (!this.reshape(view, fresh)) { this.render(); return; }
+    } else {
+      Object.assign(bar, now);
+      this.place(row, bar, view.horizon);
+      const index = view.bars.findIndex((b) => b.id === bar.id);
+      if (index >= 0) view.bars[index] = bar;
+    }
+    this.summarize(fresh);
+  }
+
+  /** Bring every row and the axis up to date with a changed timeline without replacing any of them. False if the rows are not the same ones. */
+  private reshape(view: TimelineView, fresh: TimelineView): boolean {
+    const rows = [...this.body.querySelectorAll<HTMLElement>(".tl-row:not(.tl-axis)")];
+    const same = (a: Bar[], b: Bar[]) => a.length === b.length && a.every((x, i) => x.id === b[i]!.id);
+    const inView = view.bars.filter((b) => b.timing.appear !== "media");
+    const inFresh = fresh.bars.filter((b) => b.timing.appear !== "media");
+    // Only the slide's own axis is handled here; a timeline with objects that follow a clip is drawn again.
+    if (view.clips.length > 0 || fresh.clips.length > 0 || !same(inView, inFresh) || rows.length !== inFresh.length) return false;
+    inView.forEach((old, i) => {
+      const now = inFresh[i]!;
+      Object.assign(old, now);
+      const row = rows[i]!;
+      this.place(row, old, fresh.horizon);
+      // the faint line for each tick, behind the bar
+      row.querySelectorAll(".tl-line").forEach((l) => l.remove());
+      const track = row.querySelector<HTMLElement>(".tl-track")!;
+      for (const t of fresh.ticks) track.prepend(h("span", { class: "tl-line", "aria-hidden": "true", style: `left:${percentOf(t.ms, fresh.horizon)}%` }));
+    });
+    const axis = this.body.querySelector<HTMLElement>(".tl-axis-track");
+    if (axis) {
+      axis.replaceChildren();
+      for (const t of fresh.ticks) axis.append(h("span", { class: "tl-tick", style: `left:${percentOf(t.ms, fresh.horizon)}%`, text: t.label }));
+      if (fresh.advanceAt !== null) axis.append(h("span", { class: "tl-advance", style: `left:${percentOf(fresh.advanceAt, fresh.horizon)}%`, text: "moves on" }));
+    }
+    view.horizon = fresh.horizon;
+    view.ticks = fresh.ticks;
+    view.advanceAt = fresh.advanceAt;
+    return true;
   }
 
   /** Make a change from the keyboard, say what it did, and draw again. */

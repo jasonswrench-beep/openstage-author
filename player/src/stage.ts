@@ -78,6 +78,9 @@ const PX_PROPS: Record<string, string> = { fontSize: "font-size", radius: "borde
 const TEXT_PROPS: Record<string, string> = { fontFamily: "font-family", fontWeight: "font-weight", textAlign: "text-align", lineHeight: "line-height" };
 const SAFE_TEXT = /^[\w\s,"'.-]+$/;
 
+/** How long a layer that has just opened waits before the words in its live regions are put in, so that a screen reader has found the regions first. */
+const LIVE_FILL_DELAY_MS = 350;
+
 /** Roles that make a text object a live region. Other roles are carried by the HTML itself. */
 const LIVE_ROLES = new Set(["status", "alert"]);
 
@@ -227,8 +230,9 @@ export class StageRenderer {
       layerEl.hidden = false;
       // In one column a layer comes after the slide's own content, so bring it into view if it opened out of sight.
       if (this.reflow && typeof layerEl.scrollIntoView === "function") layerEl.scrollIntoView({ block: "nearest" });
-      // Fill live regions after they are on screen, so assistive technology announces them.
-      requestAnimationFrame(() => fillers.forEach((f) => this.fillText(f.el, f.html)));
+      // Fill live regions after they are on screen, so assistive technology announces them. A frame is not long enough for the screen reader to
+      // find a region that has only just appeared (NVDA 2026.2 said nothing for the feedback after an answer or for what a timer's layer says), so it waits a little.
+      setTimeout(() => fillers.forEach((f) => this.fillText(f.el, f.html)), LIVE_FILL_DELAY_MS);
     } else {
       layerEl.hidden = true;
       fillers.forEach((f) => (f.el.innerHTML = ""));
