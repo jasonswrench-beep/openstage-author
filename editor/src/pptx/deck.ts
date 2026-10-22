@@ -107,7 +107,7 @@ export type DeckShape = Common & (
   | { kind: "shape"; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string }
   | { kind: "line"; color: string; width: number }
   | { kind: "picture"; media: string | null; mediaHash: string; ext: string; cropped: boolean }
-  | { kind: "table"; rows: string[][]; headerRow: boolean; headerColumn: boolean; merged: boolean }
+  | { kind: "table"; rows: string[][]; headerRow: boolean; headerColumn: boolean; merged: boolean; /** The size most of the table's words are, in points. */ size?: number }
   | { kind: "unsupported"; what: string }
 );
 
@@ -600,9 +600,19 @@ function readFrame(frame: XmlNode, ctx: Context, t: Transform): DeckShape | null
     return cellText(tc);
   }));
   const pr = child(tbl, "a:tblPr");
+  // The size most of the words have, by how many words each size has; a table whose words say nothing about it is the usual 18 points.
+  const weight = new Map<number, number>();
+  for (const tc of descendants(tbl, "a:tc")) {
+    for (const r of descendants(tc, "a:r")) {
+      const sz = num(child(r, "a:rPr"), "sz");
+      const words = (child(r, "a:t")?.text ?? "").length;
+      if (sz !== undefined && words > 0) weight.set(sz / 100, (weight.get(sz / 100) ?? 0) + words);
+    }
+  }
+  const size = [...weight.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const shape: DeckShape = {
     id: attr(cNvPr, "id"), name, alt: attr(cNvPr, "descr").trim(), decorative: isDecorative(cNvPr), box, rot: 0, placeholder: "",
-    kind: "table", rows, headerRow: pr?.attrs["firstRow"] === "1", headerColumn: pr?.attrs["firstCol"] === "1", merged, hash: "",
+    kind: "table", rows, headerRow: pr?.attrs["firstRow"] === "1", headerColumn: pr?.attrs["firstCol"] === "1", merged, ...(size !== undefined ? { size } : {}), hash: "",
   };
   shape.hash = fingerprint({ ...shape, hash: undefined });
   return shape;

@@ -722,6 +722,22 @@ test("text: a slide number or a date that PowerPoint fills in is not kept as wor
   assert.equal(ds.left.footers, 1);
 });
 
+// ---- table text size
+
+const sizedTable = (sz: number | null) => {
+  const run = (t: string) => `<a:r><a:rPr lang="en-US"${sz === null ? "" : ` sz="${sz * 100}"`}/><a:t>${t}</a:t></a:r>`;
+  const cell = (t: string) => `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p>${run(t)}</a:p></a:txBody><a:tcPr/></a:tc>`;
+  return `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="7" name="Grid"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="${inch(6)}" cy="${inch(2)}"/></p:xfrm>` +
+    `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1"/><a:tblGrid/><a:tr h="370840">${cell("Name")}${cell("A longer cell with many more words in it")}</a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+};
+
+test("table: the words of a table are the size the deck made them, so a table that was small stays small", () => {
+  const [small] = convert1(sizedTable(8));
+  assert.equal(small!.style["fontSize"], 11, "8 points at 96 to the inch");
+  const [none] = convert1(sizedTable(null));
+  assert.equal(none!.style["fontSize"], 18, "a table that says nothing keeps the size tables have always had here");
+});
+
 // ---- real decks, when someone points the test at a folder of them: set OPENSTAGE_REAL_DECKS to the folder, then run npm test
 
 const REAL = process.env["OPENSTAGE_REAL_DECKS"] ?? "";

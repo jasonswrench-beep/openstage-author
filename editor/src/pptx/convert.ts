@@ -343,7 +343,7 @@ export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | nul
       return {
         type: "table", name: shape.name, geometry,
         content: { caption: "", headerRow: shape.headerRow, headerColumn: shape.headerColumn, rows: shape.rows.map((r) => [...r]) },
-        style: { fontFamily: "theme:font.body", fontSize: 18 },
+        style: { fontFamily: "theme:font.body", fontSize: Math.max(8, Math.round(((shape.size ?? 13.5) * p.pixelsPerInch) / 72)) },
         altText: shape.decorative ? "" : shape.alt, decorative: shape.decorative, role: "table",
       };
     }
