@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatBytes } from "./narration.ts";
-import { RUNTIME_URL, DISK_MEGABYTES, DOWNLOAD_MEGABYTES, TEMPORARY_MEGABYTES, engineLine, installQuestion, parseEngineStatus, progressDetail, removeQuestion, stepText } from "./engine.ts";
+import { RUNTIME_URL, DISK_MEGABYTES, DOWNLOAD_MEGABYTES, TEMPORARY_MEGABYTES, engineLine, installQuestion, parseEngineStatus, progressDetail, removeQuestion, silentBeforeText, silentCourseText, stepText } from "./engine.ts";
 
 test("the shell's status is read, and nonsense is no engine that cannot be installed", () => {
   const s = parseEngineStatus(JSON.stringify({ state: "installed", canInstall: false, problem: "", runtimeMissing: false, folder: "C:/x/narration-engine", size: 1_500_000_000 }));
@@ -59,4 +59,14 @@ test("progress words are short, one step at a time", () => {
   assert.equal(stepText(2, 3, "Fetching the voice model"), "Step 2 of 3: Fetching the voice model.");
   assert.equal(progressDetail("  Downloading   torch-2.5.1-cp311-cp311-win_amd64.whl (203.1 MB)  "), "Downloading torch-2.5.1-cp311-cp311-win_amd64.whl (203.1 MB)");
   assert.equal(progressDetail("x".repeat(300)).length, 140);
+});
+
+test("words with no sound are said plainly, with the size and that the author is asked first", () => {
+  assert.match(silentCourseText(1), /^1 narration has words but no sound yet/);
+  assert.match(silentCourseText(45), /^45 narrations have words but no sound yet/);
+  for (const t of [silentCourseText(45), silentBeforeText()]) {
+    assert.match(t, new RegExp(`${DOWNLOAD_MEGABYTES} MB`));
+    assert.match(t, /silent/);
+  }
+  assert.match(silentCourseText(3), /You are asked first/);
 });

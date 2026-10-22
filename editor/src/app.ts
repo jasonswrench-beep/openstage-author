@@ -48,8 +48,8 @@ import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
-import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
-import { buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
+import { audioStatus, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { availability, buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
 import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
 import { RecorderController } from "./capturecontroller.ts";
@@ -1809,8 +1809,17 @@ ${errorText(err)}`);
   private async openPowerPointDialog(): Promise<void> {
     const m = this.model;
     if (!m) return;
-    await openPowerPoint({ model: m, savePicture: (name, bytes) => backend.saveDeckPicture(m.dir, name, bytes), announce: (msg) => this.announce(msg) });
-    this.pptxBtn.focus();
+    const done = await openPowerPoint({
+      model: m, savePicture: (name, bytes) => backend.saveDeckPicture(m.dir, name, bytes), announce: (msg) => this.announce(msg),
+      canMakeAudio: async () => {
+        await this.refreshNarration();
+        // The voice the course already uses, or the usual one for a course with no narration yet.
+        const voice = m.narratedObjects().at(-1)?.narration ?? newNarration("");
+        return availability(voice, { ai: this.settings.ai, kokoro: this.narrationEngineReady, plugins: this.plugins.plugins }).state !== "blocked";
+      },
+    });
+    if (done.openNarration) await this.openNarrationDialog();
+    else this.pptxBtn.focus();
   }
 
   private async openAssetsDialog(tab?: "project" | "stock" | "settings"): Promise<void> {

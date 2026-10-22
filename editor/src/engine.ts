@@ -90,6 +90,16 @@ export function installQuestion(): string {
   );
 }
 
+/** What an author is told when words that are to be spoken have no sound yet and the way to get sound is to install the voice here. */
+export function silentCourseText(count: number): string {
+  return `${count === 1 ? "1 narration has" : `${count} narrations have`} words but no sound yet, and this computer has no narration voice, so the course is silent until you install one. It is about ${DOWNLOAD_MEGABYTES} MB to download and takes a few minutes, once. You are asked first, and it can be removed again.`;
+}
+
+/** The same, said before the words exist (under the Speaker notes box), so the author is not surprised afterwards. */
+export function silentBeforeText(): string {
+  return `This computer has no narration voice yet. The notes will come in as words, and the course will be silent until the voice is installed (about ${DOWNLOAD_MEGABYTES} MB, once). The next window offers to do that.`;
+}
+
 export function removeQuestion(size: number): string {
   return `Remove the narration voice from this computer${size > 0 ? ` and free ${formatBytes(size)}` : ""}? Audio already made for your courses is kept. To make new audio with it you would install it again.`;
 }

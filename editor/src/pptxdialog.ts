@@ -10,6 +10,7 @@ import type { PreparedImport } from "./pptx/import.ts";
 import { openDeck, type Pkg } from "./pptx/package.ts";
 import { assetsFor, offered, type PlanItem, type ResyncPlan } from "./pptx/resync.ts";
 import type { Model } from "./model.ts";
+import { silentBeforeText, silentCourseText } from "./engine.ts";
 import { deckTones } from "./pptx/tones.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -30,6 +31,13 @@ export interface PowerPointDialogOptions {
   /** Save a picture from the presentation in the project's images. */
   savePicture(name: string, bytes: Uint8Array): Promise<string>;
   announce(message: string): void;
+  /** Whether sound can be made now for the voice the course uses (the narration voice is installed, or the course's voice is a service or a plugin that is set up). Looks again each time. */
+  canMakeAudio(): Promise<boolean>;
+}
+
+/** What the dialog tells the editor when it closes: whether to go on to the Narration window, where the audio is made and the voice installed. */
+export interface PowerPointDialogResult {
+  openNarration: boolean;
 }
 
 interface Opened {
@@ -56,7 +64,7 @@ export async function readFile(file: File): Promise<Opened> {
   return { name: file.name, pkg, deck, tones: await deckTones(pkg, deck) };
 }
 
-export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
+export function openPowerPoint(opts: PowerPointDialogOptions): Promise<PowerPointDialogResult> {
   const { model } = opts;
   return new Promise((resolve) => {
     const dialog = h("dialog", { class: "dialog wide pptx-dialog", "aria-labelledby": "pp-title" });
@@ -71,7 +79,8 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
     let opened: Opened | null = null;
     const say = (text: string) => { status.textContent = text; };
     const fail = (text: string) => { error.textContent = text; opts.announce(text); };
-    const finish = () => { dialog.close(); dialog.remove(); resolve(); };
+    let toNarration = false;
+    const finish = () => { dialog.close(); dialog.remove(); resolve({ openNarration: toNarration }); };
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); if (!busy) finish(); });
 
     const button = (label: string, fn: () => void | Promise<void>, kind: "primary" | "plain" = "plain", name = ""): HTMLButtonElement => {
@@ -128,7 +137,7 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
       show("PowerPoint", [
         h("p", { class: "note", text: "Bring slides in from a PowerPoint presentation, or bring slides you imported earlier up to date after the presentation has changed. The presentation itself is never changed." }),
         h("div", { class: "field" }, h("label", { for: "pp-file", text: "PowerPoint file (.pptx)" }), file),
-        h("p", { class: "note", text: "Google Slides can download a presentation as a .pptx file. Pictures, text, tables and shapes come across; animations, speaker notes, charts and SmartArt do not, and a report afterwards says what was left out." }),
+        h("p", { class: "note", text: "Google Slides can download a presentation as a .pptx file. Pictures, text, tables, shapes, entrance animations and speaker notes (as narration, if you choose) come across; charts, SmartArt, transitions and movies do not, and a report afterwards says what was left out." }),
       ], [], file);
     };
 
@@ -159,13 +168,14 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
     };
 
     // ---- step 3a: choose slides to bring in
-    const stepImport = () => {
+    const stepImport = async () => {
       const o = opened!;
       const rows = o.deck.slides.map((s, i) => check(`${i + 1}. ${s.name}${s.hidden ? " (hidden in PowerPoint)" : ""}`, !s.hidden));
       const chosen = () => rows.flatMap((r, i) => (r.input.checked ? [i] : []));
       // Speaker notes can become each slide's narration. It is the author's choice: it means narration to make audio for, in the course's voice.
       const withNotes = o.deck.slides.filter((s) => s.hasNotes).length;
-      const notesBox = check("Use speaker notes as narration", false, [], withNotes === 0 ? "" : `${plural(withNotes, "slide")} in this presentation ${withNotes === 1 ? "has" : "have"} speaker notes. Each slide's notes become the narration of its heading, or of its first text, in the voice the rest of your course uses, and are not shown on the slide. The audio is made when you generate narration.`);
+      const soundNow = withNotes === 0 ? true : await opts.canMakeAudio();
+      const notesBox = check("Use speaker notes as narration", false, [], withNotes === 0 ? "" : `${plural(withNotes, "slide")} in this presentation ${withNotes === 1 ? "has" : "have"} speaker notes. Each slide's notes become the narration of its heading, or of its first text, in the voice the rest of your course uses, and are not shown on the slide. The audio is made when you generate narration.${soundNow ? "" : ` ${silentBeforeText()}`}`);
       const go = button("", async () => {
         const picks = chosen();
         if (picks.length === 0) return;
@@ -174,9 +184,11 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
           const prepared = model.prepareDeckImport(o.deck, o.pkg, o.name, picks, undefined, o.tones, { notesAsNarration: withNotes > 0 && notesBox.input.checked });
           await saveAll(prepared);
           const message = model.commitDeckImport(prepared);
-          opts.announce(message);
+          const narrated = prepared.slides.reduce((n, s) => n + [s.baseLayer, ...s.layers].reduce((m, l) => m + l.objects.filter((x) => (x as { narration?: unknown }).narration).length, 0), 0);
+          const speech = narrated > 0 ? { count: narrated, canMake: await opts.canMakeAudio() } : undefined;
+          opts.announce(speech && !speech.canMake ? `${message} ${silentCourseText(speech.count)}` : message);
           busy = false;
-          stepDone(`Brought in ${plural(prepared.slides.length, "slide")}`, message, prepared.report);
+          stepDone(`Brought in ${plural(prepared.slides.length, "slide")}`, message, prepared.report, speech);
         } catch (err) {
           busy = false;
           say("");
@@ -196,8 +208,8 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
       none.classList.add("small");
       show(`Bring slides in from ${o.name}`, [
         h("p", { class: "note", text: `${summary(o)}. Each slide is drawn on the stage at the same size, in the middle if its shape is different. Pictures are saved in the project's images.` }),
-        h("fieldset", {}, h("legend", { text: "Slides to bring in" }), h("div", { class: "btn-row" }, all, none), ...rows.map((r) => r.row)),
         ...(withNotes > 0 ? [h("fieldset", {}, h("legend", { text: "Speaker notes" }), notesBox.row)] : []),
+        h("fieldset", {}, h("legend", { text: "Slides to bring in" }), h("div", { class: "btn-row" }, all, none), ...rows.map((r) => r.row)),
       ], [go, ...(model.deckSources.length > 0 ? [button("Back", stepMode)] : [button("Choose another file", stepChoose)])]);
       recount();
       status.textContent = "";
@@ -282,13 +294,18 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<void> {
     };
 
     // ---- the end
-    const stepDone = (heading: string, message: string, lines: string[]) => {
+    /** The end. When words were brought in to be spoken, it says whether they can be heard yet and goes on to the Narration window, where the voice is installed and the audio made. */
+    const stepDone = (heading: string, message: string, lines: string[], speech?: { count: number; canMake: boolean }) => {
+      const goOn = speech
+        ? button(speech.canMake ? "Make the audio..." : "Set up the narration voice...", () => { toNarration = true; finish(); }, "primary")
+        : null;
       show(heading, [
         h("p", { text: message }),
+        ...(speech && !speech.canMake ? [h("p", { class: "pp-silent", text: silentCourseText(speech.count) })] : []),
         ...(lines.length > 0
           ? [h("h3", { text: lines.length === 1 ? "One thing to know" : "What to know" }), h("ul", { class: "pp-report" }, ...lines.map((l) => h("li", { text: l })))]
           : []),
-      ], []);
+      ], goOn ? [goOn] : []);
     };
 
     document.body.appendChild(dialog);

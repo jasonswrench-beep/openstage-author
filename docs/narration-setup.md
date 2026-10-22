@@ -17,6 +17,8 @@ engine (below), the editor leaves yours alone and offers neither button. Run fro
 
 If the computer does not have Microsoft's Visual C++ runtime (a Windows that has only just been installed may not), the section says so and has a button, **Get Microsoft's Visual C++ runtime...**, that opens Microsoft's own download page. Install that, then press **Install the narration voice**.
 
+Where the editor offers it without being asked: after speaker notes are brought in from a PowerPoint deck (the last screen says the course is silent until the voice is installed and goes on to the Narration window), and whenever the Narration window opens with words that have no sound and nothing that could make it, the **Install the narration voice** button has the keyboard.
+
 ## How OpenStage finds one you set up yourself
 
 The editor and the `.bat` files look for an environment variable, `OPENSTAGE_KOKORO_PYTHON`: the full path of a `python.exe` that has Kokoro installed.

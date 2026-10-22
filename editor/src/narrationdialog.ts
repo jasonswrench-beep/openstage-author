@@ -295,6 +295,15 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     render();
     dialog.showModal();
     makeAll.focus();
-    void refreshEngine();
+    // When nothing can be made only because the voice is not installed, the way forward is the install button, so it gets the keyboard.
+    void refreshEngine().then(() => {
+      const items = model.narratedObjects();
+      const waiting = items.some((i) => audioStatus(i.narration, opts.cache()).state === "missing");
+      const anyCanBeMade = items.some((i) => audioStatus(i.narration, opts.cache()).state === "missing" && availability(i.narration, context()).state !== "blocked");
+      if (waiting && !anyCanBeMade && !installBtn.hidden && !running) {
+        installBtn.focus();
+        say("Nothing can be spoken yet because the narration voice is not installed. Press Install the narration voice to get it.");
+      }
+    });
   });
 }
