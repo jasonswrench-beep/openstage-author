@@ -21,10 +21,12 @@ Try it with `examples/powerpoint/Introduction to Communication.pptx`.
 - **Shapes and lines**, with their fill and outline. A shape with no alt text is marked decorative, as a new shape in this editor is.
 - **Backgrounds**. A picture behind the text becomes a decorative picture at the back, and the slide gets that picture's average colour, so the Problems list can check that the text is readable. It is a guess: look at those slides yourself.
 - **Reading order**: the order PowerPoint reads a slide aloud, which is the order the shapes are in. The Objects list shows it, and it is also the tab order.
+- **How words sit in their box**: where they start (top, middle or bottom), the room round them, the space between lines and paragraphs, and "shrink text on overflow", which shrinks the words here too when they do not fit, because a web page draws type a little differently from PowerPoint and its fonts are mostly not on a learner's computer. Empty paragraphs used for space become space.
+- **Entrance animations**: an effect that makes something appear comes across. One that waits for a click becomes "when the learner shows the next item", numbered in the order of PowerPoint's clicks, and the learner has a **Show next item** button on the slide (PowerPoint's click anywhere becomes a button anyone can reach by keyboard). One that starts by itself becomes a time after the slide opens. Appear, Fade, Fly In and Zoom come across as their nearest effects; other entrances fade. Layered pictures that appear one at a time work this way.
 
 ## What does not come across
 
-Charts, SmartArt, embedded objects, movies and sounds (each is named in the report), slanted lines, animations and transitions, speaker notes, dates, footers and slide numbers, and hidden shapes. Fonts a web page cannot count on (Calibri, for one) are replaced by the course's own font. A cropped picture is shown whole. Merged table cells are shown as separate cells.
+Charts, SmartArt, embedded objects, movies and sounds (each is named in the report), slanted lines, slide transitions, exit and emphasis animations and motion paths (they are counted in the report; what they would have moved or removed stays as it is), animations started by clicking a shape, text that appears one paragraph at a time (it appears all at once), dates, footers and slide numbers, and hidden shapes. Speaker notes are not brought in by default. Fonts a web page cannot count on (Calibri, for one) are replaced by the course's own font. A cropped picture is shown whole. Merged table cells are shown as separate cells.
 
 ## Nothing is made up
 

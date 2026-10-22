@@ -123,8 +123,22 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   if (hiddenShapes > 0) out.push(`${plural(hiddenShapes, "hidden shape")} in PowerPoint ${hiddenShapes === 1 ? "was" : "were"} not brought in.`);
   const withNotes = taken.filter((s) => s.hasNotes).length;
   if (withNotes > 0) out.push(`Speaker notes on ${plural(withNotes, "slide")} were not brought in. They are not narration unless you make them so.`);
-  const animated = taken.filter((s) => s.animated).length;
-  if (animated > 0) out.push(`${plural(animated, "slide")} had animations or a transition. They were not brought in: use Animation and Timing in the editor instead.`);
+  if (notes.animated > 0) {
+    out.push(`${plural(notes.animated, "object")} had an entrance animation in PowerPoint and ${notes.animated === 1 ? "has" : "have"} it here.${notes.waiting > 0 ? ` ${plural(notes.waiting, "object")} wait${notes.waiting === 1 ? "s" : ""} for the learner: a button, Show next item, shows them one step at a time, in the order of PowerPoint's clicks, and Show everything now shows them all.` : ""}`);
+    if (notes.animationApproximated > 0) out.push(`${plural(notes.animationApproximated, "entrance")} used an effect this editor does not have, so ${notes.animationApproximated === 1 ? "it fades" : "they fade"} in instead.`);
+  }
+  const gone = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };
+  for (const s of taken) for (const k of Object.keys(gone) as (keyof typeof gone)[]) gone[k] += s.animationLeft[k];
+  const leftOut = [
+    gone.exit > 0 ? `${plural(gone.exit, "exit effect")}` : "",
+    gone.emphasis > 0 ? `${plural(gone.emphasis, "emphasis effect")}` : "",
+    gone.path > 0 ? `${plural(gone.path, "motion path")}` : "",
+    gone.interactive > 0 ? `${plural(gone.interactive, "animation started by clicking a shape", "animations started by clicking a shape")}` : "",
+  ].filter((x) => x !== "");
+  if (leftOut.length > 0) out.push(`Not brought in: ${leftOut.join(", ")}. What they moved or removed stays as it is when the slide opens: use Timing and Animation in the editor if it should come or go.`);
+  if (gone.byParagraph > 0) out.push(`${plural(gone.byParagraph, "text box", "text boxes")} came in one paragraph at a time in PowerPoint. The whole box comes in at once here.`);
+  const transitions = taken.filter((s) => s.transition).length;
+  if (transitions > 0) out.push(`${plural(transitions, "slide")} had a transition (how the slide comes on). It was not brought in.`);
 
   const pictured = converted.filter((c) => c.deck.backgroundPicture && c.background);
   if (pictured.length > 0) out.push(`${plural(pictured.length, "slide")} ${pictured.length === 1 ? "has" : "have"} a picture behind the text. The Problems list can only judge the text colour against the picture's average colour, which is ${list([...new Set(pictured.map((c) => c.background!))])}, so look at ${pictured.length === 1 ? "that slide" : "those slides"} yourself.`);
@@ -136,6 +150,7 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   if (fonts.length > 0) out.push(`Fonts a web page cannot count on were replaced by the course's own font: ${fonts.map(([f, n]) => `${f} (${plural(n, "text box", "text boxes")})`).join(", ")}.`);
   if (notes.mixedSize > 0) out.push(`${plural(notes.mixedSize, "text box", "text boxes")} had more than one text size. The size most of its words have is used for all.`);
   if (notes.mixedColour > 0) out.push(`${plural(notes.mixedColour, "text box", "text boxes")} had more than one text colour. The colour most of its words have is used for all.`);
+  if (notes.shrinks > 0) out.push(`${plural(notes.shrinks, "text box", "text boxes")} shrink${notes.shrinks === 1 ? "s" : ""} the words when they do not fit, as PowerPoint's "shrink text on overflow" does, but never below half size or 12 pixels. Fonts differ a little between PowerPoint and a web page, so this keeps each box looking as it did. You can turn it off in a text's Properties.`);
   const forms = Object.entries(notes.formsRedrawn);
   if (forms.length > 0) out.push(`Shapes this editor cannot draw were drawn as rectangles: ${forms.map(([f, n]) => `${f} (${n})`).join(", ")}.`);
   if (notes.croppedPictures > 0) out.push(`${plural(notes.croppedPictures, "picture")} ${notes.croppedPictures === 1 ? "was" : "were"} cropped in PowerPoint and ${notes.croppedPictures === 1 ? "is" : "are"} shown whole.`);

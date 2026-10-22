@@ -7,7 +7,7 @@
 // This file only works out what could change and applies what was chosen to the slides it is given. The model puts it in the project.
 
 import type { DeckSource, ImportProvenance, OSObject, Slide, SlideImportProvenance } from "../../../player/src/types.ts";
-import { backgroundOf, convertSlide, draftsForSlide, objectFrom, provenanceFor, slideFrom, snapshotOf, type Base, type Draft, type Tones } from "./convert.ts";
+import { backgroundOf, convertSlide, draftsForSlide, newNotes, objectFrom, provenanceFor, slideFrom, snapshotOf, type Base, type Draft, type Tones } from "./convert.ts";
 import type { Deck, DeckSlide } from "./deck.ts";
 import { canonical } from "./hash.ts";
 import { mediaPathFor, placementOf } from "./import.ts";
@@ -191,7 +191,7 @@ export function planResync(req: PlanRequest): ResyncPlan {
   const deckId = source.id;
   const placement = placementOf(source);
   const ctx = {
-    placement, ...(req.tones ? { tones: req.tones } : {}), notes: { fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {} },
+    placement, ...(req.tones ? { tones: req.tones } : {}), notes: newNotes(),
     mediaPath: mediaPathFor, bytesOf: (part: string) => pkg.bytes(part), slideWidth: deck.slideWidth, slideHeight: deck.slideHeight,
   };
   const items: PlanItem[] = [];
@@ -401,7 +401,7 @@ export function applyPlan(plan: ResyncPlan, accepted: ReadonlySet<string>, env: 
   const slideById = new Map(env.slides.map((s) => [s.id, s]));
   const placement = placementOf(env.source);
   const ctx = {
-    placement, ...(env.tones ? { tones: env.tones } : {}), notes: { fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {} },
+    placement, ...(env.tones ? { tones: env.tones } : {}), notes: newNotes(),
     mediaPath: mediaPathFor, bytesOf: (part: string) => env.pkg.bytes(part), slideWidth: env.deck.slideWidth, slideHeight: env.deck.slideHeight,
     deckId: plan.deckId, importedAt: env.importedAt, newId: env.newObjectId,
   };

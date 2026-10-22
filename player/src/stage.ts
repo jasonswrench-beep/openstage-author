@@ -113,12 +113,18 @@ export class StageRenderer {
   private reflow = false;
   /** What the one-column layout does with objects that sat on top of a panel or picture, by object id. */
   private reflowNotes = new Map<string, ReflowNote>();
+  /** Watches the text boxes that shrink their words to fit, so they are fitted when they first have a size (a layer that opens, a box that is resized). */
+  private readonly fitObserver: ResizeObserver | null;
 
   constructor(doc: Document, stageEl: HTMLElement, behavior: StageBehavior, theme: Theme) {
     this.doc = doc;
     this.stageEl = stageEl;
     this.behavior = behavior;
     this.theme = theme;
+    const View = doc.defaultView as (Window & typeof globalThis) | null;
+    this.fitObserver = View && typeof View.ResizeObserver === "function" ? new View.ResizeObserver((entries) => entries.forEach((e) => fitText(e.target as HTMLElement))) : null;
+    // Fonts that arrive late change how much room the words take.
+    void doc.fonts?.ready.then(() => { for (const m of this.mounted.values()) if (m.el.dataset["osFit"]) fitText(m.el); });
   }
 
   /** Use a different theme. The next render (or refresh of each object) shows it. */
@@ -649,12 +655,46 @@ export class StageRenderer {
       for (const style of layers) applyStyle(node, Object.fromEntries(Object.entries(style).filter(([k]) => k === "fontFamily" || k === "fontSize")));
     } else {
       for (const style of layers) applyStyle(node, style);
+      if (obj.type === "text") this.applyTextBox(m, Object.assign({}, ...layers) as Style);
     }
 
     const disabled = m.stateName === "disabled";
     if (node instanceof HTMLButtonElement) node.disabled = disabled;
     else if (disabled) node.setAttribute("aria-disabled", "true");
     this.applyReflow(m);
+  }
+
+  /**
+   * The parts of a text object's style that are about the box and not the words: the room round them, the line they sit on (top, middle or bottom),
+   * the space between paragraphs, and shrinking when they do not fit. Words and their colour, size and font are done by `applyStyle`.
+   */
+  private applyTextBox(m: Mounted, style: Style): void {
+    const node = m.el;
+    const number = (key: string) => (typeof style[key] === "number" ? Number(style[key]) : undefined);
+    const across = style["verticalAlign"];
+    if (across === "middle" || across === "bottom") {
+      node.style.setProperty("display", "flex");
+      node.style.setProperty("flex-direction", "column");
+      node.style.setProperty("justify-content", across === "middle" ? "center" : "flex-end");
+    }
+    const x = number("paddingX");
+    const y = number("paddingY");
+    if (x !== undefined || y !== undefined) node.style.setProperty("padding", `${y ?? 0}px ${x ?? 0}px`);
+    const gap = number("paragraphSpacing");
+    node.classList.toggle("os-spaced", gap !== undefined);
+    if (gap !== undefined) node.style.setProperty("--os-gap", `${gap}px`);
+    // A weight the author chose for a text applies to its headings too.
+    node.classList.toggle("os-weighted", style["fontWeight"] !== undefined);
+    const fit = style["autoFit"] === "shrink" && !this.reflow;
+    if (fit) {
+      const own = /^([0-9.]+)px$/.exec(node.style.fontSize);
+      node.dataset["osFit"] = own ? own[1]! : "";
+      this.fitObserver?.observe(node);
+      fitText(node);
+    } else {
+      delete node.dataset["osFit"];
+      this.fitObserver?.unobserve(node);
+    }
   }
 
   /** In one column, leave out a decorative backdrop and paint a colour behind text that sat on a panel or picture. */
@@ -675,6 +715,42 @@ export class StageRenderer {
 }
 
 // ---- helpers shared with the player and editor
+
+/**
+ * Shrink a text box's words until they fit its height, as PowerPoint's "shrink text on overflow" does: the size the author chose is the biggest it
+ * gets, and it never goes below half that or 12 pixels (whichever is the larger, but never above the size chosen), so the words stay readable.
+ * Does nothing while the box has no size (it is on a layer that is not showing); the box is fitted when it gets one.
+ */
+export function fitText(el: HTMLElement): void {
+  const marked = el.dataset["osFit"];
+  if (marked === undefined || el.clientHeight === 0) return;
+  const view = el.ownerDocument.defaultView;
+  const measured = marked === "" ? 0 : Number(marked);
+  let base = measured;
+  if (!(base > 0)) {
+    el.style.removeProperty("font-size");
+    base = view ? parseFloat(view.getComputedStyle(el).fontSize) : NaN;
+    if (!(base > 0)) return;
+    el.dataset["osFit"] = String(base);
+  }
+  const justify = el.style.getPropertyValue("justify-content");
+  // Words that sit in the middle or at the bottom run off both ends when there are too many, so measure them from the top.
+  if (justify) el.style.setProperty("justify-content", "flex-start");
+  const fits = () => el.scrollHeight <= el.clientHeight + 1;
+  el.style.setProperty("font-size", `${base}px`);
+  if (!fits()) {
+    const floor = Math.min(base, Math.max(base * 0.5, 12));
+    let lo = floor;
+    let hi = base;
+    for (let i = 0; i < 8; i++) {
+      const mid = (lo + hi) / 2;
+      el.style.setProperty("font-size", `${mid}px`);
+      if (fits()) lo = mid; else hi = mid;
+    }
+    el.style.setProperty("font-size", `${lo}px`);
+  }
+  if (justify) el.style.setProperty("justify-content", justify);
+}
 
 /**
  * DOM order is reading order and tab order. Objects with a tab order come first, in that

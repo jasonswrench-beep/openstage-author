@@ -10,6 +10,8 @@
 //   appear "media":     shown when a video or audio clip on the slide has played start ms. What shows then depends only on where the clip
 //                       is, so it follows the learner playing, pausing, skipping ahead and going back. If the clip cannot play, or is not
 //                       there, everything that follows it shows, so nothing is ever left hidden because a clip did not play.
+//   appear "click":     shown start ms after the learner presses Show next item for its step. The steps of a layer are its objects' step numbers in order;
+//                       objects with one step show together. A learner who has not pressed yet sees none of them. Showing everything shows them all.
 //   visibleFor:         hidden again this many ms after it appeared, or null to stay. For a clip it is that much of the clip.
 // A learner can pause the clock, and can show everything at once. Both are for people who need longer, and are the reason
 // timing is acceptable at all.
@@ -86,6 +88,8 @@ export class Timeline {
   private readonly entries = new Map<string, Entry>();
   /** When each "with narration" object's narration started, on the timeline's own clock. */
   private readonly narrationStart = new Map<string, number>();
+  /** For each layer, the clock reading at each press of Show next item so far, in order. */
+  private readonly pressedAt = new Map<string, number[]>();
   /** What the page was last told about each object, so only changes are reported. */
   private readonly shown = new Map<string, boolean>();
   /** Where each clip that objects follow is, in milliseconds, and whether it has failed. A clip not reported yet is at the start. */
@@ -120,6 +124,7 @@ export class Timeline {
     this.alarms.clear();
     this.generation += 1;
     this.narrationStart.clear();
+    this.pressedAt.clear();
     this.shown.clear();
     this.clips.clear();
     this.elapsed = 0;
@@ -142,6 +147,7 @@ export class Timeline {
   /** Start timing the timed objects of a layer that has just been shown. Their times count from now. */
   addLayer(layer: string, objects: TimedObject[]): void {
     this.advanceClock();
+    this.pressedAt.delete(layer);
     for (const o of objects) {
       this.entries.set(o.id, { ...o, layer, from: this.elapsed });
       this.shown.delete(o.id);
@@ -214,6 +220,7 @@ export class Timeline {
 
   /** Stop timing a layer that has been hidden. */
   removeLayer(layer: string): void {
+    this.pressedAt.delete(layer);
     for (const [id, a] of [...this.alarms]) if (a.layer === layer) this.alarms.delete(id);
     for (const [id, e] of [...this.entries]) {
       if (e.layer !== layer) continue;
@@ -222,6 +229,45 @@ export class Timeline {
       this.narrationStart.delete(id);
     }
     this.sync();
+  }
+
+  /** The step numbers of the objects on a layer that wait for a press, once each, in order. */
+  private stepsOf(layer: string): number[] {
+    const steps = new Set<number>();
+    for (const e of this.entries.values()) if (e.layer === layer && e.timing.appear === "click") steps.add(e.timing.step ?? 1);
+    return [...steps].sort((a, b) => a - b);
+  }
+
+  /** How many presses of Show next item the slide has in all, and how many have been made. Everything counts as pressed once the learner has shown everything. */
+  get steps(): { total: number; pressed: number } {
+    let total = 0;
+    let pressed = 0;
+    for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
+      const n = this.stepsOf(layer).length;
+      total += n;
+      pressed += this.everything ? n : Math.min(n, this.pressedAt.get(layer)?.length ?? 0);
+    }
+    return { total, pressed };
+  }
+
+  /**
+   * The learner pressed Show next item: the next step that is waiting (the first layer that has one, base layer first) is shown, each of its objects after its own
+   * delay. Returns the ids of those objects, so the page can say what came; none if there is nothing waiting.
+   */
+  showNext(): string[] {
+    if (this.everything) return [];
+    for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
+      const steps = this.stepsOf(layer);
+      const done = this.pressedAt.get(layer)?.length ?? 0;
+      if (done >= steps.length) continue;
+      this.advanceClock();
+      this.pressedAt.set(layer, [...(this.pressedAt.get(layer) ?? []), this.elapsed]);
+      const step = steps[done]!;
+      const ids = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.appear === "click" && (e.timing.step ?? 1) === step).map((e) => e.id);
+      this.sync();
+      return ids;
+    }
+    return [];
   }
 
   /** An object's narration has started playing. */
@@ -318,6 +364,10 @@ export class Timeline {
   private appearsAt(e: Entry): number {
     if (e.timing.appear === "time") return e.from + e.timing.start;
     if (e.timing.appear === "media") return Infinity;
+    if (e.timing.appear === "click") {
+      const at = this.pressedAt.get(e.layer)?.[this.stepsOf(e.layer).indexOf(e.timing.step ?? 1)];
+      return at === undefined ? Infinity : at + e.timing.start;
+    }
     const started = this.narrationStart.get(e.id);
     return started === undefined ? Infinity : started + e.timing.start;
   }

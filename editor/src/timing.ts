@@ -7,6 +7,9 @@ import type { Timing } from "../../player/src/types.ts";
 /** The longest a time can be, an hour, which is also the schema's limit. */
 export const MAX_MS = 3_600_000;
 
+/** The highest item number an object that waits for the learner can have, which is also the schema's limit. */
+export const MAX_STEP = 200;
+
 /** Always there: the timing every new object starts with. */
 export const STARTING_TIMING: Timing = { appear: "time", start: 0, visibleFor: null };
 
@@ -46,6 +49,10 @@ export function describeTiming(t: Timing, onLayer = false, clipName?: string): s
     const clip = clipName ?? "its video or audio";
     const appears = t.start === 0 ? `Shows from the start of ${clip}` : `Appears ${plainSeconds(t.start)} into ${clip}`;
     return t.visibleFor === null ? `${appears}, then stays` : `${appears}, then disappears ${plainSeconds(t.visibleFor)} later`;
+  }
+  if (t.appear === "click") {
+    const when = t.start === 0 ? `Appears when the learner shows item ${t.step ?? 1}` : `Appears ${plainSeconds(t.start)} after the learner shows item ${t.step ?? 1}`;
+    return t.visibleFor === null ? `${when}, then stays` : `${when}, then disappears ${plainSeconds(t.visibleFor)} later`;
   }
   const origin = t.appear === "narration" ? "its narration starts" : onLayer ? "its layer is shown" : "the slide opens";
   const appears = t.appear === "time" && t.start === 0

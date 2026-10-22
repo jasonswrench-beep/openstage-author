@@ -34,12 +34,58 @@ export interface DeckPara {
   level: number;
   bullet: "none" | "dot" | "number";
   align?: "l" | "ctr" | "r" | "j";
+  /** Line spacing: a multiple of single spacing (0.9 is 90%), or an exact height in points. */
+  lineSpacing?: { pct?: number; pts?: number };
+  /** Space before and after the paragraph, in points. */
+  before?: number;
+  after?: number;
+  /** Empty paragraphs that followed this one (PowerPoint users press Enter for space), and the biggest text size they had, in points. They are not kept, but their room is. */
+  blankAfter?: number;
+  blankPts?: number;
   runs: DeckRun[];
+}
+
+/** How a text box holds its words, as the deck says it (in EMU for the insets). Each part is there only if the deck, its layout or its master said it. */
+export interface DeckBody {
+  anchor?: "t" | "ctr" | "b";
+  inset?: { l?: number; t?: number; r?: number; b?: number };
+  /** "shrink": the text is shrunk when it does not fit. "grow": the shape grows to fit. "none": the text may run past the box. */
+  fit?: "shrink" | "grow" | "none";
+  /** The text is not wrapped: one line however long. */
+  noWrap?: boolean;
+}
+
+/** An entrance effect: something that appears, at a press of the mouse or on its own. */
+export interface DeckEffect {
+  /** The shape (or group) it is for: its number on the slide. */
+  target: string;
+  /** PowerPoint's number for the effect (1 is Appear, 10 is Fade, 2 is Fly In), and its direction: 1 from the top, 2 the right, 4 the bottom, 8 the left. */
+  preset: number;
+  subtype: number;
+  /** Which press of the mouse shows it (1 is the first), or null if it starts by itself when the slide opens. */
+  click: number | null;
+  /** Milliseconds after the press, or after the slide opens. */
+  delay: number;
+  /** Milliseconds the effect takes. */
+  duration: number;
+}
+
+/** What a slide's animation did that is not brought over, counted for the report. */
+export interface AnimationLeft {
+  exit: number;
+  emphasis: number;
+  path: number;
+  /** Words that came in one paragraph at a time, which come in all at once. */
+  byParagraph: number;
+  /** Something that starts when a shape is clicked. */
+  interactive: number;
 }
 
 interface Common {
   /** The shape's own number on its slide (the id in the deck). */
   id: string;
+  /** The numbers of the groups it is in, outermost first. An effect on a group is an effect on everything in it. Not part of its fingerprint. */
+  groups?: string[];
   name: string;
   /** The alt text written in PowerPoint, or "". */
   alt: string;
@@ -55,7 +101,7 @@ interface Common {
 }
 
 export type DeckShape = Common & (
-  | { kind: "text"; paras: DeckPara[]; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string; fitScale?: number }
+  | { kind: "text"; paras: DeckPara[]; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string; fitScale?: number; body?: DeckBody }
   | { kind: "shape"; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string }
   | { kind: "line"; color: string; width: number }
   | { kind: "picture"; media: string | null; mediaHash: string; ext: string; cropped: boolean }
@@ -81,7 +127,12 @@ export interface DeckSlide {
   /** How many shapes of each left-out kind: dates, footers and slide numbers; hidden shapes; empty placeholders. */
   left: { footers: number; hidden: number; empty: number };
   hasNotes: boolean;
-  /** The slide has animations or a transition, which are not brought over. */
+  /** The entrance effects of the slide, in the order of the deck. */
+  effects: DeckEffect[];
+  animationLeft: AnimationLeft;
+  /** The slide has a transition (how it comes on), which is not brought over. */
+  transition: boolean;
+  /** The slide has animations or a transition. */
   animated: boolean;
   /** A fingerprint of the slide's own settings (its name and background). */
   hash: string;
@@ -164,6 +215,9 @@ function groupTransform(parent: Transform, x: ReturnType<typeof xfrmOf>): Transf
 
 interface LevelProps {
   algn?: "l" | "ctr" | "r" | "j";
+  lineSpacing?: { pct?: number; pts?: number };
+  before?: number;
+  after?: number;
   bullet?: "none" | "dot" | "number";
   sz?: number;
   b?: boolean;
@@ -181,12 +235,52 @@ function levelProps(lst: XmlNode | undefined, level: number, pal: Palette, fonts
   const out: LevelProps = {};
   const a = ALIGN[attr(pPr, "algn")];
   if (a) out.algn = a;
+  assignDefined(out, spacingOf(pPr));
   if (child(pPr, "a:buNone")) out.bullet = "none";
   else if (child(pPr, "a:buChar")) out.bullet = "dot";
   else if (child(pPr, "a:buAutoNum")) out.bullet = "number";
   const d = child(pPr, "a:defRPr");
   if (d) assignDefined(out, runProps(d, pal, fonts, base));
   return out;
+}
+
+/** The line spacing and the space before and after a paragraph, from its properties. A percentage of the text size for the space is not read. */
+function spacingOf(pPr: XmlNode | undefined): Pick<LevelProps, "lineSpacing" | "before" | "after"> {
+  const out: Pick<LevelProps, "lineSpacing" | "before" | "after"> = {};
+  const ln = child(pPr, "a:lnSpc");
+  const pct = num(child(ln, "a:spcPct"), "val");
+  const pts = num(child(ln, "a:spcPts"), "val");
+  if (pct !== undefined) out.lineSpacing = { pct: pct / 100000 };
+  else if (pts !== undefined) out.lineSpacing = { pts: pts / 100 };
+  const before = num(child(child(pPr, "a:spcBef"), "a:spcPts"), "val");
+  const after = num(child(child(pPr, "a:spcAft"), "a:spcPts"), "val");
+  if (before !== undefined) out.before = before / 100;
+  if (after !== undefined) out.after = after / 100;
+  return out;
+}
+
+/** What the text boxes of a master, a layout and the shape itself say about how words sit in the box, the later ones winning. */
+function bodyOf(bodyPrs: (XmlNode | undefined)[]): DeckBody | undefined {
+  const out: DeckBody = {};
+  for (const pr of bodyPrs) {
+    if (!pr) continue;
+    const anchor = attr(pr, "anchor");
+    if (anchor === "t" || anchor === "ctr" || anchor === "b") out.anchor = anchor;
+    else if (anchor === "just" || anchor === "dist") out.anchor = "t";
+    const inset = { ...out.inset };
+    for (const [key, name] of [["l", "lIns"], ["t", "tIns"], ["r", "rIns"], ["b", "bIns"]] as const) {
+      const v = num(pr, name);
+      if (v !== undefined) inset[key] = v;
+    }
+    if (Object.keys(inset).length > 0) out.inset = inset;
+    if (child(pr, "a:normAutofit")) out.fit = "shrink";
+    else if (child(pr, "a:spAutoFit")) out.fit = "grow";
+    else if (child(pr, "a:noAutofit")) out.fit = "none";
+    const wrap = attr(pr, "wrap");
+    if (wrap === "none") out.noWrap = true;
+    else if (wrap === "square") delete out.noWrap;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function runProps(r: XmlNode, pal: Palette, fonts: ThemeFonts, placeholder?: string): LevelProps {
@@ -258,6 +352,7 @@ function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | 
     const own: LevelProps = {};
     const a = ALIGN[attr(pPr, "algn")];
     if (a) own.algn = a;
+    assignDefined(own, spacingOf(pPr));
     if (child(pPr, "a:buNone")) own.bullet = "none";
     else if (child(pPr, "a:buChar")) own.bullet = "dot";
     else if (child(pPr, "a:buAutoNum")) own.bullet = "number";
@@ -287,12 +382,24 @@ function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | 
       if (rel?.external && rel.kind === "hyperlink") run.href = rel.target;
       runs.push(run);
     }
-    // A paragraph with no words is only spacing, so it is left out.
-    if (!runs.some((r) => !r.br && r.text.trim() !== "")) continue;
+    // A paragraph with no words is only spacing, so it is left out, and the room it took is noted on the paragraph before it.
+    if (!runs.some((r) => !r.br && r.text.trim() !== "")) {
+      const last = paras[paras.length - 1];
+      if (last) {
+        const sz = num(child(p, "a:endParaRPr"), "sz");
+        const pts = Math.round(((sz !== undefined ? sz / 100 : para.sz ?? 18) * fitScale) * 10) / 10;
+        last.blankAfter = (last.blankAfter ?? 0) + 1;
+        last.blankPts = Math.max(last.blankPts ?? 0, pts);
+      }
+      continue;
+    }
     // Line breaks at the very end say nothing.
     while (runs.length > 0 && runs[runs.length - 1]!.br) runs.pop();
     const out: DeckPara = { level, bullet: para.bullet ?? "none", runs };
     if (para.algn) out.align = para.algn;
+    if (para.lineSpacing) out.lineSpacing = para.lineSpacing;
+    if (para.before !== undefined) out.before = para.before;
+    if (para.after !== undefined) out.after = para.after;
     paras.push(out);
   }
   return paras;
@@ -376,7 +483,8 @@ function readSp(sp: XmlNode, ctx: Context, t: Transform): DeckShape | null {
     const fitScale = (num(fit, "fontScale") ?? 100000) / 100000;
     const paras = readParas(txBody, ctx, chain, fontRefColor, fitScale, !!ph);
     if (paras.length > 0) {
-      const shape: DeckShape = { ...common, kind: "text", paras, geom, fill, line, ...(note ? { note } : {}), ...(fitScale < 1 ? { fitScale } : {}), hash: "" };
+      const body = bodyOf([child(child(masterPh?.sp, "p:txBody"), "a:bodyPr"), child(child(layoutPh?.sp, "p:txBody"), "a:bodyPr"), child(txBody, "a:bodyPr")]);
+      const shape: DeckShape = { ...common, kind: "text", paras, geom, fill, line, ...(note ? { note } : {}), ...(fitScale < 1 ? { fitScale } : {}), ...(body ? { body } : {}), hash: "" };
       shape.hash = fingerprint({ ...shape, hash: undefined });
       return shape;
     }
@@ -471,7 +579,7 @@ function readConnector(cx: XmlNode, ctx: Context, t: Transform): DeckShape | nul
   return shape;
 }
 
-function walk(nodes: XmlNode[], ctx: Context, t: Transform, out: DeckShape[]): void {
+function walk(nodes: XmlNode[], ctx: Context, t: Transform, out: DeckShape[], groups: string[] = []): void {
   for (const n of nodes) {
     let made: DeckShape | null = null;
     switch (n.name) {
@@ -481,18 +589,82 @@ function walk(nodes: XmlNode[], ctx: Context, t: Transform, out: DeckShape[]): v
       case "p:cxnSp": made = readConnector(n, ctx, t); break;
       case "p:grpSp": {
         const x = xfrmOf(child(n, "p:grpSpPr"));
-        walk(n.children.filter((c) => c.name !== "p:nvGrpSpPr" && c.name !== "p:grpSpPr"), ctx, groupTransform(t, x), out);
+        const id = attr(path(n, "p:nvGrpSpPr", "p:cNvPr"), "id");
+        walk(n.children.filter((c) => c.name !== "p:nvGrpSpPr" && c.name !== "p:grpSpPr"), ctx, groupTransform(t, x), out, id ? [...groups, id] : groups);
         break;
       }
       case "mc:AlternateContent": {
         const pick = child(n, "mc:Fallback") ?? child(n, "mc:Choice");
-        if (pick) walk(pick.children, ctx, t, out);
+        if (pick) walk(pick.children, ctx, t, out, groups);
         break;
       }
       default: break;
     }
-    if (made) out.push(made);
+    if (made) {
+      if (groups.length > 0) made.groups = groups;
+      out.push(made);
+    }
   }
+}
+
+// ---- animation
+
+/** A time in a timing condition: milliseconds, or "indefinite" (waits for the mouse). */
+const delayOf = (cond: XmlNode | undefined): number | "indefinite" => {
+  const d = cond?.attrs["delay"];
+  if (d === undefined) return 0;
+  if (d === "indefinite") return "indefinite";
+  const n = Number(d);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+};
+
+/**
+ * The entrance effects of a slide, in the order of the deck, and a count of what is not brought over. A slide's animation is a list of presses of the
+ * mouse; each press starts a group of effects, and inside a group an effect starts with the press, with the one before it, or after the one before it,
+ * which the deck writes down as a delay from the press. Effects that make something appear are kept; the rest are counted.
+ */
+function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; left: AnimationLeft } {
+  const effects: DeckEffect[] = [];
+  const left: AnimationLeft = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };
+  const timing = child(slide, "p:timing");
+  if (!timing) return { effects, left };
+  const nodes = descendants(timing, "p:cTn");
+  left.interactive = nodes.filter((n) => n.attrs["nodeType"] === "interactiveSeq").length;
+  const main = nodes.find((n) => n.attrs["nodeType"] === "mainSeq");
+  let clicks = 0;
+  for (const click of kids(child(main, "p:childTnLst"), "p:par")) {
+    const clickTn = child(click, "p:cTn");
+    const conds = kids(child(clickTn, "p:stCondLst"), "p:cond");
+    const bySelf = conds.some((c) => c.attrs["evt"] === "onBegin") || (conds.length > 0 && conds.every((c) => delayOf(c) !== "indefinite"));
+    if (!bySelf) clicks += 1;
+    for (const group of kids(child(clickTn, "p:childTnLst"), "p:par")) {
+      const groupTn = child(group, "p:cTn");
+      const groupDelay = delayOf(child(child(groupTn, "p:stCondLst"), "p:cond"));
+      for (const eff of kids(child(groupTn, "p:childTnLst"), "p:par")) {
+        const tn = child(eff, "p:cTn");
+        if (!tn) continue;
+        const cls = tn.attrs["presetClass"];
+        if (cls === "exit") { left.exit += 1; continue; }
+        if (cls === "emph") { left.emphasis += 1; continue; }
+        if (cls === "path") { left.path += 1; continue; }
+        if (cls !== "entr") continue;
+        const target = descendants(tn, "p:spTgt")[0];
+        if (!target?.attrs["spid"]) continue;
+        if (child(target, "p:txEl")) left.byParagraph += 1;
+        const own = delayOf(child(child(tn, "p:stCondLst"), "p:cond"));
+        const durations = descendants(tn, "p:cTn").map((c) => Number(c.attrs["dur"])).filter((d) => Number.isFinite(d) && d > 1);
+        effects.push({
+          target: target.attrs["spid"],
+          preset: Number(tn.attrs["presetID"] ?? 0),
+          subtype: Number(tn.attrs["presetSubtype"] ?? 0),
+          click: bySelf ? null : clicks,
+          delay: (groupDelay === "indefinite" ? 0 : groupDelay) + (own === "indefinite" ? 0 : own),
+          duration: durations.length > 0 ? Math.max(...durations) : 0,
+        });
+      }
+    }
+  }
+  return { effects, left };
 }
 
 // ---- backgrounds
@@ -568,10 +740,13 @@ export function readDeck(pkg: Pkg): Deck {
     const notesRel = pkg.relOfKind(part, "notesSlide");
     const notes = notesRel ? pkg.xml(notesRel.target) : undefined;
     const hasNotes = !!notes && descendants(notes, "a:t").some((t) => t.text.trim() !== "") && !!notesRel;
+    const anim = readAnimation(slide);
+    const transition = !!child(slide, "p:transition") || descendants(slide ?? { name: "", attrs: {}, children: [], text: "" }, "p:transition").length > 0;
     const base = { slideId: entry.attrs["id"] ?? String(index), index, part, name: slideName.length > 80 ? `${slideName.slice(0, 77)}...` : slideName, hidden: slide?.attrs["show"] === "0", background: bg.color, backgroundPicture: bg.picture };
     slides.push({
       ...base, ...(bg.note ? { backgroundNote: bg.note } : {}), shapes, skipped: ctx.skipped, left: ctx.left, hasNotes,
-      animated: !!child(slide, "p:timing") || !!child(slide, "p:transition") || descendants(slide ?? { name: "", attrs: {}, children: [], text: "" }, "p:transition").length > 0,
+      effects: anim.effects, animationLeft: anim.left, transition,
+      animated: !!child(slide, "p:timing") || transition,
       hash: fingerprint({ name: base.name, background: bg.color, picture: bg.picture?.mediaHash ?? null }),
     });
   });

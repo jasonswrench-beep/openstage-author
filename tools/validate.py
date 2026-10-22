@@ -34,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 34, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 35, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1676,6 +1676,7 @@ def _timing(slides, add):
                 "A learner who is still thinking would be moved past the question. Finishing every question is needed to complete the course.")
         on_slide = {o["id"]: o for _, o in _objects(slide)}
         follows_media = False
+        waits_for_click = False
         for layer, obj in _objects(slide):
             t = obj["timing"]
             oid = obj["id"]
@@ -1688,6 +1689,8 @@ def _timing(slides, add):
                 elif target is None or target["type"] not in ("video", "audio"):
                     add(ERROR, rel, oid, "timing-media-missing", "This object follows a video or audio clip that is not on its slide",
                         f"'{t['media']}' is not a video or audio object on this slide. Choose one, or show the object a set time after the slide opens.")
+            if t["appear"] == "click":
+                waits_for_click = True
             if t["appear"] == "narration" and not obj["narration"]:
                 add(ERROR, rel, oid, "timing-narration-missing", "This object is set to appear with its narration, but it has none",
                     "Write the object's narration, or choose to show it a set time after the slide opens.")
@@ -1706,6 +1709,9 @@ def _timing(slides, add):
                 if t["visibleFor"] < needed:
                     add(WARNING, rel, oid, "timing-too-brief", "This text may disappear before it can be read",
                         f"It stays for {t['visibleFor'] / 1000:g} seconds. At a comfortable pace {words} words take about {needed / 1000:g}.")
+        if duration is not None and waits_for_click:
+            add(WARNING, rel, slide["id"], "timing-click-advance", "A slide that moves on by itself holds objects that wait for the learner to show them",
+                "The slide would move on after its own time, whether or not the learner has pressed Show next item for each one. Let the learner decide when to go on.")
         if duration is not None and follows_media:
             add(WARNING, rel, slide["id"], "timing-media-advance", "A slide that moves on by itself holds objects that follow a video or audio clip",
                 "The slide would move on after its own time, whether or not the clip has reached them. Let the learner decide when to go on.")

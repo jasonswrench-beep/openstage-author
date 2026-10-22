@@ -2581,6 +2581,38 @@ class IconsAndNavigation(unittest.TestCase):
             self.assertEqual([f for f in p.run() if f.rule in ("trigger-next-last", "trigger-previous-first")], [], "both are fine in the middle of the course")
 
 
+class TimingOnClick(unittest.TestCase):
+    """An object that waits for the learner to press Show next item."""
+
+    def test_a_click_with_a_step_is_accepted(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=1, start=500))
+            p.obj(1, lambda o: o["timing"].update(appear="click", step=2))
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+
+    def test_a_click_needs_a_step_and_a_step_needs_a_click(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(appear="click"))
+            self.assertTrue([f for f in p.run() if f.severity == "error"], "no step")
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(step=1))
+            self.assertTrue([f for f in p.run() if f.severity == "error"], "a step with the usual timing")
+        for bad in (0, -1, 1.5, "1", 201):
+            with MutatedProject() as p:
+                p.obj(0, lambda o, bad=bad: o["timing"].update(appear="click", step=bad))
+                self.assertTrue([f for f in p.run() if f.severity == "error"], str(bad))
+
+    def test_a_slide_that_moves_on_by_itself_is_warned_about(self):
+        with MutatedProject() as p:
+            p.edit("slides/slide-001.json", lambda d: d.__setitem__("duration", 8000))
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=1))
+            found = [f for f in p.run() if f.rule == "timing-click-advance"]
+            self.assertEqual([(f.severity, f.object_id) for f in found], [("warning", "slide-001")])
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=1))
+            self.assertEqual([f for f in p.run() if f.rule == "timing-click-advance"], [])
+
+
 class TimingFromMedia(unittest.TestCase):
     """An object that appears and goes at moments in a video or an audio clip on its slide."""
 
@@ -3046,7 +3078,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.34.0")
+        self.assertEqual(project["schemaVersion"], "0.35.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

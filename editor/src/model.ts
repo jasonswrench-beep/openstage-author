@@ -34,7 +34,7 @@ import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } f
 import { describeAnimation, validDuration, type Phase } from "./animation.ts";
 import { EFFECTS } from "../../player/src/animation.ts";
 import { TIMER_MAX_EXTEND, TIMER_MAX_SECONDS, TIMER_MIN_SECONDS, timerContentOf } from "../../player/src/timer.ts";
-import { describeTiming, MAX_MS, plainSeconds } from "./timing.ts";
+import { describeTiming, MAX_MS, MAX_STEP, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { gameById, gameOptions } from "./gamesets.ts";
 import { templateById } from "./templates.ts";
@@ -43,7 +43,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.34.0";
+export const FORMAT_VERSION = "0.35.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -791,6 +791,30 @@ export class Model {
     obj.style = value === "left" ? rest : { ...rest, textAlign: value };
     this.emit({ kind: "content", objectId });
     return value === "left" ? "Words on the left" : value === "center" ? "Words in the centre" : "Words on the right";
+  }
+
+  /** Where the words of a text object start in its box: "top" (how text starts, so it is not written down), "middle" or "bottom". */
+  setTextVertical(objectId: string, value: string): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text" || !["top", "middle", "bottom"].includes(value)) return null;
+    const now = obj.style["verticalAlign"] === "middle" || obj.style["verticalAlign"] === "bottom" ? String(obj.style["verticalAlign"]) : "top";
+    if (now === value) return null;
+    this.record(`vertical:${objectId}`);
+    const { verticalAlign: _was, ...rest } = obj.style;
+    obj.style = value === "top" ? rest : { ...rest, verticalAlign: value };
+    this.emit({ kind: "content", objectId });
+    return value === "top" ? "Words start at the top of the box" : value === "middle" ? "Words sit in the middle of the box" : "Words sit at the bottom of the box";
+  }
+
+  /** Whether the words of a text object shrink to fit when there are more than its box holds. Off is how text starts, so it is not written down. */
+  setTextFit(objectId: string, on: boolean): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "text" || (obj.style["autoFit"] === "shrink") === on) return null;
+    this.record(`fit:${objectId}`);
+    const { autoFit: _was, ...rest } = obj.style;
+    obj.style = on ? { ...rest, autoFit: "shrink" } : rest;
+    this.emit({ kind: "content", objectId });
+    return on ? "Words shrink to fit the box, to no less than half their size or 12 pixels" : "Words keep their size, and run past the box if there are too many";
   }
 
   /** Which side of a bubble (a speech or thought bubble shape, or text in a bubble) its tail is on. */
@@ -2552,7 +2576,7 @@ export class Model {
     const obj = row.object;
     let next: Timing = { ...obj.timing, ...patch };
     const whole = (n: number, min: number) => Number.isInteger(n) && n >= min && n <= MAX_MS;
-    if (next.appear !== "time" && next.appear !== "narration" && next.appear !== "media") return { ok: false, message: "An object appears after the slide opens, after its narration starts, or at a moment in a video or audio clip." };
+    if (next.appear !== "time" && next.appear !== "narration" && next.appear !== "media" && next.appear !== "click") return { ok: false, message: "An object appears after the slide opens, after its narration starts, at a moment in a video or audio clip, or when the learner shows the next item." };
     if (next.appear === "media") {
       const clips = this.mediaSources().filter((c) => c.id !== objectId);
       if (patch.media !== undefined && !clips.some((c) => c.id === patch.media)) return { ok: false, message: "That is not a video or audio clip on this slide." };
@@ -2560,6 +2584,12 @@ export class Model {
       const media = chosen !== undefined && clips.some((c) => c.id === chosen) ? chosen : clips[0]?.id;
       if (media === undefined) return { ok: false, message: "Add a video or audio file to this slide first, so there is something for it to follow." };
       next = { appear: "media", media, start: next.start, visibleFor: next.visibleFor };
+    } else if (next.appear === "click") {
+      // A new click step goes after the last one on the layer, unless the author names one.
+      const others = this.timingRows().filter((r) => r.layerId === row.layerId && r.object.id !== objectId && r.object.timing.appear === "click");
+      const step = patch.step ?? (obj.timing.appear === "click" ? obj.timing.step : undefined) ?? Math.max(0, ...others.map((r) => r.object.timing.step ?? 1)) + 1;
+      if (!Number.isInteger(step) || step < 1 || step > MAX_STEP) return { ok: false, message: `The item number must be a whole number from 1 to ${MAX_STEP}.` };
+      next = { appear: "click", step, start: next.start, visibleFor: next.visibleFor };
     } else {
       next = { appear: next.appear, start: next.start, visibleFor: next.visibleFor };
     }

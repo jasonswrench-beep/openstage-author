@@ -29,6 +29,11 @@ html, body { margin: 0; background: #f3f3f3; }
 /* The object's own font size is the size the author chose. Without this, a browser makes an
    h1 twice that size and the text runs into whatever sits below it. */
 .os-text :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; margin: 0 0 .4em; }
+/* A weight the author chose for a text (a text imported from PowerPoint says its title is not bold) holds for its headings too. */
+.os-text.os-weighted :is(h1, h2, h3, h4, h5, h6) { font-weight: inherit; }
+/* The space between paragraphs is the number the text says, and nothing else. */
+.os-text.os-spaced :is(p, ul, ol, li, h1, h2, h3, h4, h5, h6) { margin-top: 0; margin-bottom: 0; }
+.os-text.os-spaced > * + *, .os-text.os-spaced li + li, .os-text.os-spaced li > :is(ul, ol) { margin-top: var(--os-gap, 0); }
 .os-shape { line-height: 0; }
 .os-shape svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .os-text > :first-child { margin-top: 0; }

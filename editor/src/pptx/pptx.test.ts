@@ -5,9 +5,10 @@ import path from "node:path";
 import { test } from "node:test";
 import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, snapshotOf, type ConvertContext, type SlideContext } from "./convert.ts";
 import { readDeck, type DeckShape } from "./deck.ts";
+import { describeImport } from "./import.ts";
 import { fingerprint, hashBytes, hashText } from "./hash.ts";
 import { openDeck, resolveTarget } from "./package.ts";
-import { buildDeck, chart, connector, fakePng, group, inch, pic, sp, table, type DeckSpec } from "./testdeck.ts";
+import { buildDeck, chart, connector, fakePng, group, inch, pic, sp, table, timing, type DeckSpec } from "./testdeck.ts";
 import { child, descendants, kids, num, parseXml, path as xpath } from "./xml.ts";
 
 const read = (spec: DeckSpec) => readDeck(openDeck(buildDeck(spec)));
@@ -438,6 +439,135 @@ test("a 4 to 3 deck is centred on a wider stage", () => {
   const s = one(sp({ id: 5, name: "Box", box: { x: 0, y: 0, w: 10, h: 7.5 }, geom: "rect", fill: "FF0000" }), { width: inch(10), height: inch(7.5) });
   const d = convertShape(s.shapes[0]!, ctx({ placement: four }))!;
   assert.deepEqual(d.geometry, { x: 160, y: 0, width: 960, height: 720, rotation: 0 });
+});
+
+// ---- how words sit in their box: where they start, the room round them, shrinking, spacing
+
+test("text: where the words start, the room round them and shrinking when they do not fit come from the box", () => {
+  const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 4, h: 2 }, body: { anchor: "ctr", ins: { l: 0.2, r: 0.2, t: 0.1, b: 0.1 }, autofit: "norm" }, paras: [{ runs: [{ t: "Hello" }] }] }));
+  assert.equal(d!.style["verticalAlign"], "middle");
+  assert.equal(d!.style["paddingX"], 19, "0.2 inch at 96 to the inch");
+  assert.equal(d!.style["paddingY"], 10);
+  assert.equal(d!.style["autoFit"], "shrink");
+});
+
+test("text: a box that says nothing has the room PowerPoint gives, starts at the top and does not shrink", () => {
+  const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 4, h: 2 }, paras: [{ runs: [{ t: "Hello" }] }] }));
+  assert.equal(d!.style["paddingX"], 10, "a tenth of an inch is nine and a half pixels");
+  assert.equal(d!.style["paddingY"], 5);
+  assert.equal(d!.style["verticalAlign"], undefined);
+  assert.equal(d!.style["autoFit"], undefined);
+});
+
+test("text: a box that grows to fit its words shrinks them here, and one that lets them run over does not", () => {
+  const grow = convert1(sp({ id: 5, name: "G", txBox: true, box: { x: 1, y: 1, w: 4, h: 2 }, body: { autofit: "sp" }, paras: [{ runs: [{ t: "Hello" }] }] }))[0]!;
+  const none = convert1(sp({ id: 6, name: "N", txBox: true, box: { x: 1, y: 1, w: 4, h: 2 }, body: { autofit: "none" }, paras: [{ runs: [{ t: "Hello" }] }] }))[0]!;
+  assert.equal(grow.style["autoFit"], "shrink");
+  assert.equal(none.style["autoFit"], undefined);
+});
+
+test("text: a placeholder takes where its words start, and shrinking, from its layout", () => {
+  const spec = {
+    layoutShapes: '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr anchor="b"><a:normAutofit/></a:bodyPr><a:lstStyle/></p:txBody></p:sp>',
+  };
+  const [d] = convert1(sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome" }] }] }), spec);
+  assert.equal(d!.style["verticalAlign"], "bottom");
+  assert.equal(d!.style["autoFit"], "shrink");
+});
+
+test("text: line spacing and the space between paragraphs are kept, and a title is not bold unless it says so", () => {
+  const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 4, h: 2 }, paras: [
+    { lnPct: 90, before: 12, after: 0, runs: [{ t: "One", sz: 20 }] }, { lnPct: 90, before: 12, runs: [{ t: "Two", sz: 20 }] },
+  ] }));
+  assert.equal(d!.style["lineHeight"], 1.08, "90% of PowerPoint's single line, which is 1.2 times the type");
+  assert.equal(d!.style["paragraphSpacing"], 16, "12 points at 96 to the inch");
+  const [title] = convert1(sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Welcome", b: false }] }] }));
+  assert.equal(title!.style["fontWeight"], "normal");
+});
+
+test("text: empty paragraphs between paragraphs were space, so the space is kept and the empty paragraphs are not", () => {
+  const [d] = convert1(sp({ id: 5, name: "Box", txBox: true, box: { x: 1, y: 1, w: 4, h: 3 }, paras: [
+    { runs: [{ t: "One", sz: 20 }] }, { runs: [], endSz: 20 }, { runs: [{ t: "Two", sz: 20 }] },
+  ] }));
+  assert.equal(d!.content["html"], "<p>One</p><p>Two</p>");
+  assert.equal(d!.style["paragraphSpacing"], 32, "one line of 20 points is 24 points of room, which is 32 pixels");
+});
+
+// ---- animation
+
+const SHAPES = (n = 3) => Array.from({ length: n }, (_, i) => sp({ id: 10 + i, name: `Picture ${i + 1}`, box: { x: i, y: 1, w: 1, h: 1 }, geom: "rect", fill: "FF0000" })).join("");
+
+test("animation: each press of the mouse is a step, in order, and effects that start with or after the one before share it", () => {
+  const ds = one(SHAPES(4), {}, {
+    timing: timing([
+      { groups: [{ effects: [{ spid: 10 }] }] },
+      { groups: [{ effects: [{ spid: 11 }, { spid: 12, node: "withEffect" }] }, { delay: 500, effects: [{ spid: 13, node: "afterEffect" }] }] },
+    ]),
+  });
+  assert.deepEqual(ds.effects.map((e) => [e.target, e.click, e.delay]), [["10", 1, 0], ["11", 2, 0], ["12", 2, 0], ["13", 2, 500]]);
+});
+
+test("animation: an effect that starts by itself is not a press", () => {
+  const ds = one(SHAPES(2), {}, { timing: timing([{ auto: true, groups: [{ effects: [{ spid: 10 }] }] }, { groups: [{ effects: [{ spid: 11 }] }] }]) });
+  assert.deepEqual(ds.effects.map((e) => [e.target, e.click]), [["10", null], ["11", 1]]);
+});
+
+test("animation: exits, emphasis, motion and paragraph by paragraph are counted and not brought in as steps", () => {
+  const ds = one(SHAPES(4), {}, {
+    timing: timing([
+      { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 1 }, { spid: 11, cls: "emph", preset: 6 }, { spid: 12, cls: "path", preset: 0 }, { spid: 13, para: true }] }] },
+    ]),
+  });
+  assert.deepEqual(ds.animationLeft, { exit: 1, emphasis: 1, path: 1, byParagraph: 1, interactive: 0 });
+  assert.deepEqual(ds.effects.map((e) => e.target), ["13"], "the one that makes the text appear is kept, all at once");
+});
+
+test("animation: the objects get the entrance, a step to wait for, and an effect that is the nearest this editor has", () => {
+  const ds = one(SHAPES(4), {}, {
+    timing: timing([
+      { groups: [{ effects: [{ spid: 10, preset: 1 }] }] },
+      { groups: [{ effects: [{ spid: 11, preset: 10, dur: 700 }, { spid: 12, preset: 2, subtype: 8, node: "withEffect", delay: 250, dur: 400 }] }] },
+      { groups: [{ effects: [{ spid: 13, preset: 18 }] }] },
+    ]),
+  });
+  const c = ctx();
+  const out = convertSlide(ds, { ...slideCtx(), notes: c.notes });
+  const [a, b, f, u] = out.objects;
+  assert.deepEqual(a!.timing, { appear: "click", step: 1, start: 0, visibleFor: null });
+  assert.deepEqual(a!.animation.enter, { effect: "none", duration: 500 });
+  assert.deepEqual(b!.timing, { appear: "click", step: 2, start: 0, visibleFor: null });
+  assert.deepEqual(b!.animation.enter, { effect: "fade", duration: 700 });
+  assert.deepEqual(f!.timing, { appear: "click", step: 2, start: 250, visibleFor: null }, "with the one before it, a quarter second after the press");
+  assert.deepEqual(f!.animation.enter, { effect: "slideLeft", duration: 400 }, "flying in from the left");
+  assert.deepEqual(u!.animation.enter, { effect: "fade", duration: 500 }, "an effect this editor does not have fades");
+  assert.deepEqual([c.notes.animated, c.notes.animationApproximated, c.notes.waiting], [4, 1, 4]);
+  assert.deepEqual(out.objects.map((o) => o.timing.appear), ["click", "click", "click", "click"]);
+});
+
+test("animation: an effect that starts by itself becomes a time after the slide opens", () => {
+  const ds = one(SHAPES(1), {}, { timing: timing([{ auto: true, groups: [{ delay: 1000, effects: [{ spid: 10, preset: 10, node: "afterEffect", delay: 500 }] }] }]) });
+  const [o] = convertSlide(ds, slideCtx()).objects;
+  assert.deepEqual(o!.timing, { appear: "time", start: 1500, visibleFor: null });
+});
+
+test("animation: an effect on a group is an effect on everything in it, and a shape with no effect is left alone", () => {
+  const inner = sp({ id: 21, name: "A", box: { x: 0, y: 0, w: 1, h: 1 }, geom: "rect", fill: "FF0000" }) + sp({ id: 22, name: "B", box: { x: 1, y: 0, w: 1, h: 1 }, geom: "rect", fill: "00FF00" });
+  const ds = one(group(20, "Pair", { x: 0, y: 0, w: 2, h: 1 }, { x: 0, y: 0, w: 2, h: 1 }, inner) + SHAPES(1), {}, { timing: timing([{ groups: [{ effects: [{ spid: 20, preset: 10 }] }] }]) });
+  const out = convertSlide(ds, slideCtx());
+  assert.deepEqual(out.objects.map((o) => o.timing.appear), ["click", "click", "time"]);
+  assert.deepEqual(out.objects.slice(0, 2).map((o) => (o.timing as { step?: number }).step), [1, 1], "they appear together");
+});
+
+test("animation: the report says what was brought in and what was not", () => {
+  const ds = one(SHAPES(3), {}, {
+    timing: timing([{ groups: [{ effects: [{ spid: 10, preset: 10 }, { spid: 11, preset: 18, node: "withEffect" }, { spid: 12, cls: "exit" }] }] }]),
+  });
+  const notes = newNotes();
+  const converted = [convertSlide(ds, { ...slideCtx(), notes })];
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, converted, notes, ppi96, [0]).join("\n");
+  assert.match(report, /2 objects had an entrance animation in PowerPoint and have it here\. 2 objects wait for the learner: a button, Show next item/);
+  assert.match(report, /1 entrance used an effect this editor does not have, so it fades in instead/);
+  assert.match(report, /Not brought in: 1 exit effect/);
 });
 
 // ---- real decks, when someone points the test at a folder of them: set OPENSTAGE_REAL_DECKS to the folder, then run npm test

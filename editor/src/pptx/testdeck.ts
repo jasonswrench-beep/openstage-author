@@ -11,7 +11,19 @@ const enc = new TextEncoder();
 export const inch = (n: number): number => Math.round(n * 914400);
 
 export interface Run { t: string; b?: boolean; i?: boolean; sz?: number; color?: string; font?: string; link?: string; baseline?: number }
-export interface Para { runs: (Run | "br")[]; lvl?: number; bullet?: "none" | "char" | "num"; algn?: string }
+export interface Para {
+  runs: (Run | "br")[];
+  lvl?: number;
+  bullet?: "none" | "char" | "num";
+  algn?: string;
+  /** Line spacing as a percentage of single (90 is 90%). */
+  lnPct?: number;
+  /** Space before and after, in points. */
+  before?: number;
+  after?: number;
+  /** For a paragraph with no words: the size of the text it would have had, in points. */
+  endSz?: number;
+}
 
 const run = (r: Run, linkId?: string) =>
   `<a:r><a:rPr lang="en-US"${r.sz ? ` sz="${r.sz * 100}"` : ""}${r.b !== undefined ? ` b="${r.b ? 1 : 0}"` : ""}${r.i ? ' i="1"' : ""}${r.baseline ? ` baseline="${r.baseline}"` : ""}>` +
@@ -19,9 +31,10 @@ const run = (r: Run, linkId?: string) =>
 
 export function paras(list: Para[], links: Map<string, string> = new Map()): string {
   return list.map((p) => {
-    const ppr = `<a:pPr${p.lvl ? ` lvl="${p.lvl}"` : ""}${p.algn ? ` algn="${p.algn}"` : ""}>${p.bullet === "none" ? "<a:buNone/>" : p.bullet === "char" ? '<a:buChar char="•"/>' : p.bullet === "num" ? '<a:buAutoNum type="arabicPeriod"/>' : ""}</a:pPr>`;
+    const spacing = `${p.lnPct !== undefined ? `<a:lnSpc><a:spcPct val="${p.lnPct * 1000}"/></a:lnSpc>` : ""}${p.before !== undefined ? `<a:spcBef><a:spcPts val="${p.before * 100}"/></a:spcBef>` : ""}${p.after !== undefined ? `<a:spcAft><a:spcPts val="${p.after * 100}"/></a:spcAft>` : ""}`;
+    const ppr = `<a:pPr${p.lvl ? ` lvl="${p.lvl}"` : ""}${p.algn ? ` algn="${p.algn}"` : ""}>${spacing}${p.bullet === "none" ? "<a:buNone/>" : p.bullet === "char" ? '<a:buChar char="•"/>' : p.bullet === "num" ? '<a:buAutoNum type="arabicPeriod"/>' : ""}</a:pPr>`;
     const body = p.runs.map((r) => (r === "br" ? "<a:br/>" : run(r, r.link ? links.get(r.link) : undefined))).join("");
-    return `<a:p>${ppr}${body}</a:p>`;
+    return `<a:p>${ppr}${body}${p.runs.length === 0 ? `<a:endParaRPr lang="en-US"${p.endSz ? ` sz="${p.endSz * 100}"` : ""}/>` : ""}</a:p>`;
   }).join("");
 }
 
@@ -40,6 +53,8 @@ export interface Spec {
   decorative?: boolean;
   hidden?: boolean;
   fit?: number;
+  /** How the words sit: where they start (t, ctr, b), the room round them in inches, the way the box deals with too many words, and no wrapping. */
+  body?: { anchor?: string; ins?: { l?: number; t?: number; r?: number; b?: number }; autofit?: "norm" | "sp" | "none"; noWrap?: boolean };
   txBox?: boolean;
   styleRef?: { fill?: string; font?: string; line?: string };
 }
@@ -53,8 +68,13 @@ export function sp(s: Spec, links: Map<string, string> = new Map()): string {
   const style = s.styleRef
     ? `<p:style><a:lnRef idx="${s.styleRef.line ? 2 : 0}">${s.styleRef.line ? `<a:srgbClr val="${s.styleRef.line}"/>` : ""}</a:lnRef><a:fillRef idx="${s.styleRef.fill ? 1 : 0}">${s.styleRef.fill ? `<a:srgbClr val="${s.styleRef.fill}"/>` : ""}</a:fillRef><a:effectRef idx="0"/><a:fontRef idx="minor">${s.styleRef.font ? `<a:srgbClr val="${s.styleRef.font}"/>` : ""}</a:fontRef></p:style>`
     : "";
+  const b = s.body;
+  const bodyAttrs = b
+    ? `${b.anchor ? ` anchor="${b.anchor}"` : ""}${b.ins?.l !== undefined ? ` lIns="${inch(b.ins.l)}"` : ""}${b.ins?.t !== undefined ? ` tIns="${inch(b.ins.t)}"` : ""}${b.ins?.r !== undefined ? ` rIns="${inch(b.ins.r)}"` : ""}${b.ins?.b !== undefined ? ` bIns="${inch(b.ins.b)}"` : ""}${b.noWrap ? ' wrap="none"' : ""}`
+    : "";
+  const fit = s.fit ? `<a:normAutofit fontScale="${s.fit * 1000}"/>` : b?.autofit === "norm" ? "<a:normAutofit/>" : b?.autofit === "sp" ? "<a:spAutoFit/>" : b?.autofit === "none" ? "<a:noAutofit/>" : "";
   const body = s.paras
-    ? `<p:txBody><a:bodyPr>${s.fit ? `<a:normAutofit fontScale="${s.fit * 1000}"/>` : ""}</a:bodyPr><a:lstStyle/>${paras(s.paras, links)}</p:txBody>`
+    ? `<p:txBody><a:bodyPr${bodyAttrs}>${fit}</a:bodyPr><a:lstStyle/>${paras(s.paras, links)}</p:txBody>`
     : "";
   return `<p:sp><p:nvSpPr><p:cNvPr id="${s.id}" name="${s.name}"${s.alt ? ` descr="${s.alt}"` : ""}${s.hidden ? ' hidden="1"' : ""}>${ext}</p:cNvPr><p:cNvSpPr${s.txBox ? ' txBox="1"' : ""}/>` +
     `<p:nvPr>${s.ph ? `<p:ph${s.ph.type ? ` type="${s.ph.type}"` : ""}${s.ph.idx !== undefined ? ` idx="${s.ph.idx}"` : ""}/>` : ""}</p:nvPr></p:nvSpPr><p:spPr>${xfrm}${geom}${fill}${ln}</p:spPr>${style}${body}</p:sp>`;
@@ -100,6 +120,45 @@ export interface SlideSpec {
   notes?: string;
   show?: boolean;
   animated?: boolean;
+  /** The slide's p:timing element, as XML (see `timing` below). */
+  timing?: string;
+}
+
+export interface EffectSpec {
+  /** The shape the effect is for: its number on the slide. */
+  spid: number;
+  cls?: "entr" | "exit" | "emph" | "path";
+  /** PowerPoint's number for the effect: 1 is Appear, 10 is Fade, 2 is Fly In. */
+  preset?: number;
+  subtype?: number;
+  /** How it starts. */
+  node?: "clickEffect" | "withEffect" | "afterEffect";
+  /** Milliseconds, after the press or the group's start. */
+  delay?: number;
+  /** Milliseconds the effect takes. */
+  dur?: number;
+  /** The effect is for one paragraph of the text, not the whole shape. */
+  para?: boolean;
+}
+
+/**
+ * A slide's animation: a list of steps; each step is started by a press of the mouse (or, with `auto`, by the slide opening) and holds groups, each group
+ * a delay from the step's start and the effects that start then.
+ */
+export function timing(steps: { auto?: boolean; groups: { delay?: number; effects: EffectSpec[] }[] }[]): string {
+  let id = 3;
+  const effect = (e: EffectSpec) => {
+    const dur = e.dur ?? 500;
+    const behaviour = e.preset === 1 || e.preset === undefined
+      ? `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${e.para ? '<p:txEl><p:pRg st="0" end="0"/></p:txEl>' : ""}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>`
+      : `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${e.para ? '<p:txEl><p:pRg st="0" end="0"/></p:txEl>' : ""}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>` +
+        `<p:animEffect transition="in" filter="fade"><p:cBhvr><p:cTn id="${id++}" dur="${dur}"/><p:tgtEl><p:spTgt spid="${e.spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`;
+    return `<p:par><p:cTn id="${id++}" presetID="${e.preset ?? 1}" presetClass="${e.cls ?? "entr"}" presetSubtype="${e.subtype ?? 0}" fill="hold" nodeType="${e.node ?? "clickEffect"}"><p:stCondLst><p:cond delay="${e.delay ?? 0}"/></p:stCondLst><p:childTnLst>${behaviour}</p:childTnLst></p:cTn></p:par>`;
+  };
+  const group = (g: { delay?: number; effects: EffectSpec[] }) => `<p:par><p:cTn id="${id++}" fill="hold"><p:stCondLst><p:cond delay="${g.delay ?? 0}"/></p:stCondLst><p:childTnLst>${g.effects.map(effect).join("")}</p:childTnLst></p:cTn></p:par>`;
+  const step = (s: { auto?: boolean; groups: { delay?: number; effects: EffectSpec[] }[] }) =>
+    `<p:par><p:cTn id="${id++}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/>${s.auto ? '<p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond>' : ""}</p:stCondLst><p:childTnLst>${s.groups.map(group).join("")}</p:childTnLst></p:cTn></p:par>`;
+  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${steps.map(step).join("")}</p:childTnLst></p:cTn></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
 }
 
 export interface DeckSpec {
@@ -151,7 +210,7 @@ export function buildDeck(spec: DeckSpec): Uint8Array {
   spec.slides.forEach((s, i) => {
     const n = i + 1;
     const bg = s.background ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${s.background}"/></a:solidFill></p:bgPr></p:bg>` : s.backgroundPicture ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:stretch/></a:blipFill></p:bgPr></p:bg>' : "";
-    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.animated ? '<p:timing><p:tnLst/></p:timing>' : ""}</p:sld>`);
+    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.timing ?? (s.animated ? '<p:timing><p:tnLst/></p:timing>' : "")}</p:sld>`);
     const rels = [`<Relationship Id="rIdLayout" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`];
     for (const [rId, file] of Object.entries(s.media ?? {})) rels.push(`<Relationship Id="${rId}" Type="${REL}/image" Target="../media/${file}"/>`);
     if (s.backgroundPicture) rels.push(`<Relationship Id="rIdBg" Type="${REL}/image" Target="../media/${s.backgroundPicture}"/>`);

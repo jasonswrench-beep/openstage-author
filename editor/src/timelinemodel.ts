@@ -117,7 +117,8 @@ export function buildTimeline(rows: TimelineRow[], slideDuration: number | null,
     }
     const follows = o.timing.appear === "narration";
     const onClip = o.timing.appear === "media";
-    const approximate = follows && narration === null;
+    // An object that waits for a click has no place on the clock, because the learner decides when: it is drawn at its delay from the start, as a guess.
+    const approximate = (follows && narration === null) || o.timing.appear === "click";
     const origin = follows && narration ? narration.start : 0;
     const from = origin + o.timing.start;
     return {
@@ -179,6 +180,7 @@ export function percentOf(ms: number, horizon: number): number {
 /** What a screen reader says for the start grip: the delay and what it counts from. */
 export function startText(timing: Timing, onBase: boolean, clipName?: string): string {
   if (timing.appear === "media") return `${plainSeconds(timing.start)} into ${clipName ?? "its video or audio"}`;
+  if (timing.appear === "click") return `${plainSeconds(timing.start)} after the learner shows item ${timing.step ?? 1}`;
   const from = timing.appear === "narration" ? "its narration starts" : onBase ? "the slide opens" : "its layer is shown";
   return `${plainSeconds(timing.start)} after ${from}`;
 }

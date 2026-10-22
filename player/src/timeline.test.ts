@@ -508,3 +508,99 @@ test("two timers run out in their own time", () => {
   m.clock.advance(4000);
   assert.deepEqual(m.ends, ["short", "long"]);
 });
+
+// ---- timing that waits for the learner: appear "click"
+
+const onClick = (step: number, start = 0, visibleFor: number | null = null): Timing => ({ appear: "click", step, start, visibleFor });
+
+test("an object that waits for a click is timed, and is not shown until the learner presses Show next item", () => {
+  assert.equal(isTimed(onClick(1)), true);
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1)), obj("b", onClick(2))]);
+  assert.deepEqual(m.take(), ["hide a", "hide b"], "both start hidden, and nothing shows by itself");
+  m.clock.advance(60000);
+  assert.deepEqual(m.take(), [], "however long the learner waits");
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 0 });
+  assert.equal(m.timeline.active, true, "the controls are there");
+});
+
+test("each press shows the next step, in step order, and says what it showed", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("b", onClick(2)), obj("a", onClick(1))]);
+  m.take();
+  assert.deepEqual(m.timeline.showNext(), ["a"]);
+  assert.deepEqual(m.take(), ["show a"]);
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 1 });
+  assert.deepEqual(m.timeline.showNext(), ["b"]);
+  assert.deepEqual(m.take(), ["show b"]);
+  assert.deepEqual(m.timeline.showNext(), [], "nothing is left to show");
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 2 });
+});
+
+test("objects with the same step show together, and an object's own delay counts from the press", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1)), obj("b", onClick(1, 1500)), obj("c", onClick(2))]);
+  m.take();
+  m.clock.advance(5000);
+  assert.deepEqual(m.timeline.showNext(), ["a", "b"]);
+  assert.deepEqual(m.take(), ["show a"], "the one with no delay is there at once");
+  m.clock.advance(1499);
+  assert.deepEqual(m.take(), []);
+  m.clock.advance(1);
+  assert.deepEqual(m.take(), ["show b"]);
+});
+
+test("step numbers do not have to be unbroken: the presses follow the numbers that are there", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(3)), obj("b", onClick(7))]);
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 0 });
+  assert.deepEqual(m.timeline.showNext(), ["a"]);
+  assert.deepEqual(m.timeline.showNext(), ["b"]);
+});
+
+test("pausing holds a delay but not the press itself, and Show everything shows every step and leaves nothing to press", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1, 2000)), obj("b", onClick(2))]);
+  m.take();
+  m.timeline.pause();
+  m.timeline.showNext();
+  m.clock.advance(10000);
+  assert.deepEqual(m.take(), [], "the clock is stopped, so the delay has not passed");
+  m.timeline.showEverything();
+  assert.deepEqual(m.take().sort(), ["show a", "show b"]);
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 2 });
+  assert.deepEqual(m.timeline.showNext(), []);
+});
+
+test("an object that waits for a click and has a time to stay goes after that time", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1, 0, 3000))]);
+  m.take();
+  m.timeline.showNext();
+  assert.deepEqual(m.take(), ["show a"]);
+  m.clock.advance(3000);
+  assert.deepEqual(m.take(), ["hide a"]);
+});
+
+test("each layer has steps of its own, base layer first, and hiding a layer forgets its presses", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1))]);
+  m.timeline.addLayer("more", [obj("x", onClick(1))]);
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 0 });
+  assert.deepEqual(m.timeline.showNext(), ["a"]);
+  assert.deepEqual(m.timeline.showNext(), ["x"]);
+  m.timeline.removeLayer("more");
+  m.take();
+  m.timeline.addLayer("more", [obj("x", onClick(1))]);
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 1 }, "the layer starts again when it is shown again");
+  assert.deepEqual(m.timeline.showNext(), ["x"]);
+});
+
+test("a new slide forgets the presses", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1))]);
+  m.timeline.showNext();
+  m.timeline.reset();
+  m.timeline.addLayer("base", [obj("a", onClick(1))]);
+  assert.deepEqual(m.timeline.steps, { total: 1, pressed: 0 });
+});

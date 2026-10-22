@@ -45,7 +45,7 @@ import { askNewProject } from "./newproject.ts";
 import { openNarration } from "./narrationdialog.ts";
 import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
-import { describeTiming, isStartingTiming, parseSeconds, secondsText } from "./timing.ts";
+import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
 import { audioStatus, isKnownVoice, keyOf, languageOptions, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
@@ -1086,7 +1086,7 @@ ${errorText(err)}`);
     const t = o.timing;
     const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.fillValues(o); };
     const clips = m.mediaSources().filter((c) => c.id !== o.id);
-    const afterWhat = t.appear === "narration" ? "its narration starts" : onBase ? "the slide opens" : "its layer is shown";
+    const afterWhat = t.appear === "narration" ? "its narration starts" : t.appear === "click" ? "the learner shows it" : onBase ? "the slide opens" : "its layer is shown";
     const onClip = t.appear === "media";
     const clipFields: HTMLElement[] = onClip ? [
       this.selectField("timing-media", "Follows", [
@@ -1102,7 +1102,16 @@ ${errorText(err)}`);
         { value: "time", label: onBase ? "After the slide opens" : "After its layer is shown" },
         { value: "narration", label: "After its narration starts", disabled: !o.narration },
         { value: "media", label: "When a video or audio clip reaches a time", disabled: clips.length === 0 && !onClip },
+        { value: "click", label: "When the learner shows the next item" },
       ], t.appear, (v) => done(m.setTiming(o.id, { appear: v as typeof t.appear }))),
+      ...(t.appear === "click" ? [
+        this.field("timing-step", "Item number", String(t.step ?? 1), (v) => {
+          const n = Number(v.trim());
+          if (!Number.isInteger(n) || n < 1 || n > MAX_STEP) { this.announce(`Write the item number as a whole number from 1 to ${MAX_STEP}.`); this.fillValues(o); return; }
+          done(m.setTiming(o.id, { step: n }));
+        }, { number: true, describedBy: "timing-step-note" }),
+        h("p", { id: "timing-step-note", class: "note", text: "The learner has a button, Show next item, that shows the items one at a time, in order of their number. Items with the same number show together. Show everything now shows them all. The slide does not move on until the learner does." }),
+      ] : []),
       ...(clips.length === 0 && !onClip ? [h("p", { class: "note", text: "To make something appear at a moment in a video or audio clip, add a video or audio file to this slide first." })] : []),
       ...clipFields,
       this.field("timing-start", onClip ? "Seconds into the clip" : `Seconds after ${afterWhat}`, secondsText(t.start), (v) => {
@@ -2646,7 +2655,8 @@ ${errorText(err)}`);
         { value: "time", label: onBase ? "After the slide opens" : "After its layer is shown" },
         { value: "narration", label: "After its narration starts", disabled: !sel.some((o) => o.narration) },
         { value: "media", label: "When a video or audio clip reaches a time", disabled: m.mediaSources().length === 0 && appear !== "media" },
-      ], appear ?? "", (v) => { if (v !== "") done(m.setTimingForSelected({ appear: v as "time" | "narration" | "media" })); }),
+        { value: "click", label: "When the learner shows the next item (each gets the next item number)" },
+      ], appear ?? "", (v) => { if (v !== "") done(m.setTimingForSelected({ appear: v as "time" | "narration" | "media" | "click" })); }),
       start === undefined ? differ(startField) : startField,
       leave === undefined ? differ(leaveField) : leaveField,
       h("p", { class: "note", text: appear !== undefined && start !== undefined && leave !== undefined ? describeTiming(sel[0]!.timing, !onBase) : "These objects have different timing. Setting a value here makes it the same on all of them." }));
@@ -2843,6 +2853,7 @@ ${errorText(err)}`);
     if (animationNote) animationNote.textContent = describeAnimation(o.animation);
     set("timing-appear", o.timing.appear);
     set("timing-start", secondsText(o.timing.start));
+    set("timing-step", String(o.timing.step ?? 1));
     set("timing-leave", o.timing.visibleFor === null ? "" : secondsText(o.timing.visibleFor));
     const timingNote = this.propsBody.querySelector<HTMLElement>("#timing-summary");
     if (timingNote) timingNote.textContent = describeTiming(o.timing, !!this.model && this.model.layer?.id !== this.model.slide?.baseLayer.id, this.model?.mediaNameOf(o.timing.media));
@@ -2857,6 +2868,9 @@ ${errorText(err)}`);
     set("shape", String(o.content["shape"] ?? "rectangle"));
     set("bubble", isBubbleKind(o.content["bubble"]) ? o.content["bubble"] : "");
     set("align", o.style["textAlign"] === "center" || o.style["textAlign"] === "right" ? String(o.style["textAlign"]) : "left");
+    set("vertical", o.style["verticalAlign"] === "middle" || o.style["verticalAlign"] === "bottom" ? String(o.style["verticalAlign"]) : "top");
+    const fitBox = this.propsBody.querySelector<HTMLInputElement>("#p-fit");
+    if (fitBox) fitBox.checked = o.style["autoFit"] === "shrink";
     set("tail", tailOf(o.content["tail"]));
     this.updateContrast(o);
     if (o.type === "quizQuestion") this.fillQuiz(o);
@@ -2941,6 +2955,14 @@ ${errorText(err)}`);
           const msg = m.setTextAlign(o.id, v);
           if (msg) this.announce(msg);
         })] : []),
+        ...(o.type === "text" ? [this.selectField("vertical", "Words start", [{ value: "top", label: "At the top of the box" }, { value: "middle", label: "In the middle of the box" }, { value: "bottom", label: "At the bottom of the box" }], o.style["verticalAlign"] === "middle" || o.style["verticalAlign"] === "bottom" ? String(o.style["verticalAlign"]) : "top", (v) => {
+          const msg = m.setTextVertical(o.id, v);
+          if (msg) this.announce(msg);
+        }),
+        h("div", { class: "field check" },
+          this.tick("checkbox", "fit", "Shrink the words to fit the box", o.style["autoFit"] === "shrink", (on) => { const msg = m.setTextFit(o.id, on); if (msg) this.announce(msg); }),
+          h("label", { for: "p-fit", text: "Shrink the words to fit the box" })),
+        h("p", { class: "note", text: "When there are more words than the box holds, they shrink, to no less than half their size or 12 pixels, so they stay inside. Text brought in from PowerPoint has this on if its box did." })] : []),
         h("p", { id: "contrast-note", class: "note" }));
     }
     if (o.type === "text" && isBubbleKind(o.content["bubble"])) {

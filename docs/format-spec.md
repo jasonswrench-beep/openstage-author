@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.34.0",
+  "schemaVersion": "0.35.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -336,6 +336,18 @@ object around it carries the name, or is marked `decorative`. A line is a thin `
 **Values in a text** (added in 0.31.0). A `text` object's `html` can hold a **reference**, two braces round a name: `Score: {{$score}}`. While the course is played the player puts the value there and writes it again whenever it changes (a rule changed a variable, or a question was answered). The name is either a variable's `name` (capitals and spaces at the ends do not matter) or one of the values the course works out, which start with a dollar sign so no variable can share one: `$score` (points earned so far), `$possible` (points possible in the whole course), `$percent` (the points earned so far as a percentage of those possible, rounded), `$answered` (questions finished), `$questions` (questions in the course) and `$correct` (questions answered right). A number is written as it is, `true` and `false` as yes and no, a word as it is. A name with a brace or a line break in it, or longer than 80 characters, cannot be referenced. A reference is read in each stretch of words between tags, so a tag in the middle of one breaks it. A reference to nothing is shown as written, so the mistake can be seen, and the validator's `value-text-unknown` names it. Only `text` objects take references (a text bubble is one). If the text's `accessibility.role` is `status` it is a live region, and a screen reader says it again when a value in it changes; with any other role it is not announced. The transcript, being a fixed copy, writes a reference as its name in brackets (`[score]`). The editor changes a reference when its variable is renamed, and will not delete a variable a text shows.
 
 A `text` object's words sit on the left of its box unless `style.textAlign` is `center` or `right` (a deck imported from PowerPoint may also bring `justify`, which the player draws; the editor offers only the first three, because the uneven spaces in justified text are hard to read). Nothing is written for left. It needs no schema change: `style` takes any keys the player knows.
+
+**How words sit in their box** (added in 0.35.0; `style` keys of a `text` object, none of them written unless they have a value, so an older text is drawn as before):
+
+| Key | Meaning |
+| --- | --- |
+| `verticalAlign` | `"middle"` or `"bottom"`: the words sit in the middle of the box, or at its bottom edge, instead of starting at the top. |
+| `paddingX`, `paddingY` | Pixels of room between the box's edge and its words, left and right, and top and bottom. Without them a text has none (a text from PowerPoint has the room PowerPoint gives, a tenth of an inch at the sides and a twentieth above and below, unless its box said otherwise). |
+| `autoFit` | `"shrink"`: when there are more words than the box holds, the player shrinks them until they fit, to no less than half the size in `fontSize` or 12 pixels (whichever is larger, but never above `fontSize`). It is worked out on the learner's own screen, with the learner's own fonts, so it holds whatever fonts are there; in the one-column layout for narrow screens, where a box has no fixed height, it does nothing. |
+| `paragraphSpacing` | Pixels between paragraphs, and between list items. Without it a browser's usual space is used. A number, including 0, replaces it. |
+| `lineHeight` | Already there: the height of a line as a multiple of the size (1.2 is the usual). A text from PowerPoint says it when the deck did. |
+
+A weight in `fontWeight` also applies to a heading (`h1` to `h6`) in the text, so a title that is not bold can be written (a browser draws a heading bold unless it is told not to).
 
 **Speech and thought bubbles** (added in 0.30.0). A bubble is the picture of something said or thought, with a tail that points at whoever is speaking or thinking. A `shape`
 whose `content.shape` is `speech` (a rounded box with a pointed tail) or `thought` (an ellipse with two small circles trailing away from it) is a plain, empty bubble: a picture
@@ -942,7 +954,8 @@ and every migrated object has, means always there, so a course with no timing be
 
 | Field | Meaning |
 | --- | --- |
-| `appear` | `"time"`: shown `start` milliseconds after the object's layer is shown (after the slide opens, for the base layer). `"narration"`: shown `start` milliseconds after the object's own narration starts playing. `"media"`: shown when a video or audio clip on the slide has played `start` milliseconds (see Following a video or an audio clip). |
+| `appear` | `"time"`: shown `start` milliseconds after the object's layer is shown (after the slide opens, for the base layer). `"narration"`: shown `start` milliseconds after the object's own narration starts playing. `"media"`: shown when a video or audio clip on the slide has played `start` milliseconds (see Following a video or an audio clip). `"click"`: shown `start` milliseconds after the learner presses **Show next item** for this object's `step` (see Waiting for the learner). |
+| `step` | Only with `appear: "click"`, and then required: a whole number from 1 to 200. (Added in 0.35.0.) |
 | `media` | Only with `appear: "media"`, and then required: the `id` of a `video` or `audio` object on the same slide. Absent otherwise. (Added in 0.23.0.) |
 | `start` | A whole number of milliseconds, 0 to 3,600,000. With `appear: "time"` and `start: 0` the object is there from the start. With `appear: "media"` it counts the clip's own time. |
 | `visibleFor` | `null` to stay, or a whole number of milliseconds, 1 to 3,600,000, after which the object goes again, counted from when it appeared. With `appear: "media"` it is that much of the clip. |
@@ -973,6 +986,8 @@ shows every object that follows a clip and leaves the clip alone. Both are the s
 and is a video or audio object (`timing-media-missing`), that an object does not follow itself (`timing-media-self`), and warns when a slide with `duration` holds objects that follow a clip
 (`timing-media-advance`), because the slide may move on before the clip has reached them. The editor keeps the reference when a slide is copied (the copies follow the copied clip), and when
 an object is copied to a slide that does not have the clip it goes back to appearing when the slide opens, and says so. (Added in 0.23.0.)
+
+**Waiting for the learner** (added in 0.35.0). An object with `appear: "click"` and a `step` is hidden until the learner asks for it. A slide that has any such object shows a button, **Show next item (1 of 3)**, with the timing controls. Each press shows the next step: the steps are the `step` numbers on a layer, once each, in order (they need not be unbroken: 3 and 7 are two presses), and objects with the same number show together, each after its own `start` (a delay counted from the press, so a picture can arrive half a second after a caption). The player says which item came ("Item 2 of 7 is showing" and the object's alt text, or its name, never for decoration) in the same polite way as the other timing controls. After the last the button says **All items are showing** and stays in place, so a learner using the keyboard is not left without it. **Show everything now** shows every step at once. A layer has steps of its own and starts them again each time it is shown; with steps on more than one layer, the base layer's come first. Nothing moves on by itself: the learner decides when each step comes, so it is no barrier to anyone who needs more time. A slide with a `duration` and such objects is warned about (`timing-click-advance`), because it may move on before the learner has shown them. The editor draws such an object on the timeline at its delay, marked as a guess, because the clock does not know when the learner will press.
 
 **Layers.** An object on a layer other than the base layer is timed from when that layer is shown, and starts again each time the
 layer is shown. Timing never changes what a layer does, and is a separate switch from an object's states, so none undoes another.
@@ -1489,6 +1504,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.34.0 | 0.35.0 | Adds timing that waits for the learner (`appear` `click`, with a `step`) and the text style keys `verticalAlign`, `paddingX`, `paddingY`, `autoFit` and `paragraphSpacing`. Nothing in an older course changes. |
 | 0.33.0 | 0.34.0 | Adds the optional `hideNavigation` of a slide (leave out Back and Next on it). Nothing in an older course changes. |
 | 0.32.0 | 0.33.0 | Adds question banks (the optional `banks` of `project.json`) and the optional `shuffle` of a multiple choice or multiple response question. Nothing in an older course changes. |
 | 0.31.0 | 0.32.0 | Adds the timer: an object of type `timer` (`seconds`, `label`, `extendBy`), the event `timerEnd` and the action `stopTimer`. Nothing in an older course changes. |

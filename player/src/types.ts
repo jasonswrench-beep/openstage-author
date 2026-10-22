@@ -463,7 +463,9 @@ export interface InteractionContent {
  * `{ appear: "time", start: 0, visibleFor: null }`, means always there. See docs/format-spec.md, Timing.
  */
 export interface Timing {
-  appear: "time" | "narration" | "media";
+  appear: "time" | "narration" | "media" | "click";
+  /** Only with appear "click": which press of Show next item shows this object. Objects with the same step show together; start is the delay after the press. */
+  step?: number;
   /** Only with appear "media": the id of the video or audio clip on the same slide whose playing time this follows. Then start and visibleFor count the clip's time. */
   media?: string;
   start: number;

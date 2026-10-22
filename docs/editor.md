@@ -341,6 +341,10 @@ grid of text boxes for the cells, and buttons to insert or delete rows and colum
 columns. Scrolling text is a box of paragraphs that scrolls when it is long, and is a tab stop so the
 keyboard can scroll it. Both use the theme's colours, so only their font and size can be changed.
 
+**Text boxes.** For a text, **Words start** (at the top, in the middle or at the bottom of the box) and **Shrink the words to fit the box** are among its looks, beside the font, size, colour and where the words sit across the box. Shrinking keeps the words inside the box on every screen, to no less than half the size or 12 pixels; text brought in from PowerPoint has it on if its box did. See `docs/format-spec.md`, "How words sit in their box".
+
+**Waiting for the learner.** In an object's Timing, **Appears** has a choice, **When the learner shows the next item**, and **Item number** appears: items with the same number show together, in order of the numbers. The learner has a button, **Show next item**, on the slide. The timeline draws such an object at its delay and marks it as a guess. Choosing this for several selected objects gives each the next number.
+
 **Leaving out Back and Next.** With nothing selected, the slide's Properties have a **Moving through the course** box with **Leave out Back and Next on this slide**. The learner then leaves the slide only through something on it
 (a Continue button, a tile) or when its time is up, which is how the games keep players in the game. Ticking it says what it did, and warns if nothing on the slide goes to another slide yet; the Problems list reports the same as an error.
 One step for Undo. The score slide at the end of a game keeps Back and Next.

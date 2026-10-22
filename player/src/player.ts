@@ -36,6 +36,8 @@ export class Player implements Host {
   private readonly timingBar: HTMLElement;
   private readonly pauseBtn: HTMLButtonElement;
   private readonly showAllBtn: HTMLButtonElement;
+  /** Shows what a slide holds back until the learner asks for it, one step at a time. */
+  private readonly itemBtn: HTMLButtonElement;
   private readonly animateBtn: HTMLButtonElement;
   /** The animation of each object on the slide that has a timing or an entrance to play, by object id. */
   private readonly animations = new Map<string, ObjectAnimation>();
@@ -101,11 +103,21 @@ export class Player implements Host {
     this.timingBar = el(doc, "section", "os-timing");
     this.timingBar.setAttribute("aria-label", "Timing");
     this.timingBar.hidden = true;
+    this.itemBtn = button(doc, "Show next item", "os-nav-btn");
     this.pauseBtn = button(doc, "Pause timing", "os-nav-btn");
     this.showAllBtn = button(doc, "Show everything now", "os-nav-btn");
     this.animateBtn = button(doc, "Turn off animation", "os-nav-btn");
     this.animateBtn.setAttribute("aria-pressed", "false");
-    this.timingBar.append(this.pauseBtn, this.showAllBtn, this.animateBtn);
+    this.timingBar.append(this.itemBtn, this.pauseBtn, this.showAllBtn, this.animateBtn);
+    this.itemBtn.addEventListener("click", () => {
+      // aria-disabled, not disabled, once nothing is left, so the button the learner is on does not vanish from under them.
+      if (this.itemBtn.getAttribute("aria-disabled") === "true") return;
+      const ids = this.timeline.showNext();
+      if (ids.length === 0) return;
+      const { total, pressed } = this.timeline.steps;
+      const names = ids.map((id) => this.nameOf(id)).filter((n) => n !== "");
+      this.say(`Item ${pressed} of ${total} is showing${names.length > 0 ? `: ${names.join(", ")}` : ""}.${pressed >= total ? " That was the last." : ""}`);
+    });
     this.animateBtn.addEventListener("click", () => {
       this.animationOff = !this.animationOff;
       if (this.animationOff) this.stage.endAnimations();
@@ -305,6 +317,14 @@ export class Player implements Host {
     if (timed.length > 0) this.timeline.addLayer(layer.id, timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) })));
   }
 
+  /** What a learner would call an object on the slide that is showing: its alt text, or its name. Nothing for something that is only decoration. */
+  private nameOf(id: string): string {
+    const slide = this.runtime.currentSlide;
+    const found = slide && [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).find((o) => o.id === id);
+    if (!found || found.accessibility.decorative) return "";
+    return found.accessibility.altText.trim() || found.name;
+  }
+
   /** Say something to a screen reader. Emptying the region first makes it read the same words twice in a row; a short wait, not a frame, so it also works when the page is not being drawn. */
   private say(message: string): void {
     this.announcer.textContent = "";
@@ -323,6 +343,10 @@ export class Player implements Host {
     const timed = this.timeline.active;
     const animated = !reducedMotion() && [...this.animations.values()].some(hasAnimation);
     this.timingBar.hidden = !timed && !animated;
+    const { total, pressed } = this.timeline.steps;
+    this.itemBtn.hidden = total === 0;
+    this.itemBtn.textContent = pressed >= total ? "All items are showing" : `Show next item (${pressed + 1} of ${total})`;
+    if (pressed >= total) this.itemBtn.setAttribute("aria-disabled", "true"); else this.itemBtn.removeAttribute("aria-disabled");
     this.pauseBtn.hidden = !timed;
     this.showAllBtn.hidden = !timed;
     this.animateBtn.hidden = !animated;

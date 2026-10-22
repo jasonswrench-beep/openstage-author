@@ -8,10 +8,10 @@
 //  - Alt text is what PowerPoint had. A shape with none is decorative, as a new shape in this editor is; a picture or table with none is
 //    left for the author, and the Problems list asks. Nothing is made up.
 
-import type { OSObject, Slide } from "../../../player/src/types.ts";
+import type { EffectName, OSObject, Slide } from "../../../player/src/types.ts";
 import { FONT_CHOICES } from "../content.ts";
 import { box } from "../factory.ts";
-import { EMU_PER_INCH, type DeckPara, type DeckRun, type DeckShape, type DeckSlide } from "./deck.ts";
+import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide } from "./deck.ts";
 
 /** How a deck is laid on the stage: how big an inch of the deck is in stage pixels, and how far in from the stage's top left corner the deck starts. */
 export interface Placement {
@@ -39,9 +39,16 @@ export interface ConvertNotes {
   diagonalLines: number;
   tableMerged: number;
   fills: Record<string, number>;
+  /** Text boxes that shrink their words when they do not fit. */
+  shrinks: number;
+  /** Objects given an entrance, and how many of those had an effect this editor does not have, so they fade in instead. */
+  animated: number;
+  animationApproximated: number;
+  /** Objects that wait for the learner to show them. */
+  waiting: number;
 }
 
-export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {} });
+export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0 });
 
 const bump = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
 
@@ -198,6 +205,38 @@ const SHAPE_FOR: Record<string, string> = {
 };
 
 const px = (emu: number, p: Placement) => (emu / EMU_PER_INCH) * p.pixelsPerInch;
+
+/** What PowerPoint shows when a text box says nothing of its own about the room round its words. */
+const DEFAULT_INSET = { l: 91440, t: 45720, r: 91440, b: 45720 };
+
+/**
+ * How the words sit in their box, as PowerPoint draws them: the room round them, the line they start from (top, middle or bottom of the box), the
+ * spacing between lines and paragraphs, and shrinking when they do not fit. A web page draws type a little differently from PowerPoint, and the fonts
+ * PowerPoint uses are mostly not on a learner's computer, so shrinking when the words do not fit is what keeps the box looking as it did.
+ */
+function boxStyle(shape: DeckShape & { kind: "text" }, sizePoints: number | undefined, p: Placement, notes: ConvertNotes): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  const body = shape.body;
+  const inset = { ...DEFAULT_INSET, ...body?.inset };
+  out["paddingX"] = Math.round(px((inset.l + inset.r) / 2, p));
+  out["paddingY"] = Math.round(px((inset.t + inset.b) / 2, p));
+  if (body?.anchor === "ctr") out["verticalAlign"] = "middle";
+  else if (body?.anchor === "b") out["verticalAlign"] = "bottom";
+  if (body?.fit === "shrink" || body?.fit === "grow") {
+    out["autoFit"] = "shrink";
+    notes.shrinks += 1;
+  }
+  const first = shape.paras[0];
+  const spacing = first?.lineSpacing;
+  // A browser's single line is a little taller than the type; PowerPoint's single line is about 1.2 times the type.
+  if (spacing?.pct !== undefined) out["lineHeight"] = Math.round(spacing.pct * 1.2 * 100) / 100;
+  else if (spacing?.pts !== undefined && sizePoints) out["lineHeight"] = Math.round((spacing.pts / sizePoints) * 100) / 100;
+  const between = shape.paras.length > 1 ? (shape.paras[1]!.before ?? 0) + (shape.paras[0]!.after ?? 0) : (first?.before ?? 0);
+  // Empty paragraphs between the words were the author's way of leaving a gap; the gap is what is kept.
+  const blank = Math.max(0, ...shape.paras.slice(0, -1).map((q) => (q.blankAfter ?? 0) * (q.blankPts ?? 0) * 1.2));
+  out["paragraphSpacing"] = Math.round(((between + blank) * p.pixelsPerInch) / 72);
+  return out;
+}
 const rectOf = (s: DeckShape, p: Placement) => ({
   x: Math.round(p.offsetX + px(s.box.x, p)),
   y: Math.round(p.offsetY + px(s.box.y, p)),
@@ -234,6 +273,7 @@ export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | nul
       if (title && runs.length > 0 && !runs.some((r) => r.bold)) style["fontWeight"] = "normal";
       const align = shape.paras[0]?.align;
       if (align) style["textAlign"] = align === "ctr" ? "center" : align === "r" ? "right" : align === "j" ? "justify" : "left";
+      Object.assign(style, boxStyle(shape, size.value, p, notes));
       if (shape.fill) { style["fill"] = shape.fill; }
       Object.assign(style, strokeStyle(shape.line, p));
       if (shape.fill || shape.line) {
@@ -384,18 +424,60 @@ export function draftsForSlide(ds: DeckSlide, ctx: ConvertContext & SlideGeometr
   return out;
 }
 
+const FROM_SIDE: Record<number, EffectName> = { 1: "slideTop", 2: "slideRight", 4: "slideBottom", 8: "slideLeft" };
+
+/** The effect this editor has that comes nearest to a PowerPoint entrance, and whether it is the same effect. */
+export function entranceFor(e: DeckEffect): { effect: EffectName; exact: boolean } {
+  switch (e.preset) {
+    case 1: return { effect: "none", exact: true };
+    case 10: return { effect: "fade", exact: true };
+    case 2: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: FROM_SIDE[e.subtype] !== undefined };
+    case 22: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: false };
+    case 23: case 53: return { effect: "zoom", exact: true };
+    case 31: return { effect: "zoom", exact: false };
+    default: return { effect: "fade", exact: false };
+  }
+}
+
+const within = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
+
+/**
+ * Give the objects the entrances the deck gave their shapes: an effect that waits for a press of the mouse becomes "when the learner shows the next item",
+ * numbered in the order of the presses, and one that starts by itself becomes a time after the slide opens. An effect on a group is on everything in it.
+ */
+function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes: ConvertNotes): void {
+  const done = new Set<string>();
+  for (const e of ds.effects) {
+    const { effect, exact } = entranceFor(e);
+    objects.forEach((o, i) => {
+      const shape = ds.shapes.find((s) => s.id === keys[i]);
+      if (done.has(o.id) || !(keys[i] === e.target || shape?.groups?.includes(e.target))) return;
+      done.add(o.id);
+      const start = within(e.delay, 0, 3_600_000);
+      o.timing = e.click === null ? { appear: "time", start, visibleFor: null } : { appear: "click", step: within(e.click, 1, 200), start, visibleFor: null };
+      if (e.click !== null) notes.waiting += 1;
+      o.animation = { ...o.animation, enter: { effect, duration: within(e.duration || 500, 100, 2000) } };
+      notes.animated += 1;
+      if (!exact) notes.animationApproximated += 1;
+    });
+  }
+}
+
 /** Every object of a slide of the deck, in reading order, with what they need. */
 export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
   const objects: OSObject[] = [];
   const assets: ConvertedSlide["assets"] = [];
+  const keys: string[] = [];
   let z = 0;
   let tab = 0;
   for (const { key, hash, draft } of draftsForSlide(ds, ctx)) {
     z += 10;
     if (!draft.decorative) tab += 1;
     if (draft.asset && !assets.some((a) => a.path === draft.asset!.path)) assets.push(draft.asset);
+    keys.push(key);
     objects.push(objectFrom(draft, ctx.newId(), z, tab, provenanceFor(ctx.deckId, ds, key, hash, snapshotOf(draft), ctx.importedAt)));
   }
+  applyEffects(ds, objects, keys, ctx.notes);
   const background = backgroundOf(ds, ctx.tones);
   return {
     deck: ds,

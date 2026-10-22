@@ -265,7 +265,8 @@
       "additionalProperties": false,
       "required": ["appear", "start", "visibleFor"],
       "properties": {
-        "appear": { "enum": ["time", "narration", "media"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts. media: start milliseconds into the video or audio clip named by media." },
+        "appear": { "enum": ["time", "narration", "media", "click"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts. media: start milliseconds into the video or audio clip named by media. click: start milliseconds after the learner presses Show next item for step number step." },
+        "step": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Only with appear click, and then required: which press of Show next item shows this object. Objects with the same step show together." },
         "media": { "$ref": "project.schema.json#/$defs/id", "description": "Only with appear media: the id of a video or audio object on the same slide, whose playing time this object follows." },
         "start": { "type": "integer", "minimum": 0, "maximum": 3600000 },
         "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends. With appear media it is a length of the video or audio clip, not of the clock." }
@@ -275,6 +276,11 @@
           "if": { "required": ["appear"], "properties": { "appear": { "const": "media" } } },
           "then": { "required": ["media"] },
           "else": { "not": { "required": ["media"] } }
+        },
+        {
+          "if": { "required": ["appear"], "properties": { "appear": { "const": "click" } } },
+          "then": { "required": ["step"] },
+          "else": { "not": { "required": ["step"] } }
         }
       ]
     },
