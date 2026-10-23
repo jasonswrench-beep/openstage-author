@@ -585,7 +585,15 @@ export interface SlideImportProvenance {
   slideIndex: number;
   importedAt: string;
   sourceHash?: string;
-  base?: { name: string; background: string | null; shapes?: string[] };
+  base?: {
+    name: string;
+    background: string | null;
+    shapes?: string[];
+    /** What the import gave the timing and animation of each shape that has an effect, by the shape's number on the slide (added in 0.39.0). */
+    animation?: Record<string, { timing: Timing; animation: ObjectAnimation }>;
+    /** Set when the speaker notes were made the narration of a shape: its number on the slide, and the words (added in 0.39.0). */
+    notes?: { key: string; script: string };
+  };
 }
 
 /** Set on a slide or an object the Capture module made from a recorded step, so a changed recording can be brought forward. */

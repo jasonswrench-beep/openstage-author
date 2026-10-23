@@ -481,12 +481,12 @@ export function scriptFromNotes(notes: string): string {
  * Give a slide's speaker notes to one of its objects as narration: its title if it has one, else its first text, else its first object that is not decoration.
  * Narration plays when the slide opens, in reading order, so notes on the title are heard first. Returns false if every object is decoration (or there are none).
  */
-function narrateFromNotes(ds: DeckSlide, objects: OSObject[], narrate: (script: string) => Narration): boolean {
+function narrateFromNotes(ds: DeckSlide, objects: OSObject[], narrate: (script: string) => Narration): OSObject | null {
   const live = objects.filter((o) => !o.accessibility.decorative);
   const target = live.find((o) => o.type === "text" && o.accessibility.role === "heading") ?? live.find((o) => o.type === "text") ?? live[0];
-  if (!target) return false;
+  if (!target) return null;
   target.narration = narrate(scriptFromNotes(ds.notes)) as unknown as OSObject["narration"];
-  return true;
+  return target;
 }
 
 const FROM_SIDE: Record<number, EffectName> = { 1: "slideTop", 2: "slideRight", 4: "slideBottom", 8: "slideLeft" };
@@ -539,22 +539,36 @@ export function leavingFor(enter: DeckEffect | undefined, exit: DeckEffect): { v
  * Give the objects the entrances the deck gave their shapes: an effect that waits for a press of the mouse becomes "when the learner shows the next item",
  * numbered in the order of the presses, and one that starts by itself becomes a time after the slide opens. An effect on a group is on everything in it.
  */
-function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes: ConvertNotes): void {
-  objects.forEach((o, i) => {
-    const shape = ds.shapes.find((s) => s.id === keys[i]);
-    const mine = (e: DeckEffect) => keys[i] === e.target || shape?.groups?.includes(e.target) === true;
+export interface AnimRec {
+  timing: OSObject["timing"];
+  animation: OSObject["animation"];
+}
+
+const NO_EFFECT_HERE: Effect = { effect: "none", duration: 500 };
+
+/**
+ * What a slide's effects give each shape: its timing and its animation, in the order of `keys` (the shapes' numbers on the slide), and null for a shape with no effect.
+ * It counts what it brought in and what it could not into `notes`. Asked again of a changed deck, it says what the deck gives now.
+ */
+export function animationFor(ds: DeckSlide, keys: string[], notes: ConvertNotes): (AnimRec | null)[] {
+  return keys.map((key) => {
+    const shape = ds.shapes.find((s) => s.id === key);
+    const mine = (e: DeckEffect) => key === e.target || shape?.groups?.includes(e.target) === true;
     const enter = ds.effects.find((e) => e.phase === "enter" && mine(e));
     const exit = ds.effects.find((e) => e.phase === "exit" && mine(e));
-    if (!enter && !exit) return;
+    if (!enter && !exit) return null;
     let timing: OSObject["timing"] = { appear: "time", start: 0, visibleFor: null };
+    let animation: OSObject["animation"] = { enter: { ...NO_EFFECT_HERE }, exit: { ...NO_EFFECT_HERE } };
+    let applied = false;
     if (enter) {
       const { effect, exact } = entranceFor(enter);
       const start = within(enter.delay, 0, 3_600_000);
       timing = enter.click === null ? { appear: "time", start, visibleFor: null } : { appear: "click", step: within(enter.click, 1, 200), start, visibleFor: null };
       if (enter.click !== null) notes.waiting += 1;
-      o.animation = { ...o.animation, enter: { effect, duration: within(enter.duration || 500, 100, 2000) } };
+      animation = { ...animation, enter: { effect, duration: within(enter.duration || 500, 100, 2000) } };
       notes.animated += 1;
       if (!exact) notes.animationApproximated += 1;
+      applied = true;
     }
     if (exit) {
       const leaving = leavingFor(enter, exit);
@@ -564,13 +578,25 @@ function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes:
         const { effect, exact } = exitFor(exit);
         timing = { ...timing, ...(leaving.visibleFor !== undefined ? { visibleFor: leaving.visibleFor } : {}), ...(leaving.until ? { until: leaving.until } : {}) };
         if (leaving.until && !enter) notes.waiting += 1;
-        o.animation = { ...o.animation, exit: { effect, duration: within(exit.duration || 500, 100, 2000) } };
+        animation = { ...animation, exit: { effect, duration: within(exit.duration || 500, 100, 2000) } };
         notes.exits += 1;
         if (!exact) notes.exitsApproximated += 1;
+        applied = true;
       }
     }
     // An object that only has an exit that could not be matched stays as it was.
-    if (enter || timing.visibleFor !== null || timing.until) o.timing = timing;
+    return applied ? { timing, animation } : null;
+  });
+}
+
+/** Give the objects the timing and animation the deck gave their shapes. */
+function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes: ConvertNotes): void {
+  const recs = animationFor(ds, keys, notes);
+  objects.forEach((o, i) => {
+    const r = recs[i];
+    if (!r) return;
+    o.timing = r.timing;
+    o.animation = r.animation;
   });
 }
 
@@ -614,10 +640,22 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
     keys.push(key);
     objects.push(objectFrom(draft, ctx.newId(), z, tab, provenanceFor(ctx.deckId, ds, key, hash, snapshotOf(draft), ctx.importedAt)));
   }
-  applyEffects(ds, objects, keys, ctx.notes);
+  const recs = animationFor(ds, keys, ctx.notes);
+  const animation: Record<string, AnimRec> = {};
+  objects.forEach((o, i) => {
+    const r = recs[i];
+    if (!r) return;
+    o.timing = r.timing;
+    o.animation = r.animation;
+    animation[keys[i]!] = structuredClone(r);
+  });
+  let notesBase: { key: string; script: string } | undefined;
   if (ctx.narrate && ds.notes !== "") {
-    if (narrateFromNotes(ds, objects, ctx.narrate)) ctx.notes.narrated += 1;
-    else ctx.notes.notesUnused += 1;
+    const chosen = narrateFromNotes(ds, objects, ctx.narrate);
+    if (chosen) {
+      ctx.notes.narrated += 1;
+      notesBase = { key: keys[objects.indexOf(chosen)]!, script: scriptFromNotes(ds.notes) };
+    } else ctx.notes.notesUnused += 1;
   }
   const background = backgroundOf(ds, ctx.tones);
   return {
@@ -629,7 +667,11 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
     assets,
     provenance: {
       sourceDeck: ctx.deckId, slideId: ds.slideId, slideIndex: ds.index, importedAt: ctx.importedAt, sourceHash: ds.hash,
-      base: { name: ds.name, background, shapes: objects.map((o) => (o.provenance as unknown as { shapeId: string }).shapeId.slice(ds.slideId.length + 1)) },
+      base: {
+        name: ds.name, background, shapes: objects.map((o) => (o.provenance as unknown as { shapeId: string }).shapeId.slice(ds.slideId.length + 1)),
+        ...(Object.keys(animation).length > 0 ? { animation } : {}),
+        ...(notesBase ? { notes: notesBase } : {}),
+      },
     },
   };
 }

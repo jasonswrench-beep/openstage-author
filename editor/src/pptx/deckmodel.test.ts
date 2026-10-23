@@ -279,3 +279,167 @@ test("an imported slide that plays by itself passes the real validator, and Mode
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---- bringing animation and speaker notes forward when the deck changes
+
+type Eff = Parameters<typeof timing>[0];
+const headlines = (steps: Eff, extra = ""): DeckSpec => ({
+  media: { "image1.png": png1 },
+  slides: [
+    {
+      id: 256,
+      shapes: sp({ id: 10, name: "Headline 1", box: { x: 0, y: 1, w: 2, h: 1 }, geom: "rect", fill: "FF0000" }) + sp({ id: 11, name: "Headline 2", box: { x: 2, y: 1, w: 2, h: 1 }, geom: "rect", fill: "00FF00" }) + extra,
+      timing: timing(steps),
+    },
+  ],
+});
+const clickFor = (spid: number, extra: Partial<Parameters<typeof timing>[0][0]["groups"][0]["effects"][0]> = {}) => ({ groups: [{ effects: [{ spid, ...extra }] }] });
+const importDeck = (m: Model, s: DeckSpec, options: { notesAsNarration?: boolean } = {}) => {
+  const { pkg, deck } = open(s);
+  m.commitDeckImport(m.prepareDeckImport(deck, pkg, "Headlines.pptx", deck.slides.map((_, i) => i), "2026-10-23T10:00:00Z", undefined, options));
+};
+const resync = (m: Model, s: DeckSpec) => {
+  const next = open(s);
+  const plan = m.prepareDeckResync(m.deckSources[0]!.id, next.deck, next.pkg)!;
+  return { plan, next, items: offered(plan) };
+};
+const accept = (m: Model, r: ReturnType<typeof resync>, pick: (label: string) => boolean = () => true) => {
+  const ticked = new Set(r.items.filter((i) => pick(i.label)).map((i) => i.id));
+  return m.commitDeckResync(r.plan, ticked, r.next.deck, r.next.pkg, "2026-10-23T12:00:00Z");
+};
+const slideHeadlines = (m: Model) => m.slides.find((s) => s.baseLayer.objects.some((o) => o.name === "Headline 1"))!;
+const byName = (m: Model, name: string) => slideHeadlines(m).baseLayer.objects.find((o) => o.name === name)!;
+const baseAnimation = (m: Model) => (slideHeadlines(m).provenance as unknown as { base: { animation?: Record<string, { timing: { appear: string; step?: number } }> } }).base.animation;
+
+test("the import records what it gave each shape's timing and animation, to compare with later", () => {
+  const m = fresh();
+  importDeck(m, headlines([clickFor(10), clickFor(11, { preset: 10 })]));
+  const rec = baseAnimation(m)!;
+  assert.deepEqual(Object.keys(rec).sort(), ["10", "11"]);
+  assert.deepEqual(rec["10"]!.timing, byName(m, "Headline 1").timing);
+});
+
+test("a change the deck made to the animation of something the author did not touch comes forward, in one undo step", () => {
+  const m = fresh();
+  importDeck(m, headlines([clickFor(10), clickFor(11)]));
+  // The deck swaps the two clicks, and takes the first away at a third click.
+  const r = resync(m, headlines([clickFor(11), clickFor(10), clickFor(10, { cls: "exit", preset: 10 })]));
+  const item = r.items.find((i) => /Bring the animation forward/.test(i.label))!;
+  assert.ok(item, r.items.map((i) => i.label).join(" | "));
+  assert.equal(item.checked, true);
+  assert.equal(item.replacesYours, false);
+  assert.match(item.detail.join(" | "), /Headline 1: Appears when the learner shows item 1, then stays becomes Appears when the learner shows item 2, then goes away when the learner shows item 3 \(goes with fade\)/);
+  const message = accept(m, r);
+  assert.match(message, /animation changed on 2 objects/);
+  assert.deepEqual(byName(m, "Headline 1").timing, { appear: "click", step: 2, start: 0, visibleFor: null, until: { step: 3, start: 0 } });
+  assert.deepEqual(byName(m, "Headline 2").timing, { appear: "click", step: 1, start: 0, visibleFor: null });
+  assert.equal(byName(m, "Headline 1").animation.exit.effect, "fade");
+  assert.deepEqual(baseAnimation(m)!["10"]!.timing, byName(m, "Headline 1").timing, "the record moved on");
+  m.undo();
+  assert.deepEqual(byName(m, "Headline 1").timing, { appear: "click", step: 1, start: 0, visibleFor: null }, "one undo step puts it all back");
+  assert.deepEqual(baseAnimation(m)!["10"]!.timing, { appear: "click", step: 1, start: 0, visibleFor: null }, "and so does the record");
+});
+
+test("an animation the author changed is offered, unticked, as a replacement, and stays offered if it is left", () => {
+  const m = fresh();
+  importDeck(m, headlines([clickFor(10), clickFor(11)]));
+  m.setTiming(byName(m, "Headline 1").id, { start: 1500 }); // the author's own change
+  const changed = headlines([clickFor(11), clickFor(10)]);
+  const r = resync(m, changed);
+  const take = r.items.find((i) => /Bring the animation forward/.test(i.label))!;
+  const conflict = r.items.find((i) => /Replace your changes to the timing or animation of "Headline 1"/.test(i.label))!;
+  assert.ok(take && conflict);
+  assert.deepEqual([take.checked, conflict.checked, conflict.replacesYours], [true, false, true]);
+  accept(m, r, (label) => !/Replace your changes/.test(label));
+  assert.deepEqual(byName(m, "Headline 2").timing.step, 1, "what the author did not touch came forward");
+  assert.equal(byName(m, "Headline 1").timing.start, 1500, "the author's own change stands");
+  const again = resync(m, changed);
+  assert.ok(again.items.some((i) => /Replace your changes to the timing or animation of "Headline 1"/.test(i.label)), "it is offered again");
+  accept(m, again);
+  assert.deepEqual(byName(m, "Headline 1").timing, { appear: "click", step: 2, start: 0, visibleFor: null }, "replaced when asked");
+  assert.equal(resync(m, changed).items.length, 0, "and then there is nothing to offer");
+});
+
+test("an effect the deck took away takes the animation off; a change that is not there offers nothing; a slide imported before the record was kept starts one", () => {
+  const m = fresh();
+  importDeck(m, headlines([clickFor(10), clickFor(11)]));
+  assert.equal(resync(m, headlines([clickFor(10), clickFor(11)])).items.length, 0, "the same deck changes nothing");
+  const r = resync(m, headlines([clickFor(10)]));
+  assert.ok(r.items.some((i) => /Bring the animation forward/.test(i.label)));
+  accept(m, r);
+  assert.deepEqual(byName(m, "Headline 2").timing, { appear: "time", start: 0, visibleFor: null });
+  assert.deepEqual(byName(m, "Headline 2").animation.enter, { effect: "none", duration: 500 });
+
+  // A slide imported before the record was kept has none: nothing is offered if the object already matches the deck, and the record is made.
+  const old = fresh();
+  importDeck(old, headlines([clickFor(10), clickFor(11)]));
+  delete (slideHeadlines(old).provenance as unknown as { base: { animation?: unknown } }).base.animation;
+  const same = resync(old, headlines([clickFor(10), clickFor(11)]));
+  assert.equal(same.items.length, 0);
+  accept(old, same);
+  assert.ok(baseAnimation(old), "the record is made");
+  // ... and where it does not match, it is offered unticked, since there is no telling whether the author changed it.
+  const older = fresh();
+  importDeck(older, headlines([clickFor(10), clickFor(11)]));
+  delete (slideHeadlines(older).provenance as unknown as { base: { animation?: unknown } }).base.animation;
+  const differs = resync(older, headlines([clickFor(11), clickFor(10)]));
+  assert.ok(differs.items.length > 0 && differs.items.every((i) => !i.checked), differs.items.map((i) => `${i.label} ${i.checked}`).join(" | "));
+});
+
+test("a shape new in the deck comes with the animation the deck gives it", () => {
+  const m = fresh();
+  importDeck(m, headlines([clickFor(10), clickFor(11)]));
+  const r = resync(m, headlines([clickFor(10), clickFor(11), clickFor(12, { preset: 10 })], sp({ id: 12, name: "Headline 3", box: { x: 4, y: 1, w: 2, h: 1 }, geom: "rect", fill: "0000FF" })));
+  assert.ok(r.items.some((i) => /new .* "Headline 3"/.test(i.label)));
+  accept(m, r);
+  assert.deepEqual(byName(m, "Headline 3").timing, { appear: "click", step: 3, start: 0, visibleFor: null });
+  assert.equal(byName(m, "Headline 3").animation.enter.effect, "fade");
+  assert.ok(baseAnimation(m)!["12"], "and its record");
+});
+
+test("speaker notes that were made the narration come forward when the deck's notes change, keep the voice, and say the audio is to be made again", () => {
+  const m = fresh();
+  importDeck(m, withNotes(), { notesAsNarration: true });
+  const title = () => m.slides.find((s) => s.name === "Welcome")!.baseLayer.objects.find((o) => o.name === "Title 1")!;
+  const narration = () => title().narration as unknown as { script: string; voice: string };
+  const voice = narration().voice;
+  const changed = withNotes();
+  changed.slides[0]!.notes = "Welcome, everybody.\nToday is about something else";
+  const r = resync(m, changed);
+  const item = r.items.find((i) => /speaker notes of the slide "Welcome" changed/.test(i.label))!;
+  assert.ok(item, r.items.map((i) => i.label).join(" | "));
+  assert.deepEqual([item.checked, item.replacesYours], [true, false]);
+  assert.match(item.detail.join(" | "), /Now: "Welcome everyone\. Today is about notes\."/);
+  assert.match(item.detail.join(" | "), /The audio for it has to be made again/);
+  const message = accept(m, r);
+  assert.match(message, /1 narration updated from the speaker notes \(make its audio again\)/);
+  assert.equal(narration().script, "Welcome, everybody. Today is about something else.");
+  assert.equal(narration().voice, voice, "the voice is kept");
+  assert.equal(resync(m, changed).items.length, 0, "and the record moved on");
+  // Notes taken out: the narration goes, when asked.
+  const gone = withNotes();
+  gone.slides[0]!.notes = "";
+  const removal = resync(m, gone);
+  assert.ok(removal.items.some((i) => /were taken out/.test(i.label)));
+  accept(m, removal);
+  assert.equal(title().narration, null);
+});
+
+test("a narration the author changed is offered, unticked, against the deck's new notes; and notes that were never made narration offer nothing", () => {
+  const m = fresh();
+  importDeck(m, withNotes(), { notesAsNarration: true });
+  const title = () => m.slides.find((s) => s.name === "Welcome")!.baseLayer.objects.find((o) => o.name === "Title 1")!;
+  m.setNarrationScript(title().id, "My own words.");
+  const changed = withNotes();
+  changed.slides[0]!.notes = "Something new in the notes";
+  const r = resync(m, changed);
+  const item = r.items.find((i) => /Replace your changes to what "Title 1" says/.test(i.label))!;
+  assert.ok(item);
+  assert.deepEqual([item.checked, item.replacesYours], [false, true]);
+  accept(m, r, () => false);
+  assert.equal((title().narration as unknown as { script: string }).script, "My own words.", "left as the author wrote it");
+  // Notes were not made narration at import: the deck's notes changing offers nothing.
+  const plain = fresh();
+  importDeck(plain, withNotes());
+  assert.equal(resync(plain, changed).items.filter((i) => /speaker notes/.test(i.label)).length, 0);
+});

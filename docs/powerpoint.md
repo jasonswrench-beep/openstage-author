@@ -45,7 +45,9 @@ If a picture or a table had no alt text in PowerPoint, it has none here, and the
 
 Choose **PowerPoint** again and choose the changed file. The dialog works out which earlier import it is a newer version of. It then lists the changes since, each with a box:
 
-- A **changed** shape, which you did not touch, is ticked: its new text, position, picture or colours come forward. Anything you added to it (rules, narration, timing, animation, a look) stays.
+- A **changed** shape, which you did not touch, is ticked: its new text, position, picture or colours come forward. Anything you added to it (rules, narration, a look) stays.
+- A change to **when things appear or go away** is ticked, one item per slide, and says in words what each object does now ("Headline 1: Appears when the learner shows item 1, then stays becomes Appears when the learner shows item 2, then goes away when the learner shows item 3"). It covers the timing and the animation effects the import gave the shape. If you changed the timing or animation of that object yourself, it is unticked and says so, and your version stays unless you tick it. A shape that is new comes with the animation the presentation gives it, and an effect the presentation took away takes the animation off.
+- If you brought the **speaker notes in as narration**, and the notes change, the narration's words are updated (ticked) and the voice is kept. The audio is not made again for you: the item says it has to be made again. Notes taken out take away what that object says. If you changed those words yourself, it is unticked.
 - A change that would **replace something you changed** is unticked and says so. Tick it only if the presentation should win.
 - A shape the presentation **removed** is ticked only if you did nothing to it. If it has a rule or narration of yours, it is not.
 - A **new** shape or slide is ticked. A slide you left out when you first brought slides in, or deleted since, is unticked.

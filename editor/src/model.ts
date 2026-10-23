@@ -45,7 +45,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.38.0";
+export const FORMAT_VERSION = "0.39.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1689,6 +1689,7 @@ export class Model {
     const parts = [
       c.shapesChanged ? `${c.shapesChanged} ${c.shapesChanged === 1 ? "object" : "objects"} updated` : "", c.shapesAdded ? `${c.shapesAdded} added` : "", c.shapesRemoved ? `${c.shapesRemoved} removed` : "",
       c.slidesAdded ? `${c.slidesAdded} ${c.slidesAdded === 1 ? "slide" : "slides"} added` : "", c.slidesRemoved ? `${c.slidesRemoved} ${c.slidesRemoved === 1 ? "slide" : "slides"} deleted` : "", c.fields ? `${c.fields} slide ${c.fields === 1 ? "setting" : "settings"} changed` : "",
+      c.animations ? `animation changed on ${c.animations} ${c.animations === 1 ? "object" : "objects"}` : "", c.narrations ? `${c.narrations} ${c.narrations === 1 ? "narration" : "narrations"} updated from the speaker notes (make its audio again)` : "",
     ].filter(Boolean);
     return parts.length ? `Brought up to date: ${parts.join(", ")}. Press Control Z to undo.` : "Nothing was changed.";
   }

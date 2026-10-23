@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.38.0",
+  "schemaVersion": "0.39.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -1201,6 +1201,8 @@ A slide made from a slide of a deck carries a provenance of its own:
 ```
 
 `base.shapes` lists the shapes the import brought in, so a shape the author deleted is not brought back and a shape that is new in the deck is told apart from one that was deleted.
+`base.animation` (added in 0.39.0) maps a shape's number on the slide to the `timing` and `animation` the import gave the object made from it (only for shapes that have an effect in the deck), and
+`base.notes` (also 0.39.0, only when the speaker notes were made the narration of an object) holds that shape's number and the words the notes gave (`{ "key": "2", "script": "Welcome everyone." }`).
 (This changes what this section used to say, that an imported slide has no provenance of its own: a slide with no shapes of its own, or whose shapes were all deleted,
 still has to be found again.)
 
@@ -1306,6 +1308,10 @@ only the author changed stays; a property both changed is a *conflict*, and is o
 Nothing the author added is touched: rules, narration, timing, animation, looks, layers and objects made in the editor are not in the deck and are never compared. What is offered, each with its own
 box to tick: a new shape; a changed shape (and, separately, the conflicts on it); a shape the deck removed (ticked only if the author did nothing to it and added nothing to it); a new slide; a slide the
 deck has that the author left out or deleted (unticked); a slide the deck no longer has (unticked); a changed slide name or background. A shape the author deleted is not brought back.
+Two more are compared from 0.39.0, on the same three-way rule: the timing and animation of each shape (`base.animation`, the object's `timing` and `animation`, and what the deck gives now; one item for the slide's takes and, unticked, one for the author's conflicts), and, when `base.notes`
+is there, the narration's words (`base.notes.script`, the narration's `script`, and the deck's notes now; the voice and the made audio are not touched, the item says the audio is to be made again). A slide without
+a record (imported before 0.39.0) has nothing to compare against: where the object already matches the deck nothing is offered, and where it differs the change is offered unticked as a replacement,
+since there is no telling whether the author made it. The records move on to the deck as it is each time, except for what was left unticked.
 What was left unticked stays recorded as it was, and is offered again next time. The result is one undo step. The order of slides is noticed and reported, and not changed.
 
 ### Why import is one-directional
@@ -1515,6 +1521,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.38.0 | 0.39.0 | Adds the optional `animation` and `notes` of the `base` of a slide's import provenance: what the import gave each animated shape's `timing` and `animation`, and the words of the speaker notes it made the narration of one object, so a changed deck's animation and notes can be compared with what the author has done since. Nothing in an older course changes: a slide without them is compared as if they were not recorded (see below). |
 | 0.37.0 | 0.38.0 | Adds the optional `until` of an object's `timing`: the object goes away when the learner shows a step of Show next item (how an exit effect that waits for a click in PowerPoint comes across). Nothing in an older course changes. |
 | 0.36.0 | 0.37.0 | Adds the optional `transition` of a slide (how the slide arrives and how it leaves, with the same effects as an object's animation). Nothing in an older course changes. |
 | 0.35.0 | 0.36.0 | Adds the optional `autoSteps` of a slide (the steps of Show next item come by themselves, one after another). Nothing in an older course changes. |

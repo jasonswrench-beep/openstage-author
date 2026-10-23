@@ -2,12 +2,15 @@
 // imported (the *base*, kept in each object's provenance), what the author has done to it since (*ours*), and the deck as it is now
 // (*theirs*). A change the deck made to something the author never touched can simply come forward. A change to something the author
 // also changed is a conflict, and is offered only if the author asks for their own change to be replaced. Things the author added
-// (rules, narration, timing, layers, new objects) are never touched, which is why they survive.
+// (rules, narration, timing, layers, new objects) are never touched, which is why they survive. The deck's own animation (what appears and goes, and when) and its speaker
+// notes (when they were made the narration) are compared the same way, against a record of what the import gave them (`base.animation` and `base.notes` of the slide).
 //
 // This file only works out what could change and applies what was chosen to the slides it is given. The model puts it in the project.
 
 import type { DeckSource, ImportProvenance, OSObject, Slide, SlideImportProvenance } from "../../../player/src/types.ts";
-import { backgroundOf, convertSlide, draftsForSlide, newNotes, objectFrom, provenanceFor, slideFrom, snapshotOf, type Base, type Draft, type Tones } from "./convert.ts";
+import { animationFor, backgroundOf, convertSlide, draftsForSlide, newNotes, objectFrom, provenanceFor, scriptFromNotes, slideFrom, snapshotOf, type AnimRec, type Base, type Draft, type Tones } from "./convert.ts";
+import { describeTiming } from "../timing.ts";
+import { newNarration, type Narration } from "../narration.ts";
 import type { Deck, DeckSlide } from "./deck.ts";
 import { canonical } from "./hash.ts";
 import { mediaPathFor, placementOf } from "./import.ts";
@@ -146,7 +149,33 @@ export type Action =
   | { op: "slideField"; slideId: string; field: "name" | "background"; value: string | null }
   | { op: "newShape"; slideId: string; deckSlide: DeckSlide; key: string; hash: string; draft: Draft }
   | { op: "removeShape"; slideId: string; objectId: string }
-  | { op: "changeShape"; slideId: string; objectId: string; changes: PropChange[]; theirs: Base; hash: string; conflict: boolean };
+  | { op: "changeShape"; slideId: string; objectId: string; changes: PropChange[]; theirs: Base; hash: string; conflict: boolean }
+  /** The timing and animation of some objects of a slide, from the deck as it is now (null: the deck has none for it now). `theirsAll` is the deck's whole record for the slide. */
+  | { op: "slideAnimation"; slideId: string; changes: AnimChange[]; theirsAll: Record<string, AnimRec>; conflict: boolean }
+  /** What the speaker notes now say (an empty string: the notes are gone), for the object that says them. */
+  | { op: "slideNotes"; slideId: string; objectId: string; key: string; script: string; conflict: boolean };
+
+export interface AnimChange {
+  objectId: string;
+  key: string;
+  name: string;
+  after: AnimRec | null;
+}
+
+const STARTING: AnimRec = { timing: { appear: "time", start: 0, visibleFor: null }, animation: { enter: { effect: "none", duration: 500 }, exit: { effect: "none", duration: 500 } } };
+
+/** An object's timing and animation, or null when it has none (always there, no effects): the same as the deck having no effect for it. */
+const animOf = (o: OSObject): AnimRec | null => {
+  const plain = o.timing.appear === "time" && o.timing.start === 0 && o.timing.visibleFor === null && o.timing.until === undefined && o.animation.enter.effect === "none" && o.animation.exit.effect === "none";
+  return plain ? null : { timing: o.timing, animation: o.animation };
+};
+
+/** How an object's timing and animation read in words, for the list of changes. */
+const animWords = (a: AnimRec | null): string => {
+  if (!a) return "always there, no effects";
+  const effects = [a.animation.enter.effect !== "none" ? `comes in with ${a.animation.enter.effect}` : "", a.animation.exit.effect !== "none" ? `goes with ${a.animation.exit.effect}` : ""].filter(Boolean);
+  return `${describeTiming(a.timing)}${effects.length > 0 ? ` (${effects.join(", ")})` : ""}`.replace(/\.$/, "");
+};
 
 export interface PlanItem {
   id: string;
@@ -306,6 +335,68 @@ export function planResync(req: PlanRequest): ResyncPlan {
         });
       }
     }
+    // The slide's animation: what the deck gives each shape now, against what the import gave it and what the author has done since.
+    const keys = drafts.map((d) => d.key);
+    const theirAnim = animationFor(ds, keys, newNotes());
+    const baseAnim = sp.base?.animation ?? {};
+    const takes: AnimChange[] = [];
+    const conflicts: AnimChange[] = [];
+    const theirsAll: Record<string, AnimRec> = {};
+    keys.forEach((key, i) => {
+      const theirs = theirAnim[i] ?? null;
+      if (theirs) theirsAll[key] = theirs;
+      const obj = mine.get(`${prefix}${key}`);
+      if (!obj) return; // deleted by the author, or new (a new shape brings its own animation)
+      const base = baseAnim[key] ?? null;
+      const ours = animOf(obj);
+      if (same(theirs, base) || same(ours, theirs)) return;
+      const change: AnimChange = { objectId: obj.id, key, name: obj.name, after: theirs };
+      if (same(ours, base)) takes.push(change); else conflicts.push(change);
+    });
+    const animationTold = (c: AnimChange) => `${c.name}: ${animWords(animOf(mine.get(`${prefix}${c.key}`)!))} becomes ${animWords(c.after)}`;
+    if (takes.length > 0) {
+      add({
+        slide: target.name,
+        label: `The deck changed when ${takes.length === 1 ? "something appears or goes" : `${takes.length} things appear or go`} on the slide "${target.name}". Bring the animation forward?`,
+        detail: takes.map(animationTold), checked: true, replacesYours: false, action: { op: "slideAnimation", slideId: target.id, changes: takes, theirsAll, conflict: false }, assets: [],
+      });
+    }
+    if (conflicts.length > 0) {
+      add({
+        slide: target.name,
+        label: `Replace your changes to the timing or animation of ${conflicts.length === 1 ? `"${conflicts[0]!.name}"` : `${conflicts.length} objects`} on the slide "${target.name}" with the deck's?`,
+        detail: conflicts.map(animationTold), checked: false, replacesYours: true, action: { op: "slideAnimation", slideId: target.id, changes: conflicts, theirsAll, conflict: true }, assets: [],
+      });
+    }
+    if (takes.length === 0 && conflicts.length === 0 && !same(sp.base?.animation ?? {}, theirsAll)) {
+      // Nothing to offer, but the record of what the deck had moves on (or is made, for a slide imported before it was kept).
+      add({ slide: target.name, label: "", detail: [], checked: true, replacesYours: false, quiet: true, action: { op: "slideAnimation", slideId: target.id, changes: [], theirsAll, conflict: false }, assets: [] });
+    }
+
+    // The speaker notes, if they were made the narration of an object: what they say now, against what they said then and what the narration says now.
+    const nb = sp.base?.notes;
+    const narrated = nb ? mine.get(`${prefix}${nb.key}`) : undefined;
+    if (nb && narrated) {
+      const theirScript = ds.notes !== "" ? scriptFromNotes(ds.notes) : "";
+      const ours = (narrated.narration as unknown as Narration | null)?.script ?? "";
+      if (!same(theirScript, nb.script) && !same(ours, theirScript)) {
+        const conflict = !same(ours, nb.script);
+        add({
+          slide: target.name,
+          label: conflict
+            ? `Replace your changes to what "${narrated.name}" says on the slide "${target.name}" with the deck's speaker notes?`
+            : theirScript === ""
+              ? `The speaker notes of the slide "${target.name}" were taken out. Take away what "${narrated.name}" says?`
+              : `The speaker notes of the slide "${target.name}" changed. Update what "${narrated.name}" says?`,
+          detail: [`Now: "${brief(ours)}"`, `Deck: ${theirScript === "" ? "no notes" : `"${brief(theirScript)}"`}`, ...(theirScript === "" ? [] : ["The audio for it has to be made again."])],
+          checked: !conflict, replacesYours: conflict, action: { op: "slideNotes", slideId: target.id, objectId: narrated.id, key: nb.key, script: theirScript, conflict }, assets: [],
+        });
+      } else if (!same(theirScript, nb.script)) {
+        // The author already has what the deck now says: only the record moves on.
+        add({ slide: target.name, label: "", detail: [], checked: true, replacesYours: false, quiet: true, action: { op: "slideNotes", slideId: target.id, objectId: narrated.id, key: nb.key, script: theirScript, conflict: false }, assets: [] });
+      }
+    }
+
     // Shapes the deck no longer has.
     for (const [shapeId, obj] of mine) {
       if (theirKeys.has(shapeId)) continue;
@@ -373,7 +464,7 @@ export interface ApplyResult {
   remove: string[];
   assets: { path: string; bytes: Uint8Array }[];
   summary: string[];
-  counts: { slidesAdded: number; slidesRemoved: number; shapesAdded: number; shapesChanged: number; shapesRemoved: number; fields: number };
+  counts: { slidesAdded: number; slidesRemoved: number; shapesAdded: number; shapesChanged: number; shapesRemoved: number; fields: number; animations: number; narrations: number };
 }
 
 function setLeaf(o: OSObject, path: string, value: unknown): void {
@@ -396,7 +487,7 @@ function setLeaf(o: OSObject, path: string, value: unknown): void {
 export function applyPlan(plan: ResyncPlan, accepted: ReadonlySet<string>, env: ApplyEnv): ApplyResult {
   const result: ApplyResult = {
     insert: [], remove: [], assets: [], summary: [],
-    counts: { slidesAdded: 0, slidesRemoved: 0, shapesAdded: 0, shapesChanged: 0, shapesRemoved: 0, fields: 0 },
+    counts: { slidesAdded: 0, slidesRemoved: 0, shapesAdded: 0, shapesChanged: 0, shapesRemoved: 0, fields: 0, animations: 0, narrations: 0 },
   };
   const slideById = new Map(env.slides.map((s) => [s.id, s]));
   const placement = placementOf(env.source);
@@ -451,7 +542,13 @@ export function applyPlan(plan: ResyncPlan, accepted: ReadonlySet<string>, env: 
         if (a.key === "background") { obj.geometry.z = Math.min(0, ...objects.map((o) => o.geometry.z)) - 10; s.baseLayer.objects.unshift(obj); }
         else s.baseLayer.objects.push(obj);
         const sp = slideProvOf(s, plan.deckId);
-        if (sp?.base) sp.base = { ...sp.base, shapes: [...new Set([...(sp.base.shapes ?? []), a.key])] };
+        // A new shape comes with the timing and animation the deck gives it, and the record of them.
+        const anim = animationFor(a.deckSlide, [a.key], newNotes())[0];
+        if (anim) {
+          obj.timing = structuredClone(anim.timing);
+          obj.animation = structuredClone(anim.animation);
+        }
+        if (sp?.base) sp.base = { ...sp.base, shapes: [...new Set([...(sp.base.shapes ?? []), a.key])], ...(anim ? { animation: { ...(sp.base.animation ?? {}), [a.key]: structuredClone(anim) } } : {}) };
         result.counts.shapesAdded += 1;
         break;
       }
@@ -463,7 +560,57 @@ export function applyPlan(plan: ResyncPlan, accepted: ReadonlySet<string>, env: 
         break;
       }
       case "changeShape": break; // below, one object at a time, because an object can have two items
+      case "slideAnimation": {
+        const s = slideById.get(a.slideId);
+        if (!s) break;
+        const here = allObjects(s);
+        for (const c of a.changes) {
+          const o = here.find((x) => x.id === c.objectId);
+          if (!o) continue;
+          o.timing = structuredClone((c.after ?? STARTING).timing);
+          o.animation = structuredClone((c.after ?? STARTING).animation);
+          result.counts.animations += 1;
+        }
+        break;
+      }
+      case "slideNotes": {
+        const s = slideById.get(a.slideId);
+        const o = s && allObjects(s).find((x) => x.id === a.objectId);
+        if (!o || item.quiet === true) break;
+        if (a.script === "") o.narration = null;
+        else o.narration = ((o.narration as unknown as Narration | null) ? { ...(o.narration as unknown as Narration), script: a.script } : newNarration(a.script)) as unknown as OSObject["narration"];
+        result.counts.narrations += 1;
+        break;
+      }
     }
+  }
+
+  // The records of animation and notes move on to the deck as it is now, except for what the author kept their own way, which stays as it was so it is offered again.
+  const animationItems = new Map<string, PlanItem[]>();
+  for (const item of plan.items) if (item.action.op === "slideAnimation") animationItems.set(item.action.slideId, [...(animationItems.get(item.action.slideId) ?? []), item]);
+  for (const [slideId, group] of animationItems) {
+    const s = slideById.get(slideId);
+    const sp = s && slideProvOf(s, plan.deckId);
+    if (!sp?.base) continue;
+    const first = group[0]!.action as Extract<Action, { op: "slideAnimation" }>;
+    const next: Record<string, AnimRec> = structuredClone(first.theirsAll);
+    const old = sp.base.animation ?? {};
+    for (const item of group) {
+      if (on(item)) continue;
+      for (const c of (item.action as Extract<Action, { op: "slideAnimation" }>).changes) {
+        if (old[c.key]) next[c.key] = old[c.key]!;
+        else delete next[c.key];
+      }
+    }
+    sp.base = { ...sp.base, ...(Object.keys(next).length > 0 ? { animation: next } : {}) };
+    if (Object.keys(next).length === 0) delete sp.base.animation;
+  }
+  for (const item of plan.items) {
+    const a = item.action;
+    if (a.op !== "slideNotes" || !on(item)) continue;
+    const s = slideById.get(a.slideId);
+    const sp = s && slideProvOf(s, plan.deckId);
+    if (sp?.base) sp.base = { ...sp.base, notes: { key: a.key, script: a.script } };
   }
 
   // Each changed object: apply what was ticked, then move its record on to the deck as it is now, except for what the author kept their own way,

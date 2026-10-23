@@ -975,7 +975,9 @@
           "properties": {
             "name": { "type": "string" },
             "background": { "type": ["string", "null"] },
-            "shapes": { "type": "array", "maxItems": 2000, "items": { "type": "string", "minLength": 1 }, "description": "The shapes of the slide that the import brought in, by their number on the slide, so one the author deleted is not brought back." }
+            "shapes": { "type": "array", "maxItems": 2000, "items": { "type": "string", "minLength": 1 }, "description": "The shapes of the slide that the import brought in, by their number on the slide, so one the author deleted is not brought back." },
+            "animation": { "description": "Optional, added in 0.39.0. What the import gave the timing and animation of each shape that has an effect in the deck, by the shape's number on the slide, so a changed deck's animation can be compared with what the author has done since.", "type": "object", "maxProperties": 2000, "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["timing", "animation"], "properties": { "timing": { "$ref": "#/$defs/timing" }, "animation": { "$ref": "#/$defs/animation" } } } },
+            "notes": { "description": "Optional, added in 0.39.0. Set when the slide's speaker notes were made the narration of one of its objects: that shape's number on the slide, and the words the notes gave, so a changed deck's notes can be compared with what the author has done since.", "type": "object", "additionalProperties": false, "required": ["key", "script"], "properties": { "key": { "type": "string", "minLength": 1 }, "script": { "type": "string" } } }
           }
         }
       }
