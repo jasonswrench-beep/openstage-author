@@ -269,6 +269,7 @@
         "step": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Only with appear click, and then required: which press of Show next item shows this object. Objects with the same step show together." },
         "media": { "$ref": "project.schema.json#/$defs/id", "description": "Only with appear media: the id of a video or audio object on the same slide, whose playing time this object follows." },
         "start": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+        "until": { "description": "Optional, added in 0.38.0. The object goes away when the learner shows step `step` (the steps of Show next item; on a slide with autoSteps, when that step comes by itself), `start` milliseconds after it. It is how an exit effect that waits for a click in PowerPoint comes across. A step that only has objects going away is still a step to press. If `visibleFor` is also given, the object goes at whichever comes first.", "type": "object", "additionalProperties": false, "required": ["step", "start"], "properties": { "step": { "type": "integer", "minimum": 1, "maximum": 200 }, "start": { "type": "integer", "minimum": 0, "maximum": 3600000 } } },
         "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends. With appear media it is a length of the video or audio clip, not of the clock." }
       },
       "allOf": [

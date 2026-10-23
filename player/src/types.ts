@@ -470,6 +470,8 @@ export interface Timing {
   media?: string;
   start: number;
   visibleFor: number | null;
+  /** The object goes away when the learner shows this step of Show next item (or it comes by itself), `start` ms after it (added in 0.38.0). If visibleFor is also set, whichever is first. */
+  until?: { step: number; start: number };
 }
 
 export type EffectName = "none" | "fade" | "slideLeft" | "slideRight" | "slideTop" | "slideBottom" | "zoom";

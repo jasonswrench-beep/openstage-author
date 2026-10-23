@@ -46,14 +46,18 @@ export interface ConvertNotes {
   /** Objects given an entrance, and how many of those had an effect this editor does not have, so they fade in instead. */
   animated: number;
   animationApproximated: number;
-  /** Objects that wait for the learner to show them. */
+  /** Objects that wait for the learner to show them, or to take them away. */
   waiting: number;
+  /** Objects given an exit, how many of those used an effect this editor does not have (they fade out), and exits that could not be matched with the object's entrance and were left out. */
+  exits: number;
+  exitsApproximated: number;
+  exitsLeft: number;
   /** Slides whose speaker notes became narration, and slides whose notes had no object to be the narration of. */
   narrated: number;
   notesUnused: number;
 }
 
-export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0, narrated: 0, notesUnused: 0 });
+export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0, exits: 0, exitsApproximated: 0, exitsLeft: 0, narrated: 0, notesUnused: 0 });
 
 const bump = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
 
@@ -500,28 +504,74 @@ export function entranceFor(e: DeckEffect): { effect: EffectName; exact: boolean
   }
 }
 
+/** How an exit effect looks here: it leaves toward the side it is told to, and the rest (disappear, fade, zoom) as their nearest. */
+export function exitFor(e: DeckEffect): { effect: EffectName; exact: boolean } {
+  switch (e.preset) {
+    case 1: return { effect: "none", exact: true };
+    case 10: return { effect: "fade", exact: true };
+    case 2: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: FROM_SIDE[e.subtype] !== undefined };
+    case 23: case 53: return { effect: "zoom", exact: true };
+    default: return { effect: "fade", exact: false };
+  }
+}
+
 const within = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
+
+/**
+ * When an object goes away, from its exit effect and its entrance (if it has one). An exit at a press of the mouse is "goes away when the learner shows that item"
+ * (`until`); one at the same press as the entrance, or one that starts by itself after an entrance that does too, is a time to stay (`visibleFor`); an exit that starts by itself on
+ * an object with no entrance goes at that time from the start. Null when the exit cannot be matched: before the object comes, or on its own while the entrance waits for a press.
+ */
+export function leavingFor(enter: DeckEffect | undefined, exit: DeckEffect): { visibleFor?: number; until?: { step: number; start: number } } | null {
+  const delay = within(exit.delay, 0, 3_600_000);
+  if (exit.click !== null) {
+    if (enter && enter.click !== null) {
+      if (exit.click < enter.click) return null;
+      if (exit.click === enter.click) return delay > enter.delay ? { visibleFor: within(delay - enter.delay, 1, 3_600_000) } : null;
+    }
+    return { until: { step: within(exit.click, 1, 200), start: delay } };
+  }
+  if (enter) return enter.click === null && delay > enter.delay ? { visibleFor: within(delay - enter.delay, 1, 3_600_000) } : null;
+  return { visibleFor: Math.max(1, delay) };
+}
 
 /**
  * Give the objects the entrances the deck gave their shapes: an effect that waits for a press of the mouse becomes "when the learner shows the next item",
  * numbered in the order of the presses, and one that starts by itself becomes a time after the slide opens. An effect on a group is on everything in it.
  */
 function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes: ConvertNotes): void {
-  const done = new Set<string>();
-  for (const e of ds.effects) {
-    const { effect, exact } = entranceFor(e);
-    objects.forEach((o, i) => {
-      const shape = ds.shapes.find((s) => s.id === keys[i]);
-      if (done.has(o.id) || !(keys[i] === e.target || shape?.groups?.includes(e.target))) return;
-      done.add(o.id);
-      const start = within(e.delay, 0, 3_600_000);
-      o.timing = e.click === null ? { appear: "time", start, visibleFor: null } : { appear: "click", step: within(e.click, 1, 200), start, visibleFor: null };
-      if (e.click !== null) notes.waiting += 1;
-      o.animation = { ...o.animation, enter: { effect, duration: within(e.duration || 500, 100, 2000) } };
+  objects.forEach((o, i) => {
+    const shape = ds.shapes.find((s) => s.id === keys[i]);
+    const mine = (e: DeckEffect) => keys[i] === e.target || shape?.groups?.includes(e.target) === true;
+    const enter = ds.effects.find((e) => e.phase === "enter" && mine(e));
+    const exit = ds.effects.find((e) => e.phase === "exit" && mine(e));
+    if (!enter && !exit) return;
+    let timing: OSObject["timing"] = { appear: "time", start: 0, visibleFor: null };
+    if (enter) {
+      const { effect, exact } = entranceFor(enter);
+      const start = within(enter.delay, 0, 3_600_000);
+      timing = enter.click === null ? { appear: "time", start, visibleFor: null } : { appear: "click", step: within(enter.click, 1, 200), start, visibleFor: null };
+      if (enter.click !== null) notes.waiting += 1;
+      o.animation = { ...o.animation, enter: { effect, duration: within(enter.duration || 500, 100, 2000) } };
       notes.animated += 1;
       if (!exact) notes.animationApproximated += 1;
-    });
-  }
+    }
+    if (exit) {
+      const leaving = leavingFor(enter, exit);
+      if (!leaving) {
+        notes.exitsLeft += 1;
+      } else {
+        const { effect, exact } = exitFor(exit);
+        timing = { ...timing, ...(leaving.visibleFor !== undefined ? { visibleFor: leaving.visibleFor } : {}), ...(leaving.until ? { until: leaving.until } : {}) };
+        if (leaving.until && !enter) notes.waiting += 1;
+        o.animation = { ...o.animation, exit: { effect, duration: within(exit.duration || 500, 100, 2000) } };
+        notes.exits += 1;
+        if (!exact) notes.exitsApproximated += 1;
+      }
+    }
+    // An object that only has an exit that could not be matched stays as it was.
+    if (enter || timing.visibleFor !== null || timing.until) o.timing = timing;
+  });
 }
 
 /** Which side a slide comes in from, for each direction PowerPoint says it moves. A push toward the left brings the next slide in from the right. */
@@ -589,7 +639,7 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
  * (the objects keep their click steps; the slide says how fast), because a course has no presenter to click.
  */
 export function slideFrom(converted: ConvertedSlide, id: string, auto?: { first: number; every: number }): Slide {
-  const waits = auto !== undefined && converted.objects.some((o) => o.timing.appear === "click");
+  const waits = auto !== undefined && converted.objects.some((o) => o.timing.appear === "click" || o.timing.until !== undefined);
   return {
     id,
     name: converted.name,

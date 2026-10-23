@@ -2658,6 +2658,31 @@ class TimingOnClick(unittest.TestCase):
                 p.edit("slides/slide-001.json", lambda d, t=t: d.__setitem__("transition", t))
                 self.assertTrue([f for f in p.run() if f.severity == "error"], str(t))
 
+    def test_an_object_that_goes_away_at_a_step(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=1, until={"step": 3, "start": 500}))
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(until={"step": 2, "start": 0}))
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [], "going at a step needs no step of its own to appear at")
+        for bad in ({"step": 0, "start": 0}, {"step": 201, "start": 0}, {"step": 1}, {"step": 1, "start": -1}, {"step": 1.5, "start": 0}, {"step": 1, "start": 0, "extra": 1}, 3):
+            with MutatedProject() as p:
+                p.obj(0, lambda o, bad=bad: o["timing"].update(until=bad))
+                self.assertTrue([f for f in p.run() if f.severity == "error"], str(bad))
+
+    def test_going_away_before_appearing_and_following_a_clip_are_reported(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=3, until={"step": 2, "start": 0}))
+            found = [f for f in p.run() if f.rule == "timing-until-before-appear"]
+            self.assertEqual([(f.severity, f.object_id) for f in found], [("warning", "obj-0001")])
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(until={"step": 1, "start": 0}))
+            self.assertEqual([f for f in p.run() if f.rule == "timing-until-before-appear"], [])
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["timing"].update(until={"step": 1, "start": 0}))
+            p.edit("slides/slide-001.json", lambda d: d.__setitem__("duration", 8000))
+            self.assertEqual([f.rule for f in p.run() if f.rule == "timing-click-advance"], ["timing-click-advance"], "a slide that moves on by itself holds objects that wait for a step to go")
+
     def test_auto_steps_are_checked_by_the_schema(self):
         for bad in ({"first": -1, "every": 3000}, {"first": 0, "every": 100}, {"first": 0}, {"first": 1.5, "every": 3000}, {"first": 0, "every": 3000, "extra": 1}, "yes"):
             with MutatedProject() as p:
@@ -3133,7 +3158,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.37.0")
+        self.assertEqual(project["schemaVersion"], "0.38.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

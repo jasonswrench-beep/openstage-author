@@ -94,7 +94,7 @@ export class Player implements Host {
       hide: (id, wasShowing) => this.stage.setObjectTimed(id, false, wasShowing ? this.motion(id, "exit") : undefined),
       advance: () => this.step(1),
       // Items that come by themselves are said in the same words as a press, so a learner who cannot see them still knows each came.
-      stepShown: (ids, pressed, total) => this.say(this.itemSaid(ids, pressed, total)),
+      stepShown: (ids, pressed, total, left) => this.say(this.itemSaid(ids, pressed, total, left)),
       changed: () => this.syncTimingBar(),
       timerChanged: (id, reading) => this.stage.setTimer(id, reading),
       // The rules on the timer itself run when its time is up.
@@ -116,10 +116,10 @@ export class Player implements Host {
     this.itemBtn.addEventListener("click", () => {
       // aria-disabled, not disabled, once nothing is left, so the button the learner is on does not vanish from under them.
       if (this.itemBtn.getAttribute("aria-disabled") === "true") return;
-      const ids = this.timeline.showNext();
-      if (ids.length === 0) return;
+      const { shown, left } = this.timeline.showNextDetail();
+      if (shown.length === 0 && left.length === 0) return;
       const { total, pressed } = this.timeline.steps;
-      this.say(this.itemSaid(ids, pressed, total));
+      this.say(this.itemSaid(shown, pressed, total, left));
     });
     this.animateBtn.addEventListener("click", () => {
       this.animationOff = !this.animationOff;
@@ -329,10 +329,13 @@ export class Player implements Host {
     if (timed.length > 0) this.timeline.addLayer(layer.id, timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) })));
   }
 
-  /** "Item 2 of 7 is showing: the alt text or name." for the objects of the step that came. */
-  private itemSaid(ids: string[], pressed: number, total: number): string {
+  /** "Item 2 of 7 is showing: the alt text or name." for the objects of the step that came, and "A went away." for those that left with it. */
+  private itemSaid(ids: string[], pressed: number, total: number, left: string[] = []): string {
     const names = ids.map((id) => this.nameOf(id)).filter((n) => n !== "");
-    return `Item ${pressed} of ${total} is showing${names.length > 0 ? `: ${names.join(", ")}` : ""}.${pressed >= total ? " That was the last." : ""}`;
+    const gone = left.map((id) => this.nameOf(id)).filter((n) => n !== "");
+    const lead = `Item ${pressed} of ${total}`;
+    const shown = names.length > 0 ? `${lead} is showing: ${names.join(", ")}.` : gone.length > 0 ? `${lead}.` : `${lead} is showing.`;
+    return `${shown}${gone.length > 0 ? ` ${gone.join(", ")} went away.` : ""}${pressed >= total ? " That was the last." : ""}`;
   }
 
   /** What a learner would call an object on the slide that is showing: its alt text, or its name. Nothing for something that is only decoration. */

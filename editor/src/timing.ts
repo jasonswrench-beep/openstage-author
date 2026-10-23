@@ -13,7 +13,14 @@ export const MAX_STEP = 200;
 /** Always there: the timing every new object starts with. */
 export const STARTING_TIMING: Timing = { appear: "time", start: 0, visibleFor: null };
 
-export const isStartingTiming = (t: Timing): boolean => t.appear === "time" && t.start === 0 && t.visibleFor === null;
+export const isStartingTiming = (t: Timing): boolean => t.appear === "time" && t.start === 0 && t.visibleFor === null && t.until === undefined;
+
+/** How an object goes away at a step: "goes away when the learner shows item 3", or "goes away 2 seconds after the learner shows item 3". */
+export function untilText(t: Timing): string {
+  const u = t.until;
+  if (!u) return "";
+  return u.start === 0 ? `goes away when the learner shows item ${u.step}` : `goes away ${plainSeconds(u.start)} after the learner shows item ${u.step}`;
+}
 
 /**
  * What an author typed in a seconds box. Whole or decimal seconds up to three places ("2", "2.5", "0.25") become
@@ -44,15 +51,21 @@ export function plainSeconds(ms: number): string {
  */
 export function describeTiming(t: Timing, onLayer = false, clipName?: string): string {
   if (isStartingTiming(t)) return "Always there";
+  // How it ends: it stays, or goes after a time, or goes at a step (or whichever of the last two is first).
+  const ending = (appears: string): string => {
+    const gone = untilText(t);
+    if (t.visibleFor === null) return gone === "" ? `${appears}, then stays` : `${appears}, then ${gone}`;
+    return gone === "" ? `${appears}, then disappears ${plainSeconds(t.visibleFor)} later` : `${appears}, then disappears ${plainSeconds(t.visibleFor)} later, or ${gone}, whichever is first`;
+  };
   if (t.appear === "media") {
     // Counted on the clip's own time: playing, pausing, skipping and going back all move it.
     const clip = clipName ?? "its video or audio";
     const appears = t.start === 0 ? `Shows from the start of ${clip}` : `Appears ${plainSeconds(t.start)} into ${clip}`;
-    return t.visibleFor === null ? `${appears}, then stays` : `${appears}, then disappears ${plainSeconds(t.visibleFor)} later`;
+    return ending(appears);
   }
   if (t.appear === "click") {
     const when = t.start === 0 ? `Appears when the learner shows item ${t.step ?? 1}` : `Appears ${plainSeconds(t.start)} after the learner shows item ${t.step ?? 1}`;
-    return t.visibleFor === null ? `${when}, then stays` : `${when}, then disappears ${plainSeconds(t.visibleFor)} later`;
+    return ending(when);
   }
   const origin = t.appear === "narration" ? "its narration starts" : onLayer ? "its layer is shown" : "the slide opens";
   const appears = t.appear === "time" && t.start === 0
@@ -60,5 +73,5 @@ export function describeTiming(t: Timing, onLayer = false, clipName?: string): s
     : t.appear === "narration" && t.start === 0
       ? "Appears when its narration starts"
       : `Appears ${plainSeconds(t.start)} after ${origin}`;
-  return t.visibleFor === null ? `${appears}, then stays` : `${appears}, then disappears ${plainSeconds(t.visibleFor)} later`;
+  return ending(appears);
 }

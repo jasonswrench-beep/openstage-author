@@ -139,6 +139,10 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
       : ` ${plural(notes.waiting, "object")} wait${notes.waiting === 1 ? "s" : ""} for the learner: a button, Show next item, shows them one step at a time, in the order of PowerPoint's clicks, and Show everything now shows them all.`) : ""}`);
     if (notes.animationApproximated > 0) out.push(`${plural(notes.animationApproximated, "entrance")} used an effect this editor does not have, so ${notes.animationApproximated === 1 ? "it fades" : "they fade"} in instead.`);
   }
+  if (notes.exits > 0) {
+    out.push(`${plural(notes.exits, "object")} had an exit effect in PowerPoint and ${notes.exits === 1 ? "goes" : "go"} away here the same way: when the learner shows the item PowerPoint's click took ${notes.exits === 1 ? "it" : "them"} away at, or after the time PowerPoint gave.${notes.exitsApproximated > 0 ? ` ${plural(notes.exitsApproximated, "exit")} used an effect this editor does not have, so ${notes.exitsApproximated === 1 ? "it fades" : "they fade"} out instead.` : ""}`);
+  }
+  if (notes.exitsLeft > 0) out.push(`${plural(notes.exitsLeft, "exit effect")} could not be matched with the object's entrance (it starts by itself while the object waits for a click, or comes before the object does), so ${notes.exitsLeft === 1 ? "it was" : "they were"} left out.`);
   const gone = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };
   for (const s of taken) for (const k of Object.keys(gone) as (keyof typeof gone)[]) gone[k] += s.animationLeft[k];
   const leftOut = [

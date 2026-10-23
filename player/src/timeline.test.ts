@@ -700,3 +700,90 @@ test("without the setting steps wait for presses as before, and a new slide forg
   assert.deepEqual(m.take(), ["hide a"], "the setting was forgotten by the reset");
   assert.deepEqual(m.timeline.steps, { total: 1, pressed: 0 });
 });
+
+// ---- going away at a step: timing.until
+
+const goesAt = (step: number, start = 0, appear: Timing = at(0), visibleFor: number | null = null): Timing => ({ ...appear, visibleFor, until: { step, start } });
+
+test("an object that goes away at a step is timed, is there from the start, and goes when the learner shows that step", () => {
+  assert.equal(isTimed(goesAt(1)), true);
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", goesAt(1)), obj("b", onClick(1))]);
+  assert.deepEqual(m.take().sort(), ["hide b", "show a"], "a is there at once, b waits");
+  assert.deepEqual(m.timeline.steps, { total: 1, pressed: 0 });
+  assert.deepEqual(m.timeline.showNextDetail(), { shown: ["b"], left: ["a"] });
+  assert.deepEqual(m.take().sort(), ["hide a", "show b"]);
+});
+
+test("a step with only things going away is still a step to press, and the press says what went", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", onClick(1)), obj("b", goesAt(2))]);
+  m.take();
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 0 });
+  assert.deepEqual(m.timeline.showNextDetail(), { shown: ["a"], left: [] });
+  assert.deepEqual(m.timeline.showNextDetail(), { shown: [], left: ["b"] });
+  assert.deepEqual(m.timeline.steps, { total: 2, pressed: 2 });
+  assert.deepEqual(m.timeline.showNextDetail(), { shown: [], left: [] }, "nothing is left to press");
+});
+
+test("one that appears at a click and goes at a later click is there between the two, and its delay counts from the press", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", { ...onClick(1), until: { step: 3, start: 500 } }), obj("b", onClick(2)), obj("c", onClick(3))]);
+  m.take();
+  m.timeline.showNext();
+  assert.deepEqual(m.take(), ["show a"]);
+  m.timeline.showNext();
+  m.timeline.showNext();
+  assert.deepEqual(m.take().sort(), ["show b", "show c"], "a is still there at the third press");
+  m.clock.advance(499);
+  assert.deepEqual(m.take(), []);
+  m.clock.advance(1);
+  assert.deepEqual(m.take(), ["hide a"], "gone half a second after the third press");
+});
+
+test("with a time to stay as well, the object goes at whichever comes first", () => {
+  const first = make();
+  first.timeline.addLayer("base", [obj("a", goesAt(1, 0, at(0), 2000)), obj("b", onClick(1))]);
+  first.take();
+  first.clock.advance(2000);
+  assert.deepEqual(first.take(), ["hide a"], "its time ran out before the step was shown");
+  const second = make();
+  second.timeline.addLayer("base", [obj("a", goesAt(1, 0, at(0), 9000)), obj("b", onClick(1))]);
+  second.take();
+  second.clock.advance(1000);
+  second.timeline.showNext();
+  assert.deepEqual(second.take().sort(), ["hide a", "show b"], "the step came first");
+});
+
+test("on a slide whose steps come by themselves, objects go away on the clock and the page is told what went", () => {
+  const clock = new FakeClock();
+  const log: string[] = [];
+  const said: string[] = [];
+  const t = new Timeline({
+    show: (id) => log.push(`show ${id}`), hide: (id) => log.push(`hide ${id}`), advance: () => undefined,
+    stepShown: (ids, pressed, total, left) => said.push(`${ids.join("+")}|${left.join("+")} ${pressed}/${total}`),
+  }, clock);
+  t.addLayer("base", [obj("a", onClick(1)), obj("b", goesAt(1)), obj("c", goesAt(2))]);
+  t.setAutoSteps({ first: 1000, every: 2000 });
+  log.length = 0;
+  clock.advance(1000);
+  assert.deepEqual(log.splice(0).sort(), ["hide b", "show a"]);
+  clock.advance(2000);
+  assert.deepEqual(log.splice(0), ["hide c"]);
+  assert.deepEqual(said, ["a|b 1/2", "|c 2/2"]);
+});
+
+test("Show everything shows even what would have gone, and pausing holds a delay after the step", () => {
+  const m = make();
+  m.timeline.addLayer("base", [obj("a", goesAt(1, 1000)), obj("b", onClick(1))]);
+  m.take();
+  m.timeline.pause();
+  m.timeline.showNext();
+  m.clock.advance(5000);
+  assert.deepEqual(m.take(), ["show b"], "a has not gone: the clock is stopped");
+  m.timeline.resume();
+  m.clock.advance(1000);
+  assert.deepEqual(m.take(), ["hide a"]);
+  m.timeline.showEverything();
+  assert.deepEqual(m.take().sort(), ["show a"], "everything means everything");
+});

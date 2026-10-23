@@ -45,7 +45,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.37.0";
+export const FORMAT_VERSION = "0.38.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -2624,6 +2624,14 @@ export class Model {
       next = { appear: "click", step, start: next.start, visibleFor: next.visibleFor };
     } else {
       next = { appear: next.appear, start: next.start, visibleFor: next.visibleFor };
+    }
+    // Going away at a step is kept through any other change of timing, and changed or taken away by naming it (undefined takes it away).
+    const until = "until" in patch ? patch.until : obj.timing.until;
+    if (until !== undefined) {
+      if (!Number.isInteger(until.step) || until.step < 1 || until.step > MAX_STEP) return { ok: false, message: `The item it goes away at must be a whole number from 1 to ${MAX_STEP}.` };
+      if (!whole(until.start, 0)) return { ok: false, message: "The time after that item must be from 0 to 3600 seconds." };
+      if (next.appear === "media") return { ok: false, message: "Something that follows a video or audio clip cannot also go away at an item." };
+      next = { ...next, until: { step: until.step, start: until.start } };
     }
     if (!whole(next.start, 0)) return { ok: false, message: "The time must be from 0 to 3600 seconds." };
     if (next.visibleFor !== null && !whole(next.visibleFor, 1)) return { ok: false, message: "How long it stays must be from a thousandth of a second to 3600 seconds, or blank to stay." };

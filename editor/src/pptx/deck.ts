@@ -55,8 +55,10 @@ export interface DeckBody {
   noWrap?: boolean;
 }
 
-/** An entrance effect: something that appears, at a press of the mouse or on its own. */
+/** An entrance effect (something that appears) or an exit effect (something that goes away), at a press of the mouse or on its own. */
 export interface DeckEffect {
+  /** Whether it makes the shape appear or go away. */
+  phase: "enter" | "exit";
   /** The shape (or group) it is for: its number on the slide. */
   target: string;
   /** PowerPoint's number for the effect (1 is Appear, 10 is Fade, 2 is Fly In), and its direction: 1 from the top, 2 the right, 4 the bottom, 8 the left. */
@@ -751,16 +753,16 @@ function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; lef
         const tn = child(eff, "p:cTn");
         if (!tn) continue;
         const cls = tn.attrs["presetClass"];
-        if (cls === "exit") { left.exit += 1; continue; }
         if (cls === "emph") { left.emphasis += 1; continue; }
         if (cls === "path") { left.path += 1; continue; }
-        if (cls !== "entr") continue;
+        if (cls !== "entr" && cls !== "exit") continue;
         const target = descendants(tn, "p:spTgt")[0];
         if (!target?.attrs["spid"]) continue;
         if (child(target, "p:txEl")) left.byParagraph += 1;
         const own = delayOf(child(child(tn, "p:stCondLst"), "p:cond"));
         const durations = descendants(tn, "p:cTn").map((c) => Number(c.attrs["dur"])).filter((d) => Number.isFinite(d) && d > 1);
         effects.push({
+          phase: cls === "exit" ? "exit" : "enter",
           target: target.attrs["spid"],
           preset: Number(tn.attrs["presetID"] ?? 0),
           subtype: Number(tn.attrs["presetSubtype"] ?? 0),

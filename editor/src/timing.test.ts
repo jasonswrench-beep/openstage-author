@@ -7,7 +7,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Model } from "./model.ts";
-import { describeTiming, isStartingTiming, MAX_MS, parseSeconds, plainSeconds, secondsText, STARTING_TIMING } from "./timing.ts";
+import { describeTiming, isStartingTiming, untilText, MAX_MS, parseSeconds, plainSeconds, secondsText, STARTING_TIMING } from "./timing.ts";
 import { newProjectFiles } from "./template.ts";
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -186,4 +186,67 @@ test("the real validator accepts what the editor writes and warns about the risk
   m.setNarrationScript(t.id, "");
   assert.deepEqual(rules(validate(m)).filter((r) => r.includes("narration-missing")), ["error timing-narration-missing"], "narration removed after the timing was set is caught");
   assert.equal(validate(m).filter((x) => x.severity === "error" && x.rule !== "timing-narration-missing").length, 0);
+});
+
+test("going away at an item is told in words, with a delay, and with a time to stay as well", () => {
+  const base = { appear: "time" as const, start: 0, visibleFor: null };
+  assert.equal(isStartingTiming({ ...base, until: { step: 2, start: 0 } }), false, "it is timed");
+  assert.equal(untilText({ ...base, until: { step: 3, start: 0 } }), "goes away when the learner shows item 3");
+  assert.equal(untilText({ ...base, until: { step: 3, start: 1500 } }), "goes away 1.5 seconds after the learner shows item 3");
+  assert.equal(untilText(base), "");
+  assert.equal(describeTiming({ ...base, until: { step: 2, start: 0 } }), "Shows when the slide opens, then goes away when the learner shows item 2");
+  assert.equal(describeTiming({ appear: "click", step: 1, start: 0, visibleFor: null, until: { step: 3, start: 500 } }), "Appears when the learner shows item 1, then goes away 0.5 seconds after the learner shows item 3");
+  assert.equal(describeTiming({ ...base, start: 1000, visibleFor: 4000, until: { step: 2, start: 0 } }), "Appears 1 second after the slide opens, then disappears 4 seconds later, or goes away when the learner shows item 2, whichever is first");
+});
+
+test("the model keeps going away at an item through other changes, validates it, and takes it away when told", () => {
+  const m = fresh();
+  const o = m.addObject("text")!;
+  assert.equal(m.setTiming(o.id, { until: { step: 2, start: 500 } }).ok, true);
+  assert.deepEqual(m.object!.timing.until, { step: 2, start: 500 });
+  m.setTiming(o.id, { appear: "click" });
+  assert.deepEqual(m.object!.timing.until, { step: 2, start: 500 }, "kept when it is made to appear at a click");
+  m.setTiming(o.id, { start: 1000, visibleFor: 6000 });
+  assert.deepEqual(m.object!.timing, { appear: "click", step: 1, start: 1000, visibleFor: 6000, until: { step: 2, start: 500 } });
+  for (const bad of [{ step: 0, start: 0 }, { step: 201, start: 0 }, { step: 1.5, start: 0 }, { step: 1, start: -5 }, { step: 1, start: 9_000_000 }]) {
+    assert.equal(m.setTiming(o.id, { until: bad }).ok, false, JSON.stringify(bad));
+  }
+  assert.deepEqual(m.object!.timing.until, { step: 2, start: 500 }, "a refused change changes nothing");
+  m.undo();
+  assert.equal(m.object!.timing.visibleFor, null, "one undo step each");
+  assert.equal(m.setTiming(o.id, { until: undefined }).ok, true);
+  assert.equal("until" in m.object!.timing, false, "taken away, and no key left over");
+  assert.equal(isStartingTiming(m.setTiming(o.id, { appear: "time", start: 0, visibleFor: null }).ok ? m.object!.timing : m.object!.timing), true);
+});
+
+test("something that follows a clip cannot also go away at an item", () => {
+  const m = fresh();
+  const v = m.addMedia("video", "assets/video/a.mp4");
+  const o = m.addObject("text")!;
+  assert.ok(v);
+  m.setTiming(o.id, { until: { step: 1, start: 0 } });
+  const r = m.setTiming(o.id, { appear: "media", media: v!.id });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /cannot also go away at an item/);
+});
+
+test("a course whose object goes away at an item passes the real validator", () => {
+  const m = fresh();
+  const a = m.addObject("text")!;
+  const b = m.addObject("text")!;
+  m.setTiming(a.id, { appear: "click", step: 1, until: { step: 2, start: 0 } });
+  m.setTiming(b.id, { appear: "click", step: 2 });
+  const dir = mkdtempSync(path.join(os.tmpdir(), "os-until-"));
+  try {
+    for (const f of m.allFiles()) {
+      const p = path.join(dir, f.path);
+      mkdirSync(path.dirname(p), { recursive: true });
+      writeFileSync(p, f.text);
+    }
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
+    assert.deepEqual(found.filter((f) => f.severity === "error" && !/contrast/.test(f.rule)).map((f) => f.rule), [], r.stdout.slice(0, 500));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

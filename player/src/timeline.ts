@@ -15,6 +15,8 @@
 //                       A slide can also have its steps come by themselves (see setAutoSteps): step n is then pressed for the learner n x every ms after the
 //                       first, counted on the timeline's own clock, so pausing holds it. The learner can still press Show next item to bring the next one now.
 //   visibleFor:         hidden again this many ms after it appeared, or null to stay. For a clip it is that much of the clip.
+//   until:              hidden again `start` ms after the learner shows step `step` (or it comes by itself): how an exit that waits for a click in PowerPoint comes across.
+//                       A step that only has objects going away is still a step to press. With visibleFor too, whichever is first.
 // A learner can pause the clock, and can show everything at once. Both are for people who need longer, and are the reason
 // timing is acceptable at all.
 //
@@ -28,7 +30,7 @@ import type { Timing } from "./types.ts";
 
 /** Does this timing change anything about how the object is shown? The starting timing means always there. */
 export function isTimed(t: Timing): boolean {
-  return t.appear !== "time" || t.start > 0 || t.visibleFor !== null;
+  return t.appear !== "time" || t.start > 0 || t.visibleFor !== null || t.until !== undefined;
 }
 
 /** What the timeline needs to know about an object. */
@@ -46,8 +48,8 @@ export interface TimelineHooks {
   hide(id: string, wasShowing: boolean): void;
   /** The slide's own time is up. */
   advance(): void;
-  /** Steps that came by themselves (not from a press): the objects of the latest, and how many steps have come of how many. Not called for a press or for showing everything. */
-  stepShown?(ids: string[], pressed: number, total: number): void;
+  /** Steps that came by themselves (not from a press): the objects of the latest, how many steps have come of how many, and the objects that went away with it. Not called for a press or for showing everything. */
+  stepShown?(ids: string[], pressed: number, total: number, left: string[]): void;
   /** Something the controls display has changed: paused, everything shown, or whether anything is timed at all. */
   changed?(): void;
   /** What a timer shows has changed: a second passed, time was added, it was stopped or ran out, or the timing was paused or resumed. */
@@ -243,10 +245,14 @@ export class Timeline {
     this.sync();
   }
 
-  /** The step numbers of the objects on a layer that wait for a press, once each, in order. */
+  /** The step numbers on a layer that wait for a press, once each, in order: where an object appears, and where an object goes away (a step with only things going is a step too). */
   private stepsOf(layer: string): number[] {
     const steps = new Set<number>();
-    for (const e of this.entries.values()) if (e.layer === layer && e.timing.appear === "click") steps.add(e.timing.step ?? 1);
+    for (const e of this.entries.values()) {
+      if (e.layer !== layer) continue;
+      if (e.timing.appear === "click") steps.add(e.timing.step ?? 1);
+      if (e.timing.until) steps.add(e.timing.until.step);
+    }
     return [...steps].sort((a, b) => a - b);
   }
 
@@ -294,7 +300,12 @@ export class Timeline {
    * delay. Returns the ids of those objects, so the page can say what came; none if there is nothing waiting.
    */
   showNext(): string[] {
-    if (this.everything) return [];
+    return this.showNextDetail().shown;
+  }
+
+  /** The same, with the objects that went away at that press too. */
+  showNextDetail(): { shown: string[]; left: string[] } {
+    if (this.everything) return { shown: [], left: [] };
     for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
       const steps = this.stepsOf(layer);
       this.advanceClock();
@@ -307,10 +318,11 @@ export class Timeline {
       this.told.set(layer, this.pressedCount(layer)); // the page says a press itself
       const step = steps[next]!;
       const ids = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.appear === "click" && (e.timing.step ?? 1) === step).map((e) => e.id);
+      const left = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.until?.step === step).map((e) => e.id);
       this.sync();
-      return ids;
+      return { shown: ids, left };
     }
-    return [];
+    return { shown: [], left: [] };
   }
 
   /** An object's narration has started playing. */
@@ -415,6 +427,14 @@ export class Timeline {
     return started === undefined ? Infinity : started + e.timing.start;
   }
 
+  /** When the object goes away because the learner showed the step it waits for, or Infinity while that step has not come (or it has no such step). */
+  private leavesAt(e: Entry): number {
+    const u = e.timing.until;
+    if (!u) return Infinity;
+    const at = this.pressTime(e.layer, this.stepsOf(e.layer).indexOf(u.step));
+    return at === Infinity ? Infinity : at + u.start;
+  }
+
   private isShown(e: Entry): boolean {
     if (this.everything) return true;
     if (e.timing.appear === "media") {
@@ -424,7 +444,7 @@ export class Timeline {
       return clip.ms >= e.timing.start && (e.timing.visibleFor === null || clip.ms < e.timing.start + e.timing.visibleFor);
     }
     const at = this.appearsAt(e);
-    return this.elapsed >= at && (e.timing.visibleFor === null || this.elapsed < at + e.timing.visibleFor);
+    return this.elapsed >= at && (e.timing.visibleFor === null || this.elapsed < at + e.timing.visibleFor) && this.elapsed < this.leavesAt(e);
   }
 
   /** Bring the page up to date with the clock, and set the next time to look. */
@@ -481,8 +501,9 @@ export class Timeline {
       const steps = this.stepsOf(layer);
       for (let i = before; i < now; i++) {
         const ids = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.appear === "click" && (e.timing.step ?? 1) === steps[i]).map((e) => e.id);
+        const left = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.until?.step === steps[i]).map((e) => e.id);
         const { total, pressed } = this.steps;
-        this.hooks.stepShown?.(ids, Math.min(pressed, total), total);
+        this.hooks.stepShown?.(ids, Math.min(pressed, total), total, left);
       }
     }
   }
@@ -499,6 +520,11 @@ export class Timeline {
         if (at === Infinity) continue;
         consider(at);
         if (e.timing.visibleFor !== null) consider(at + e.timing.visibleFor);
+      }
+      // An object that goes away at a step has no time of its own that says so: it is looked at when its step comes.
+      for (const e of this.entries.values()) {
+        const at = this.leavesAt(e);
+        if (at !== Infinity) consider(at);
       }
     }
     if (this.advanceAt !== null && !this.advanced) consider(this.advanceAt);

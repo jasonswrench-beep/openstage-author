@@ -524,14 +524,14 @@ test("animation: an effect that starts by itself is not a press", () => {
   assert.deepEqual(ds.effects.map((e) => [e.target, e.click]), [["10", null], ["11", 1]]);
 });
 
-test("animation: exits, emphasis, motion and paragraph by paragraph are counted and not brought in as steps", () => {
+test("animation: emphasis, motion and paragraph by paragraph are counted and not brought in as steps; an exit is read as an effect", () => {
   const ds = one(SHAPES(4), {}, {
     timing: timing([
       { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 1 }, { spid: 11, cls: "emph", preset: 6 }, { spid: 12, cls: "path", preset: 0 }, { spid: 13, para: true }] }] },
     ]),
   });
-  assert.deepEqual(ds.animationLeft, { exit: 1, emphasis: 1, path: 1, byParagraph: 1, interactive: 0 });
-  assert.deepEqual(ds.effects.map((e) => e.target), ["13"], "the one that makes the text appear is kept, all at once");
+  assert.deepEqual(ds.animationLeft, { exit: 0, emphasis: 1, path: 1, byParagraph: 1, interactive: 0 });
+  assert.deepEqual(ds.effects.map((e) => [e.target, e.phase]), [["10", "exit"], ["13", "enter"]], "the exit is kept, and the one that makes the text appear, all at once");
 });
 
 test("animation: the objects get the entrance, a step to wait for, and an effect that is the nearest this editor has", () => {
@@ -577,9 +577,65 @@ test("animation: the report says what was brought in and what was not", () => {
   const notes = newNotes();
   const converted = [convertSlide(ds, { ...slideCtx(), notes })];
   const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, converted, notes, ppi96, [0]).join("\n");
-  assert.match(report, /2 objects had an entrance animation in PowerPoint and have it here\. 2 objects wait for the learner: a button, Show next item/);
+  assert.match(report, /2 objects had an entrance animation in PowerPoint and have it here\. 3 objects wait for the learner: a button, Show next item/);
   assert.match(report, /1 entrance used an effect this editor does not have, so it fades in instead/);
-  assert.match(report, /Not brought in: 1 exit effect/);
+  assert.match(report, /1 object had an exit effect in PowerPoint and goes away here the same way/);
+  assert.doesNotMatch(report, /Not brought in: 1 exit effect/);
+});
+
+test("animation: an exit at a click is going away at that item; one at the same click or on its own is a time to stay; the rest is left out and counted", () => {
+  const convert = (steps: Parameters<typeof timing>[0]) => {
+    const ds = one(SHAPES(4), {}, { timing: timing(steps) });
+    const notes = newNotes();
+    const out = convertSlide(ds, { ...slideCtx(), notes });
+    return { objects: out.objects, notes };
+  };
+  // Picture 1 comes at click 1 and goes at click 3; picture 2 comes at click 2; picture 3 is there from the start and goes at click 2; click 3 has only the exit of picture 1.
+  const a = convert([
+    { groups: [{ effects: [{ spid: 10, preset: 10 }] }] },
+    { groups: [{ effects: [{ spid: 11, preset: 10 }, { spid: 12, cls: "exit", preset: 10, dur: 300 }] }] },
+    { groups: [{ delay: 400, effects: [{ spid: 10, cls: "exit", preset: 2, subtype: 8 }] }] },
+  ]);
+  const [p1, p2, p3] = a.objects;
+  assert.deepEqual(p1!.timing, { appear: "click", step: 1, start: 0, visibleFor: null, until: { step: 3, start: 400 } });
+  assert.deepEqual(p1!.animation.exit, { effect: "slideLeft", duration: 500 }, "flying out to the left");
+  assert.deepEqual(p2!.timing, { appear: "click", step: 2, start: 0, visibleFor: null });
+  assert.deepEqual(p3!.timing, { appear: "time", start: 0, visibleFor: null, until: { step: 2, start: 0 } }, "there from the start, gone at click 2");
+  assert.deepEqual(p3!.animation.exit, { effect: "fade", duration: 300 });
+  assert.deepEqual([a.notes.exits, a.notes.exitsApproximated, a.notes.exitsLeft], [2, 0, 0]);
+  // At the same click as its entrance: it stays for the difference. By itself, after an entrance by itself: the same. Alone and by itself: from the start.
+  const b = convert([
+    { groups: [{ effects: [{ spid: 10, preset: 10, delay: 200 }, { spid: 10, cls: "exit", preset: 10, delay: 2200 }] }] },
+    { auto: true, groups: [{ effects: [{ spid: 11, preset: 10, delay: 500 }, { spid: 11, cls: "exit", preset: 10, delay: 3500 }, { spid: 12, cls: "exit", preset: 1, delay: 6000 }] }] },
+  ]);
+  assert.deepEqual(b.objects[0]!.timing, { appear: "click", step: 1, start: 200, visibleFor: 2000 });
+  assert.deepEqual(b.objects[1]!.timing, { appear: "time", start: 500, visibleFor: 3000 });
+  assert.deepEqual(b.objects[2]!.timing, { appear: "time", start: 0, visibleFor: 6000 }, "no entrance: there from the start, gone at six seconds");
+  assert.deepEqual(b.objects[2]!.animation.exit, { effect: "none", duration: 500 }, "Disappear is no effect");
+  // An exit before the entrance, or on its own while the entrance waits for a click, cannot be matched.
+  const c = convert([
+    { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 10 }] }] },
+    { groups: [{ effects: [{ spid: 10, preset: 10 }] }] },
+    { auto: true, groups: [{ effects: [{ spid: 11, cls: "exit", preset: 10, delay: 1000 }] }] },
+    { groups: [{ effects: [{ spid: 11, preset: 10 }] }] },
+  ]);
+  assert.equal(c.notes.exitsLeft, 2);
+  assert.deepEqual(c.objects[0]!.timing, { appear: "click", step: 2, start: 0, visibleFor: null }, "the object keeps its entrance");
+  assert.deepEqual(c.objects[0]!.animation.exit, { effect: "none", duration: 500 });
+  // An effect this editor does not have is a fade, and counted.
+  const d = convert([{ groups: [{ effects: [{ spid: 10, preset: 10 }] }] }, { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 17 }] }] }]);
+  assert.deepEqual([d.notes.exits, d.notes.exitsApproximated], [1, 1]);
+  assert.deepEqual(d.objects[0]!.animation.exit, { effect: "fade", duration: 500 });
+});
+
+test("animation: the report says how exits came across, and a step with only exits is still one that waits", () => {
+  const ds = one(SHAPES(2), {}, { timing: timing([{ groups: [{ effects: [{ spid: 10, preset: 10 }] }] }, { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 10 }, { spid: 11, cls: "exit", preset: 17 }] }] }]) });
+  const notes = newNotes();
+  const converted = [convertSlide(ds, { ...slideCtx(), notes })];
+  const report = describeImport({ slideWidth: inch(13.333), slideHeight: inch(7.5), slides: [ds] }, converted, notes, ppi96, [0]).join(String.fromCharCode(10));
+  assert.match(report, /2 objects had an exit effect in PowerPoint and go away here the same way: when the learner shows the item PowerPoint's click took them away at/);
+  assert.match(report, /1 exit used an effect this editor does not have, so it fades out instead/);
+  assert.match(slideFrom(converted[0]!, "slide-001", { first: 1000, every: 2000 }).autoSteps ? "auto" : "none", /auto/, "a slide with going-away steps can play them by themselves");
 });
 
 

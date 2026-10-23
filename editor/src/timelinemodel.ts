@@ -3,7 +3,7 @@
 // all of it is tested directly. The panel (timelinepanel.ts) only draws what this works out and passes edits to the model.
 
 import type { OSObject, Timing } from "../../player/src/types.ts";
-import { plainSeconds, secondsText } from "./timing.ts";
+import { plainSeconds, secondsText, untilText } from "./timing.ts";
 
 /** One arrow press moves a tenth of a second, with Shift a second, with Page Up or Page Down five. */
 export const STEP_MS = 100;
@@ -200,6 +200,7 @@ export function startText(timing: Timing, onBase: boolean, clipName?: string, by
 
 /** What a screen reader says for the end grip. */
 export function endText(timing: Timing): string {
+  if (timing.visibleFor === null && timing.until) return untilText(timing);
   if (timing.visibleFor === null) return timing.appear === "media" ? "stays until the end of the clip" : "stays until the slide ends";
   return `disappears ${plainSeconds(timing.visibleFor)} after it appears`;
 }

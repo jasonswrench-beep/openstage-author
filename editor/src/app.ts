@@ -1129,6 +1129,22 @@ ${errorText(err)}`);
         if (ms === undefined || ms === 0) { this.announce(`Write how long it stays in seconds, for example 6, or leave it blank to stay until the ${onClip ? "clip" : "slide"} ends.`); this.fillValues(o); return; }
         done(m.setTiming(o.id, { visibleFor: ms }));
       }, { number: true }),
+      ...(onClip ? [] : [
+        this.field("timing-until", "Goes away when the learner shows item number (blank: it does not)", t.until ? String(t.until.step) : "", (v) => {
+          const text = v.trim();
+          if (text === "") { done(m.setTiming(o.id, { until: undefined })); this.renderProps(); return; }
+          const n = Number(text);
+          if (!Number.isInteger(n) || n < 1 || n > MAX_STEP) { this.announce(`Write the item number as a whole number from 1 to ${MAX_STEP}, or leave it blank.`); this.fillValues(o); return; }
+          done(m.setTiming(o.id, { until: { step: n, start: t.until?.start ?? 0 } }));
+          this.renderProps();
+        }, { number: true, describedBy: "timing-until-note" }),
+        h("p", { id: "timing-until-note", class: "note", text: "For something that is there, or appears, and then goes when the learner presses Show next item. An item that only has things going away is still an item to press. This is how a PowerPoint exit effect that waits for a click comes across." }),
+        ...(t.until ? [this.field("timing-until-start", "Seconds after that item", secondsText(t.until.start), (v) => {
+          const ms = parseSeconds(v);
+          if (ms === undefined || ms === null) { this.announce("Write the time in seconds, for example 0 or 1.5, up to 3600."); this.fillValues(o); return; }
+          done(m.setTiming(o.id, { until: { step: t.until!.step, start: ms } }));
+        }, { number: true })] : []),
+      ]),
       h("p", { id: "timing-summary", class: "note", text: describeTiming(t, !onBase, m.mediaNameOf(t.media)) }),
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())))];
   }
@@ -2779,7 +2795,7 @@ ${errorText(err)}`);
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}:${o.timing.until ? 1 : 0}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -3102,6 +3118,8 @@ ${errorText(err)}`);
     set("timing-start", secondsText(o.timing.start));
     set("timing-step", String(o.timing.step ?? 1));
     set("timing-leave", o.timing.visibleFor === null ? "" : secondsText(o.timing.visibleFor));
+    set("timing-until", o.timing.until ? String(o.timing.until.step) : "");
+    if (o.timing.until) set("timing-until-start", secondsText(o.timing.until.start));
     const timingNote = this.propsBody.querySelector<HTMLElement>("#timing-summary");
     if (timingNote) timingNote.textContent = describeTiming(o.timing, !!this.model && this.model.layer?.id !== this.model.slide?.baseLayer.id, this.model?.mediaNameOf(o.timing.media));
     set("timing-media", o.timing.media ?? "");

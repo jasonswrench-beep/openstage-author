@@ -34,7 +34,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 37, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 38, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1719,6 +1719,17 @@ def _timing(slides, add):
                 waits_for_click = True
                 click_steps.setdefault(layer["id"], set()).add(t["step"])
                 last_delay = max(last_delay, t["start"])
+            until = t.get("until")
+            if until:
+                waits_for_click = True
+                click_steps.setdefault(layer["id"], set()).add(until["step"])
+                last_delay = max(last_delay, until["start"])
+                if t["appear"] == "media":
+                    add(ERROR, rel, oid, "timing-until-media", "An object that follows a clip cannot also go away at a step",
+                        "Take away the step it goes at, or show it a set time after the slide opens instead of following the clip.")
+                elif t["appear"] == "click" and until["step"] <= t["step"]:
+                    add(WARNING, rel, oid, "timing-until-before-appear", "This object goes away before it ever shows",
+                        f"It appears at step {t['step']} and goes away at step {until['step']}, so a learner never sees it. Choose a later step to go at.")
             if t["appear"] == "narration" and not obj["narration"]:
                 add(ERROR, rel, oid, "timing-narration-missing", "This object is set to appear with its narration, but it has none",
                     "Write the object's narration, or choose to show it a set time after the slide opens.")
