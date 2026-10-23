@@ -274,7 +274,7 @@ Triggers that point at a missing target or variable are `trigger-target-missing`
 | An object has `appear` `click` and no `step`, or a `step` with any other `appear` (`schema`) | Error | The object's timing is not in the right shape |
 | A control (a button, an input, a question, an interaction, a download and the like) has a `visibleFor` (`timing-control-disappears`) | Warning | A control that disappears can leave a learner stuck |
 | A text or scrolling text object stays for less than three seconds, or for fewer seconds than its words need at 3 words a second (`timing-too-brief`) | Warning | This text may disappear before it can be read |
-| An object has an exit effect but no time to stay, so it never goes (`animation-exit-never`) | Warning | This object has an exit effect but never goes |
+| An object has an exit effect but neither a time to stay nor a step to go away at, so it never goes (`animation-exit-never`) | Warning | This object has an exit effect but never goes |
 
 The shape of `animation` is checked by the schema too: both parts required, each effect one of the seven, a whole number of
 milliseconds from 100 to 2000, nothing else allowed.

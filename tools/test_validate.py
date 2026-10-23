@@ -725,6 +725,10 @@ class Animation(unittest.TestCase):
         with MutatedProject() as p:
             self.animate(p, enter={"effect": "zoom", "duration": 500})
             self.assertEqual([f for f in p.run() if f.rule == "animation-exit-never"], [], "an entrance needs no end time")
+        with MutatedProject() as p:
+            self.animate(p, exit={"effect": "wipeBottom", "duration": 500})
+            p.obj(1, lambda o: o["timing"].update(until={"step": 1, "start": 0}))
+            self.assertEqual([f for f in p.run() if f.rule == "animation-exit-never"], [], "it goes away at a step, so the effect plays (an imported exit effect at a click)")
 
 
 class BrokenExample(unittest.TestCase):

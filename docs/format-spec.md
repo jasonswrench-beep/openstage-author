@@ -1033,8 +1033,8 @@ has, is no effect either way, so the object just appears and goes, as before.
 | `enter.duration`, `exit.duration` | A whole number of milliseconds, 100 to 2000. Short on purpose. |
 
 An entrance plays when the object appears: at its time (see Timing), and also when the slide, or its layer, opens, for an object
-that is there from the start. An exit plays when the object disappears at the end of its time (`visibleFor`), so an object with
-no end time never plays its exit (`animation-exit-never` is a warning). Showing everything at once, which the learner can ask
+that is there from the start. An exit plays when the object disappears at the end of its time (`visibleFor`) or at a step (`until`, added in 0.38.0), so an object with
+neither never plays its exit (`animation-exit-never` is a warning). Showing everything at once, which the learner can ask
 for, does not wait for any effect.
 
 **Motion is a barrier for some learners, so it is small and always optional.** Nothing repeats or flashes. A slide moves 40 pixels at

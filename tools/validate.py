@@ -1736,9 +1736,9 @@ def _timing(slides, add):
             if duration is not None and layer is slide["baseLayer"] and t["appear"] == "time" and t["start"] >= duration:
                 add(WARNING, rel, oid, "timing-after-advance", "This object would appear after the slide has moved on",
                     f"It appears at {t['start'] / 1000:g} seconds and the slide moves on at {duration / 1000:g}.")
-            if obj["animation"]["exit"]["effect"] != "none" and t["visibleFor"] is None:
+            if obj["animation"]["exit"]["effect"] != "none" and t["visibleFor"] is None and not t.get("until"):
                 add(WARNING, rel, oid, "animation-exit-never", "This object has an exit effect but never goes",
-                    "An exit effect plays when the object disappears at the end of its time, and this object has no end time, so the effect would never play.")
+                    "An exit effect plays when the object disappears, at the end of its time or at a step, and this object has neither, so the effect would never play.")
             if t["visibleFor"] is not None and obj["type"] in INTERACTIVE:
                 add(WARNING, rel, oid, "timing-control-disappears", "A control that disappears can leave a learner stuck",
                     "A learner who needs more time, or uses a keyboard or a screen reader, may not reach it before it goes.")
