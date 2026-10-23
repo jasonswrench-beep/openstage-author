@@ -272,6 +272,8 @@ The published package was run through the project's stand-in SCORM 1.2 system. A
 | Slide 22 in an ordinary browser | both files listed with their kind and size, links to `assets/documents/...` with a `download` name and no new window; both files fetch with the right type. Download was not pressed |
 | Items on slides 5, 6, 9, 10, 11 (an ordinary browser, with the real audio) | opening an item played its file; Listen played it again; closing an accordion heading, Flip back, and arrow keys between tabs played nothing; the transcript gained each item's words |
 
+(Re-run on 2026-10-23 with the current player and the 24 slide package: the first five rows and the resume row gave the same results, and slides 19 and 20 read as in the rows above.)
+
 (Every row was run on the finished 22 slide package except the Question 1 retry and the four combinations of slide 4
 answers. Those were run just before the results and certificate slides were added, and those slides come after them and
 change nothing about them.)
