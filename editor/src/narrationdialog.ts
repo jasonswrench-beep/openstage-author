@@ -9,7 +9,7 @@ import { errorText, type Backend } from "./backend.ts";
 import { narratedName, type Model, type NarratedObject } from "./model.ts";
 import { NO_ENGINE_STATUS, RUNTIME_URL, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
 import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
-import { RunProgress, kindOfEngine, loadRates, saveRates, startingText, type Job } from "./narrationprogress.ts";
+import { makeAudio } from "./makeaudio.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -138,93 +138,46 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       if (items.length === 0) list.append(h("p", { class: "note", text: "Select an object, then write what it should say in the Narration section of the Properties panel." }));
     };
 
+    let starting = false;
     const run = async (asked: string[]) => {
-      if (running) return;
+      if (running || starting) return;
+      starting = true;
       failure.textContent = "";
-      // What would be made: the ones asked for (or all that are missing) that have no audio yet.
-      let todo = model.narratedObjects().filter((n) => (asked.length === 0 || asked.includes(n.key)) && audioStatus(n.narration, opts.cache()).state === "missing");
-      // A service is asked before it is sent anything for the first time. A "no" leaves out what would have gone to it.
-      const left: string[] = [];
-      for (const q of servicesToAsk(todo.map((n) => n.narration), opts.ai())) {
-        if (!(await opts.ask(q.service, { narrations: q.narrations, characters: q.characters }))) {
-          todo = todo.filter((n) => engineOf(n.narration.voice) !== q.service);
-          left.push(q.service);
-        }
-      }
-      const blocked = todo.filter((n) => availability(n.narration, context()).state === "blocked");
-      todo = todo.filter((n) => !blocked.includes(n));
-      if (todo.length === 0) {
-        failure.textContent = left.length > 0 ? "Nothing was sent, and no audio was made, because you did not allow it." : blocked.length > 0 ? `No audio could be made. ${availability(blocked[0]!.narration, context()).reason}` : "There is no audio to make.";
-        render();
-        return;
-      }
-      const ids = todo.map((n) => n.key);
-      running = true;
+      const outcome = await makeAudio(
+        {
+          model, backend: b, ai: opts.ai, plugins: opts.plugins, kokoro: () => engineReady, ask: opts.ask, cache: opts.cache, refresh: opts.refresh,
+        },
+        asked,
+        {
+          started: ({ todo, text }) => {
+            running = true;
+            starting = false;
+            render();
+            say(text);
+            progressBar.max = todo.length;
+            progressBar.value = 0;
+            progressBox.hidden = false;
+          },
+          progress: (view, todo, done, fresh) => {
+            progressBar.value = view.done;
+            progressBar.setAttribute("aria-valuetext", view.text);
+            progressText.textContent = view.text;
+            makeAll.textContent = `Making audio... ${view.short}`;
+            for (const n of todo) {
+              if (!done.has(n.key)) continue;
+              const row = list.querySelector(`[data-key="${CSS.escape(n.key)}"]`);
+              if (row) row.textContent = `Audio ready, ${formatDuration(audioStatus(n.narration, fresh).duration ?? 0)}`;
+            }
+          },
+          milestone: say,
+        },
+      );
+      starting = false;
+      progressBox.hidden = true;
+      running = false;
+      say(outcome.state === "done" ? outcome.message : "");
+      if (outcome.state !== "done") failure.textContent = outcome.message;
       render();
-      const count = ids.length;
-      // The speech engine says nothing until it ends, so what is done is read from the audio that has appeared, and the time left from how fast it came.
-      const jobs: Job[] = todo.map((n) => ({ key: n.key, characters: n.narration.script.length, kind: kindOfEngine(engineOf(n.narration.voice)) }));
-      const progress = new RunProgress(jobs, loadRates(), Date.now());
-      say(startingText(jobs, loadRates()));
-      progressBar.max = count;
-      progressBar.value = 0;
-      progressText.textContent = progress.update(new Set(), Date.now()).text;
-      progressBox.hidden = false;
-      let polling = false;
-      let announced = 0;
-      const poll = async () => {
-        if (polling) return;
-        polling = true;
-        try {
-          const fresh = new Map((await b.narrationCache(model.dir)).map((c) => [c.hash, c]));
-          const done = new Set(todo.filter((n) => audioStatus(n.narration, fresh).state === "ready").map((n) => n.key));
-          const view = progress.update(done, Date.now());
-          progressBar.value = view.done;
-          progressBar.setAttribute("aria-valuetext", view.text);
-          progressText.textContent = view.text;
-          makeAll.textContent = `Making audio... ${view.short}`;
-          for (const n of todo) {
-            if (!done.has(n.key)) continue;
-            const row = list.querySelector(`[data-key="${CSS.escape(n.key)}"]`);
-            const status = audioStatus(n.narration, fresh);
-            if (row) row.textContent = `Audio ready, ${formatDuration(status.duration ?? 0)}`;
-          }
-          // Said aloud now and then, not at every change: a quarter of the way, half, three quarters.
-          const quarter = Math.floor((view.done * 4) / view.total);
-          if (quarter > announced && view.done < view.total) {
-            announced = quarter;
-            say(`Making audio: ${view.text}`);
-          }
-        } catch {
-          // a failed look is not a reason to stop: the next one may work
-        } finally {
-          polling = false;
-        }
-      };
-      const timer = setInterval(() => void poll(), 1500);
-      try {
-        const result = await b.makeNarration(model.dir, model.allFiles(), ids);
-        await poll();
-        saveRates(progress.measured());
-        await opts.refresh();
-        say("");
-        if (result.ok) {
-          const t = totals(model.narratedObjects(), opts.cache());
-          const skipped = left.length + blocked.length > 0 ? " Some were left out: you did not allow a service, or an engine is not set up." : "";
-          say(t.missing === 0 ? `Done. ${totalsLine(t)}` : `Finished, but ${t.missing} ${t.missing === 1 ? "narration still has" : "narrations still have"} no audio.${skipped}`);
-        } else {
-          failure.textContent = result.cancelled ? "Making audio was cancelled. Anything it had finished is kept." : result.message ?? "The speech engine did not finish.";
-        }
-      } catch (err) {
-        await opts.refresh().catch(() => undefined);
-        say("");
-        failure.textContent = errorText(err);
-      } finally {
-        clearInterval(timer);
-        progressBox.hidden = true;
-        running = false;
-        render();
-      }
     };
 
     const finish = () => {

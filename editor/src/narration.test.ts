@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   audioStatus, base64ToBytes, DEFAULT_VOICE, excerpt, formatDuration, isValidIpa, keyOf, langForVoice, narrationHash, newNarration, parseMakeResult,
-  sha256Hex, statusLine, totals, totalsLine, voiceGroups, voiceOption, VOICES, type CachedAudio, type Narration,
+  audioRowNote, audioRowText, sha256Hex, statusLine, totals, totalsLine, voiceGroups, voiceOption, VOICES, type CachedAudio, type Narration,
 } from "./narration.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -189,4 +189,12 @@ test("audio that no narration names any more is found, and what is still used is
   assert.equal(formatBytes(512), "512 bytes");
   assert.equal(formatBytes(1536), "1.5 KB");
   assert.equal(formatBytes(3.4 * 1024 * 1024), "3.4 MB");
+});
+
+test("beside a script the audio is said in few words, and what it means is said under that", () => {
+  assert.equal(audioRowText({ state: "missing", duration: null, exactTimings: null }), "No audio yet");
+  assert.equal(audioRowText({ state: "ready", duration: 27, exactTimings: true }), "Audio made, 27 seconds");
+  assert.match(audioRowNote({ state: "missing", duration: null, exactTimings: null }), /shows these words as a transcript/);
+  assert.equal(audioRowNote({ state: "ready", duration: 4, exactTimings: true }), "Captions are timed to the spoken words.");
+  assert.match(audioRowNote({ state: "ready", duration: 4, exactTimings: false }), /timed by estimate/);
 });

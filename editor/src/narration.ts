@@ -434,6 +434,17 @@ export function statusLine(s: AudioStatus): string {
   return `Audio is ready, ${formatDuration(s.duration ?? 0)}. ${timing}`;
 }
 
+/** The short words beside a script in the Properties panel: whether its audio is made. */
+export function audioRowText(s: AudioStatus): string {
+  return s.state === "ready" ? `Audio made, ${formatDuration(s.duration ?? 0)}` : "No audio yet";
+}
+
+/** The sentence under it: what the missing audio means for the course, or how the captions are timed. */
+export function audioRowNote(s: AudioStatus): string {
+  if (s.state === "missing") return "Until there is audio, the course shows these words as a transcript and nothing is said.";
+  return s.exactTimings ? "Captions are timed to the spoken words." : "Captions are timed by estimate, because the exact word times could not be matched to the script.";
+}
+
 export interface NarrationTotals {
   objects: number;
   ready: number;

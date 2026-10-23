@@ -48,7 +48,8 @@ import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText } from "./timing.ts";
 import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
-import { audioStatus, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, statusLine, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { audioRowNote, audioRowText, audioStatus, engineOf, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
+import { makeAudio } from "./makeaudio.ts";
 import { availability, buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
 import { askPermission, openAiServices } from "./aidialog.ts";
 import { openRecorder, recorderDialogOpen } from "./recorderdialog.ts";
@@ -1249,6 +1250,18 @@ ${errorText(err)}`);
       return box;
     }
     box.append(h("p", { id: "slide-narration-note", class: "note", text: `What the learner hears on this slide, in the order it plays${items.length > 1 ? ` (${items.length} parts)` : ""}. Read it and change the words here; each is said by the object named. The captions and the transcript come from these words. To make the audio, use the Narration button.` }));
+    if (items.length > 1) {
+      const missing = items.filter((n) => audioStatus(n.narration, this.narrationCache).state === "missing");
+      const running = this.making !== null && missing.some((n) => this.making!.keys.includes(n.key));
+      const line = h("p", { class: `audio-state ${running ? "audio-making" : missing.length === 0 ? "audio-ok" : "audio-missing"}`, id: "slide-narration-audio-state" });
+      if (running) { line.dataset["making"] = "1"; line.textContent = this.making!.text; }
+      else line.append(h("span", { class: "audio-mark", "aria-hidden": "true", text: missing.length === 0 ? "\u2713" : "!" }), ` ${items.length - missing.length} of ${items.length} parts have audio`);
+      const all = running ? this.small("Cancel", "Stop making the audio. What is finished is kept", () => { void backend.cancelJob().catch(() => false); this.announce("Cancelling."); }, "Cancel making audio")
+        : missing.length > 0 ? this.small(`Make the missing audio (${missing.length})`, "Make the audio for the parts of this slide that have none", () => void this.makeAudioFor(missing.map((n) => n.key)), `Make the ${missing.length} missing audio files for this slide`)
+        : null;
+      if (all) all.dataset["key"] = "prop:slide-narration-audio-all";
+      box.append(h("div", { class: "audio-row" }, line, ...(all ? [h("div", { class: "btn-row" }, all)] : [])));
+    }
     items.forEach((n, i) => {
       const name = narratedName(n, slide.baseLayer.id);
       const part = h("fieldset", { class: "slide-narration-part" }, h("legend", { text: items.length > 1 ? `${i + 1}. ${name}` : `Said by ${name}` }),
@@ -1313,6 +1326,7 @@ ${errorText(err)}`);
       }, { area: true, rows: spec.rows, describedBy: `${prefix}-note` })),
       ...(spec.extra ?? []),
     ];
+    if (n) parts.push(this.audioRow(m, key, n, spec.prefix, spec.audioLabel));
     if (n) {
       const traits = voiceTraits(n.voice);
       const voice = h("select", { id: `p-${prefix}-voice`, "aria-describedby": `${prefix}-voice-note` },
@@ -1342,12 +1356,87 @@ ${errorText(err)}`);
         if (!r.ok) { this.announce(r.message); const o = m.object; if (o) this.fillValues(o); } else if (r.message) this.announce(r.message);
       }, { number: true }));
       if (traits.pronunciations || n.pronunciations.length > 0) parts.push(this.pronunciationFields(m, key, n, prefix === "narration" ? "pron" : `${prefix}-pron`, traits.pronunciations));
-      const state = audioStatus(n, this.narrationCache);
-      const holder = h("div", { class: "listen" });
-      if (state.state === "ready") holder.append(this.small("Listen to the audio", "Play the audio made for this script", () => void this.listen(n, holder, spec.audioLabel)));
-      parts.push(h("p", { class: "note", text: statusLine(state) }), holder);
     }
     return parts;
+  }
+
+  /** The audio being made from the Properties panel, if any: the narrations it is for, and the sentence about how far it has got. */
+  private making: { keys: string[]; text: string } | null = null;
+
+  /**
+   * Whether this script has audio, in a few words and a mark, with the one button that fits: make it, listen to it, cancel making it, or (when the voice is not
+   * installed) go and set the voice up. It sits right under the words, so the author does not have to open the Narration window to know.
+   */
+  private audioRow(m: Model, key: string, n: Narration, prefix: string, label: string): HTMLElement {
+    const state = audioStatus(n, this.narrationCache);
+    const running = this.making?.keys.includes(key) ?? false;
+    const av = availability(n, { ai: this.settings.ai, kokoro: this.narrationEngineReady, plugins: this.plugins.plugins });
+    const holder = h("div", { class: "listen" });
+    const text = h("p", { class: `audio-state ${running ? "audio-making" : state.state === "ready" ? "audio-ok" : "audio-missing"}`, id: `${prefix}-audio-state` });
+    if (running) {
+      text.dataset["making"] = "1";
+      text.textContent = this.making!.text;
+    } else {
+      text.append(h("span", { class: "audio-mark", "aria-hidden": "true", text: state.state === "ready" ? "\u2713" : "!" }), ` ${audioRowText(state)}`);
+    }
+    let act: HTMLButtonElement;
+    let why: HTMLElement | null = null;
+    if (running) {
+      act = this.small("Cancel", "Stop making the audio. What is finished is kept", () => { void backend.cancelJob().catch(() => false); this.announce("Cancelling."); }, "Cancel making audio");
+    } else if (state.state === "ready") {
+      act = this.small("Listen to the audio", "Play the audio made for this script", () => void this.listen(n, holder, label));
+    } else if (av.state === "blocked" && engineOf(n.voice) === "kokoro") {
+      act = this.small("Set up the narration voice...", "The narration voice is not installed on this computer: set it up in the Narration window", () => void this.openNarrationDialog());
+      why = h("p", { class: "note", id: `${prefix}-audio-why`, text: "This voice is made on this computer, and the narration voice is not installed yet." });
+      act.setAttribute("aria-describedby", `${prefix}-audio-why`);
+    } else {
+      act = this.small("Make audio", "Make the audio for this script", () => void this.makeAudioFor([key]), "Make audio for this script");
+      if (av.state === "blocked") {
+        act.setAttribute("aria-disabled", "true");
+        why = h("p", { class: "note", id: `${prefix}-audio-why`, text: av.reason });
+        act.setAttribute("aria-describedby", `${prefix}-audio-why`);
+        act.addEventListener("click", () => this.announce(av.reason));
+      }
+    }
+    act.dataset["key"] = `prop:${prefix}-audio-act`;
+    return h("div", { class: "audio-row" }, text, h("div", { class: "btn-row" }, act), ...(why ? [why] : []), ...(running ? [] : [h("p", { class: "note", text: audioRowNote(state) })]), holder);
+  }
+
+  /** Put the sentence about how far the making has got into the places that show it, without redrawing the panel (a redraw would take the author's place in a box). */
+  private paintMaking(): void {
+    for (const el of Array.from(this.propsBody.querySelectorAll<HTMLElement>("[data-making]"))) el.textContent = this.making?.text ?? "";
+  }
+
+  /** Make the audio for these narrations, here in the Properties panel: the same work as the Narration window, one narration or the slide's missing ones. */
+  private async makeAudioFor(keys: string[]): Promise<void> {
+    const m = this.model;
+    if (!m || this.working || this.making) return;
+    this.working = true;
+    this.making = { keys, text: "" };
+    this.updateChrome();
+    const outcome = await makeAudio(
+      {
+        model: m, backend, ai: () => this.settings.ai, plugins: () => this.plugins.plugins, kokoro: () => this.narrationEngineReady,
+        ask: (service, detail) => this.askToSend(service, "voice", detail), cache: () => this.narrationCache, refresh: () => this.refreshNarration(),
+      },
+      keys,
+      {
+        started: ({ todo, text }) => {
+          // Only what is really being made shows as making; what was left out (a service not allowed, a voice not set up) shows as it was.
+          this.making = { keys: todo.map((t) => t.key), text };
+          this.renderProps();
+          this.announce(text);
+        },
+        progress: (view) => { if (this.making) { this.making.text = view.text; this.paintMaking(); } },
+        milestone: (text) => this.announce(text),
+      },
+    );
+    this.making = null;
+    this.working = false;
+    this.updateChrome();
+    this.renderProps();
+    // For a script or a slide, what was made is the news; the whole course's count (which may be long) is for the Narration window.
+    this.announce(outcome.state === "done" && !outcome.message.includes("left out") ? `Made the audio for ${outcome.made} ${outcome.made === 1 ? "narration" : "narrations"}.` : outcome.message);
   }
 
   // ---- hearing a voice before choosing it

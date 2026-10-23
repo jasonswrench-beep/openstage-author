@@ -334,6 +334,12 @@ button.small:hover { background: #e3e6eb; }
 .pron-row > button { grid-column: 1 / -1; justify-self: start; }
 .pron-row input { font: inherit; padding: 3px 5px; min-width: 0; box-sizing: border-box; }
 .listen { margin: 4px 0 8px; }
+.audio-row { margin: 6px 0 8px; }
+.audio-state { margin: 2px 0 4px; font-weight: 600; }
+.audio-ok { color: #0a6b2c; }
+.audio-missing { color: #8a4b00; }
+.audio-making { color: #1d2530; }
+.audio-mark { display: inline-block; min-width: 1.1em; font-weight: 700; }
 .listen audio { width: 100%; }
 .narration-dialog .nr-summary { font-weight: 600; margin: 8px 0 4px; }
 .nr-progress { margin: 6px 0 10px; }
