@@ -24,6 +24,7 @@
         "type": "downloadBootstrapper"
       },
       "nsis": {
+        "installerIcon": "icons/icon.ico",
         "installMode": "currentUser",
         "languages": [
           "English"

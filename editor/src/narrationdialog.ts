@@ -6,7 +6,7 @@
 
 import { audioPlan, availability, servicesToAsk, type AiSettings, type PluginInfo, type ServiceId } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
-import { clockText, type Model, type NarratedObject } from "./model.ts";
+import { narratedName, type Model, type NarratedObject } from "./model.ts";
 import { NO_ENGINE_STATUS, RUNTIME_URL, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
 import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
 import { RunProgress, kindOfEngine, loadRates, saveRates, startingText, type Job } from "./narrationprogress.ts";
@@ -122,8 +122,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
         }
         const s = audioStatus(item.narration, opts.cache());
         const av = availability(item.narration, context());
-        const owner = item.item ? `${item.object.name}, item "${item.item.title}"` : item.cue ? `${item.object.name}, audio description at ${clockText(item.cue.time)}` : item.line ? `${item.object.name}, line "${item.line.text.trim().slice(0, 40)}${item.line.text.trim().length > 40 ? "..." : ""}"` : item.object.name;
-        const name = item.layerName && item.layerId !== model.slides.find((x) => x.id === item.slideId)?.baseLayer.id ? `${owner} (layer ${item.layerName})` : owner;
+        const name = narratedName(item, model.slides.find((x) => x.id === item.slideId)?.baseLayer.id ?? "");
         const go = h("button", { type: "button", class: "small", text: "Go to", "aria-label": `Go to ${name}` });
         go.addEventListener("click", () => { chosen = item; finish(); });
         const make = h("button", { type: "button", class: "small", text: "Make audio", "aria-label": `Make audio for ${name}` });

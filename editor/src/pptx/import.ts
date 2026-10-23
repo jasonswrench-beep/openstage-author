@@ -130,7 +130,7 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   const hiddenShapes = sum((s) => s.left.hidden);
   if (hiddenShapes > 0) out.push(`${plural(hiddenShapes, "hidden shape")} in PowerPoint ${hiddenShapes === 1 ? "was" : "were"} not brought in.`);
   const withNotes = taken.filter((s) => s.hasNotes).length;
-  if (notes.narrated > 0) out.push(`Speaker notes became the narration of ${plural(notes.narrated, "slide")}: each slide's first heading, or its first text, says them when the slide opens, in the course's usual voice, and the words are not shown on the slide. You can read and change them in the heading's Properties (Narration), or all together in the Narration window (the toolbar). The audio is made there too.`);
+  if (notes.narrated > 0) out.push(`Speaker notes became the narration of ${plural(notes.narrated, "slide")}: each slide's first heading, or its first text, says them when the slide opens, in the course's usual voice, and the words are not shown on the slide. You can read and change them in Properties with nothing selected (Narration on this slide), or all together in the Narration window (the toolbar). The audio is made there.`);
   if (notes.notesUnused > 0) out.push(`Speaker notes on ${plural(notes.notesUnused, "slide")} could not become narration, because everything on ${notes.notesUnused === 1 ? "that slide is" : "those slides are"} decoration, so there is nothing to say them.`);
   if (withNotes > 0 && notes.narrated + notes.notesUnused === 0) out.push(`Speaker notes on ${plural(withNotes, "slide")} were not brought in. To have them as narration, tick "Use speaker notes as narration" when you choose the slides.`);
   if (notes.animated > 0) {

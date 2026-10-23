@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { Model } from "./model.ts";
+import { Model, narratedName } from "./model.ts";
 import { buildVoiceSources, emptyAi, allow, withKey } from "./aiservices.ts";
 import { audioStatus, keyOf, setVoiceSources, soundIgnoresLanguage, type CachedAudio, type Narration } from "./narration.ts";
 import { newProjectFiles } from "./template.ts";
@@ -206,4 +206,29 @@ test("only a voice that sounds the same in every language has its audio kept whe
   const before: Narration = { script: "Hello.", voice: "openai:alloy", speed: 1, lang: "en-US", pronunciations: [], audioCache: null };
   assert.notEqual(keyOf(before), keyOf({ ...before, lang: "es" }));
   assert.equal(keyOf({ ...before, lang: "es" }), keyOf({ ...before, lang: "es", audioCache: { hash: "x", path: "y" } }), "the remembered cache is not part of the key");
+});
+
+test("the object that would say a slide's narration is its heading, else its first text, else its first object that is not decoration", () => {
+  const m = fresh();
+  const slide = m.slide!;
+  const id = slide.id;
+  for (const o of [...slide.baseLayer.objects]) m.deleteObject(o.id);
+  const body = m.addObject("text")!;
+  assert.equal(m.narrationTarget(id)?.id, body.id, "the only text");
+  const heading = m.addObject("text")!;
+  m.setAccessibility(heading.id, { role: "heading" });
+  assert.equal(m.narrationTarget(id)?.id, heading.id, "a heading comes before a text that is earlier");
+  assert.equal(m.narrationTarget("no-such-slide"), null);
+  for (const o of m.objects) m.setAccessibility(o.id, { decorative: true });
+  assert.equal(m.narrationTarget(id), null, "everything is decoration, so nothing can say it");
+});
+
+test("a narration is named by what says it, with the item, line or layer when there is one", () => {
+  const m = fresh();
+  const t = m.addObject("text")!;
+  m.setNarrationScript(t.id, "Hello.");
+  const [n] = m.narratedObjects();
+  assert.equal(narratedName(n!, m.slide!.baseLayer.id), t.name);
+  assert.equal(narratedName({ ...n!, layerId: "layer-x", layerName: "Feedback" }, m.slide!.baseLayer.id), `${t.name} (layer Feedback)`);
+  assert.equal(narratedName({ ...n!, item: { id: "i1", title: "Tab one" } as never }, m.slide!.baseLayer.id), `${t.name}, item "Tab one"`);
 });

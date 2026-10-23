@@ -90,6 +90,12 @@ export interface NarratedObject {
   narration: Narration;
 }
 
+/** What a person calls the thing that says a narration: the object, and the item, audio description or line of it that it belongs to, and the layer if it is not the base layer. */
+export function narratedName(n: NarratedObject, baseLayerId: string): string {
+  const owner = n.item ? `${n.object.name}, item "${n.item.title}"` : n.cue ? `${n.object.name}, audio description at ${clockText(n.cue.time)}` : n.line ? `${n.object.name}, line "${n.line.text.trim().slice(0, 40)}${n.line.text.trim().length > 40 ? "..." : ""}"` : n.object.name;
+  return n.layerName && n.layerId !== baseLayerId ? `${owner} (layer ${n.layerName})` : owner;
+}
+
 export type ChangeKind = "selection" | "geometry" | "content" | "structure" | "saved" | "clipboard";
 export interface Change {
   kind: ChangeKind;
@@ -2708,6 +2714,14 @@ export class Model {
     if (!hide) return "Back and Next are shown on this slide again.";
     const leaves = doc.slide.duration !== null || [doc.slide.baseLayer, ...doc.slide.layers].some((l) => l.objects.some((o) => o.triggers.some((t) => ["jumpToSlide", "nextSlide", "previousSlide"].includes(t.action))));
     return `Back and Next are left out of this slide.${leaves ? "" : " Nothing on it goes to another slide yet, so a learner would be stuck: add a button with a rule that goes to a slide."}`;
+  }
+
+  /** The object that would say a slide's narration if it has none yet: its heading, else its first text, else its first object that is not decoration (the same choice as the PowerPoint import). */
+  narrationTarget(slideId: string): OSObject | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc) return null;
+    const live = doc.slide.baseLayer.objects.filter((o) => !o.accessibility.decorative);
+    return live.find((o) => o.type === "text" && o.accessibility.role === "heading") ?? live.find((o) => o.type === "text") ?? live[0] ?? null;
   }
 
   /** How many presses of Show next item a slide has: the different step numbers of its objects that wait for the learner, layer by layer. */

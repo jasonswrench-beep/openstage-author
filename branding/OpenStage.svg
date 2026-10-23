@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1024" height="1024" viewBox="0 0 1024 1024" version="1.1" role="img" aria-labelledby="title description">
+  <title id="title">OpenStage — Open Frame icon</title>
+  <desc id="description">An open stage arch, drawn curtains, and a curved platform. Editable vector artwork. Transparent outside the navy rounded tile.</desc>
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="768" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#102037"/>
+      <stop offset="1" stop-color="#0B172A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="180" y1="160" x2="844" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B18FFC"/>
+      <stop offset="1" stop-color="#A17CEF"/>
+    </linearGradient>
+  </defs>
+  <g id="Tile" inkscape:label="Navy tile">
+    <rect id="navy-tile" x="0" y="0" width="1024" height="1024" rx="164" fill="url(#navy)"/>
+  </g>
+  <g id="Symbol" inkscape:label="OpenStage symbol" fill="none" stroke="url(#accent)" stroke-width="52" stroke-linecap="round" stroke-linejoin="round">
+      <path id="arch-left" d="M448 194 C290 208 180 310 180 458 V750" stroke-width="60"/>
+      <path id="arch-right" d="M576 194 C734 208 844 310 844 458 V750" stroke-width="60"/>
+      <path id="curtain-left" d="M404 315 C396 444 366 548 255 572 H180" stroke-width="52"/>
+      <path id="curtain-right" d="M620 315 C628 444 658 548 769 572 H844" stroke-width="52"/>
+      <path id="curtain-fold-left" d="M342 326 C332 418 300 492 237 531 C291 520 325 479 339 420 Z" fill="url(#accent)" stroke="none"/>
+      <path id="curtain-fold-right" d="M682 326 C692 418 724 492 787 531 C733 520 699 479 685 420 Z" fill="url(#accent)" stroke="none"/>
+      <path id="curtain-tail-left" d="M248 592 C273 623 284 654 288 688" stroke-width="48"/>
+      <path id="curtain-tail-right" d="M776 592 C751 623 740 654 736 688" stroke-width="48"/>
+      <path id="stage-platform" d="M200 840 C350 720 674 720 824 840 C626 902 398 902 200 840 Z" stroke-width="54"/>
+  </g>
+</svg>

@@ -1,3 +1,5 @@
+<p align="center"><img src="branding/OpenStage-1024.png" width="128" alt="The OpenStage icon: an open stage arch with drawn curtains and a curved platform, in lilac on a navy tile"></p>
+
 # OpenStage Author
 
 A free, open-source desktop authoring studio for interactive eLearning.

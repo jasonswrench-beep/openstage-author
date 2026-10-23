@@ -40,7 +40,7 @@ import { askGame } from "./gamedialog.ts";
 import { groupBox } from "./group.ts";
 import { ALIGNMENTS } from "./align.ts";
 import { extraWordsOf, LIMITS, QUIZ_KINDS, quizKind, type QuestionEdit } from "./questionedit.ts";
-import { clockText, FORMAT_VERSION, Model, type Change } from "./model.ts";
+import { clockText, FORMAT_VERSION, Model, narratedName, type Change } from "./model.ts";
 import { askNewProject } from "./newproject.ts";
 import { openNarration } from "./narrationdialog.ts";
 import { openTiming } from "./timingdialog.ts";
@@ -1224,10 +1224,63 @@ ${errorText(err)}`);
       h("p", { class: "note", text: "The learner then leaves this slide only through something on it, such as a Continue button or a tile on a game board. The games use this so players stay in the game, and keep Back and Next on the last slide. The Problems list warns if nothing on the slide goes anywhere." }));
   }
 
+  /**
+   * What is said on the slide being edited, in the order it plays, with the words ready to read and change: so the narration does not have to be hunted for through
+   * the Narration window and the object that says it. Shown when nothing is selected. A slide with no narration offers one box, said by the object the PowerPoint import
+   * would have chosen (its heading).
+   */
+  private slideNarrationFields(m: Model): HTMLElement {
+    const slide = m.slide!;
+    const items = m.narratedObjects().filter((n) => n.slideId === slide.id);
+    const box = h("fieldset", { class: "slide-narration" }, h("legend", { text: "Narration on this slide" }));
+    const more = h("div", { class: "btn-row" }, this.small("Narration...", "All the narration in the course, and making its audio", () => void this.openNarrationDialog()));
+    if (items.length === 0) {
+      const target = m.narrationTarget(slide.id);
+      box.append(h("p", { id: "slide-narration-note", class: "note", text: target
+        ? `Nothing on this slide is narrated yet. Write what the learner should hear when it opens, and ${target.name} says it. It plays in reading order, and the captions and the transcript come from these words.`
+        : "Nothing on this slide is narrated, and everything on it is decoration, so there is nothing to say it yet. Add a text, then write its narration." }));
+      if (target) {
+        box.append(this.stacked(this.field("slide-narration-new", "Narration script", "", (v) => {
+          const msg = m.setNarrationScript(target.id, v);
+          if (msg) this.announce(msg);
+        }, { area: true, rows: 6, describedBy: "slide-narration-note" })));
+      }
+      box.append(more);
+      return box;
+    }
+    box.append(h("p", { id: "slide-narration-note", class: "note", text: `What the learner hears on this slide, in the order it plays${items.length > 1 ? ` (${items.length} parts)` : ""}. Read it and change the words here; each is said by the object named. The captions and the transcript come from these words. To make the audio, use the Narration button.` }));
+    items.forEach((n, i) => {
+      const name = narratedName(n, slide.baseLayer.id);
+      const part = h("fieldset", { class: "slide-narration-part" }, h("legend", { text: items.length > 1 ? `${i + 1}. ${name}` : `Said by ${name}` }),
+        ...this.narrationControls(m, n.key, n.narration, {
+          prefix: `slide-narration-${i + 1}`,
+          note: `This narration belongs to ${name}.`,
+          audioLabel: `Narration audio of ${name}`,
+          rows: 8,
+        }));
+      const go = this.small("Go to " + n.object.name, `Select ${name}, to change anything else about it`, () => {
+        if (m.reveal(n.slideId, n.object.id)) this.announce(`Selected ${n.object.name}.`);
+      }, `Go to ${name}`);
+      part.append(h("div", { class: "btn-row" }, go));
+      box.append(part);
+    });
+    box.append(more);
+    return box;
+  }
+
   /** What the selected object says, in which voice, and how to listen to it. */
   private narrationFields(m: Model, o: OSObject): HTMLElement[] {
     const n = (o.narration as Narration | null) ?? null;
-    return [h("fieldset", {}, h("legend", { text: "Narration" }),
+    // An object with no narration of its own, on a slide that is narrated by another: say where it is, so an empty box is not taken for "no narration here".
+    const elsewhere = n === null && m.slide ? m.narratedObjects().filter((x) => x.slideId === m.slide!.id && x.object.id !== o.id) : [];
+    const pointer: HTMLElement[] = elsewhere.length === 0 ? [] : [
+      h("p", { class: "note", text: `This object says nothing. This slide's narration is said by ${[...new Set(elsewhere.map((x) => x.object.name))].join(", ")}.` }),
+      h("div", { class: "btn-row" }, this.small(`Go to ${elsewhere[0]!.object.name}`, "Select the object that says this slide's narration", () => {
+        if (m.reveal(elsewhere[0]!.slideId, elsewhere[0]!.object.id)) this.announce(`Selected ${elsewhere[0]!.object.name}. Its narration is in the Properties panel.`);
+        document.getElementById("p-narration-script")?.focus();
+      })),
+    ];
+    return [h("fieldset", {}, h("legend", { text: "Narration" }), ...pointer,
       ...this.narrationControls(m, o.id, n, {
         prefix: "narration",
         note: "What the learner hears when this object's slide opens, in reading order. The captions and the transcript come from these words, so they always match. Leave it blank for no narration.",
@@ -2778,6 +2831,7 @@ ${errorText(err)}`);
     }
     this.propsBody.replaceChildren(
       h("p", { class: "note", text: "No object selected. Choose one in the Objects list, or click it on the canvas." }),
+      this.slideNarrationFields(m),
       this.designFields(m, slide.id),
       h("fieldset", {}, h("legend", { text: "Slide" }),
         this.field("slide-name", "Slide name", slide.name, (v) => { const msg = m.renameSlide(slide.id, v); if (msg) this.announce(msg); else (document.getElementById("p-slide-name") as HTMLInputElement).value = slide.name; })),
