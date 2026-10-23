@@ -110,6 +110,18 @@ test("a text is made to come in one paragraph at a time: each paragraph is the n
   assert.deepEqual(m.buildByParagraph(t.id, false), { ok: true, message: "" }, "nothing to take away");
 });
 
+test("a text that comes in whole at an item (an older import) gives that item to its first paragraph, and the box is there from the start", () => {
+  const { m, t } = withText();
+  m.setTiming(t.id, { appear: "click", step: 3 });
+  const r = m.buildByParagraph(t.id, true);
+  assert.equal(r.ok, true);
+  assert.deepEqual(find(m, t.id).timing.paragraphs?.map((p) => p.step), [3, 4, 5]);
+  assert.deepEqual([find(m, t.id).timing.appear, find(m, t.id).timing.start], ["time", 0], "no longer waiting for an item itself");
+  assert.equal("step" in find(m, t.id).timing, false);
+  m.undo();
+  assert.deepEqual([find(m, t.id).timing.appear, find(m, t.id).timing.step, find(m, t.id).timing.paragraphs], ["click", 3, undefined], "undo gives it back as it was");
+});
+
 test("only a text can come in a paragraph at a time, and not when it has none", () => {
   const { m } = withText();
   const shape = m.addObject("shape")!;

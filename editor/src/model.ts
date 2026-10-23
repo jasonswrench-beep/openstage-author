@@ -2722,11 +2722,14 @@ export class Model {
       return { ok: true, message: `${obj.name}: the whole text comes in together again.` };
     }
     if (count === 0) return { ok: false, message: "This text has no paragraphs to show one at a time." };
-    const first = this.lastStep(row.layerId, objectId) + 1;
+    // A box that waits for an item (a text from an older import, which came in whole at its item) gives that item to its first paragraph, and is there from the start.
+    const waiting = rest.appear === "click";
+    const first = waiting ? (rest.step ?? 1) : this.lastStep(row.layerId, objectId) + 1;
     if (first + count - 1 > MAX_STEP) return { ok: false, message: `There are not enough item numbers left on this layer (the most is ${MAX_STEP}).` };
     const parts: PartTiming[] = Array.from({ length: count }, (_, i) => ({ appear: "click", step: first + i, start: 0, visibleFor: null }));
     this.record(`paragraphs:${objectId}`);
-    obj.timing = { ...rest, paragraphs: parts };
+    const box: Timing = waiting ? { appear: "time", start: rest.start, visibleFor: rest.visibleFor, ...(rest.until ? { until: rest.until } : {}) } : rest;
+    obj.timing = { ...box, paragraphs: parts };
     this.emit({ kind: "content", objectId });
     return { ok: true, message: `${obj.name}: ${describeTiming(obj.timing, !row.onBase)}` };
   }
