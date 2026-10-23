@@ -22,7 +22,7 @@ import { BLOCK_SIZES, colorName, eventsFor, operatorsFor, OPERATOR_LABELS, parse
 import { fileDetails } from "../../player/src/downloads.ts";
 import { timerContentOf } from "../../player/src/timer.ts";
 import { openBanks } from "./bankdialog.ts";
-import { askQuestionImport } from "./questiondialog.ts";
+import { askQuestionImport, type QuestionPreset } from "./questiondialog.ts";
 import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
@@ -30,12 +30,12 @@ import { askText } from "./textprompt.ts";
 import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
 import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
-import type { CreditEntry, Style } from "../../player/src/types.ts";
+import type { CreditEntry, Effect, Style } from "../../player/src/types.ts";
 import { askChoice, bubblePreview, interactionPreview, shapePreview } from "./choicepicker.ts";
 import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, isPictureBox, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
-import { askLayout } from "./layoutpicker.ts";
+import { askLayout, QUIZ_PREFIX } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
-import { GAME_PREFIX, gameById } from "./gamesets.ts";
+import { GAME_PREFIX, GAME_SETS, gameById } from "./gamesets.ts";
 import { askGame } from "./gamedialog.ts";
 import { groupBox } from "./group.ts";
 import { ALIGNMENTS } from "./align.ts";
@@ -46,7 +46,7 @@ import { openNarration } from "./narrationdialog.ts";
 import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText } from "./timing.ts";
-import { describeAnimation, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
+import { describeAnimation, describeSlideTransition, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
 import { audioRowNote, audioRowText, audioStatus, engineOf, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { makeAudio } from "./makeaudio.ts";
@@ -206,6 +206,7 @@ export class App {
   private readonly shareSlidesBtn: HTMLButtonElement;
   private readonly banksBtn: HTMLButtonElement;
   private readonly questionsFileBtn: HTMLButtonElement;
+  private readonly gamesBtn: HTMLButtonElement;
   private readonly slidesFromFileBtn: HTMLButtonElement;
   private readonly slideUpBtn: HTMLButtonElement;
   private readonly slideDownBtn: HTMLButtonElement;
@@ -293,16 +294,17 @@ export class App {
     this.shareSlidesBtn = this.small("Share slides...", "Save slides, with what they need, as one file to give to someone else", () => void this.shareSlides());
     this.slidesFromFileBtn = this.small("Add slides from a file...", "Add slides someone gave you as one file after this slide", () => void this.addSlidesFromFile());
     this.banksBtn = this.small("Question banks...", "Choose which slides each learner is shown: some of a run of questions, picked at random", () => void this.openBanksDialog());
-    this.questionsFileBtn = this.small("Questions from a file...", "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide", () => void this.addQuestionsFromFile());
+    this.questionsFileBtn = this.small("Quiz from a file...", "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide. Tick the test bank box there to show each learner only some of them", () => void this.addQuestionsFromFile("quiz"));
+    this.gamesBtn = this.small("Games...", "Add a ready-made game after this slide: a quiz board, a prize ladder or an escape room", () => void this.addSlide("games"));
     this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
     this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
     // The heading and the buttons stay where they are while a long list of slides scrolls under them, so Add slide is never a long scroll away.
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("div", { class: "panel-tools" },
         h("h2", { id: "slides-h", text: "Slides" }),
-        h("div", { class: "btn-row" }, this.addSlideBtn, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
-        h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn),
-        h("div", { class: "btn-row" }, this.questionsFileBtn, this.banksBtn)),
+        h("div", { class: "btn-row" }, this.addSlideBtn, this.gamesBtn, this.questionsFileBtn),
+        h("div", { class: "btn-row" }, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
+        h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn, this.banksBtn)),
       this.slideList);
 
     // Canvas and layers
@@ -1181,6 +1183,49 @@ ${errorText(err)}`);
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())));
   }
 
+  /**
+   * How the slide arrives and how it leaves, listed together under one name so they are easy to find. Each is an effect to choose and, once one is chosen, how long it takes.
+   * Shown when nothing is selected.
+   */
+  private slideTransitionFields(m: Model): HTMLElement {
+    const slide = m.slide!;
+    const t = slide.transition;
+    const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.renderProps(); };
+    const part = (phase: Phase, label: string, secondsLabel: string): HTMLElement[] => {
+      const now = t?.[phase];
+      return [
+        this.selectField(`slide-anim-${phase}`, label, effectChoices(phase), now?.effect ?? "none", (v) => {
+          done(m.setSlideTransition(slide.id, phase, { effect: v as NonNullable<typeof now>["effect"] }));
+          document.getElementById(`p-slide-anim-${phase}`)?.focus();
+        }),
+        ...(now ? [this.field(`slide-anim-${phase}-time`, secondsLabel, secondsText(now.duration), (v) => {
+          const ms = parseSeconds(v);
+          if (ms === undefined || ms === null) { this.announce(`Write how long it lasts in seconds, from ${MIN_DURATION / 1000} to ${MAX_DURATION / 1000}, for example 0.5.`); this.renderProps(); return; }
+          done(m.setSlideTransition(slide.id, phase, { duration: ms }));
+        }, { number: true })] : []),
+      ];
+    };
+    return h("fieldset", {}, h("legend", { text: "Slide animation" }),
+      h("p", { class: "note", text: "How this slide comes in when a learner arrives at it, and how it goes out when they leave it. Motion is a barrier for some learners, so effects are short, never repeat and never flash. A learner whose device asks for less motion sees none, and the course has a button to turn animation off." }),
+      ...part("enter", "Slide animation (in)", "Seconds to come in"),
+      ...part("exit", "Slide animation (out)", "Seconds to go out"),
+      h("p", { id: "slide-animation-summary", class: "note", text: describeSlideTransition(t) }),
+      h("div", { class: "btn-row" }, this.small("Preview slide animation", "Play how this slide comes in and goes out, on the canvas, without changing anything", () => void this.previewSlideAnimation(slide.transition))));
+  }
+
+  private async previewSlideAnimation(t: { enter?: Effect; exit?: Effect } | undefined): Promise<void> {
+    if (this.previewing) return;
+    this.previewing = true;
+    try {
+      const result = await this.canvas.previewSlideAnimation(t);
+      this.announce(result === "played" ? "Preview finished." : result === "reduced"
+        ? "Your device is set to reduce motion, so nothing moves in this preview. Learners with that setting will not see it move either."
+        : "This slide has no animation to preview. Choose an effect first.");
+    } finally {
+      this.previewing = false;
+    }
+  }
+
   /** For a slide whose items wait for the learner (a PowerPoint click, or an object set to appear when the learner shows the next item): whether they come by themselves, and how fast. */
   private autoStepsFields(m: Model): HTMLElement[] {
     const slide = m.slide!;
@@ -1592,17 +1637,22 @@ ${errorText(err)}`);
 
   private lastLayout = "content";
 
-  private async addSlide(): Promise<void> {
+  private async addSlide(only?: "games" | "quizzes"): Promise<void> {
     const m = this.model;
     if (!m) return;
-    const layout = await askLayout({
-      heading: "Add a slide", confirm: "Add slide", initial: this.lastLayout, theme: m.theme, templates: true,
-      note: "A layout places text. A ready-made lesson slide also brings the parts a lesson needs, such as Next and Back buttons that are already wired, a question with its feedback, or a story to write. A ready-made game adds several slides at once, with the variables and rules that make it play.",
-    });
+    const layout = await askLayout(only === "games"
+      ? { heading: "Add a game", confirm: "Add game", initial: GAME_PREFIX + (GAME_SETS[0]?.id ?? ""), theme: m.theme, templates: true, only,
+          note: "A ready-made game adds several slides at once, with the variables and rules that make it play. The next window asks how big it should be, and a quiz board or a prize ladder can be filled from a spreadsheet of your questions." }
+      : { heading: "Add a slide", confirm: "Add slide", initial: this.lastLayout, theme: m.theme, templates: true,
+          note: "A layout places text. A ready-made lesson slide also brings the parts a lesson needs, such as Next and Back buttons that are already wired, a question with its feedback, or a story to write. A quiz or a test bank is made from a spreadsheet of your questions. A ready-made game adds several slides at once, with the variables and rules that make it play. The buttons at the top go straight to a group." });
     if (!layout) return;
-    this.lastLayout = layout;
+    if (only !== "games") this.lastLayout = layout;
     if (layout.startsWith(GAME_PREFIX)) {
       await this.addGame(layout.slice(GAME_PREFIX.length));
+      return;
+    }
+    if (layout.startsWith(QUIZ_PREFIX)) {
+      await this.addQuestionsFromFile(layout.slice(QUIZ_PREFIX.length) === "bank" ? "bank" : "quiz");
       return;
     }
     const template = layout.startsWith(TEMPLATE_PREFIX) ? m.addTemplateSlide(layout.slice(TEMPLATE_PREFIX.length)) : null;
@@ -2442,6 +2492,7 @@ ${errorText(err)}`);
     this.setEnabled(this.shareSlidesBtn, !!m);
     this.setEnabled(this.banksBtn, !!m);
     this.setEnabled(this.questionsFileBtn, !!m);
+    this.setEnabled(this.gamesBtn, !!m);
     this.setEnabled(this.slidesFromFileBtn, !!m);
     this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
     const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
@@ -2927,6 +2978,7 @@ ${errorText(err)}`);
       h("fieldset", {}, h("legend", { text: "Layer" }),
         this.field("layer-name", "Layer name", layer.name, (v) => { const msg = m.renameLayer(layer.id, v); if (msg) this.announce(msg); else (document.getElementById("p-layer-name") as HTMLInputElement).value = layer.name; })),
       this.slideTimingFields(m),
+      this.slideTransitionFields(m),
       this.slideNavigationFields(m),
       this.courseFields(m),
     );
@@ -4768,7 +4820,7 @@ ${errorText(err)}`);
   }
 
   /** Make a slide for each question in a spreadsheet the author saved as a CSV file (see docs/question-import.md). */
-  private async addQuestionsFromFile(): Promise<void> {
+  private async addQuestionsFromFile(preset?: QuestionPreset): Promise<void> {
     const m = this.model;
     if (!m) return;
     const choice = await askQuestionImport(m.slide?.name ?? "", {
@@ -4776,7 +4828,7 @@ ${errorText(err)}`);
       readFile: (path) => backend.questionFileRead(path),
       pickTemplateSave: () => backend.pickQuestionTemplateSave(),
       writeTemplate: (dest, text) => backend.questionTemplateWrite(dest, text),
-    });
+    }, preset);
     this.questionsFileBtn.focus();
     if (!choice) return;
     const msg = m.addQuestionSlides(choice.questions, { bank: choice.bank, shuffleAnswers: choice.shuffleAnswers });

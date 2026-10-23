@@ -1,12 +1,12 @@
 # Questions from a spreadsheet
 
-Writing questions one at a time in the editor is slow when you already have fifty of them. **Questions from a file...** (in the Slides panel) reads a table of questions saved as a CSV file and makes a slide for each one, with its feedback layers, in one step. It was asked for on 2026-10-21, to make a question bank easy to fill.
+Writing questions one at a time in the editor is slow when you already have fifty of them. **Quiz from a file...** (in the Slides panel; it was called Questions from a file) reads a table of questions saved as a CSV file and makes a slide for each one, with its feedback layers, in one step. It was asked for on 2026-10-21, to make a question bank easy to fill.
 
 It changes no part of the course format. Each row becomes what **Add > Question** makes: a slide with the question as its heading, the question itself, and a layer of feedback for a right answer and one for a wrong answer.
 
 ## How to use it
 
-1. In the Slides panel, press **Questions from a file...**.
+1. In the Slides panel, press **Quiz from a file...** (or **Add slide**, then **Quiz from a spreadsheet** or **Test bank from a spreadsheet** under Quizzes and test banks). A quiz gives every learner every question in order, so the test bank box starts unticked; a test bank starts it ticked.
 2. Press **Save a blank table to start from...** if you need a table to begin with. It is a CSV file with the columns named and one example of each kind of question (`examples/questions-template.csv` is the same file).
 3. Fill the table in Excel, Google Sheets or any spreadsheet program. Save it as **CSV**. In Excel choose **Save As, then CSV UTF-8 (Comma delimited)**; plain "CSV (Comma delimited)" works too.
 4. Press **Choose a table of questions...** and choose the file. The dialog says how many questions can be added and lists every row that has a problem, with the row number, in words.

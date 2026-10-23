@@ -41,6 +41,12 @@ export function describeAnimation(a: ObjectAnimation): string {
   return `Arrives: ${describeEffect(a.enter, "enter").toLowerCase()}. Leaves: ${describeEffect(a.exit, "exit").toLowerCase()}`;
 }
 
+/** How a slide arrives and leaves, in one sentence, for announcements and the panel. */
+export function describeSlideTransition(t: { enter?: Effect; exit?: Effect } | undefined): string {
+  const none: Effect = { effect: "none", duration: DEFAULT_DURATION };
+  return `Slide in: ${describeEffect(t?.enter ?? none, "enter").toLowerCase()}. Slide out: ${describeEffect(t?.exit ?? none, "exit").toLowerCase()}`;
+}
+
 /** Whether a time is one the format allows: a whole number of milliseconds from the least to the most. */
 export function validDuration(ms: number): boolean {
   return Number.isInteger(ms) && ms >= MIN_DURATION && ms <= MAX_DURATION;

@@ -126,6 +126,8 @@ export interface SlideSpec {
   animated?: boolean;
   /** The slide's p:timing element, as XML (see `timing` below). */
   timing?: string;
+  /** The slide's transition, as XML: a p:transition element, or an mc:AlternateContent holding one. */
+  transition?: string;
 }
 
 export interface EffectSpec {
@@ -216,7 +218,7 @@ export function buildDeck(spec: DeckSpec): Uint8Array {
   spec.slides.forEach((s, i) => {
     const n = i + 1;
     const bg = s.background ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${s.background}"/></a:solidFill></p:bgPr></p:bg>` : s.backgroundTile ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/></a:blipFill></p:bgPr></p:bg>' : s.backgroundPicture ? '<p:bg><p:bgPr><a:blipFill><a:blip r:embed="rIdBg"/><a:stretch/></a:blipFill></p:bgPr></p:bg>' : "";
-    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}${s.hideMaster ? ' showMasterSp="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.timing ?? (s.animated ? '<p:timing><p:tnLst/></p:timing>' : "")}</p:sld>`);
+    put(`ppt/slides/slide${n}.xml`, `<p:sld ${NS}${s.show === false ? ' show="0"' : ""}${s.hideMaster ? ' showMasterSp="0"' : ""}><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${s.shapes}</p:spTree></p:cSld>${s.transition ?? ""}${s.timing ?? (s.animated ? '<p:timing><p:tnLst/></p:timing>' : "")}</p:sld>`);
     const rels = [`<Relationship Id="rIdLayout" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`];
     for (const [rId, file] of Object.entries(s.media ?? {})) rels.push(`<Relationship Id="${rId}" Type="${REL}/image" Target="../media/${file}"/>`);
     if (s.backgroundPicture) rels.push(`<Relationship Id="rIdBg" Type="${REL}/image" Target="../media/${s.backgroundPicture}"/>`);

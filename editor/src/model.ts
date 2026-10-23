@@ -32,8 +32,8 @@ import { fillQuiz } from "./questionfill.ts";
 import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
 import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment, type Box } from "./align.ts";
 import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } from "./group.ts";
-import { describeAnimation, validDuration, type Phase } from "./animation.ts";
-import { EFFECTS } from "../../player/src/animation.ts";
+import { describeAnimation, describeSlideTransition, validDuration, type Phase } from "./animation.ts";
+import { DEFAULT_DURATION, EFFECTS } from "../../player/src/animation.ts";
 import { TIMER_MAX_EXTEND, TIMER_MAX_SECONDS, TIMER_MIN_SECONDS, timerContentOf } from "../../player/src/timer.ts";
 import { describeTiming, MAX_MS, MAX_STEP, plainSeconds } from "./timing.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
@@ -45,7 +45,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.36.0";
+export const FORMAT_VERSION = "0.37.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -2753,6 +2753,28 @@ export class Model {
     if (!next) return "The items on this slide wait for the learner again: each comes when the learner presses Show next item.";
     const steps = this.waitingSteps(slideId);
     return `The items on this slide come by themselves: the first after ${plainSeconds(next.first)}, then one every ${plainSeconds(next.every)}. The learner can pause, press Show next item to bring the next at once, or show everything.${steps === 0 ? " Nothing on this slide waits for the learner yet, so nothing changes until an object is set to appear when the learner shows the next item." : ""}`;
+  }
+
+  /**
+   * Choose how a slide arrives (`enter`) or leaves (`exit`), or change how long it takes, as one undo step. Choosing no effect takes that part away, and a slide with neither has
+   * no `transition` at all. A time with no effect chosen means nothing, so it is not kept.
+   */
+  setSlideTransition(slideId: string, phase: Phase, patch: Partial<Effect>): { ok: boolean; message: string } {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc) return { ok: false, message: "" };
+    const now: Effect = doc.slide.transition?.[phase] ?? { effect: "none", duration: DEFAULT_DURATION };
+    const next: Effect = { ...now, ...patch };
+    if (!(EFFECTS as readonly string[]).includes(next.effect)) return { ok: false, message: "That is not an effect this editor knows." };
+    if (!validDuration(next.duration)) return { ok: false, message: "An effect lasts from 0.1 to 2 seconds." };
+    if (next.effect === "none" ? now.effect === "none" : JSON.stringify(next) === JSON.stringify(now)) return { ok: true, message: "" };
+    this.record(`slide-transition:${slideId}:${phase}:${Object.keys(patch).join(",")}`);
+    const t: { enter?: Effect; exit?: Effect } = { ...(doc.slide.transition ?? {}) };
+    if (next.effect === "none") delete t[phase];
+    else t[phase] = next;
+    if (t.enter === undefined && t.exit === undefined) delete doc.slide.transition;
+    else doc.slide.transition = t;
+    this.emit({ kind: "structure" });
+    return { ok: true, message: `${doc.slide.name}: ${describeSlideTransition(doc.slide.transition)}` };
   }
 
   // ---- rules: what an object makes the course do

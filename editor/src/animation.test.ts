@@ -7,7 +7,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { EFFECTS } from "../../player/src/animation.ts";
-import { describeAnimation, describeEffect, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, STARTING_ANIMATION, validDuration } from "./animation.ts";
+import { describeAnimation, describeEffect, describeSlideTransition, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, STARTING_ANIMATION, validDuration } from "./animation.ts";
 import { Model } from "./model.ts";
 import { newProjectFiles } from "./template.ts";
 
@@ -139,4 +139,56 @@ test("the real validator accepts what the editor writes, and warns about an exit
   assert.deepEqual(mine(validate(m)).map((x) => `${x.severity} ${x.rule}`), ["warning animation-exit-never"]);
   m.setTiming(t.id, { visibleFor: 30000 });
   assert.deepEqual(mine(validate(m)), [], "once it has an end, the exit plays");
+});
+
+test("a slide's way in and way out are described together, and a slide with none says so", () => {
+  assert.equal(describeSlideTransition(undefined), "Slide in: no effect. Slide out: no effect");
+  assert.equal(describeSlideTransition({ enter: { effect: "fade", duration: 500 } }), "Slide in: fade in, over 0.5 seconds. Slide out: no effect");
+  assert.equal(describeSlideTransition({ enter: { effect: "slideLeft", duration: 600 }, exit: { effect: "zoom", duration: 300 } }), "Slide in: slide in from the left, over 0.6 seconds. Slide out: shrink out, over 0.3 seconds");
+});
+
+test("a slide's transition is chosen one part at a time, kept only while it does something, validated, and undone as one step", () => {
+  const m = fresh();
+  const id = m.slide!.id;
+  const tr = () => m.slide!.transition;
+  assert.equal(tr(), undefined, "a new slide has none");
+  const first = m.setSlideTransition(id, "enter", { effect: "fade" });
+  assert.deepEqual(first, { ok: true, message: `${m.slide!.name}: Slide in: fade in, over 0.5 seconds. Slide out: no effect` });
+  assert.deepEqual(tr(), { enter: { effect: "fade", duration: 500 } });
+  m.setSlideTransition(id, "exit", { effect: "slideRight", duration: 800 });
+  assert.deepEqual(tr(), { enter: { effect: "fade", duration: 500 }, exit: { effect: "slideRight", duration: 800 } });
+  assert.deepEqual(m.setSlideTransition(id, "enter", { effect: "fade" }), { ok: true, message: "" }, "nothing changed");
+  assert.equal(m.setSlideTransition(id, "enter", { duration: 50 }).ok, false, "too quick");
+  assert.equal(m.setSlideTransition(id, "enter", { duration: 3000 }).ok, false, "too slow");
+  assert.equal(m.setSlideTransition(id, "enter", { effect: "spin" as never }).ok, false, "not an effect");
+  m.setSlideTransition(id, "enter", { duration: 1000 });
+  assert.equal(tr()!.enter!.duration, 1000);
+  m.undo();
+  assert.equal(tr()!.enter!.duration, 500);
+  m.setSlideTransition(id, "enter", { effect: "none" });
+  assert.deepEqual(tr(), { exit: { effect: "slideRight", duration: 800 } }, "no effect takes that part away");
+  m.setSlideTransition(id, "exit", { effect: "none" });
+  assert.equal(tr(), undefined, "a slide with neither has no transition at all");
+  assert.equal("transition" in m.slide!, false);
+  assert.deepEqual(m.setSlideTransition(id, "exit", { duration: 900 }), { ok: true, message: "" }, "a time with no effect means nothing");
+  assert.equal(m.setSlideTransition("no-such-slide", "enter", { effect: "fade" }).ok, false);
+});
+
+test("a course with slide transitions passes the real validator", () => {
+  const m = fresh();
+  m.setSlideTransition(m.slide!.id, "enter", { effect: "zoom", duration: 700 });
+  m.setSlideTransition(m.slide!.id, "exit", { effect: "fade" });
+  const dir = mkdtempSync(path.join(os.tmpdir(), "os-trans-"));
+  try {
+    for (const f of m.allFiles()) {
+      const p = path.join(dir, f.path);
+      mkdirSync(path.dirname(p), { recursive: true });
+      writeFileSync(p, f.text);
+    }
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
+    assert.deepEqual(found.filter((f) => f.severity === "error" && !/contrast/.test(f.rule)).map((f) => f.rule), [], r.stdout.slice(0, 500));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -38,7 +38,10 @@ const TYPE_WORDS: Record<ImportedQuestion["type"], string> = { mc: "multiple cho
 const stem = (path: string): string => (path.split(/[\\/]/).pop() ?? path).replace(/\.[^.]*$/, "");
 
 /** Ask which questions to add and how. Resolves to the choice, or null if the dialog was cancelled. */
-export function askQuestionImport(after: string, hooks: QuestionImportHooks): Promise<QuestionImportChoice | null> {
+/** How the author came to the dialog: for a quiz (every question, in order, for every learner), or for a test bank (each learner shown some, picked at random). Without it, the bank box starts ticked when there are two or more. */
+export type QuestionPreset = "quiz" | "bank";
+
+export function askQuestionImport(after: string, hooks: QuestionImportHooks, preset?: QuestionPreset): Promise<QuestionImportChoice | null> {
   return new Promise((resolve) => {
     const dialog = h("dialog", { class: "dialog wide questions-dialog", "aria-labelledby": "qi-title" });
     const form = h("form", { method: "dialog" });
@@ -102,7 +105,7 @@ export function askQuestionImport(after: string, hooks: QuestionImportHooks): Pr
           h("ol", { class: "qi-list", "aria-labelledby": "qi-list-h" }, ...shown.map((q) => h("li", { text: `${q.question} (${TYPE_WORDS[q.type]}${q.type === "tf" || q.type === "short" ? "" : `, ${q.answers.length} answers`})` }))),
           ...(n > shown.length ? [h("p", { class: "note", text: `And ${n - shown.length} more.` })] : []));
 
-        const bankBox = h("input", { type: "checkbox", id: "qi-bank", ...(n >= 2 ? { checked: true } : { disabled: true }) });
+        const bankBox = h("input", { type: "checkbox", id: "qi-bank", ...(n >= 2 ? (preset === "quiz" ? {} : { checked: true }) : { disabled: true }) });
         const name = h("input", { type: "text", id: "qi-bank-name" });
         name.value = fileName;
         const draw = h("input", { type: "number", id: "qi-bank-draw", min: "1", max: String(n), step: "1" });
@@ -144,7 +147,7 @@ export function askQuestionImport(after: string, hooks: QuestionImportHooks): Pr
     cancel.addEventListener("click", finish);
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); finish(); });
     form.addEventListener("submit", (e) => e.preventDefault());
-    form.append(h("h2", { id: "qi-title", text: "Add questions from a spreadsheet" }), body, status, actions);
+    form.append(h("h2", { id: "qi-title", text: preset === "quiz" ? "Add a quiz from a spreadsheet" : preset === "bank" ? "Add a test bank from a spreadsheet" : "Add questions from a spreadsheet" }), body, status, actions);
     dialog.appendChild(form);
     document.body.appendChild(dialog);
     render();

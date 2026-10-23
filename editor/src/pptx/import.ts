@@ -149,8 +149,11 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   ].filter((x) => x !== "");
   if (leftOut.length > 0) out.push(`Not brought in: ${leftOut.join(", ")}. What they moved or removed stays as it is when the slide opens: use Timing and Animation in the editor if it should come or go.`);
   if (gone.byParagraph > 0) out.push(`${plural(gone.byParagraph, "text box", "text boxes")} came in one paragraph at a time in PowerPoint. The whole box comes in at once here.`);
-  const transitions = taken.filter((s) => s.transition).length;
-  if (transitions > 0) out.push(`${plural(transitions, "slide")} had a transition (how the slide comes on). It was not brought in.`);
+  const moved = converted.filter((c) => c.transition);
+  if (moved.length > 0) {
+    const near = moved.filter((c) => !c.transition!.exact).length;
+    out.push(`${plural(moved.length, "slide")} had a transition in PowerPoint. It is how the slide comes in here (Slide animation (in), with nothing selected on the slide).${near > 0 ? ` ${plural(near, "transition")} used an effect this editor does not have, so ${near === 1 ? "it uses" : "they use"} the nearest: a fade, or a slide in from the same side.` : ""} A learner whose device asks for less motion, or who turns animation off, sees none.`);
+  }
 
   const tiled = taken.filter((s) => s.backgroundTile).length;
   if (tiled > 0) out.push(`${plural(tiled, "slide")} had a picture that repeats across the background. It is drawn here as one colour, the picture's average, so the slide's look is close but plainer.`);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clampDuration, EFFECTS, frames, GUARD_MS, HIDDEN_CLASS, hasAnimation, NO_EFFECT, play, Presenter, reducedMotion, SLIDE_DISTANCE, ZOOM_FROM } from "./animation.ts";
+import { clampDuration, EFFECTS, frames, GUARD_MS, HIDDEN_CLASS, hasAnimation, hasSlideTransition, NO_EFFECT, play, Presenter, reducedMotion, SLIDE_DISTANCE, ZOOM_FROM } from "./animation.ts";
 import type { Effect } from "./types.ts";
 
 /** An element that records what it is told, and an animation that ends when the test says so. */
@@ -290,3 +290,13 @@ test("an object whose effect the page never draws still arrives, and one that wa
     await flush();
     assert.equal(f.classes.has(HIDDEN_CLASS), true, "the exit was finished, so the object has gone");
   }));
+
+test("a slide's transition does something only if it has an effect other than none, going in or going out", () => {
+  const fade: Effect = { effect: "fade", duration: 500 };
+  assert.equal(hasSlideTransition(undefined), false);
+  assert.equal(hasSlideTransition({}), false);
+  assert.equal(hasSlideTransition({ enter: NO_EFFECT, exit: NO_EFFECT }), false);
+  assert.equal(hasSlideTransition({ enter: fade }), true);
+  assert.equal(hasSlideTransition({ exit: fade }), true);
+  assert.equal(hasSlideTransition({ enter: NO_EFFECT, exit: { effect: "zoom", duration: 300 } }), true);
+});

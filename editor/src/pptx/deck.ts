@@ -111,6 +111,34 @@ export type DeckShape = Common & (
   | { kind: "unsupported"; what: string }
 );
 
+/** A slide's transition as the deck writes it: the kind of effect (fade, push, wipe, zoom, ...), the direction it goes, and how long it takes if the deck says. */
+export interface DeckTransition {
+  kind: string;
+  /** PowerPoint's `dir` (l, r, u, d, or in, out for a zoom), or "". */
+  dir: string;
+  /** How long it takes, in milliseconds: the deck's own number if it has one, else from its fast, medium or slow. */
+  durationMs: number;
+}
+
+/**
+ * The transition of a slide. It is `p:transition` on the slide, or inside an `mc:AlternateContent` for the newer effects (the choice has them with a `p14:` effect, and the
+ * fallback has a plain one: the newer one is read, because it is the one the author chose). "Cut" is no transition.
+ */
+export function readTransition(slide: XmlNode | undefined): DeckTransition | null {
+  if (!slide) return null;
+  const found = descendants(slide, "p:transition");
+  const t = found.find((x) => x.children.length > 0 || x.attrs["spd"] !== undefined) ?? found[0];
+  if (!t) return null;
+  const effect = t.children.find((c) => c.name !== "p:sndAc" && c.name !== "p:extLst" && !c.name.startsWith("mc:"));
+  if (!effect) return null;
+  const kind = effect.name.replace(/^p(14)?:/, "");
+  if (kind === "cut") return null;
+  const ms = Number(t.attrs["p14:dur"]);
+  const speed = t.attrs["spd"];
+  const durationMs = Number.isFinite(ms) && ms > 0 ? ms : speed === "fast" ? 500 : speed === "slow" ? 1000 : 750;
+  return { kind, dir: effect.attrs["dir"] ?? "", durationMs };
+}
+
 export interface DeckSlide {
   /** The deck's own number for the slide, which stays the same when slides move. */
   slideId: string;
@@ -136,8 +164,8 @@ export interface DeckSlide {
   /** The entrance effects of the slide, in the order of the deck. */
   effects: DeckEffect[];
   animationLeft: AnimationLeft;
-  /** The slide has a transition (how it comes on), which is not brought over. */
-  transition: boolean;
+  /** How the deck brings this slide on, or null if it just cuts to it. */
+  transition: DeckTransition | null;
   /** The slide has animations or a transition. */
   animated: boolean;
   /** A fingerprint of the slide's own settings (its name and background). */
@@ -838,12 +866,12 @@ export function readDeck(pkg: Pkg): Deck {
     const notesWords = notesRel ? notesText(notes) : "";
     const hasNotes = notesWords !== "";
     const anim = readAnimation(slide);
-    const transition = !!child(slide, "p:transition") || descendants(slide ?? { name: "", attrs: {}, children: [], text: "" }, "p:transition").length > 0;
+    const transition = readTransition(slide);
     const base = { slideId: entry.attrs["id"] ?? String(index), index, part, name: slideName.length > 80 ? `${slideName.slice(0, 77)}...` : slideName, hidden: slide?.attrs["show"] === "0", background: bg.color, backgroundPicture: bg.picture, backgroundTile: bg.tile ?? null };
     slides.push({
       ...base, ...(bg.note ? { backgroundNote: bg.note } : {}), shapes, skipped: ctx.skipped, left: ctx.left, hasNotes, notes: notesWords,
       effects: anim.effects, animationLeft: anim.left, transition,
-      animated: !!child(slide, "p:timing") || transition,
+      animated: !!child(slide, "p:timing") || transition !== null,
       hash: fingerprint({ name: base.name, background: bg.color, picture: bg.picture?.mediaHash ?? null }),
     });
   });

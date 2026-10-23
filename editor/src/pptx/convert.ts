@@ -8,11 +8,11 @@
 //  - Alt text is what PowerPoint had. A shape with none is decorative, as a new shape in this editor is; a picture or table with none is
 //    left for the author, and the Problems list asks. Nothing is made up.
 
-import type { EffectName, OSObject, Slide } from "../../../player/src/types.ts";
+import type { Effect, EffectName, OSObject, Slide } from "../../../player/src/types.ts";
 import type { Narration } from "../narration.ts";
 import { FONT_CHOICES } from "../content.ts";
 import { box } from "../factory.ts";
-import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide } from "./deck.ts";
+import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide, type DeckTransition } from "./deck.ts";
 
 /** How a deck is laid on the stage: how big an inch of the deck is in stage pixels, and how far in from the stage's top left corner the deck starts. */
 export interface Placement {
@@ -365,6 +365,8 @@ export interface SlideProvenance {
 export interface ConvertedSlide {
   deck: DeckSlide;
   name: string;
+  /** How the slide comes in, from the deck's transition, and whether the effect is the deck's own or only the nearest one this editor has. Null if the deck has none. */
+  transition: { effect: Effect; exact: boolean } | null;
   background: string | null;
   objects: OSObject[];
   assets: { path: string; bytes: Uint8Array }[];
@@ -499,6 +501,32 @@ function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes:
   }
 }
 
+/** Which side a slide comes in from, for each direction PowerPoint says it moves. A push toward the left brings the next slide in from the right. */
+const COMES_FROM: Record<string, EffectName> = { l: "slideRight", r: "slideLeft", u: "slideBottom", d: "slideTop" };
+
+/**
+ * The way a slide comes in, from the deck's transition. A fade, a zoom and a push are the same here; a cover, a pull and a wipe are a slide from the same side, which is near;
+ * everything else (blinds, checkerboard, vortex and the rest) is a fade. A transition is how the slide comes ON, so it becomes the slide's way in, never its way out.
+ */
+export function transitionFor(t: DeckTransition): { effect: Effect; exact: boolean } {
+  const duration = within(t.durationMs, 100, 2000);
+  switch (t.kind) {
+    case "fade":
+      return { effect: { effect: "fade", duration }, exact: true };
+    case "zoom":
+      return { effect: { effect: "zoom", duration }, exact: true };
+    case "push":
+    case "cover":
+    case "pull":
+    case "wipe": {
+      const side = COMES_FROM[t.dir];
+      return side ? { effect: { effect: side, duration }, exact: t.kind === "push" } : { effect: { effect: "fade", duration }, exact: false };
+    }
+    default:
+      return { effect: { effect: "fade", duration }, exact: false };
+  }
+}
+
 /** Every object of a slide of the deck, in reading order, with what they need. */
 export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
   const objects: OSObject[] = [];
@@ -522,6 +550,7 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
   return {
     deck: ds,
     name: ds.name,
+    transition: ds.transition ? transitionFor(ds.transition) : null,
     background,
     objects,
     assets,
@@ -546,6 +575,7 @@ export function slideFrom(converted: ConvertedSlide, id: string, auto?: { first:
     background: converted.background,
     provenance: converted.provenance,
     ...(waits ? { autoSteps: { ...auto } } : {}),
+    ...(converted.transition ? { transition: { enter: converted.transition.effect } } : {}),
     baseLayer: { id: "layer-base", name: "Base", objects: converted.objects },
     layers: [],
   } as unknown as Slide;

@@ -7,7 +7,7 @@
 
 import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNeeded } from "./blocks.ts";
 import { buildInput, type InputChange } from "./inputs.ts";
-import { HIDDEN_CLASS, Presenter } from "./animation.ts";
+import { HIDDEN_CLASS, Presenter, play, type Playing } from "./animation.ts";
 import { buildDownload } from "./downloads.ts";
 import { buildTimer, type TimerInfo, type TimerView } from "./timer.ts";
 import { buildInteraction, type ItemSound } from "./interactions.ts";
@@ -109,6 +109,9 @@ export class StageRenderer {
   /** The timers on the slide, by object id. */
   private timers = new Map<string, TimerView>();
   private section: HTMLElement | null = null;
+  /** The slide that is leaving, kept over the new one while its exit plays, and the effect on the new slide's arrival. */
+  private leaving: { el: HTMLElement; playing: Playing } | null = null;
+  private arriving: Playing | null = null;
   /** The slide is shown in one column instead of on the fixed stage (see reflow.ts). */
   private reflow = false;
   /** What the one-column layout does with objects that sat on top of a panel or picture, by object id. */
@@ -226,6 +229,62 @@ export class StageRenderer {
   /** Stop every effect that is running now: what was arriving is there, and what was leaving is gone. */
   endAnimations(): void {
     this.presenter.endAll();
+    this.endSlideChange();
+  }
+
+  /** The slide on the page now, if there is one: taken before a new slide is drawn, so its exit can play over its successor. */
+  get currentSection(): HTMLElement | null {
+    return this.section && this.stageEl.contains(this.section) ? this.section : null;
+  }
+
+  private endSlideChange(): void {
+    this.arriving?.cancel();
+    this.arriving = null;
+    if (this.leaving) {
+      this.leaving.playing.cancel();
+      this.leaving.el.remove();
+      this.leaving = null;
+    }
+  }
+
+  /**
+   * Play how a slide leaves and how the next one arrives. The slide that was on the page (`leaving`, taken before the new one was drawn) is put back over the new one,
+   * with nothing in it to read or press, plays its exit, and is taken away when it is over; the new slide plays its entrance. Nothing waits for either: the new slide is
+   * already there and working underneath. In one column there is no stage to move, so nothing plays.
+   */
+  slideChange(leaving: HTMLElement | null, exit: Effect | undefined, entering: HTMLElement, enter: Effect | undefined): void {
+    this.endSlideChange();
+    if (this.stageEl.classList.contains("os-reflow")) return;
+    if (leaving && exit && exit.effect !== "none" && leaving !== entering) {
+      // What is left of the old slide is a picture of it: not for assistive technology, not to be focused, not to be pressed, and silent.
+      leaving.setAttribute("aria-hidden", "true");
+      leaving.removeAttribute("role");
+      leaving.removeAttribute("aria-label");
+      leaving.tabIndex = -1;
+      leaving.inert = true;
+      leaving.style.pointerEvents = "none";
+      for (const media of Array.from(leaving.querySelectorAll<HTMLMediaElement>("video, audio"))) media.pause();
+      this.stageEl.appendChild(leaving);
+      const playing = play(leaving, exit, "exit");
+      if (playing) {
+        this.leaving = { el: leaving, playing };
+        void playing.finished.then(() => {
+          if (this.leaving?.playing !== playing) return;
+          playing.cancel();
+          leaving.remove();
+          this.leaving = null;
+        });
+      } else {
+        leaving.remove();
+      }
+    }
+    if (enter && enter.effect !== "none") {
+      const playing = play(entering, enter, "enter");
+      if (playing) {
+        this.arriving = playing;
+        void playing.finished.then(() => { if (this.arriving === playing) this.arriving = null; });
+      }
+    }
   }
 
   setLayerVisible(layerId: string, visible: boolean): void {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, scriptFromNotes, snapshotOf, type ConvertContext, type SlideContext } from "./convert.ts";
+import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, scriptFromNotes, slideFrom, snapshotOf, transitionFor, type ConvertContext, type SlideContext } from "./convert.ts";
 import { readDeck, type DeckShape } from "./deck.ts";
 import { describeImport } from "./import.ts";
 import { newNarration } from "../narration.ts";
@@ -773,4 +773,56 @@ test("real decks are read and converted without trouble", { skip: REAL === "" ||
       }
     }
   }
+});
+
+// ---- transitions: how the deck brings a slide on
+
+const withTransition = (xml: string) => one(SHAPES(1), {}, { transition: xml });
+
+test("transition: it is read from the slide, from its speed or its own number of milliseconds, and a cut is none", () => {
+  assert.equal(one(SHAPES(1)).transition, null, "no transition");
+  assert.deepEqual(withTransition('<p:transition spd="fast"><p:fade/></p:transition>').transition, { kind: "fade", dir: "", durationMs: 500 });
+  assert.deepEqual(withTransition('<p:transition spd="med"><p:push dir="l"/></p:transition>').transition, { kind: "push", dir: "l", durationMs: 750 });
+  assert.deepEqual(withTransition('<p:transition spd="slow"><p:zoom dir="in"/></p:transition>').transition, { kind: "zoom", dir: "in", durationMs: 1000 });
+  assert.equal(withTransition('<p:transition><p:cut/></p:transition>').transition, null, "a cut is no transition");
+  // A newer effect sits in an alternate content: the newer choice is read (with its own time), not the plain fallback.
+  const newer = '<mc:AlternateContent><mc:Choice Requires="p14"><p:transition spd="slow" p14:dur="1500"><p14:vortex dir="r"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>';
+  assert.deepEqual(withTransition(newer).transition, { kind: "vortex", dir: "r", durationMs: 1500 });
+});
+
+test("transition: it becomes the way the slide comes in, as near as this editor can get", () => {
+  const t = (kind: string, dir = "", durationMs = 700) => transitionFor({ kind, dir, durationMs });
+  assert.deepEqual(t("fade"), { effect: { effect: "fade", duration: 700 }, exact: true });
+  assert.deepEqual(t("zoom", "in"), { effect: { effect: "zoom", duration: 700 }, exact: true });
+  assert.deepEqual(t("push", "l"), { effect: { effect: "slideRight", duration: 700 }, exact: true }, "pushed to the left: the next slide comes in from the right");
+  assert.deepEqual(t("push", "r").effect.effect, "slideLeft");
+  assert.deepEqual(t("push", "u").effect.effect, "slideBottom");
+  assert.deepEqual(t("push", "d").effect.effect, "slideTop");
+  assert.deepEqual(t("wipe", "l"), { effect: { effect: "slideRight", duration: 700 }, exact: false }, "a wipe is near a slide");
+  assert.deepEqual(t("cover", "u").exact, false);
+  assert.deepEqual(t("push", ""), { effect: { effect: "fade", duration: 700 }, exact: false }, "no direction: a fade");
+  assert.deepEqual(t("vortex"), { effect: { effect: "fade", duration: 700 }, exact: false }, "an effect this editor does not have fades");
+  assert.equal(t("fade", "", 50).effect.duration, 100, "kept within what an effect may take");
+  assert.equal(t("fade", "", 9000).effect.duration, 2000);
+});
+
+test("transition: a slide from the deck has it as its slide animation (in), and the report says so", () => {
+  const spec: DeckSpec = {
+    slides: [
+      { id: 256, shapes: SHAPES(1), transition: '<p:transition spd="med"><p:push dir="l"/></p:transition>' },
+      { id: 257, shapes: SHAPES(1), transition: '<p:transition spd="fast"><p:blinds dir="horz"/></p:transition>' },
+      { id: 258, shapes: SHAPES(1) },
+    ],
+  };
+  const deck = readDeck(openDeck(buildDeck(spec)));
+  const c = slideCtx();
+  const converted = deck.slides.map((ds) => convertSlide(ds, c));
+  const slides = converted.map((x, i) => slideFrom(x, `slide-00${i + 1}`));
+  assert.deepEqual(slides[0]!.transition, { enter: { effect: "slideRight", duration: 750 } });
+  assert.deepEqual(slides[1]!.transition, { enter: { effect: "fade", duration: 500 } });
+  assert.equal(slides[2]!.transition, undefined, "a slide with none stays without one");
+  const report = describeImport(deck, converted, c.notes, c.placement, [0, 1, 2]).join(" ");
+  assert.match(report, /2 slides had a transition in PowerPoint\. It is how the slide comes in here \(Slide animation \(in\)/);
+  assert.match(report, /1 transition used an effect this editor does not have, so it uses the nearest/);
+  assert.doesNotMatch(report, /had a transition \(how the slide comes on\)/, "the old line saying it was left out is gone");
 });

@@ -95,9 +95,18 @@ export interface LayoutChoice {
   /** The project's theme, so the drawings show its colours. */
   theme: Theme;
   note?: string;
-  /** Also offer the ready-made lesson slides and games. Their ids come back as "template:<id>" and "game:<id>". Only for adding a slide, not for changing a layout. */
+  /** Also offer the ready-made lesson slides, quizzes and games. Their ids come back as "template:<id>", "quiz:<id>" and "game:<id>". Only for adding a slide, not for changing a layout. */
   templates?: boolean;
+  /** Offer only one kind of ready-made thing: the games, or the quizzes. */
+  only?: "games" | "quizzes";
 }
+
+/** The quizzes the picker offers: a table of questions in a spreadsheet becomes a quiz, or a test bank. They come back as "quiz:<id>". */
+export const QUIZ_PREFIX = "quiz:";
+export const QUIZ_OFFERS: { id: "quiz" | "bank"; label: string; description: string }[] = [
+  { id: "quiz", label: "Quiz from a spreadsheet", description: "A slide for each question in a spreadsheet: multiple choice, multiple response, true or false, short answer, each with its feedback. Every learner gets every question, in order." },
+  { id: "bank", label: "Test bank from a spreadsheet", description: "The same questions, but each learner is shown some of them, picked at random and in a mixed order." },
+];
 
 /** Show the picker. Resolves to the chosen layout's id, or null if it was cancelled. */
 export function askLayout(choice: LayoutChoice): Promise<string | null> {
@@ -122,14 +131,20 @@ export function askLayout(choice: LayoutChoice): Promise<string | null> {
     const offers: { group: string; items: Offer[] }[] = [];
     const groups: string[] = [];
     for (const layout of SLIDE_LAYOUTS) if (!groups.includes(layout.group)) groups.push(layout.group);
-    for (const group of groups) {
-      offers.push({ group, items: SLIDE_LAYOUTS.filter((l) => l.group === group).map((l) => ({ value: l.id, layout: l, label: l.label, description: l.description, extras: [] })) });
+    if (!choice.only) {
+      for (const group of groups) {
+        offers.push({ group, items: SLIDE_LAYOUTS.filter((l) => l.group === group).map((l) => ({ value: l.id, layout: l, label: l.label, description: l.description, extras: [] })) });
+      }
     }
-    if (choice.templates) {
-      offers.push({ group: "Lesson slides, ready-made", items: SLIDE_TEMPLATES.map((t) => ({ value: `${TEMPLATE_PREFIX}${t.id}`, layout: t.layout, label: t.label, description: t.description, extras: t.extras })) });
+    if (choice.templates || choice.only) {
+      const question = SLIDE_TEMPLATES.find((t) => t.id === "knowledge-check") ?? SLIDE_TEMPLATES[0]!;
+      if (!choice.only) offers.push({ group: "Lesson slides, ready-made", items: SLIDE_TEMPLATES.map((t) => ({ value: `${TEMPLATE_PREFIX}${t.id}`, layout: t.layout, label: t.label, description: t.description, extras: t.extras })) });
+      // A quiz is a slide for each question in a table, so the picture is of a question slide.
+      if (!choice.only || choice.only === "quizzes") offers.push({ group: "Quizzes and test banks, from a spreadsheet", items: QUIZ_OFFERS.map((q) => ({ value: `${QUIZ_PREFIX}${q.id}`, layout: question.layout, label: q.label, description: q.description, extras: question.extras })) });
       // A game adds several slides at once, so the picture is of its first slide.
-      offers.push({ group: "Games, ready-made", items: GAME_SETS.map((g) => ({ value: `${GAME_PREFIX}${g.id}`, layout: g.layout, label: g.label, description: g.description, extras: g.extras })) });
+      if (!choice.only || choice.only === "games") offers.push({ group: "Games, ready-made", items: GAME_SETS.map((g) => ({ value: `${GAME_PREFIX}${g.id}`, layout: g.layout, label: g.label, description: g.description, extras: g.extras })) });
     }
+    const anchors: { group: string; h3: HTMLElement; first: HTMLInputElement | null }[] = [];
     for (const { group, items } of offers) {
       const h3 = doc.createElement("h3");
       h3.className = "layout-group";
@@ -137,6 +152,7 @@ export function askLayout(choice: LayoutChoice): Promise<string | null> {
       fieldset.appendChild(h3);
       const grid = doc.createElement("div");
       grid.className = "layout-grid";
+      anchors.push({ group, h3, first: null });
       for (const offer of items) {
         const label = doc.createElement("label");
         label.className = "layout-card";
@@ -156,8 +172,30 @@ export function askLayout(choice: LayoutChoice): Promise<string | null> {
         card.append(previewSvg(doc, offer.layout, choice.theme, offer.extras), name, desc);
         label.append(radio, card);
         grid.appendChild(label);
+        anchors[anchors.length - 1]!.first ??= radio;
       }
       fieldset.appendChild(grid);
+    }
+    // The list is long (the games are at the very end), so a row of buttons goes straight to a group, and the keyboard goes with it.
+    if (anchors.length > 2) {
+      const jump = doc.createElement("nav");
+      jump.className = "layout-jump";
+      jump.setAttribute("aria-label", "Go to a group in this list");
+      const lead = doc.createElement("span");
+      lead.textContent = "Go to:";
+      jump.appendChild(lead);
+      for (const a of anchors) {
+        const b = doc.createElement("button");
+        b.type = "button";
+        b.textContent = a.group.split(",")[0]!;
+        b.setAttribute("aria-label", `Go to ${a.group}`);
+        b.addEventListener("click", () => {
+          a.h3.scrollIntoView({ block: "start" });
+          a.first?.focus();
+        });
+        jump.appendChild(b);
+      }
+      fieldset.insertBefore(jump, legend.nextSibling);
     }
 
     const note = doc.createElement("p");

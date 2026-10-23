@@ -28,9 +28,15 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 
 .panel { overflow: auto; background: #f4f5f7; border-right: 1px solid #8c929b; padding: 8px 10px; min-width: 0; }
 .props { border-right: 0; border-left: 1px solid #8c929b; }
-/* The top of a long panel stays in view while its list scrolls: the panel is padded 8px 10px, so the block reaches over the padding to cover the list as it passes under. */
-.panel-tools { position: sticky; top: 0; z-index: 3; margin: -8px -10px 6px; padding: 8px 10px 6px; background: #f4f5f7; border-bottom: 1px solid #c3c8d0; }
+/* The top of a long panel stays in view while its list scrolls: the panel is padded 8px 10px, so the block reaches over the padding to cover the list as it passes under. A sticky block holds at the panel's padding edge, not its outer edge, so it is held 8px higher (top: -8px) to meet the outer edge: otherwise the list shows through a strip above it. */
+.panel-tools { position: sticky; top: -8px; z-index: 3; margin: -8px -10px 6px; padding: 8px 10px 6px; background: #f4f5f7; border-bottom: 1px solid #c3c8d0; }
 .panel-tools h2 { margin-bottom: 4px; }
+.layout-jump { position: sticky; top: -18px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 0; margin: 0 0 6px; background: #fff; border-bottom: 1px solid #cfd4db; }
+.layout-jump button { font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer; }
+/* The Slides panel is a column: its heading and buttons stay where they are and only the list of slides scrolls (with the scroll bar beside the list alone). */
+.panel.slides { display: flex; flex-direction: column; overflow: hidden; }
+.panel.slides .panel-tools { position: static; flex: none; }
+.panel.slides .item-list { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; color: #2b3340; }
 .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .panel-head h2 { margin: 0; flex: 1; }
@@ -393,8 +399,10 @@ button.small:hover { background: #e3e6eb; }
   .welcome { padding: 24px 16px; }
   .workspace { display: flex; flex-direction: column; }
   .panel { overflow: visible; border-right: 0; border-left: 0; border-bottom: 1px solid #8c929b; }
+  .panel.slides { display: block; overflow: visible; }
   .props { overflow-x: visible; }
   .slides .item-list, .objects .item-list, .problems .item-list { max-height: 14em; overflow: auto; }
+  .panel.slides .item-list { flex: none; }
   .center { flex: none; }
   .canvas-viewport { flex: none; aspect-ratio: 16 / 9; min-height: 200px; }
   .timeline { max-height: 40vh; overflow: auto; }

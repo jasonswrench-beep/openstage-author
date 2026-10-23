@@ -32,6 +32,11 @@ export function hasAnimation(a: ObjectAnimation): boolean {
   return a.enter.effect !== "none" || a.exit.effect !== "none";
 }
 
+/** Does a slide's transition do anything at all? */
+export function hasSlideTransition(t: { enter?: Effect; exit?: Effect } | undefined): boolean {
+  return !!t && ((t.enter !== undefined && t.enter.effect !== "none") || (t.exit !== undefined && t.exit.effect !== "none"));
+}
+
 /** Keep a time within what the format allows. */
 export function clampDuration(ms: number): number {
   return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(ms)));

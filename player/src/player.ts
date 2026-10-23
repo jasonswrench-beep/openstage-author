@@ -3,7 +3,7 @@
 
 import { Runtime, type Host, type Snapshot } from "./runtime.ts";
 import { NarrationBar, itemNarrationKey } from "./narration.ts";
-import { hasAnimation, reducedMotion, type Phase } from "./animation.ts";
+import { hasAnimation, hasSlideTransition, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
 import { timerContentOf } from "./timer.ts";
 import { applyDraws, drawBanks, drawsFit, newSeed } from "./bank.ts";
@@ -44,6 +44,8 @@ export class Player implements Host {
   /** The learner turned animation off with the button, whatever their device says. */
   private animationOff = false;
   private started = false;
+  /** The slide that was showing, so its way out can play when the next one is shown. */
+  private shownSlide: Slide | null = null;
   /** The learner's own accessibility choices (a11y.ts): a button in the navigation bar opens a panel of them. */
   private a11y!: AccessibilityPanel;
   private viewportEl!: HTMLElement;
@@ -266,8 +268,15 @@ export class Player implements Host {
   // ---- Host: what the runtime asks for
 
   showSlide(slide: Slide): void {
+    // Taken first: drawing the new slide takes the old one off the page, and its way out plays over the new one.
+    const leaving = this.stage.currentSection;
+    const before = this.shownSlide;
     // Layers already showing (a resumed slide with its feedback layer open) are built visible.
     const section = this.stage.render(slide, this.runtime.visibleLayers);
+    this.shownSlide = slide;
+    if (!this.animationOff && !reducedMotion() && (before === null || before.id !== slide.id)) {
+      this.stage.slideChange(before ? leaving : null, before?.transition?.exit, section, slide.transition?.enter);
+    }
 
     this.a11y.stopSpeaking();
     // Set up the timing before the narration starts, so the first object's narration is heard by it.
@@ -350,7 +359,7 @@ export class Player implements Host {
   /** The timing controls show only on a slide that has timing, and the animation button only where something animates. */
   private syncTimingBar(): void {
     const timed = this.timeline.active;
-    const animated = !reducedMotion() && [...this.animations.values()].some(hasAnimation);
+    const animated = !reducedMotion() && ([...this.animations.values()].some(hasAnimation) || hasSlideTransition(this.shownSlide?.transition));
     this.timingBar.hidden = !timed && !animated;
     const { total, pressed } = this.timeline.steps;
     this.itemBtn.hidden = total === 0;

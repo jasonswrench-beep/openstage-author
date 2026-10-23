@@ -2627,6 +2627,20 @@ class TimingOnClick(unittest.TestCase):
             self.assertEqual([(f.severity, f.object_id) for f in found], [("warning", "slide-001")])
             self.assertIn("the last at 5 seconds", found[0].detail)
 
+    def test_a_slide_transition_is_checked_by_the_schema(self):
+        good = [{"enter": {"effect": "fade", "duration": 500}}, {"exit": {"effect": "slideLeft", "duration": 2000}},
+                {"enter": {"effect": "zoom", "duration": 100}, "exit": {"effect": "none", "duration": 500}}]
+        for t in good:
+            with MutatedProject() as p:
+                p.edit("slides/slide-001.json", lambda d, t=t: d.__setitem__("transition", t))
+                self.assertEqual([f for f in p.run() if f.severity == "error"], [], str(t))
+        bad = [{}, "fade", {"enter": {"effect": "spin", "duration": 500}}, {"enter": {"effect": "fade", "duration": 50}}, {"enter": {"effect": "fade"}},
+               {"enter": {"effect": "fade", "duration": 500}, "after": {"effect": "fade", "duration": 500}}, {"exit": {"effect": "fade", "duration": 5000}}]
+        for t in bad:
+            with MutatedProject() as p:
+                p.edit("slides/slide-001.json", lambda d, t=t: d.__setitem__("transition", t))
+                self.assertTrue([f for f in p.run() if f.severity == "error"], str(t))
+
     def test_auto_steps_are_checked_by_the_schema(self):
         for bad in ({"first": -1, "every": 3000}, {"first": 0, "every": 100}, {"first": 0}, {"first": 1.5, "every": 3000}, {"first": 0, "every": 3000, "extra": 1}, "yes"):
             with MutatedProject() as p:
@@ -3102,7 +3116,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.36.0")
+        self.assertEqual(project["schemaVersion"], "0.37.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

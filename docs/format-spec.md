@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.36.0",
+  "schemaVersion": "0.37.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -217,6 +217,8 @@ theme's default. Switching the theme restyles every slide through these two fiel
 `duration` is null for a slide that waits for the learner, or a number of milliseconds
 for one that advances on its own (see Timing). The base layer always exists. Additional layers are
 shown and hidden by triggers.
+
+`transition` is optional (added in 0.37.0): `{ "enter": { "effect": "fade", "duration": 500 }, "exit": { "effect": "slideLeft", "duration": 600 } }`, either part optional (and at least one present), each an `effect` of an object's `animation` (`none`, `fade`, `slideLeft`, `slideRight`, `slideTop`, `slideBottom`, `zoom`; `duration` 100 to 2000 milliseconds). `enter` plays when the learner arrives at the slide; `exit` plays when the learner leaves it, over the slide that follows (the old slide stays on top, with nothing in it to read or press, until its effect is over, so the new slide is already working underneath and nothing waits). Not played in one-column view, when the learner has turned animation off (a slide with a transition has the **Turn off animation** button, as an object with an effect does), or when the device asks for less motion (`prefers-reduced-motion`). The editor writes only the parts that are not `none`, and no `transition` at all when neither is.
 
 `autoSteps` is optional (added in 0.36.0): `{ "first": ms, "every": ms }` makes the slide's steps (see Waiting for the learner, under Timing) come by themselves. Absent, they wait for the learner.
 
@@ -1509,6 +1511,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.36.0 | 0.37.0 | Adds the optional `transition` of a slide (how the slide arrives and how it leaves, with the same effects as an object's animation). Nothing in an older course changes. |
 | 0.35.0 | 0.36.0 | Adds the optional `autoSteps` of a slide (the steps of Show next item come by themselves, one after another). Nothing in an older course changes. |
 | 0.34.0 | 0.35.0 | Adds timing that waits for the learner (`appear` `click`, with a `step`) and the text style keys `verticalAlign`, `paddingX`, `paddingY`, `autoFit` and `paragraphSpacing`. Nothing in an older course changes. |
 | 0.33.0 | 0.34.0 | Adds the optional `hideNavigation` of a slide (leave out Back and Next on it). Nothing in an older course changes. |

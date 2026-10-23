@@ -5,9 +5,9 @@
 // typed numbers in the Properties panel, and every object can be chosen from the Objects
 // list. The keys here are a convenience, and each one announces what it did.
 
-import { hasAnimation, play, reducedMotion } from "../../player/src/animation.ts";
+import { hasAnimation, hasSlideTransition, play, reducedMotion } from "../../player/src/animation.ts";
 import { StageRenderer } from "../../player/src/stage.ts";
-import type { ObjectAnimation } from "../../player/src/types.ts";
+import type { Effect, ObjectAnimation } from "../../player/src/types.ts";
 import type { OSObject } from "../../player/src/types.ts";
 import type { Backend } from "./backend.ts";
 import { scaleBoxes } from "./group.ts";
@@ -395,6 +395,28 @@ export class Canvas {
       await leaving.finished;
       await wait(300);
       leaving.cancel();
+    }
+    return "played";
+  }
+
+  /** Play how a slide comes in, wait a moment, and play how it goes out, on the canvas, leaving the slide as it was. */
+  async previewSlideAnimation(t: { enter?: Effect; exit?: Effect } | undefined): Promise<"played" | "none" | "reduced"> {
+    const section = this.stage.currentSection;
+    if (!section || !hasSlideTransition(t)) return "none";
+    if (reducedMotion()) return "reduced";
+    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    if (t?.enter && t.enter.effect !== "none") {
+      const entering = play(section, t.enter, "enter");
+      if (entering) await entering.finished;
+      await wait(600);
+    }
+    if (t?.exit && t.exit.effect !== "none") {
+      const leaving = play(section, t.exit, "exit");
+      if (leaving) {
+        await leaving.finished;
+        await wait(300);
+        leaving.cancel();
+      }
     }
     return "played";
   }

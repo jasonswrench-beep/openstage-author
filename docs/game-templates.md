@@ -59,7 +59,7 @@ generic names (no "Jeopardy", "Millionaire" or "Monopoly", which are trademarks)
 - A new **game set** sits beside `SlideTemplate`: `build(alloc)` returns **slides** (each with its objects and layers) **and variables**, and the
   editor adds them after the current slide as one Undo step. Slide ids come from the project, so rules that jump to a slide can be written when the
   set is built. This is editor work only, with no format change, if the first sets use existing parts.
-- Reached from a **Games...** group in the Add slide picker, with a preview and a short description, the same as the lesson slides. A small
+- Reached from the **Games...** button in the Slides panel (the picker with only the games), or from the **Games, ready-made** group in the Add slide picker (a row of buttons at the top of that picker goes straight to it), with a preview and a short description, the same as the lesson slides. A small
   dialog asks the size first (for the quiz board: how many categories and how many values), because a 5 by 4 board is twenty question slides.
 - Every placeholder is written for the author to replace. Nothing a screen reader depends on is filled in silently: alt text, roles and tab order
   follow the `CLAUDE.md` rule.
