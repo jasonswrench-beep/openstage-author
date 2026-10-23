@@ -102,6 +102,28 @@ test("a category with more questions than the smallest has the extra rows left o
   assert.match(r.summary, /1 row was left out/);
 });
 
+test("uneven categories make the biggest board the table can fill: a thin category is left out and named, not every column cut to its length", () => {
+  const rows = (c: string, n: number) => Array.from({ length: n }, (_, i) => row(c, String((i + 1) * 100), `${c}${i + 1}`));
+  // Three categories of 4 and two of 2 (Jason's AI basics quiz): 3 x 4 = 12 tiles beats 5 x 2 = 10.
+  const r = board(table(...rows("History", 4), ...rows("Basics", 4), ...rows("LLMs", 4), ...rows("Literacy", 2), ...rows("Milestones", 2)));
+  assert.deepEqual(r.options, { categories: 3, values: 4 });
+  assert.equal(errors(r), 4, "the four rows of the two thin categories");
+  assert.match(r.problems.find((p) => p.severity === "error")!.message, /Literacy has 2 questions, fewer than the 4 in every column of this board, so Literacy was left out\. Add 2 more to bring it in\./);
+  assert.match(r.summary, /^3 categories with 4 questions each, so 12 tiles: History, Basics and LLMs\. 4 rows were left out: Literacy and Milestones have too few questions for a board 4 tiles tall\.$/);
+  // Three of 3 and one of 2: 3 x 3 = 9 beats 4 x 2 = 8.
+  const nine = board(table(...rows("A", 3), ...rows("B", 3), ...rows("C", 3), ...rows("D", 2)));
+  assert.deepEqual(nine.options, { categories: 3, values: 3 });
+  // A tie in tiles goes to the wider board: 2 x 4 = 8 and 4 x 2 = 8.
+  const tie = board(table(...rows("A", 4), ...rows("B", 4), ...rows("C", 2), ...rows("D", 2)));
+  assert.deepEqual(tie.options, { categories: 4, values: 2 });
+  // Even categories are as before.
+  assert.deepEqual(board(table(...rows("A", 3), ...rows("B", 3))).options, { categories: 2, values: 3 });
+  // Nothing can be made when fewer than two categories reach 2 questions.
+  const none = board(table(...rows("A", 4), ...rows("B", 1)));
+  assert.equal(none.content, null);
+  assert.match(none.summary, /at least 2 questions in every category, and B has 1/);
+});
+
 test("more than 6 categories or 5 questions in a column are cut to what a board holds, and the rows cut are named", () => {
   const wide = board(table(...["A", "B", "C", "D", "E", "F", "G"].flatMap((c) => [row(c, "100", `${c}1`), row(c, "200", `${c}2`)])));
   assert.deepEqual(wide.options, { categories: 6, values: 2 });

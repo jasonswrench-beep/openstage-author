@@ -99,10 +99,35 @@ export function readBoardTable(text: string, title: string): GameTableRead {
   if (names.length < BOARD_CATEGORIES.min) {
     return fail(read, problems, notes, `A quiz board needs at least ${BOARD_CATEGORIES.min} categories, and this table has ${names.length}. Add a second category.`);
   }
-  let used = names;
-  if (names.length > BOARD_CATEGORIES.max) {
-    used = names.slice(0, BOARD_CATEGORIES.max);
-    for (const name of names.slice(BOARD_CATEGORIES.max)) for (const q of byCategory.get(name.toLowerCase())!) err(q.row, `A board has at most ${BOARD_CATEGORIES.max} categories, so ${name} was left out.`);
+  // A board is a grid: every column has the same number of tiles. The biggest grid the table can fill is chosen (most tiles; with a tie, the wider one), which may leave a
+  // category with too few questions out, and says so, instead of making every column as short as the shortest category.
+  const sizeOf = (name: string): number => byCategory.get(name.toLowerCase())!.length;
+  let best: { height: number; used: string[] } | null = null;
+  for (let height = Math.min(BOARD_VALUES.max, Math.max(...names.map(sizeOf))); height >= BOARD_VALUES.min; height--) {
+    const fit = names.filter((n) => sizeOf(n) >= height).slice(0, BOARD_CATEGORIES.max);
+    if (fit.length < BOARD_CATEGORIES.min) continue;
+    const tiles = height * fit.length;
+    if (!best || tiles > best.height * best.used.length || (tiles === best.height * best.used.length && fit.length > best.used.length)) best = { height, used: fit };
+  }
+  if (!best) {
+    const thin = names.filter((n) => sizeOf(n) < BOARD_VALUES.min);
+    if (thin.length > 0) {
+      return fail(read, problems, notes, `A quiz board needs at least ${BOARD_VALUES.min} questions in every category, and ${sentenceList(thin)} ${thin.length === 1 ? "has" : "have"} ${Math.min(...thin.map(sizeOf))}. Add more, or take the category out.`);
+    }
+    return fail(read, problems, notes, `A quiz board needs at least ${BOARD_CATEGORIES.min} categories with ${BOARD_VALUES.min} or more questions each, and this table cannot make one.`);
+  }
+  const height = best.height;
+  const used = best.used;
+  const leftOut: string[] = [];
+  for (const name of names) {
+    if (used.includes(name)) continue;
+    leftOut.push(name);
+    const n = sizeOf(name);
+    for (const q of byCategory.get(name.toLowerCase())!) {
+      err(q.row, n < height
+        ? `${name} has ${plural(n, "question", "questions")}, fewer than the ${height} in every column of this board, so ${name} was left out. Add ${height - n} more to bring it in.`
+        : `A board has at most ${BOARD_CATEGORIES.max} categories, so ${name} was left out.`);
+    }
   }
 
   // A tile is worth its Value (or its Points, if the table has no Value). With every tile of a category valued, the tiles go from the smallest down; otherwise they keep the order of the rows.
@@ -111,15 +136,10 @@ export function readBoardTable(text: string, title: string): GameTableRead {
     const rows = byCategory.get(name.toLowerCase())!;
     return { name, rows: rows.every((q) => worth(q) !== null) ? [...rows].sort((a, b) => worth(a)! - worth(b)!) : rows };
   });
-  const smallest = Math.min(...columns.map((c) => c.rows.length));
-  if (smallest < BOARD_VALUES.min) {
-    const thin = columns.filter((c) => c.rows.length === smallest).map((c) => c.name);
-    return fail(read, problems, notes, `A quiz board needs at least ${BOARD_VALUES.min} questions in every category, and ${sentenceList(thin)} ${thin.length === 1 ? "has" : "have"} ${smallest}. Add more, or take the category out.`);
-  }
-  const height = Math.min(smallest, BOARD_VALUES.max);
+  const capped = Math.min(...columns.map((c) => c.rows.length)) > BOARD_VALUES.max;
   for (const c of columns) {
     for (const q of c.rows.slice(height)) {
-      err(q.row, smallest > BOARD_VALUES.max
+      err(q.row, capped
         ? `A board holds ${height} questions in a column, so this row was left out.`
         : `${c.name} has more questions than the category with the fewest (${height}), and every column of a board has the same number of tiles, so this row was left out.`);
     }
@@ -154,7 +174,7 @@ export function readBoardTable(text: string, title: string): GameTableRead {
     problems: problems.sort((a, b) => a.row - b.row),
     notes,
     unusedColumns: read.unusedColumns,
-    summary: `${categories.length} categories with ${plural(height, "question", "questions")} each, so ${plural(total, "tile", "tiles")}: ${sentenceList(categories.map((c) => c.name))}.${dropped > 0 ? ` ${plural(dropped, "row was", "rows were")} left out.` : ""}`,
+    summary: `${categories.length} categories with ${plural(height, "question", "questions")} each, so ${plural(total, "tile", "tiles")}: ${sentenceList(categories.map((c) => c.name))}.${dropped > 0 ? ` ${plural(dropped, "row was", "rows were")} left out${leftOut.length > 0 ? `: ${sentenceList(leftOut)} ${leftOut.length === 1 ? "has" : "have"} too few questions for a board ${height} tiles tall` : ""}.` : ""}`,
   };
 }
 
