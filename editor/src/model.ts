@@ -45,7 +45,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.35.0";
+export const FORMAT_VERSION = "0.36.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1401,13 +1401,14 @@ export class Model {
   }
 
   /** Everything needed to bring slides in from a deck, worked out without changing the project. The picture files have to be saved before `commitDeckImport`. */
-  prepareDeckImport(deck: Deck, pkg: Pkg, fileName: string, chosen: number[], now: string = new Date().toISOString(), tones?: Tones, options: { notesAsNarration?: boolean } = {}): PreparedImport {
+  prepareDeckImport(deck: Deck, pkg: Pkg, fileName: string, chosen: number[], now: string = new Date().toISOString(), tones?: Tones, options: { notesAsNarration?: boolean; autoSteps?: { first: number; every: number } } = {}): PreparedImport {
     const alloc = this.allocator();
     // The notes are said in the voice and speed the course already uses.
     let like = this.narratedObjects().at(-1)?.narration;
     return prepareImport({
       deck, pkg, fileName, importedAt: now, chosen, stage: this.project.stage, existingDeckIds: this.deckSources.map((d) => d.id), ...(tones ? { tones } : {}),
       ...(options.notesAsNarration ? { narrate: (script: string) => { like = newNarration(script, like); return like; } } : {}),
+      ...(options.autoSteps ? { autoSteps: options.autoSteps } : {}),
       newSlideId: this.slideIdMaker(), newObjectId: () => alloc.object(),
     });
   }
@@ -2707,6 +2708,37 @@ export class Model {
     if (!hide) return "Back and Next are shown on this slide again.";
     const leaves = doc.slide.duration !== null || [doc.slide.baseLayer, ...doc.slide.layers].some((l) => l.objects.some((o) => o.triggers.some((t) => ["jumpToSlide", "nextSlide", "previousSlide"].includes(t.action))));
     return `Back and Next are left out of this slide.${leaves ? "" : " Nothing on it goes to another slide yet, so a learner would be stuck: add a button with a rule that goes to a slide."}`;
+  }
+
+  /** How many presses of Show next item a slide has: the different step numbers of its objects that wait for the learner, layer by layer. */
+  waitingSteps(slideId: string): number {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc) return 0;
+    let n = 0;
+    for (const layer of [doc.slide.baseLayer, ...doc.slide.layers]) {
+      n += new Set(layer.objects.filter((o) => o.timing.appear === "click").map((o) => o.timing.step)).size;
+    }
+    return n;
+  }
+
+  /**
+   * Have the items of a slide that wait for the learner (each shown by Show next item) come by themselves, the first after `first` ms and then one every
+   * `every` ms, or wait for the learner again (null). The learner can still pause, show the next item at once, or show everything. One undo step.
+   * The message says what it did, and says so when the slide has nothing that waits for the learner.
+   */
+  setAutoSteps(slideId: string, auto: { first: number; every: number } | null): string | null {
+    const doc = this.docs.find((d) => d.id === slideId);
+    if (!doc) return null;
+    const next = auto ? { first: Math.min(600000, Math.max(0, Math.round(auto.first))), every: Math.min(600000, Math.max(500, Math.round(auto.every))) } : null;
+    const now = doc.slide.autoSteps;
+    if ((next === null && now === undefined) || (next && now && next.first === now.first && next.every === now.every)) return null;
+    this.record("");
+    if (next) doc.slide.autoSteps = next;
+    else delete doc.slide.autoSteps;
+    this.emit({ kind: "structure" });
+    if (!next) return "The items on this slide wait for the learner again: each comes when the learner presses Show next item.";
+    const steps = this.waitingSteps(slideId);
+    return `The items on this slide come by themselves: the first after ${plainSeconds(next.first)}, then one every ${plainSeconds(next.every)}. The learner can pause, press Show next item to bring the next at once, or show everything.${steps === 0 ? " Nothing on this slide waits for the learner yet, so nothing changes until an object is set to appear when the learner shows the next item." : ""}`;
   }
 
   // ---- rules: what an object makes the course do

@@ -189,3 +189,21 @@ test("what a screen reader hears for each grip", () => {
   assert.equal(endText({ appear: "time", start: 0, visibleFor: null }), "stays until the slide ends");
   assert.equal(endText({ appear: "time", start: 0, visibleFor: 6000 }), "disappears 6 seconds after it appears");
 });
+
+test("on a slide whose steps come by themselves, an object that waits is drawn when its step comes, and is no longer a guess", () => {
+  const m = fresh();
+  const a = m.addObject("text")!;
+  const b = m.addObject("text")!;
+  const c = m.addObject("text")!;
+  m.setTiming(a.id, { appear: "click", step: 1, start: 0, visibleFor: null });
+  m.setTiming(b.id, { appear: "click", step: 4, start: 500, visibleFor: null });
+  m.setTiming(c.id, { appear: "click", step: 4, start: 0, visibleFor: null });
+  const mine = [a.id, b.id, c.id];
+  const waiting = buildTimeline(m.timingRows(), null, none).bars.filter((x) => mine.includes(x.id));
+  assert.deepEqual(waiting.map((x) => [x.from, x.approximate, x.byItself]), [[0, true, undefined], [500, true, undefined], [0, true, undefined]], "waiting for presses: drawn at the delay, as a guess");
+  const auto = buildTimeline(m.timingRows(), null, none, { first: 2000, every: 3000 }).bars.filter((x) => mine.includes(x.id));
+  assert.deepEqual(auto.map((x) => [x.origin, x.from, x.approximate, x.byItself]), [[2000, 2000, false, true], [5000, 5500, false, true], [5000, 5000, false, true]], "step numbers 1 and 4 are the first and second steps");
+  const bar = auto[1]!;
+  assert.equal(startText(bar.timing, bar.onBase, undefined, true), "0.5 seconds after item 4 comes by itself");
+  assert.equal(startText(bar.timing, bar.onBase, undefined, false), "0.5 seconds after the learner shows item 4");
+});

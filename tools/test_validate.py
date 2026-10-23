@@ -2612,6 +2612,30 @@ class TimingOnClick(unittest.TestCase):
             p.obj(0, lambda o: o["timing"].update(appear="click", step=1))
             self.assertEqual([f for f in p.run() if f.rule == "timing-click-advance"], [])
 
+    def test_steps_that_come_by_themselves_are_only_warned_about_if_the_slide_moves_on_first(self):
+        # Two steps, the first at 2 s and the second at 5 s.
+        def make(p, duration):
+            p.edit("slides/slide-001.json", lambda d: (d.__setitem__("duration", duration), d.__setitem__("autoSteps", {"first": 2000, "every": 3000})))
+            p.obj(0, lambda o: o["timing"].update(appear="click", step=1))
+            p.obj(1, lambda o: o["timing"].update(appear="click", step=2))
+        with MutatedProject() as p:
+            make(p, 20000)
+            self.assertEqual([f for f in p.run() if f.rule == "timing-click-advance"], [], "all of them come well before the slide moves on")
+        with MutatedProject() as p:
+            make(p, 5000)
+            found = [f for f in p.run() if f.rule == "timing-click-advance"]
+            self.assertEqual([(f.severity, f.object_id) for f in found], [("warning", "slide-001")])
+            self.assertIn("the last at 5 seconds", found[0].detail)
+
+    def test_auto_steps_are_checked_by_the_schema(self):
+        for bad in ({"first": -1, "every": 3000}, {"first": 0, "every": 100}, {"first": 0}, {"first": 1.5, "every": 3000}, {"first": 0, "every": 3000, "extra": 1}, "yes"):
+            with MutatedProject() as p:
+                p.edit("slides/slide-001.json", lambda d, bad=bad: d.__setitem__("autoSteps", bad))
+                self.assertTrue([f for f in p.run() if f.severity == "error"], str(bad))
+        with MutatedProject() as p:
+            p.edit("slides/slide-001.json", lambda d: d.__setitem__("autoSteps", {"first": 2000, "every": 3000}))
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+
 
 class TimingFromMedia(unittest.TestCase):
     """An object that appears and goes at moments in a video or an audio clip on its slide."""
@@ -3078,7 +3102,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.35.0")
+        self.assertEqual(project["schemaVersion"], "0.36.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

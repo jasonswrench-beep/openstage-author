@@ -610,6 +610,8 @@ export interface Slide {
   duration: number | null;
   /** True means the course's own Back and Next are not shown on this slide: the learner leaves it only through something on the slide. Absent means shown. */
   hideNavigation?: true;
+  /** Present: the steps of Show next item come by themselves, the first `first` ms after the slide opens and then one every `every` ms (added in 0.36.0). Absent: they wait for the learner. */
+  autoSteps?: { first: number; every: number };
   /** The layout the slide was made from, or null. Layouts are built into the editor. */
   layout: string | null;
   /** A theme background such as "theme:bg.dark", a hex colour, or null for the theme's default. */

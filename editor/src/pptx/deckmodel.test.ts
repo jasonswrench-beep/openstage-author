@@ -12,7 +12,7 @@ import { newProjectFiles } from "../template.ts";
 import { readDeck } from "./deck.ts";
 import { openDeck } from "./package.ts";
 import { assetsFor, offered } from "./resync.ts";
-import { buildDeck, fakePng, pic, sp, type DeckSpec } from "./testdeck.ts";
+import { buildDeck, fakePng, pic, sp, timing, type DeckSpec } from "./testdeck.ts";
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -210,6 +210,71 @@ test("a deck imported with notes as narration passes the real validator", () => 
     const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
     const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
     assert.deepEqual(found.filter((f) => f.severity === "error" && !/contrast/.test(f.rule)), [], r.stdout.slice(0, 600));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- animations that wait for a click: the import can have them come by themselves
+
+const withClicks = (): DeckSpec => ({
+  media: { "image1.png": png1, "image2.png": png2 },
+  slides: [
+    {
+      id: 256,
+      shapes: sp({ id: 10, name: "Headline 1", box: { x: 0, y: 1, w: 2, h: 1 }, geom: "rect", fill: "FF0000" }) + sp({ id: 11, name: "Headline 2", box: { x: 2, y: 1, w: 2, h: 1 }, geom: "rect", fill: "00FF00" }),
+      timing: timing([{ groups: [{ effects: [{ spid: 10 }] }] }, { groups: [{ effects: [{ spid: 11 }] }] }]),
+    },
+    { id: 257, shapes: sp({ id: 2, name: "Title 1", ph: { type: "title" }, paras: [{ runs: [{ t: "Second" }] }] }) },
+  ],
+});
+
+test("an import can have a slide's click animations come by themselves: the slide says the pace, the objects keep their steps, and only slides with clicks get it", () => {
+  const m = fresh();
+  const { pkg, deck } = open(withClicks());
+  const waiting = m.prepareDeckImport(deck, pkg, "Clicks.pptx", [0, 1], "2026-10-22T10:00:00Z");
+  assert.equal(waiting.slides.some((s) => s.autoSteps !== undefined), false, "not asked, so they wait for the learner");
+  assert.match(waiting.report.join(" "), /wait for the learner: a button, Show next item/);
+
+  const auto = m.prepareDeckImport(deck, pkg, "Clicks.pptx", [0, 1], "2026-10-22T10:00:00Z", undefined, { autoSteps: { first: 2000, every: 3000 } });
+  assert.deepEqual(auto.slides[0]!.autoSteps, { first: 2000, every: 3000 });
+  assert.equal(auto.slides[1]!.autoSteps, undefined, "a slide with no clicks has nothing to pace");
+  assert.deepEqual(auto.slides[0]!.baseLayer.objects.map((o) => [o.timing.appear, (o.timing as { step?: number }).step]), [["click", 1], ["click", 2]], "the steps are kept");
+  assert.match(auto.report.join(" "), /waited for a click in PowerPoint\. Here they come by themselves.*the first 2 seconds after the slide opens, then one every 3 seconds/);
+});
+
+test("an imported slide that plays by itself passes the real validator, and Model.setAutoSteps switches it, with one undo step", () => {
+  const m = fresh();
+  const { pkg, deck } = open(withClicks());
+  m.commitDeckImport(m.prepareDeckImport(deck, pkg, "Clicks.pptx", [0], "2026-10-22T10:00:00Z", undefined, { autoSteps: { first: 2000, every: 3000 } }));
+  const id = m.slide!.id;
+  assert.equal(m.waitingSteps(id), 2);
+  assert.match(m.setAutoSteps(id, { first: 1000, every: 4000 }) ?? "", /the first after 1 second, then one every 4 seconds/);
+  assert.deepEqual(m.slide!.autoSteps, { first: 1000, every: 4000 });
+  assert.equal(m.setAutoSteps(id, { first: 1000, every: 4000 }), null, "nothing changed");
+  m.undo();
+  assert.deepEqual(m.slide!.autoSteps, { first: 2000, every: 3000 });
+  assert.match(m.setAutoSteps(id, null) ?? "", /wait for the learner again/);
+  assert.equal(m.slide!.autoSteps, undefined);
+  m.undo();
+  // The numbers are held to what the format allows.
+  m.setAutoSteps(id, { first: -5, every: 10 });
+  assert.deepEqual(m.slide!.autoSteps, { first: 0, every: 500 });
+  // A slide with nothing that waits says so, and is still set.
+  const other = fresh();
+  assert.match(other.setAutoSteps(other.slide!.id, { first: 0, every: 1000 }) ?? "", /Nothing on this slide waits for the learner yet/);
+
+  m.setAutoSteps(id, { first: 2000, every: 3000 });
+  const dir = mkdtempSync(path.join(os.tmpdir(), "os-auto-"));
+  try {
+    for (const f of m.allFiles()) {
+      const p = path.join(dir, f.path);
+      mkdirSync(path.dirname(p), { recursive: true });
+      writeFileSync(p, f.text);
+    }
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
+    assert.deepEqual(found.filter((f) => f.rule === "timing-click-advance" || (f.severity === "error" && !/contrast/.test(f.rule))).map((f) => f.rule), [], r.stdout.slice(0, 600));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

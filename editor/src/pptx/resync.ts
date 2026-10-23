@@ -415,7 +415,9 @@ export function applyPlan(plan: ResyncPlan, accepted: ReadonlySet<string>, env: 
     switch (a.op) {
       case "newSlide": {
         const converted = convertSlide(a.deckSlide, ctx);
-        const slide = slideFrom(converted, env.newSlideId());
+        // A slide that is new to the course comes in the way the deck's other slides did: if they play their items by themselves, so does this one.
+        const earlier = env.slides.find((s) => (s.provenance as { sourceDeck?: string } | null | undefined)?.sourceDeck === plan.deckId && s.autoSteps);
+        const slide = slideFrom(converted, env.newSlideId(), earlier?.autoSteps);
         // Several new slides one after another keep the deck's order.
         const anchor = a.after ?? `before:${a.before}`;
         const after = a.after ? lastAfter.get(anchor) ?? a.after : null;

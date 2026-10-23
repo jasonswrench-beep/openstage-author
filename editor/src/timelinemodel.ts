@@ -36,6 +36,8 @@ export interface Bar {
   clipName?: string;
   /** An object that follows its narration, whose narration's place is not known (no audio made yet, or an earlier narration has none). */
   approximate: boolean;
+  /** An object that waits for a step of Show next item on a slide whose steps come by themselves: `origin` is when its step comes. */
+  byItself?: boolean;
   /** When it appears on the axis, and when it goes (null: it stays). */
   from: number;
   to: number | null;
@@ -98,9 +100,18 @@ export function tickLabel(ms: number): string {
  * reading order, on each layer, so where an object's narration starts is the total of the narration before it. If an earlier
  * narration has no audio, nothing after it can be placed, and those objects are marked approximate.
  */
-export function buildTimeline(rows: TimelineRow[], slideDuration: number | null, narrationMs: (o: OSObject) => number | null): TimelineView {
+export function buildTimeline(rows: TimelineRow[], slideDuration: number | null, narrationMs: (o: OSObject) => number | null, auto: { first: number; every: number } | null = null): TimelineView {
   const nameOf = new Map(rows.map((r) => [r.object.id, r.object.name] as const));
   const cursors = new Map<string, number | null>();
+  // On a slide whose steps come by themselves, step n of a layer comes `first + (n - 1) * every` after the layer is shown: n counts the layer's steps in order.
+  const stepsOf = new Map<string, number[]>();
+  for (const r of rows) {
+    if (r.object.timing.appear !== "click") continue;
+    const list = stepsOf.get(r.layerId) ?? [];
+    const step = r.object.timing.step ?? 1;
+    if (!list.includes(step)) stepsOf.set(r.layerId, [...list, step].sort((a, b) => a - b));
+    else stepsOf.set(r.layerId, list);
+  }
   const bars: Bar[] = rows.map((row) => {
     const o = row.object;
     const hasNarration = o.narration !== null;
@@ -118,13 +129,15 @@ export function buildTimeline(rows: TimelineRow[], slideDuration: number | null,
     const follows = o.timing.appear === "narration";
     const onClip = o.timing.appear === "media";
     // An object that waits for a click has no place on the clock, because the learner decides when: it is drawn at its delay from the start, as a guess.
-    const approximate = (follows && narration === null) || o.timing.appear === "click";
-    const origin = follows && narration ? narration.start : 0;
+    // Unless its slide brings the steps by themselves: then it is drawn when its step comes, which the clock does know (a press could bring it sooner).
+    const byItself = auto !== null && o.timing.appear === "click";
+    const approximate = (follows && narration === null) || (o.timing.appear === "click" && !byItself);
+    const origin = follows && narration ? narration.start : byItself ? auto!.first + (stepsOf.get(row.layerId) ?? []).indexOf(o.timing.step ?? 1) * auto!.every : 0;
     const from = origin + o.timing.start;
     return {
       id: o.id, name: o.name, layerId: row.layerId, layerName: row.layerName, onBase: row.onBase, timing: o.timing, hasNarration,
       // An object that follows a clip is drawn on the clip's own axis, where the slide's narration does not belong.
-      narration: onClip ? null : narration, origin, approximate, from, to: o.timing.visibleFor === null ? null : from + o.timing.visibleFor,
+      narration: onClip ? null : narration, origin, approximate, ...(byItself ? { byItself } : {}), from, to: o.timing.visibleFor === null ? null : from + o.timing.visibleFor,
       ...(onClip ? { clipName: nameOf.get(o.timing.media ?? "") ?? "its video or audio" } : {}),
     };
   });
@@ -178,9 +191,9 @@ export function percentOf(ms: number, horizon: number): number {
 }
 
 /** What a screen reader says for the start grip: the delay and what it counts from. */
-export function startText(timing: Timing, onBase: boolean, clipName?: string): string {
+export function startText(timing: Timing, onBase: boolean, clipName?: string, byItself = false): string {
   if (timing.appear === "media") return `${plainSeconds(timing.start)} into ${clipName ?? "its video or audio"}`;
-  if (timing.appear === "click") return `${plainSeconds(timing.start)} after the learner shows item ${timing.step ?? 1}`;
+  if (timing.appear === "click") return `${plainSeconds(timing.start)} after ${byItself ? `item ${timing.step ?? 1} comes by itself` : `the learner shows item ${timing.step ?? 1}`}`;
   const from = timing.appear === "narration" ? "its narration starts" : onBase ? "the slide opens" : "its layer is shown";
   return `${plainSeconds(timing.start)} after ${from}`;
 }

@@ -9,6 +9,7 @@ import { errorText, type Backend } from "./backend.ts";
 import { clockText, type Model, type NarratedObject } from "./model.ts";
 import { NO_ENGINE_STATUS, RUNTIME_URL, engineLine, installQuestion, progressDetail, removeQuestion, stepText, type EngineStatus } from "./engine.ts";
 import { audioStatus, engineOf, excerpt, formatBytes, formatDuration, totals, totalsLine, unusedAudio, type CachedAudio } from "./narration.ts";
+import { RunProgress, kindOfEngine, loadRates, saveRates, startingText, type Job } from "./narrationprogress.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -53,6 +54,10 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
 
     const dialog = h("dialog", { class: "dialog wide narration-dialog", "aria-labelledby": "nr-title" });
     const summary = h("p", { class: "nr-summary" });
+    // While audio is being made: a bar and a sentence, so the wait is not a mystery. Filled in from the audio that appears on the disk.
+    const progressBar = h("progress", { id: "nr-progress", "aria-label": "Making audio", max: "1", value: "0" });
+    const progressText = h("p", { class: "nr-progress-text", id: "nr-progress-text" });
+    const progressBox = h("div", { class: "nr-progress", hidden: true }, progressBar, progressText);
     const plan = h("div", { class: "nr-plan" });
     let engineReady = opts.engine;
     let engineStatus: EngineStatus = NO_ENGINE_STATUS;
@@ -128,7 +133,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
           h("div", { class: "nr-text" },
             h("strong", { text: name }),
             h("span", { class: "nr-excerpt", text: excerpt(item.narration.script) })),
-          h("span", { class: "nr-state", text: s.state === "ready" ? `Audio ready, ${formatDuration(s.duration ?? 0)}` : av.state === "blocked" ? `Needs audio. ${av.short}` : av.state === "needs-permission" ? "Needs audio. You will be asked before anything is sent." : "Needs audio" }),
+          h("span", { class: "nr-state", "data-key": item.key, text: s.state === "ready" ? `Audio ready, ${formatDuration(s.duration ?? 0)}` : av.state === "blocked" ? `Needs audio. ${av.short}` : av.state === "needs-permission" ? "Needs audio. You will be asked before anything is sent." : "Needs audio" }),
           h("div", { class: "nr-buttons" }, go, make)));
       }
       if (items.length === 0) list.append(h("p", { class: "note", text: "Select an object, then write what it should say in the Narration section of the Properties panel." }));
@@ -158,9 +163,50 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
       running = true;
       render();
       const count = ids.length;
-      say(`Making audio for ${count} ${count === 1 ? "narration" : "narrations"}. This can take a minute or more each, the first time most of all. You can cancel.`);
+      // The speech engine says nothing until it ends, so what is done is read from the audio that has appeared, and the time left from how fast it came.
+      const jobs: Job[] = todo.map((n) => ({ key: n.key, characters: n.narration.script.length, kind: kindOfEngine(engineOf(n.narration.voice)) }));
+      const progress = new RunProgress(jobs, loadRates(), Date.now());
+      say(startingText(jobs, loadRates()));
+      progressBar.max = count;
+      progressBar.value = 0;
+      progressText.textContent = progress.update(new Set(), Date.now()).text;
+      progressBox.hidden = false;
+      let polling = false;
+      let announced = 0;
+      const poll = async () => {
+        if (polling) return;
+        polling = true;
+        try {
+          const fresh = new Map((await b.narrationCache(model.dir)).map((c) => [c.hash, c]));
+          const done = new Set(todo.filter((n) => audioStatus(n.narration, fresh).state === "ready").map((n) => n.key));
+          const view = progress.update(done, Date.now());
+          progressBar.value = view.done;
+          progressBar.setAttribute("aria-valuetext", view.text);
+          progressText.textContent = view.text;
+          makeAll.textContent = `Making audio... ${view.short}`;
+          for (const n of todo) {
+            if (!done.has(n.key)) continue;
+            const row = list.querySelector(`[data-key="${CSS.escape(n.key)}"]`);
+            const status = audioStatus(n.narration, fresh);
+            if (row) row.textContent = `Audio ready, ${formatDuration(status.duration ?? 0)}`;
+          }
+          // Said aloud now and then, not at every change: a quarter of the way, half, three quarters.
+          const quarter = Math.floor((view.done * 4) / view.total);
+          if (quarter > announced && view.done < view.total) {
+            announced = quarter;
+            say(`Making audio: ${view.text}`);
+          }
+        } catch {
+          // a failed look is not a reason to stop: the next one may work
+        } finally {
+          polling = false;
+        }
+      };
+      const timer = setInterval(() => void poll(), 1500);
       try {
         const result = await b.makeNarration(model.dir, model.allFiles(), ids);
+        await poll();
+        saveRates(progress.measured());
         await opts.refresh();
         say("");
         if (result.ok) {
@@ -175,6 +221,8 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
         say("");
         failure.textContent = errorText(err);
       } finally {
+        clearInterval(timer);
+        progressBox.hidden = true;
         running = false;
         render();
       }
@@ -288,7 +336,7 @@ export function openNarration(opts: NarrationDialogOptions): Promise<NarrationDi
     dialog.append(
       h("h2", { id: "nr-title", text: "Narration" }),
       h("p", { class: "note", text: "Narration belongs to an object and plays when its slide opens, in reading order. An item of an interaction, such as a glossary term or a flip card, has its own narration, which plays when the learner opens that item. The captions and the transcript come from the script, so they always match what is said. To change a word, change the script and make its audio again." }),
-      summary, plan, engineBox, status, failure, list,
+      summary, progressBox, plan, engineBox, status, failure, list,
       h("div", { class: "dialog-actions" }, makeAll, clearBtn, closeBtn),
     );
     document.body.appendChild(dialog);

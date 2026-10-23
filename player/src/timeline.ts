@@ -12,6 +12,8 @@
 //                       there, everything that follows it shows, so nothing is ever left hidden because a clip did not play.
 //   appear "click":     shown start ms after the learner presses Show next item for its step. The steps of a layer are its objects' step numbers in order;
 //                       objects with one step show together. A learner who has not pressed yet sees none of them. Showing everything shows them all.
+//                       A slide can also have its steps come by themselves (see setAutoSteps): step n is then pressed for the learner n x every ms after the
+//                       first, counted on the timeline's own clock, so pausing holds it. The learner can still press Show next item to bring the next one now.
 //   visibleFor:         hidden again this many ms after it appeared, or null to stay. For a clip it is that much of the clip.
 // A learner can pause the clock, and can show everything at once. Both are for people who need longer, and are the reason
 // timing is acceptable at all.
@@ -44,6 +46,8 @@ export interface TimelineHooks {
   hide(id: string, wasShowing: boolean): void;
   /** The slide's own time is up. */
   advance(): void;
+  /** Steps that came by themselves (not from a press): the objects of the latest, and how many steps have come of how many. Not called for a press or for showing everything. */
+  stepShown?(ids: string[], pressed: number, total: number): void;
   /** Something the controls display has changed: paused, everything shown, or whether anything is timed at all. */
   changed?(): void;
   /** What a timer shows has changed: a second passed, time was added, it was stopped or ran out, or the timing was paused or resumed. */
@@ -88,8 +92,12 @@ export class Timeline {
   private readonly entries = new Map<string, Entry>();
   /** When each "with narration" object's narration started, on the timeline's own clock. */
   private readonly narrationStart = new Map<string, number>();
-  /** For each layer, the clock reading at each press of Show next item so far, in order. */
-  private readonly pressedAt = new Map<string, number[]>();
+  /** For each layer, the clock reading at each press of Show next item, by the number of the step it showed (0 is the first step). Steps that came by themselves are not here. */
+  private readonly pressedAt = new Map<string, (number | undefined)[]>();
+  /** The steps that come by themselves: when the first does, and how long between steps, in milliseconds from when their layer was shown. Null means they wait for presses. */
+  private auto: { first: number; every: number } | null = null;
+  /** For each layer, how many steps the page has been told about (by a press, by itself, or by showing everything), so each is said once. */
+  private readonly told = new Map<string, number>();
   /** What the page was last told about each object, so only changes are reported. */
   private readonly shown = new Map<string, boolean>();
   /** Where each clip that objects follow is, in milliseconds, and whether it has failed. A clip not reported yet is at the start. */
@@ -125,6 +133,8 @@ export class Timeline {
     this.generation += 1;
     this.narrationStart.clear();
     this.pressedAt.clear();
+    this.told.clear();
+    this.auto = null;
     this.shown.clear();
     this.clips.clear();
     this.elapsed = 0;
@@ -148,6 +158,7 @@ export class Timeline {
   addLayer(layer: string, objects: TimedObject[]): void {
     this.advanceClock();
     this.pressedAt.delete(layer);
+    this.told.delete(layer);
     for (const o of objects) {
       this.entries.set(o.id, { ...o, layer, from: this.elapsed });
       this.shown.delete(o.id);
@@ -221,6 +232,7 @@ export class Timeline {
   /** Stop timing a layer that has been hidden. */
   removeLayer(layer: string): void {
     this.pressedAt.delete(layer);
+    this.told.delete(layer);
     for (const [id, a] of [...this.alarms]) if (a.layer === layer) this.alarms.delete(id);
     for (const [id, e] of [...this.entries]) {
       if (e.layer !== layer) continue;
@@ -238,14 +250,41 @@ export class Timeline {
     return [...steps].sort((a, b) => a - b);
   }
 
+  /** The steps on this slide come by themselves: the first this many ms after its layer is shown, then one every `every` ms. Null: they wait for presses. */
+  setAutoSteps(auto: { first: number; every: number } | null): void {
+    this.auto = auto;
+    this.sync();
+  }
+
+  /** The clock reading when a layer was shown (all its objects share it). */
+  private layerFrom(layer: string): number {
+    for (const e of this.entries.values()) if (e.layer === layer) return e.from;
+    return 0;
+  }
+
+  /** The reading at which step number `i` of a layer was pressed: by the learner, or when its turn came if the steps come by themselves, whichever was first. Infinity while it waits. */
+  private pressTime(layer: string, i: number): number {
+    const manual = this.pressedAt.get(layer)?.[i];
+    const auto = this.auto ? this.layerFrom(layer) + this.auto.first + i * this.auto.every : Infinity;
+    return Math.min(manual ?? Infinity, auto);
+  }
+
+  /** How many of a layer's steps have been pressed, by the learner or by the clock. */
+  private pressedCount(layer: string): number {
+    if (this.everything) return this.stepsOf(layer).length;
+    let n = 0;
+    for (let i = 0; i < this.stepsOf(layer).length; i++) if (this.pressTime(layer, i) <= this.elapsed) n++;
+    return n;
+  }
+
   /** How many presses of Show next item the slide has in all, and how many have been made. Everything counts as pressed once the learner has shown everything. */
   get steps(): { total: number; pressed: number } {
+    this.advanceClock();
     let total = 0;
     let pressed = 0;
     for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
-      const n = this.stepsOf(layer).length;
-      total += n;
-      pressed += this.everything ? n : Math.min(n, this.pressedAt.get(layer)?.length ?? 0);
+      total += this.stepsOf(layer).length;
+      pressed += this.pressedCount(layer);
     }
     return { total, pressed };
   }
@@ -258,11 +297,15 @@ export class Timeline {
     if (this.everything) return [];
     for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
       const steps = this.stepsOf(layer);
-      const done = this.pressedAt.get(layer)?.length ?? 0;
-      if (done >= steps.length) continue;
       this.advanceClock();
-      this.pressedAt.set(layer, [...(this.pressedAt.get(layer) ?? []), this.elapsed]);
-      const step = steps[done]!;
+      // The first step that has not come yet: not the one after the last press, because steps that came by themselves count.
+      const next = steps.findIndex((_, i) => this.pressTime(layer, i) > this.elapsed);
+      if (next === -1) continue;
+      const presses = this.pressedAt.get(layer) ?? [];
+      presses[next] = this.elapsed;
+      this.pressedAt.set(layer, presses);
+      this.told.set(layer, this.pressedCount(layer)); // the page says a press itself
+      const step = steps[next]!;
       const ids = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.appear === "click" && (e.timing.step ?? 1) === step).map((e) => e.id);
       this.sync();
       return ids;
@@ -365,8 +408,8 @@ export class Timeline {
     if (e.timing.appear === "time") return e.from + e.timing.start;
     if (e.timing.appear === "media") return Infinity;
     if (e.timing.appear === "click") {
-      const at = this.pressedAt.get(e.layer)?.[this.stepsOf(e.layer).indexOf(e.timing.step ?? 1)];
-      return at === undefined ? Infinity : at + e.timing.start;
+      const at = this.pressTime(e.layer, this.stepsOf(e.layer).indexOf(e.timing.step ?? 1));
+      return at === Infinity ? Infinity : at + e.timing.start;
     }
     const started = this.narrationStart.get(e.id);
     return started === undefined ? Infinity : started + e.timing.start;
@@ -395,6 +438,7 @@ export class Timeline {
       if (visible) this.hooks.show(id, this.everything);
       else this.hooks.hide(id, was === true);
     }
+    this.tellSteps();
     // A timer that has run out is marked first, so the rules it starts find everything as it is now. A rule may take the learner to
     // another slide, which forgets everything here, so nothing may follow if that happened.
     const ended: string[] = [];
@@ -426,6 +470,23 @@ export class Timeline {
     this.hooks.changed?.();
   }
 
+  /** Tell the page about steps that came by themselves since it was last told. A press, and showing everything, are said by the controls, so they are only counted. */
+  private tellSteps(): void {
+    for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
+      const now = this.pressedCount(layer);
+      const before = this.told.get(layer) ?? 0;
+      if (now <= before) continue;
+      this.told.set(layer, now);
+      if (this.everything) continue;
+      const steps = this.stepsOf(layer);
+      for (let i = before; i < now; i++) {
+        const ids = [...this.entries.values()].filter((e) => e.layer === layer && e.timing.appear === "click" && (e.timing.step ?? 1) === steps[i]).map((e) => e.id);
+        const { total, pressed } = this.steps;
+        this.hooks.stepShown?.(ids, Math.min(pressed, total), total);
+      }
+    }
+  }
+
   private schedule(): void {
     if (!this.running) return;
     let next = Infinity;
@@ -441,6 +502,12 @@ export class Timeline {
       }
     }
     if (this.advanceAt !== null && !this.advanced) consider(this.advanceAt);
+    // Steps that come by themselves are said when their turn comes, which is before the delay some objects have after it.
+    if (this.auto && !this.everything) {
+      for (const layer of new Set([...this.entries.values()].map((e) => e.layer))) {
+        for (let i = 0; i < this.stepsOf(layer).length; i++) consider(this.pressTime(layer, i));
+      }
+    }
     // A timer's clock changes at each whole second left, and at its end.
     for (const a of this.alarms.values()) {
       if (a.state !== "running") continue;

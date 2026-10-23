@@ -532,8 +532,12 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
   };
 }
 
-/** The slide as the import makes it. The caller gives it its id. */
-export function slideFrom(converted: ConvertedSlide, id: string): Slide {
+/**
+ * The slide as the import makes it. The caller gives it its id. With `auto`, a slide whose animations waited for a click in PowerPoint has its items come by themselves
+ * (the objects keep their click steps; the slide says how fast), because a course has no presenter to click.
+ */
+export function slideFrom(converted: ConvertedSlide, id: string, auto?: { first: number; every: number }): Slide {
+  const waits = auto !== undefined && converted.objects.some((o) => o.timing.appear === "click");
   return {
     id,
     name: converted.name,
@@ -541,6 +545,7 @@ export function slideFrom(converted: ConvertedSlide, id: string): Slide {
     layout: null,
     background: converted.background,
     provenance: converted.provenance,
+    ...(waits ? { autoSteps: { ...auto } } : {}),
     baseLayer: { id: "layer-base", name: "Base", objects: converted.objects },
     layers: [],
   } as unknown as Slide;

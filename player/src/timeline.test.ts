@@ -604,3 +604,99 @@ test("a new slide forgets the presses", () => {
   m.timeline.addLayer("base", [obj("a", onClick(1))]);
   assert.deepEqual(m.timeline.steps, { total: 1, pressed: 0 });
 });
+
+// ---- steps that come by themselves: setAutoSteps
+
+function makeAuto(first = 2000, every = 3000) {
+  const clock = new FakeClock();
+  const log: string[] = [];
+  const said: string[] = [];
+  const timeline = new Timeline({
+    show: (id) => log.push(`show ${id}`),
+    hide: (id) => log.push(`hide ${id}`),
+    advance: () => undefined,
+    stepShown: (ids, pressed, total) => said.push(`${ids.join("+")} ${pressed}/${total}`),
+  }, clock);
+  timeline.addLayer("base", [obj("a", onClick(1)), obj("b", onClick(2)), obj("c", onClick(3))]);
+  timeline.setAutoSteps({ first, every });
+  log.length = 0;
+  return { clock, timeline, log, said, take: () => log.splice(0) };
+}
+
+test("steps that come by themselves appear one after another on the clock, and each is said as it comes", () => {
+  const m = makeAuto();
+  m.clock.advance(1999);
+  assert.deepEqual(m.take(), [], "nothing before the first time");
+  m.clock.advance(1);
+  assert.deepEqual(m.take(), ["show a"]);
+  m.clock.advance(2999);
+  assert.deepEqual(m.take(), []);
+  m.clock.advance(1);
+  assert.deepEqual(m.take(), ["show b"]);
+  m.clock.advance(3000);
+  assert.deepEqual(m.take(), ["show c"]);
+  assert.deepEqual(m.said, ["a 1/3", "b 2/3", "c 3/3"]);
+  assert.deepEqual(m.timeline.steps, { total: 3, pressed: 3 });
+});
+
+test("pausing holds the schedule, and resuming carries on from where it was", () => {
+  const m = makeAuto();
+  m.clock.advance(1500);
+  m.timeline.pause();
+  m.clock.advance(60000);
+  assert.deepEqual(m.take(), []);
+  m.timeline.resume();
+  m.clock.advance(499);
+  assert.deepEqual(m.take(), []);
+  m.clock.advance(1);
+  assert.deepEqual(m.take(), ["show a"]);
+});
+
+test("Show next item brings the next step now, the schedule goes on, and a press is not said by the clock", () => {
+  const m = makeAuto();
+  m.clock.advance(500);
+  assert.deepEqual(m.timeline.showNext(), ["a"], "the first one, early");
+  assert.deepEqual(m.take(), ["show a"]);
+  assert.deepEqual(m.said, [], "the button says it, not the timeline");
+  m.clock.advance(1500); // 2000: the time of step 1, which is already showing
+  assert.deepEqual(m.take(), []);
+  assert.deepEqual(m.said, []);
+  m.clock.advance(3000); // 5000: step 2
+  assert.deepEqual(m.take(), ["show b"]);
+  assert.deepEqual(m.said, ["b 2/3"]);
+  assert.deepEqual(m.timeline.showNext(), ["c"], "the last, early");
+  assert.deepEqual(m.timeline.showNext(), []);
+  m.clock.advance(60000);
+  assert.deepEqual(m.said, ["b 2/3"]);
+});
+
+test("Show everything shows every step and says nothing more", () => {
+  const m = makeAuto();
+  m.timeline.showEverything();
+  assert.deepEqual(m.take().sort(), ["show a", "show b", "show c"]);
+  m.clock.advance(60000);
+  assert.deepEqual(m.said, []);
+  assert.deepEqual(m.timeline.steps, { total: 3, pressed: 3 });
+});
+
+test("an object's own delay counts from when its step came by itself, and a first time of 0 shows at once", () => {
+  const clock = new FakeClock();
+  const log: string[] = [];
+  const t = new Timeline({ show: (id) => log.push(`show ${id}`), hide: () => undefined, advance: () => undefined }, clock);
+  t.addLayer("base", [obj("a", onClick(1)), obj("b", onClick(1, 1000))]);
+  t.setAutoSteps({ first: 0, every: 4000 });
+  assert.deepEqual(log.splice(0), ["show a"]);
+  clock.advance(999);
+  assert.deepEqual(log.splice(0), []);
+  clock.advance(1);
+  assert.deepEqual(log.splice(0), ["show b"]);
+});
+
+test("without the setting steps wait for presses as before, and a new slide forgets the setting", () => {
+  const m = makeAuto();
+  m.timeline.reset();
+  m.timeline.addLayer("base", [obj("a", onClick(1))]);
+  m.clock.advance(60000);
+  assert.deepEqual(m.take(), ["hide a"], "the setting was forgotten by the reset");
+  assert.deepEqual(m.timeline.steps, { total: 1, pressed: 0 });
+});

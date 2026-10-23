@@ -91,6 +91,8 @@ export class Player implements Host {
       show: (id, instant) => this.stage.setObjectTimed(id, true, instant ? undefined : this.motion(id, "enter")),
       hide: (id, wasShowing) => this.stage.setObjectTimed(id, false, wasShowing ? this.motion(id, "exit") : undefined),
       advance: () => this.step(1),
+      // Items that come by themselves are said in the same words as a press, so a learner who cannot see them still knows each came.
+      stepShown: (ids, pressed, total) => this.say(this.itemSaid(ids, pressed, total)),
       changed: () => this.syncTimingBar(),
       timerChanged: (id, reading) => this.stage.setTimer(id, reading),
       // The rules on the timer itself run when its time is up.
@@ -115,8 +117,7 @@ export class Player implements Host {
       const ids = this.timeline.showNext();
       if (ids.length === 0) return;
       const { total, pressed } = this.timeline.steps;
-      const names = ids.map((id) => this.nameOf(id)).filter((n) => n !== "");
-      this.say(`Item ${pressed} of ${total} is showing${names.length > 0 ? `: ${names.join(", ")}` : ""}.${pressed >= total ? " That was the last." : ""}`);
+      this.say(this.itemSaid(ids, pressed, total));
     });
     this.animateBtn.addEventListener("click", () => {
       this.animationOff = !this.animationOff;
@@ -283,6 +284,8 @@ export class Player implements Host {
       if (layer === slide.baseLayer || this.runtime.visibleLayers.has(layer.id)) this.timeLayer(layer);
     }
     this.timeline.setAdvance(slide.duration);
+    // Set after the layers are timed, so a first step due at once is said with the others. Steps that come by themselves still have the Show next item button.
+    this.timeline.setAutoSteps(slide.autoSteps ?? null);
 
     this.narration.load(
       readingOrder(slide.baseLayer.objects).flatMap((o) => {
@@ -315,6 +318,12 @@ export class Player implements Host {
     // A timer starts counting when its layer is shown.
     for (const o of layer.objects) if (o.type === "timer") this.timeline.addTimer(layer.id, o.id, timerContentOf(o).seconds);
     if (timed.length > 0) this.timeline.addLayer(layer.id, timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) })));
+  }
+
+  /** "Item 2 of 7 is showing: the alt text or name." for the objects of the step that came. */
+  private itemSaid(ids: string[], pressed: number, total: number): string {
+    const names = ids.map((id) => this.nameOf(id)).filter((n) => n !== "");
+    return `Item ${pressed} of ${total} is showing${names.length > 0 ? `: ${names.join(", ")}` : ""}.${pressed >= total ? " That was the last." : ""}`;
   }
 
   /** What a learner would call an object on the slide that is showing: its alt text, or its name. Nothing for something that is only decoration. */

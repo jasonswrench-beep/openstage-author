@@ -1176,7 +1176,43 @@ ${errorText(err)}`);
         if (r.message) this.announce(r.message);
       }, { number: true, describedBy: "slide-advance-note" }),
       h("p", { id: "slide-advance-note", class: "note", text: "A slide that moves on by itself takes time away from slow readers, so use it only where it helps and not on a slide with a question. Learners can pause it." }),
+      ...this.autoStepsFields(m),
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())));
+  }
+
+  /** For a slide whose items wait for the learner (a PowerPoint click, or an object set to appear when the learner shows the next item): whether they come by themselves, and how fast. */
+  private autoStepsFields(m: Model): HTMLElement[] {
+    const slide = m.slide!;
+    const steps = m.waitingSteps(slide.id);
+    if (steps === 0) return [];
+    const auto = slide.autoSteps ?? null;
+    const box = this.tick("checkbox", "slide-auto-steps", "Show the items one after another by themselves", auto !== null, (on) => {
+      const msg = m.setAutoSteps(slide.id, on ? { first: 2000, every: 3000 } : null);
+      if (msg) this.announce(msg);
+      this.renderProps();
+      document.getElementById("p-slide-auto-steps")?.focus();
+    });
+    const out: HTMLElement[] = [
+      h("div", { class: "field check" }, box, h("label", { for: "p-slide-auto-steps", text: "Show the items one after another by themselves" })),
+      h("p", { id: "slide-auto-note", class: "note", text: `This slide has ${steps === 1 ? "1 item" : `${steps} items`} that wait for the learner to press Show next item (PowerPoint's clicks). Tick this to have them come one after another instead. The learner can still pause, press Show next item to bring the next one at once, or show everything.` }),
+    ];
+    box.setAttribute("aria-describedby", "slide-auto-note");
+    if (auto) {
+      const set = (first: number, every: number) => { const msg = m.setAutoSteps(slide.id, { first, every }); if (msg) this.announce(msg); };
+      out.push(
+        this.field("slide-auto-first", "The first item comes after, in seconds", secondsText(auto.first), (v) => {
+          const ms = parseSeconds(v);
+          if (ms == null || ms > 600000) { this.announce("Write the time in seconds, for example 2 or 0.5, up to 600."); this.renderProps(); return; }
+          set(ms, auto.every);
+        }, { number: true }),
+        this.field("slide-auto-every", "Then one every, in seconds", secondsText(auto.every), (v) => {
+          const ms = parseSeconds(v);
+          if (ms == null || ms < 500 || ms > 600000) { this.announce("Write the time in seconds, for example 3 or 1.5: at least 0.5, up to 600."); this.renderProps(); return; }
+          set(auto.first, ms);
+        }, { number: true }),
+      );
+    }
+    return out;
   }
 
   /** Whether the course's Back and Next are shown on the slide being edited. Shown when nothing is selected. */

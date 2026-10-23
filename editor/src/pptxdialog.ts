@@ -176,12 +176,45 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<PowerPoin
       const withNotes = o.deck.slides.filter((s) => s.hasNotes).length;
       const soundNow = withNotes === 0 ? true : await opts.canMakeAudio();
       const notesBox = check("Use speaker notes as narration", false, [], withNotes === 0 ? "" : `${plural(withNotes, "slide")} in this presentation ${withNotes === 1 ? "has" : "have"} speaker notes. Each slide's notes become the narration of its heading, or of its first text, in the voice the rest of your course uses, and are not shown on the slide. The audio is made when you generate narration.${soundNow ? "" : ` ${silentBeforeText()}`}`);
+      // Animations that wait for a click in PowerPoint have a presenter pressing; a course has none, so they can come by themselves, or wait for the learner's button.
+      const clickSlides = o.deck.slides.filter((s) => s.effects.some((e) => e.click !== null)).length;
+      const radio = (id: string, label: string, on: boolean) => {
+        const input = h("input", { type: "radio", name: "pp-anim", id, ...(on ? { checked: true } : {}) });
+        return { input, row: h("label", { class: "pp-check", for: id }, input, h("span", { text: label })) };
+      };
+      const seconds = (id: string, label: string, value: string) => {
+        const input = h("input", { type: "text", inputmode: "decimal", id, value, size: "4" });
+        return { input, row: h("div", { class: "field" }, h("label", { for: id, text: label }), input) };
+      };
+      const animAuto = radio("pp-anim-auto", "Come in by themselves, one after another", true);
+      const animWait = radio("pp-anim-wait", "Wait for the learner, who presses a Show next item button", false);
+      const animFirst = seconds("pp-anim-first", "The first one comes after, in seconds", "2");
+      const animEvery = seconds("pp-anim-every", "Then one every, in seconds", "3");
+      // The pace only matters when they come by themselves.
+      const paceOn = () => { animFirst.input.disabled = !animAuto.input.checked; animEvery.input.disabled = !animAuto.input.checked; };
+      animAuto.input.addEventListener("change", paceOn);
+      animWait.input.addEventListener("change", paceOn);
+      const readSeconds = (input: HTMLInputElement, min: number): number | null => {
+        const n = Number(input.value.trim().replace(",", "."));
+        return Number.isFinite(n) && n >= min && n <= 600 ? Math.round(n * 1000) : null;
+      };
       const go = button("", async () => {
         const picks = chosen();
         if (picks.length === 0) return;
+        let autoSteps: { first: number; every: number } | undefined;
+        if (clickSlides > 0 && animAuto.input.checked) {
+          const first = readSeconds(animFirst.input, 0);
+          const every = readSeconds(animEvery.input, 0.5);
+          if (first === null || every === null) {
+            fail("Write the times in seconds: the first one after 0 to 600 (for example 2), then one every 0.5 to 600 (for example 3).");
+            (first === null ? animFirst : animEvery).input.focus();
+            return;
+          }
+          autoSteps = { first, every };
+        }
         busy = true;
         try {
-          const prepared = model.prepareDeckImport(o.deck, o.pkg, o.name, picks, undefined, o.tones, { notesAsNarration: withNotes > 0 && notesBox.input.checked });
+          const prepared = model.prepareDeckImport(o.deck, o.pkg, o.name, picks, undefined, o.tones, { notesAsNarration: withNotes > 0 && notesBox.input.checked, ...(autoSteps ? { autoSteps } : {}) });
           await saveAll(prepared);
           const message = model.commitDeckImport(prepared);
           const narrated = prepared.slides.reduce((n, s) => n + [s.baseLayer, ...s.layers].reduce((m, l) => m + l.objects.filter((x) => (x as { narration?: unknown }).narration).length, 0), 0);
@@ -209,6 +242,9 @@ export function openPowerPoint(opts: PowerPointDialogOptions): Promise<PowerPoin
       show(`Bring slides in from ${o.name}`, [
         h("p", { class: "note", text: `${summary(o)}. Each slide is drawn on the stage at the same size, in the middle if its shape is different. Pictures are saved in the project's images.` }),
         ...(withNotes > 0 ? [h("fieldset", {}, h("legend", { text: "Speaker notes" }), notesBox.row)] : []),
+        ...(clickSlides > 0 ? [h("fieldset", {}, h("legend", { text: "Animations that wait for a click in PowerPoint" }),
+          h("p", { class: "note", text: `${plural(clickSlides, "slide")} in this presentation ${clickSlides === 1 ? "has" : "have"} items that appear when the presenter clicks. A course has no presenter, so choose how they come in. Either way the learner can pause, show everything at once, and (with a pace) press Show next item to bring the next one sooner. You can change it later on each slide.` }),
+          animAuto.row, animWait.row, animFirst.row, animEvery.row)] : []),
         h("fieldset", {}, h("legend", { text: "Slides to bring in" }), h("div", { class: "btn-row" }, all, none), ...rows.map((r) => r.row)),
       ], [go, ...(model.deckSources.length > 0 ? [button("Back", stepMode)] : [button("Choose another file", stepChoose)])]);
       recount();

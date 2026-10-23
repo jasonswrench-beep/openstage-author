@@ -23,6 +23,8 @@ export interface ImportRequest {
   existingDeckIds: string[];
   /** Makes narration from words. When it is given, the speaker notes of each slide become that slide's narration. */
   narrate?: (script: string) => Narration;
+  /** When it is given, a slide whose animations wait for a click in PowerPoint has its items come by themselves: the first after `first` ms, then one every `every` ms. Absent: they wait for the learner. */
+  autoSteps?: { first: number; every: number };
   /** Average colours of the decks' background pictures. */
   tones?: Tones;
   newSlideId(): string;
@@ -83,11 +85,11 @@ export function prepareImport(req: ImportRequest): PreparedImport {
   }
   const assets: PreparedImport["assets"] = [];
   for (const c of converted) for (const a of c.assets) if (!assets.some((x) => x.path === a.path)) assets.push(a);
-  const slides = converted.map((c) => slideFrom(c, req.newSlideId()));
+  const slides = converted.map((c) => slideFrom(c, req.newSlideId(), req.autoSteps));
   const objectCount = converted.reduce((n, c) => n + c.objects.length, 0);
   return {
     deckId, source: sourceFor(req.deck, deckId, req.fileName, req.importedAt, placement), slides, assets, objectCount,
-    report: describeImport(req.deck, converted, notes, placement, req.chosen),
+    report: describeImport(req.deck, converted, notes, placement, req.chosen, req.autoSteps),
   };
 }
 
@@ -97,7 +99,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const list = (names: string[]) => (names.length <= 4 ? names.join(", ") : `${names.slice(0, 4).join(", ")} and ${names.length - 4} more`);
 
 /** Everything that was left out or changed by the import, in plain words, as a list of sentences. */
-export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: ConvertNotes, placement: Placement, chosen: number[]): string[] {
+export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: ConvertNotes, placement: Placement, chosen: number[], auto?: { first: number; every: number }): string[] {
   const out: string[] = [];
   const objects = converted.flatMap((c) => c.objects);
   out.push(`Brought in ${plural(converted.length, "slide")} with ${plural(objects.length, "object")}.`);
@@ -132,7 +134,9 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
   if (notes.notesUnused > 0) out.push(`Speaker notes on ${plural(notes.notesUnused, "slide")} could not become narration, because everything on ${notes.notesUnused === 1 ? "that slide is" : "those slides are"} decoration, so there is nothing to say them.`);
   if (withNotes > 0 && notes.narrated + notes.notesUnused === 0) out.push(`Speaker notes on ${plural(withNotes, "slide")} were not brought in. To have them as narration, tick "Use speaker notes as narration" when you choose the slides.`);
   if (notes.animated > 0) {
-    out.push(`${plural(notes.animated, "object")} had an entrance animation in PowerPoint and ${notes.animated === 1 ? "has" : "have"} it here.${notes.waiting > 0 ? ` ${plural(notes.waiting, "object")} wait${notes.waiting === 1 ? "s" : ""} for the learner: a button, Show next item, shows them one step at a time, in the order of PowerPoint's clicks, and Show everything now shows them all.` : ""}`);
+    out.push(`${plural(notes.animated, "object")} had an entrance animation in PowerPoint and ${notes.animated === 1 ? "has" : "have"} it here.${notes.waiting > 0 ? (auto
+      ? ` ${plural(notes.waiting, "object")} waited for a click in PowerPoint. Here they come by themselves, in the order of PowerPoint's clicks: the first ${auto.first / 1000} seconds after the slide opens, then one every ${auto.every / 1000} seconds. The learner can pause, press Show next item to bring the next one at once, or show everything. You can change the pace, or have them wait for the learner, in a slide's Timing (select no object).`
+      : ` ${plural(notes.waiting, "object")} wait${notes.waiting === 1 ? "s" : ""} for the learner: a button, Show next item, shows them one step at a time, in the order of PowerPoint's clicks, and Show everything now shows them all.`) : ""}`);
     if (notes.animationApproximated > 0) out.push(`${plural(notes.animationApproximated, "entrance")} used an effect this editor does not have, so ${notes.animationApproximated === 1 ? "it fades" : "they fade"} in instead.`);
   }
   const gone = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };

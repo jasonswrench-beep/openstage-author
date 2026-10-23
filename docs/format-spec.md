@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.35.0",
+  "schemaVersion": "0.36.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -217,6 +217,8 @@ theme's default. Switching the theme restyles every slide through these two fiel
 `duration` is null for a slide that waits for the learner, or a number of milliseconds
 for one that advances on its own (see Timing). The base layer always exists. Additional layers are
 shown and hidden by triggers.
+
+`autoSteps` is optional (added in 0.36.0): `{ "first": ms, "every": ms }` makes the slide's steps (see Waiting for the learner, under Timing) come by themselves. Absent, they wait for the learner.
 
 `hideNavigation` is optional (added in 0.34.0) and, when present, is `true`: the player leaves out the course's **Back** and **Next** buttons while this slide is showing, so the
 learner leaves it only through something on it (a button with a rule that goes to a slide, a tile on a game board) or, if the slide has a `duration`, when its time is up. The three
@@ -988,7 +990,9 @@ and is a video or audio object (`timing-media-missing`), that an object does not
 (`timing-media-advance`), because the slide may move on before the clip has reached them. The editor keeps the reference when a slide is copied (the copies follow the copied clip), and when
 an object is copied to a slide that does not have the clip it goes back to appearing when the slide opens, and says so. (Added in 0.23.0.)
 
-**Waiting for the learner** (added in 0.35.0). An object with `appear: "click"` and a `step` is hidden until the learner asks for it. A slide that has any such object shows a button, **Show next item (1 of 3)**, with the timing controls. Each press shows the next step: the steps are the `step` numbers on a layer, once each, in order (they need not be unbroken: 3 and 7 are two presses), and objects with the same number show together, each after its own `start` (a delay counted from the press, so a picture can arrive half a second after a caption). The player says which item came ("Item 2 of 7 is showing" and the object's alt text, or its name, never for decoration) in the same polite way as the other timing controls. After the last the button says **All items are showing** and stays in place, so a learner using the keyboard is not left without it. **Show everything now** shows every step at once. A layer has steps of its own and starts them again each time it is shown; with steps on more than one layer, the base layer's come first. Nothing moves on by itself: the learner decides when each step comes, so it is no barrier to anyone who needs more time. A slide with a `duration` and such objects is warned about (`timing-click-advance`), because it may move on before the learner has shown them. The editor draws such an object on the timeline at its delay, marked as a guess, because the clock does not know when the learner will press.
+**Waiting for the learner** (added in 0.35.0). An object with `appear: "click"` and a `step` is hidden until the learner asks for it. A slide that has any such object shows a button, **Show next item (1 of 3)**, with the timing controls. Each press shows the next step: the steps are the `step` numbers on a layer, once each, in order (they need not be unbroken: 3 and 7 are two presses), and objects with the same number show together, each after its own `start` (a delay counted from the press, so a picture can arrive half a second after a caption). The player says which item came ("Item 2 of 7 is showing" and the object's alt text, or its name, never for decoration) in the same polite way as the other timing controls. After the last the button says **All items are showing** and stays in place, so a learner using the keyboard is not left without it. **Show everything now** shows every step at once. A layer has steps of its own and starts them again each time it is shown; with steps on more than one layer, the base layer's come first. Unless the slide says otherwise (next paragraph), nothing moves on by itself: the learner decides when each step comes, so it is no barrier to anyone who needs more time. A slide with a `duration` and such objects is warned about (`timing-click-advance`), because it may move on before the learner has shown them. The editor draws such an object on the timeline at its delay, marked as a guess, because the clock does not know when the learner will press.
+
+**Steps that come by themselves** (added in 0.36.0). A slide with `"autoSteps": { "first": 2000, "every": 3000 }` (milliseconds, `first` 0 to 600000, `every` 500 to 600000) has its steps pressed for the learner: step 1 `first` ms after the slide (or the layer) is shown, step 2 `every` ms after that, and so on, counted on the timeline's own clock, so **Pause timing** holds them and **Show everything now** shows them all. The objects keep their `click` timing and their step numbers (so the slide can be switched back to waiting for presses by removing `autoSteps`), and an object's own `start` delay still counts from when its step came. **Show next item** stays and brings the next step that has not come yet at once, without moving the clock: a learner who reads faster than the pace can go ahead, and the later steps stay on their times. The player says each step that comes by itself in the words it uses for a press ("Item 2 of 7 is showing: ..."), politely, so a learner who cannot see a step still knows it came. An import from PowerPoint offers this for slides whose animations wait for a click in PowerPoint, because the presenter's clicks have no learner at the keyboard in a course. A slide with a `duration` is warned about (`timing-click-advance`) only if it would move on before the last step has come. The editor's timeline draws these objects at their real times.
 
 **Layers.** An object on a layer other than the base layer is timed from when that layer is shown, and starts again each time the
 layer is shown. Timing never changes what a layer does, and is a separate switch from an object's states, so none undoes another.
@@ -1505,6 +1509,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.35.0 | 0.36.0 | Adds the optional `autoSteps` of a slide (the steps of Show next item come by themselves, one after another). Nothing in an older course changes. |
 | 0.34.0 | 0.35.0 | Adds timing that waits for the learner (`appear` `click`, with a `step`) and the text style keys `verticalAlign`, `paddingX`, `paddingY`, `autoFit` and `paragraphSpacing`. Nothing in an older course changes. |
 | 0.33.0 | 0.34.0 | Adds the optional `hideNavigation` of a slide (leave out Back and Next on it). Nothing in an older course changes. |
 | 0.32.0 | 0.33.0 | Adds question banks (the optional `banks` of `project.json`) and the optional `shuffle` of a multiple choice or multiple response question. Nothing in an older course changes. |

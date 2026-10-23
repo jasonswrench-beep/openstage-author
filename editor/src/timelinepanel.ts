@@ -79,7 +79,7 @@ export class TimelinePanel {
     const focused = document.activeElement instanceof HTMLElement && this.body.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused ? { id: focused.closest<HTMLElement>(".tl-row")?.dataset["id"], grip: focused.dataset["grip"], name: focused.classList.contains("tl-name") } : null;
 
-    const view = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs);
+    const view = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs, m.slide?.autoSteps ?? null);
     this.summarize(view);
 
     const children: HTMLElement[] = [this.axis(view)];
@@ -170,7 +170,7 @@ export class TimelinePanel {
           const ms = msAtPointer(ev.clientX, rect.left, rect.width, view.horizon);
           const r = m.setTiming(bar.id, move(ms, begin, initial));
           if (r.message) message = r.message;
-          const now = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs).bars.find((b) => b.id === bar.id);
+          const now = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs, m.slide?.autoSteps ?? null).bars.find((b) => b.id === bar.id);
           if (now) { Object.assign(bar, now); this.place(row, bar, view.horizon); }
         };
         const finish = (cancelled: boolean) => {
@@ -230,7 +230,7 @@ export class TimelinePanel {
     start.setAttribute("aria-valuemin", "0");
     start.setAttribute("aria-valuemax", seconds(startMax(bar, horizon)));
     start.setAttribute("aria-valuenow", seconds(bar.timing.start));
-    start.setAttribute("aria-valuetext", startText(bar.timing, bar.onBase, bar.clipName));
+    start.setAttribute("aria-valuetext", startText(bar.timing, bar.onBase, bar.clipName, bar.byItself === true));
     end.setAttribute("aria-label", `${bar.name}: when it goes`);
     end.setAttribute("aria-valuemin", seconds(MIN_STAY_MS));
     end.setAttribute("aria-valuemax", seconds(room));
@@ -254,7 +254,7 @@ export class TimelinePanel {
       this.nudging = false;
     }
     if (message) this.opts.announce(message);
-    const fresh = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs);
+    const fresh = buildTimeline(m.timingRows(), m.slide?.duration ?? null, this.opts.narrationMs, m.slide?.autoSteps ?? null);
     const now = fresh.bars.find((b) => b.id === bar.id);
     const others = (v: TimelineView) => v.bars.filter((b) => b.id !== bar.id).map((b) => `${b.id}:${b.from}:${b.to}`).join();
     if (!now) { this.render(); return; }

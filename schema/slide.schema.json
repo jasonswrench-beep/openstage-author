@@ -25,6 +25,16 @@
       "description": "Optional, added in 0.34.0. true means the course's own Back and Next are not shown on this slide, so the learner leaves it only through a button or link on the slide itself. Absent means they are shown. Used by the games, where the way on is the game.",
       "const": true
     },
+    "autoSteps": {
+      "description": "Optional, added in 0.36.0. Present means the steps of Show next item (objects with timing appear click) come by themselves: the first `first` milliseconds after its layer is shown, then one every `every` milliseconds, on the timeline's own clock, so pausing holds them. The learner can still press Show next item to bring the next step at once, and Show everything now. Absent means every step waits for a press.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first", "every"],
+      "properties": {
+        "first": { "type": "integer", "minimum": 0, "maximum": 600000 },
+        "every": { "type": "integer", "minimum": 500, "maximum": 600000 }
+      }
+    },
     "provenance": {
       "description": "Optional. Set on a slide that the Capture module made from a recorded step, or that was imported from a slide of a PowerPoint deck, so a changed recording or deck can be brought forward without losing the author's edits.",
       "oneOf": [{ "type": "null" }, { "$ref": "object.schema.json#/$defs/captureProvenance" }, { "$ref": "object.schema.json#/$defs/slideImportProvenance" }]

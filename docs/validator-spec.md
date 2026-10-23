@@ -268,7 +268,7 @@ Triggers that point at a missing target or variable are `trigger-target-missing`
 | An object follows a clip that is not a video or audio object on its slide (`timing-media-missing`) | Error | This object follows a video or audio clip that is not on its slide |
 | An object follows itself (`timing-media-self`) | Error | An object cannot follow itself |
 | A slide has a `duration` and holds an object that follows a clip (`timing-media-advance`) | Warning | A slide that moves on by itself holds objects that follow a video or audio clip |
-| A slide has a `duration` and holds an object that waits for the learner to show it (`timing-click-advance`) | Warning | A slide that moves on by itself holds objects that wait for the learner to show them |
+| A slide has a `duration` and holds an object that waits for the learner to show it (`timing-click-advance`), unless the slide has `autoSteps` and its last step comes (with the longest delay of an object on it) before the duration | Warning | A slide that moves on by itself holds objects that wait for the learner to show them, or, with `autoSteps`, would move on before its items have all come |
 | An object has `appear` `click` and no `step`, or a `step` with any other `appear` (`schema`) | Error | The object's timing is not in the right shape |
 | A control (a button, an input, a question, an interaction, a download and the like) has a `visibleFor` (`timing-control-disappears`) | Warning | A control that disappears can leave a learner stuck |
 | A text or scrolling text object stays for less than three seconds, or for fewer seconds than its words need at 3 words a second (`timing-too-brief`) | Warning | This text may disappear before it can be read |
