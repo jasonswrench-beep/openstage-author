@@ -490,6 +490,8 @@ function narrateFromNotes(ds: DeckSlide, objects: OSObject[], narrate: (script: 
 }
 
 const FROM_SIDE: Record<number, EffectName> = { 1: "slideTop", 2: "slideRight", 4: "slideBottom", 8: "slideLeft" };
+/** A wipe, by the side PowerPoint says it starts from (the same numbers as Fly In). */
+const WIPE_FROM: Record<number, EffectName> = { 1: "wipeTop", 2: "wipeRight", 4: "wipeBottom", 8: "wipeLeft" };
 
 /** The effect this editor has that comes nearest to a PowerPoint entrance, and whether it is the same effect. */
 export function entranceFor(e: DeckEffect): { effect: EffectName; exact: boolean } {
@@ -497,7 +499,7 @@ export function entranceFor(e: DeckEffect): { effect: EffectName; exact: boolean
     case 1: return { effect: "none", exact: true };
     case 10: return { effect: "fade", exact: true };
     case 2: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: FROM_SIDE[e.subtype] !== undefined };
-    case 22: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: false };
+    case 22: return { effect: WIPE_FROM[e.subtype] ?? "fade", exact: WIPE_FROM[e.subtype] !== undefined };
     case 23: case 53: return { effect: "zoom", exact: true };
     case 31: return { effect: "zoom", exact: false };
     default: return { effect: "fade", exact: false };
@@ -510,6 +512,7 @@ export function exitFor(e: DeckEffect): { effect: EffectName; exact: boolean } {
     case 1: return { effect: "none", exact: true };
     case 10: return { effect: "fade", exact: true };
     case 2: return { effect: FROM_SIDE[e.subtype] ?? "fade", exact: FROM_SIDE[e.subtype] !== undefined };
+    case 22: return { effect: WIPE_FROM[e.subtype] ?? "fade", exact: WIPE_FROM[e.subtype] !== undefined };
     case 23: case 53: return { effect: "zoom", exact: true };
     default: return { effect: "fade", exact: false };
   }
@@ -602,9 +605,11 @@ function applyEffects(ds: DeckSlide, objects: OSObject[], keys: string[], notes:
 
 /** Which side a slide comes in from, for each direction PowerPoint says it moves. A push toward the left brings the next slide in from the right. */
 const COMES_FROM: Record<string, EffectName> = { l: "slideRight", r: "slideLeft", u: "slideBottom", d: "slideTop" };
+/** The same for a wipe: it shows the next slide across from the edge it comes from. */
+const WIPES_FROM: Record<string, EffectName> = { l: "wipeRight", r: "wipeLeft", u: "wipeBottom", d: "wipeTop" };
 
 /**
- * The way a slide comes in, from the deck's transition. A fade, a zoom and a push are the same here; a cover, a pull and a wipe are a slide from the same side, which is near;
+ * The way a slide comes in, from the deck's transition. A fade, a zoom, a push and a wipe are the same here; a cover and a pull are a slide from the same side, which is near;
  * everything else (blinds, checkerboard, vortex and the rest) is a fade. A transition is how the slide comes ON, so it becomes the slide's way in, never its way out.
  */
 export function transitionFor(t: DeckTransition): { effect: Effect; exact: boolean } {
@@ -614,10 +619,13 @@ export function transitionFor(t: DeckTransition): { effect: Effect; exact: boole
       return { effect: { effect: "fade", duration }, exact: true };
     case "zoom":
       return { effect: { effect: "zoom", duration }, exact: true };
+    case "wipe": {
+      const edge = WIPES_FROM[t.dir];
+      return edge ? { effect: { effect: edge, duration }, exact: true } : { effect: { effect: "fade", duration }, exact: false };
+    }
     case "push":
     case "cover":
-    case "pull":
-    case "wipe": {
+    case "pull": {
       const side = COMES_FROM[t.dir];
       return side ? { effect: { effect: side, duration }, exact: t.kind === "push" } : { effect: { effect: "fade", duration }, exact: false };
     }

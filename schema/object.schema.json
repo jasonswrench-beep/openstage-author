@@ -300,7 +300,7 @@
       "additionalProperties": false,
       "required": ["effect", "duration"],
       "properties": {
-        "effect": { "enum": ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "zoom"], "description": "none: no effect. fade: opacity only. slideLeft, slideRight, slideTop, slideBottom: arrives from that side, or leaves toward it. zoom: grows from slightly smaller, or shrinks to it." },
+        "effect": { "enum": ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "wipeLeft", "wipeRight", "wipeTop", "wipeBottom", "zoom"], "description": "none: no effect. fade: opacity only. slideLeft, slideRight, slideTop, slideBottom: arrives from that side, or leaves toward it. wipeLeft, wipeRight, wipeTop, wipeBottom (added in 0.40.0): shown across from that edge, or hidden back toward it, with nothing moving. zoom: grows from slightly smaller, or shrinks to it." },
         "duration": { "type": "integer", "minimum": 100, "maximum": 2000, "description": "Milliseconds. Short on purpose: a longer movement is a distraction and a barrier." }
       }
     },

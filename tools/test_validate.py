@@ -680,7 +680,7 @@ class Animation(unittest.TestCase):
             self.assertEqual([f for f in p.run() if f.rule.startswith("animation")], [])
 
     def test_every_effect_is_accepted_for_both_arrival_and_leaving(self):
-        for effect in ("none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "zoom"):
+        for effect in ("none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "wipeLeft", "wipeRight", "wipeTop", "wipeBottom", "zoom"):
             with MutatedProject() as p:
                 self.animate(p, enter={"effect": effect, "duration": 600}, exit={"effect": effect, "duration": 1200})
                 p.obj(1, lambda o: o["timing"].update(visibleFor=20000))
@@ -3158,7 +3158,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.39.0")
+        self.assertEqual(project["schemaVersion"], "0.40.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

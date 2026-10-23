@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clampDuration, EFFECTS, frames, GUARD_MS, HIDDEN_CLASS, hasAnimation, hasSlideTransition, NO_EFFECT, play, Presenter, reducedMotion, SLIDE_DISTANCE, ZOOM_FROM } from "./animation.ts";
-import type { Effect } from "./types.ts";
+import type { Effect, EffectName } from "./types.ts";
 
 /** An element that records what it is told, and an animation that ends when the test says so. */
 interface FakeAnimation { finished: Promise<void>; cancel(): void; finish(): void; end(): void }
@@ -31,12 +31,13 @@ const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 const fade: Effect = { effect: "fade", duration: 600 };
 
 test("every effect has a way in and a way out, and none has nothing to play", () => {
-  assert.deepEqual([...EFFECTS], ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "zoom"]);
+  assert.deepEqual([...EFFECTS], ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "wipeLeft", "wipeRight", "wipeTop", "wipeBottom", "zoom"]);
   for (const effect of EFFECTS) {
     for (const phase of ["enter", "exit"] as const) {
       const k = frames(effect, phase);
       if (effect === "none") { assert.equal(k, null); continue; }
       assert.equal(k!.length, 2, `${effect} ${phase}`);
+      if (effect.startsWith("wipe")) continue; // a wipe clips and does not fade: see the next tests
       assert.equal(k![phase === "enter" ? 0 : 1]!["opacity"], 0, "it is away, and see-through, at one end");
       assert.equal(k![phase === "enter" ? 1 : 0]!["opacity"], 1, "and fully there at the other");
     }
@@ -299,4 +300,21 @@ test("a slide's transition does something only if it has an effect other than no
   assert.equal(hasSlideTransition({ enter: fade }), true);
   assert.equal(hasSlideTransition({ exit: fade }), true);
   assert.equal(hasSlideTransition({ enter: NO_EFFECT, exit: { effect: "zoom", duration: 300 } }), true);
+});
+
+test("a wipe clips what is drawn from one edge, goes in with the edge it comes from and out toward it, and moves and fades nothing", () => {
+  const whole = "inset(0 0 0 0)";
+  const shut: Record<string, string> = { wipeLeft: "inset(0 100% 0 0)", wipeRight: "inset(0 0 0 100%)", wipeTop: "inset(0 0 100% 0)", wipeBottom: "inset(100% 0 0 0)" };
+  for (const [effect, away] of Object.entries(shut)) {
+    const name = effect as EffectName;
+    assert.deepEqual(frames(name, "enter"), [{ clipPath: away }, { clipPath: whole }], `${effect} in`);
+    assert.deepEqual(frames(name, "exit"), [{ clipPath: whole }, { clipPath: away }], `${effect} out`);
+    for (const k of frames(name, "enter")!) {
+      assert.equal(k["opacity"], undefined, "no fade");
+      assert.equal(k["translate"], undefined, "no move");
+      assert.equal(k["scale"], undefined, "no growing");
+    }
+  }
+  // A wipe from the left shows the left edge first: at the start nothing is shown, and the part shut off is on the right.
+  assert.equal(shut["wipeLeft"], "inset(0 100% 0 0)", "inset is top right bottom left: the right edge is pulled all the way in");
 });

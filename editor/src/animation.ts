@@ -19,10 +19,12 @@ const LABELS: Record<Phase, Record<EffectName, string>> = {
   enter: {
     none: "No effect", fade: "Fade in", slideLeft: "Slide in from the left", slideRight: "Slide in from the right",
     slideTop: "Slide in from the top", slideBottom: "Slide in from the bottom", zoom: "Grow in",
+    wipeLeft: "Wipe in from the left", wipeRight: "Wipe in from the right", wipeTop: "Wipe in from the top", wipeBottom: "Wipe in from the bottom",
   },
   exit: {
     none: "No effect", fade: "Fade out", slideLeft: "Slide out to the left", slideRight: "Slide out to the right",
     slideTop: "Slide out to the top", slideBottom: "Slide out to the bottom", zoom: "Shrink out",
+    wipeLeft: "Wipe out toward the left", wipeRight: "Wipe out toward the right", wipeTop: "Wipe out toward the top", wipeBottom: "Wipe out toward the bottom",
   },
 };
 

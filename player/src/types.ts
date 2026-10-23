@@ -474,7 +474,7 @@ export interface Timing {
   until?: { step: number; start: number };
 }
 
-export type EffectName = "none" | "fade" | "slideLeft" | "slideRight" | "slideTop" | "slideBottom" | "zoom";
+export type EffectName = "none" | "fade" | "slideLeft" | "slideRight" | "slideTop" | "slideBottom" | "wipeLeft" | "wipeRight" | "wipeTop" | "wipeBottom" | "zoom";
 
 /** One effect and how long it lasts, in milliseconds (100 to 2000). */
 export interface Effect {

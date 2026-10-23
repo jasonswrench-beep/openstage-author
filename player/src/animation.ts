@@ -9,7 +9,7 @@
 
 import type { Effect, EffectName, ObjectAnimation } from "./types.ts";
 
-export const EFFECTS: readonly EffectName[] = ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "zoom"];
+export const EFFECTS: readonly EffectName[] = ["none", "fade", "slideLeft", "slideRight", "slideTop", "slideBottom", "wipeLeft", "wipeRight", "wipeTop", "wipeBottom", "zoom"];
 
 export const MIN_DURATION = 100;
 export const MAX_DURATION = 2000;
@@ -22,6 +22,13 @@ export const GUARD_MS = 400;
 export const SLIDE_DISTANCE = 40;
 /** How much smaller a zoom starts. */
 export const ZOOM_FROM = 0.85;
+
+/** What a wipe has shown of an object when it starts (an entrance) or ends (an exit): none of it, with the edge it comes from or goes toward named. Added in 0.40.0. */
+export const WIPE_AWAY: Partial<Record<EffectName, string>> = {
+  wipeLeft: "inset(0 100% 0 0)", wipeRight: "inset(0 0 0 100%)", wipeTop: "inset(0 0 100% 0)", wipeBottom: "inset(100% 0 0 0)",
+};
+/** All of the object showing. */
+export const WIPE_WHOLE = "inset(0 0 0 0)";
 
 export type Phase = "enter" | "exit";
 
@@ -47,6 +54,13 @@ export function clampDuration(ms: number): number {
  * `translate` and `scale` are used, not `transform`, so an object that is rotated keeps its rotation while it moves. Null for "none".
  */
 export function frames(effect: EffectName, phase: Phase): Keyframe[] | null {
+  // A wipe shows or hides the object from one edge across, nothing moves and nothing fades. The page has all of it from the start; only what is drawn is clipped.
+  const wiped = WIPE_AWAY[effect];
+  if (wiped) {
+    const shut: Keyframe = { clipPath: wiped };
+    const open: Keyframe = { clipPath: WIPE_WHOLE };
+    return phase === "enter" ? [shut, open] : [open, shut];
+  }
   const away: Keyframe | null =
     effect === "fade" ? { opacity: 0 }
     : effect === "slideLeft" ? { opacity: 0, translate: `${-SLIDE_DISTANCE}px 0` }

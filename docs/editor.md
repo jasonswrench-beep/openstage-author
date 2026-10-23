@@ -387,7 +387,7 @@ slide with timing or an automatic advance, and the validator warns about a slide
 object that appears after the slide has gone, a control that disappears, and text that goes before it can be read.
 
 **Animation.** Every object has an **Animation** section in the Properties panel: how it **Arrives** (none, fade in, slide in from the left,
-right, top or bottom, or grow in) and how it **Leaves** (the same, going out), each with the seconds it lasts, from 0.1 to 2, and a
+right, top or bottom, wipe in from the left, right, top or bottom, or grow in) and how it **Leaves** (the same, going out), each with the seconds it lasts, from 0.1 to 2, and a
 sentence that says it in words. An arrival plays when the object appears, which includes when the slide opens. A leaving effect plays
 only when the object disappears at the end of its time, so give it a **Stays for** time in Timing (otherwise the Problems list warns
 that the exit never plays). **Preview animation** plays the arrival and the exit on the canvas and puts the object back, without

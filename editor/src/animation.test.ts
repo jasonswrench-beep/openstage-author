@@ -35,6 +35,8 @@ test("the list of effects to choose from has the same effects as the format, wit
   assert.deepEqual(exit.map((c) => c.value), [...EFFECTS]);
   assert.equal(enter.find((c) => c.value === "slideLeft")!.label, "Slide in from the left");
   assert.equal(exit.find((c) => c.value === "slideLeft")!.label, "Slide out to the left");
+  assert.equal(enter.find((c) => c.value === "wipeBottom")!.label, "Wipe in from the bottom");
+  assert.equal(exit.find((c) => c.value === "wipeLeft")!.label, "Wipe out toward the left");
   assert.equal(enter.find((c) => c.value === "zoom")!.label, "Grow in");
   assert.equal(exit.find((c) => c.value === "zoom")!.label, "Shrink out");
   assert.equal(enter[0]!.label, "No effect");

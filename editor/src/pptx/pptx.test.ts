@@ -854,7 +854,9 @@ test("transition: it becomes the way the slide comes in, as near as this editor 
   assert.deepEqual(t("push", "r").effect.effect, "slideLeft");
   assert.deepEqual(t("push", "u").effect.effect, "slideBottom");
   assert.deepEqual(t("push", "d").effect.effect, "slideTop");
-  assert.deepEqual(t("wipe", "l"), { effect: { effect: "slideRight", duration: 700 }, exact: false }, "a wipe is near a slide");
+  assert.deepEqual(t("wipe", "l"), { effect: { effect: "wipeRight", duration: 700 }, exact: true }, "a wipe toward the left shows the next slide from the right");
+  assert.deepEqual(["r", "u", "d"].map((d) => t("wipe", d).effect.effect), ["wipeLeft", "wipeBottom", "wipeTop"]);
+  assert.deepEqual(t("wipe", ""), { effect: { effect: "fade", duration: 700 }, exact: false }, "no direction: a fade");
   assert.deepEqual(t("cover", "u").exact, false);
   assert.deepEqual(t("push", ""), { effect: { effect: "fade", duration: 700 }, exact: false }, "no direction: a fade");
   assert.deepEqual(t("vortex"), { effect: { effect: "fade", duration: 700 }, exact: false }, "an effect this editor does not have fades");
@@ -881,4 +883,22 @@ test("transition: a slide from the deck has it as its slide animation (in), and 
   assert.match(report, /2 slides had a transition in PowerPoint\. It is how the slide comes in here \(Slide animation \(in\)/);
   assert.match(report, /1 transition used an effect this editor does not have, so it uses the nearest/);
   assert.doesNotMatch(report, /had a transition \(how the slide comes on\)/, "the old line saying it was left out is gone");
+});
+
+test("a Wipe effect comes across as a wipe from the side it starts from, going in and going out; one with no side fades", () => {
+  const ds = one(SHAPES(4), {}, {
+    timing: timing([
+      { groups: [{ effects: [{ spid: 10, preset: 22, subtype: 8 }, { spid: 11, preset: 22, subtype: 4, node: "withEffect" }, { spid: 12, preset: 22, subtype: 1, node: "withEffect" }, { spid: 13, preset: 22, subtype: 2, node: "withEffect" }] }] },
+      { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 22, subtype: 8 }, { spid: 11, cls: "exit", preset: 22, subtype: 0, node: "withEffect" }] }] },
+    ]),
+  });
+  const c = ctx();
+  const out = convertSlide(ds, { ...slideCtx(), notes: c.notes });
+  const [l, b, t, r] = out.objects;
+  assert.deepEqual(l!.animation.enter.effect, "wipeLeft");
+  assert.deepEqual([b!.animation.enter.effect, t!.animation.enter.effect, r!.animation.enter.effect], ["wipeBottom", "wipeTop", "wipeRight"]);
+  assert.deepEqual(l!.animation.exit.effect, "wipeLeft", "wiped away toward the same side");
+  assert.deepEqual(b!.animation.exit.effect, "fade", "a wipe out with no side fades");
+  assert.equal(c.notes.animationApproximated, 0, "the four ways in are exact");
+  assert.equal(c.notes.exitsApproximated, 1, "the exit with no side is counted");
 });

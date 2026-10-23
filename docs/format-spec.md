@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.39.0",
+  "schemaVersion": "0.40.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -218,7 +218,7 @@ theme's default. Switching the theme restyles every slide through these two fiel
 for one that advances on its own (see Timing). The base layer always exists. Additional layers are
 shown and hidden by triggers.
 
-`transition` is optional (added in 0.37.0): `{ "enter": { "effect": "fade", "duration": 500 }, "exit": { "effect": "slideLeft", "duration": 600 } }`, either part optional (and at least one present), each an `effect` of an object's `animation` (`none`, `fade`, `slideLeft`, `slideRight`, `slideTop`, `slideBottom`, `zoom`; `duration` 100 to 2000 milliseconds). `enter` plays when the learner arrives at the slide; `exit` plays when the learner leaves it, over the slide that follows (the old slide stays on top, with nothing in it to read or press, until its effect is over, so the new slide is already working underneath and nothing waits). Not played in one-column view, when the learner has turned animation off (a slide with a transition has the **Turn off animation** button, as an object with an effect does), or when the device asks for less motion (`prefers-reduced-motion`). The editor writes only the parts that are not `none`, and no `transition` at all when neither is.
+`transition` is optional (added in 0.37.0): `{ "enter": { "effect": "fade", "duration": 500 }, "exit": { "effect": "slideLeft", "duration": 600 } }`, either part optional (and at least one present), each an `effect` of an object's `animation` (`none`, `fade`, `slideLeft`, `slideRight`, `slideTop`, `slideBottom`, `wipeLeft`, `wipeRight`, `wipeTop`, `wipeBottom`, `zoom`; `duration` 100 to 2000 milliseconds). `enter` plays when the learner arrives at the slide; `exit` plays when the learner leaves it, over the slide that follows (the old slide stays on top, with nothing in it to read or press, until its effect is over, so the new slide is already working underneath and nothing waits). Not played in one-column view, when the learner has turned animation off (a slide with a transition has the **Turn off animation** button, as an object with an effect does), or when the device asks for less motion (`prefers-reduced-motion`). The editor writes only the parts that are not `none`, and no `transition` at all when neither is.
 
 `autoSteps` is optional (added in 0.36.0): `{ "first": ms, "every": ms }` makes the slide's steps (see Waiting for the learner, under Timing) come by themselves. Absent, they wait for the learner.
 
@@ -1029,7 +1029,7 @@ has, is no effect either way, so the object just appears and goes, as before.
 
 | Field | Meaning |
 | --- | --- |
-| `enter.effect`, `exit.effect` | `none`, `fade`, `slideLeft`, `slideRight`, `slideTop`, `slideBottom` or `zoom`. A slide arrives from that side, or leaves toward it. `zoom` grows from slightly smaller, or shrinks to it. |
+| `enter.effect`, `exit.effect` | `none`, `fade`, `slideLeft`, `slideRight`, `slideTop`, `slideBottom`, `wipeLeft`, `wipeRight`, `wipeTop`, `wipeBottom` or `zoom`. A slide arrives from that side, or leaves toward it. A wipe (added in 0.40.0) shows the object across from that edge, or hides it back toward that edge, by clipping what is drawn: nothing moves or fades, and the content is in the page throughout. `zoom` grows from slightly smaller, or shrinks to it. |
 | `enter.duration`, `exit.duration` | A whole number of milliseconds, 100 to 2000. Short on purpose. |
 
 An entrance plays when the object appears: at its time (see Timing), and also when the slide, or its layer, opens, for an object
@@ -1521,6 +1521,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.39.0 | 0.40.0 | Adds four wipe effects, `wipeLeft`, `wipeRight`, `wipeTop` and `wipeBottom`, to the effects an object's `animation` or a slide's `transition` can use (how a Wipe in PowerPoint comes across). Nothing in an older course changes. |
 | 0.38.0 | 0.39.0 | Adds the optional `animation` and `notes` of the `base` of a slide's import provenance: what the import gave each animated shape's `timing` and `animation`, and the words of the speaker notes it made the narration of one object, so a changed deck's animation and notes can be compared with what the author has done since. Nothing in an older course changes: a slide without them is compared as if they were not recorded (see below). |
 | 0.37.0 | 0.38.0 | Adds the optional `until` of an object's `timing`: the object goes away when the learner shows a step of Show next item (how an exit effect that waits for a click in PowerPoint comes across). Nothing in an older course changes. |
 | 0.36.0 | 0.37.0 | Adds the optional `transition` of a slide (how the slide arrives and how it leaves, with the same effects as an object's animation). Nothing in an older course changes. |
