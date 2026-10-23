@@ -174,8 +174,8 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
 
   const fonts = Object.entries(notes.fontsReplaced);
   if (fonts.length > 0) out.push(`Fonts a web page cannot count on were replaced by the course's own font: ${fonts.map(([f, n]) => `${f} (${plural(n, "text box", "text boxes")})`).join(", ")}.`);
-  if (notes.mixedSize > 0) out.push(`${plural(notes.mixedSize, "text box", "text boxes")} had more than one text size. The size most of its words have is used for all.`);
-  if (notes.mixedColour > 0) out.push(`${plural(notes.mixedColour, "text box", "text boxes")} had more than one text colour. The colour most of its words have is used for all.`);
+  if (notes.mixedSize > 0) out.push(`${plural(notes.mixedSize, "text box", "text boxes")} had more than one text size. The size most of its words have is the box's, and each part with another size keeps it as a share of the box's.`);
+  if (notes.mixedColour > 0) out.push(`${plural(notes.mixedColour, "text box", "text boxes")} had more than one text colour. The colour most of its words have is the box's, and each part with another colour keeps it. Each colour is checked for contrast like any other.`);
   if (notes.shrinks > 0) out.push(`${plural(notes.shrinks, "text box", "text boxes")} shrink${notes.shrinks === 1 ? "s" : ""} the words when they do not fit, as PowerPoint's "shrink text on overflow" does, but never below half size or 12 pixels. Fonts differ a little between PowerPoint and a web page, so this keeps each box looking as it did. You can turn it off in a text's Properties.`);
   const forms = Object.entries(notes.formsRedrawn);
   if (forms.length > 0) out.push(`Shapes this editor cannot draw were drawn as rectangles: ${forms.map(([f, n]) => `${f} (${n})`).join(", ")}.`);

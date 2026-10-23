@@ -116,3 +116,30 @@ test("the plain lines of some text are one for each paragraph, heading and list 
   assert.deepEqual(plainLines("<h1>Title</h1><p>Some <strong>words</strong>.</p><ul><li>One<ul><li>Deeper</li></ul></li><li>Two</li></ul>"), ["Title", "Some words.", "One", "Deeper", "Two"]);
   assert.deepEqual(plainLines(""), []);
 });
+
+test("a part of the words with its own colour or size keeps it, from a span or a font tag, and nothing else of a style stays", () => {
+  const kept = '<p>A <span style="color:#c00000">red</span> word, a <span style="font-size:150%">big</span> one, <span style="color:#0000ff;font-size:80%">both</span>.</p>';
+  assert.equal(cleanHtml(kept), kept, "what the import writes is already in the kept form");
+  assert.equal(cleanHtml('<p><span style="color: rgb(192, 0, 0); font-family: Arial; background: yellow">red</span></p>'), '<p><span style="color:#c00000">red</span></p>', "pasted colours become hex and the rest goes");
+  assert.equal(cleanHtml('<p>x <font color="#00aa00" face="Arial">green</font></p>'), '<p>x <span style="color:#00aa00">green</span></p>');
+  assert.equal(cleanHtml('<p><span style="color:red">named</span></p>'), "<p>named</p>", "a colour name is not kept, so the words are plain");
+  assert.equal(cleanHtml('<p><span style="font-size:12px">pixels</span></p>'), "<p>pixels</p>");
+  assert.equal(cleanHtml('<p><span style="font-weight:bold;color:#c00000">warning</span></p>'), '<strong><span style="color:#c00000">warning</span></strong>'.replace(/^/, "<p>").concat("</p>"), "bold from a style becomes a tag, outside the span");
+  assert.equal(cleanHtml('<p><span lang="fr" style="color:#c00000">bon</span></p>'), '<p><span lang="fr" style="color:#c00000">bon</span></p>');
+  assert.equal(cleanHtml('<p><span style="color:#c00000">one</span><span style="color:#c00000"> two</span></p>'), '<p><span style="color:#c00000">one two</span></p>', "the same look runs together");
+});
+
+test("the PowerPoint import marks only the parts that differ from the box: another colour, another size as a share of the box's", () => {
+  const run = (text: string, over: Record<string, unknown> = {}) => ({ text, ...over });
+  const para = (...runs: ReturnType<typeof run>[]) => ({ level: 0, bullet: "none" as const, align: "l" as const, runs });
+  // The box is 20 pt in #202020. A run in #c00000 at 20 pt, one at 30 pt, one at 20.5 pt (too near to count), and one with no colour of its own.
+  const html = parasToHtml([para(run("plain ", { color: "#202020", size: 20 }), run("red ", { color: "#c00000", size: 20 }), run("big ", { color: "#202020", size: 30 }), run("near ", { size: 20.5 }), run("bare"))] as never, false, false, { color: "#202020", size: 20 });
+  assert.equal(html, '<p>plain <span style="color:#c00000">red</span> <span style="font-size:150%">big</span> near bare</p>');
+  // A deeper level of a list takes its own size as the base.
+  const deep = parasToHtml([{ level: 1, bullet: "dot" as const, align: "l" as const, runs: [run("deep ", { size: 16 }), run("deeper", { size: 24 })] }] as never, false, false, { size: 20, deeper: 16 });
+  assert.equal(deep, '<ul><li><ul><li>deep <span style="font-size:150%">deeper</span></li></ul></li></ul>'.replace("<ul><li><ul>", "<ul><li><ul>"));
+  // Nothing marked when the box is all one look, and a title is marked the same way.
+  assert.equal(parasToHtml([para(run("same", { color: "#202020", size: 20 }))] as never, false, false, { color: "#202020", size: 20 }), "<p>same</p>");
+  assert.equal(parasToHtml([para(run("Big ", { size: 40 }), run("small", { size: 20 }))] as never, true, false, { size: 40 }), '<h1>Big <span style="font-size:50%">small</span></h1>');
+  assert.equal(cleanHtml(html), html, "and it is the kept form");
+});

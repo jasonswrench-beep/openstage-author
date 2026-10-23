@@ -29,7 +29,7 @@ try {
     const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: 1280 / rect.w } });
     if (shot.result.data) writeFileSync(`${outDir}/slide-${String(i).padStart(3, "0")}.png`, Buffer.from(shot.result.data, "base64")); else console.log("no picture for", i);
     await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent === 'Next'); if (b && !b.disabled) b.click(); })()`);
-    await sleep(500);
+    await sleep(Number(process.env.SHOOT_WAIT ?? 1500)); // long enough for a slide's own transition to finish
   }
   ws.close();
 } finally { edge.kill(); }

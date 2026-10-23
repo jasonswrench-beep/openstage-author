@@ -833,6 +833,23 @@ class RulesNotInTheBrokenFixture(unittest.TestCase):
             p.obj(3, lambda o: set_style(o, 30))
             self.assertEqual(rules(p.run(), "contrast", "obj-0004"), [])
 
+    def test_the_colour_of_a_part_of_a_text_is_held_to_the_same_contrast(self):
+        with MutatedProject() as p:
+            # The text itself is fine (black on white); one word in a pale grey is not.
+            def set_text(o, html):
+                o["states"] = {}
+                o["type"] = "text"
+                o["content"] = {"html": html}
+                o["style"].update({"color": "#000000", "fill": "#ffffff", "fontSize": 18})
+            p.obj(3, lambda o: set_text(o, '<p>A <span style="color:#c8c8c8">pale</span> word</p>'))
+            found = [f for f in p.run() if f.rule == "contrast" and f.object_id == "obj-0004"]
+            self.assertEqual(len(found), 1)
+            self.assertIn("Part of the text, #c8c8c8", found[0].detail)
+            p.obj(3, lambda o: set_text(o, '<p>A <span style="color:#1a1a1a;font-size:150%">dark</span> word</p>'))
+            self.assertEqual(rules(p.run(), "contrast", "obj-0004"), [])
+            p.obj(3, lambda o: set_text(o, '<p>A <span style="font-size:80%">small</span> word</p>'))
+            self.assertEqual(rules(p.run(), "contrast", "obj-0004"), [], "a size alone has no colour to check")
+
     def test_contrast_checked_in_states(self):
         with MutatedProject() as p:
             p.obj(3, lambda o: o["states"]["hover"].__setitem__("style", {"fill": "#0b5fff", "color": "#0c60ff"}))

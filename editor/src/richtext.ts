@@ -5,6 +5,8 @@
 // Nothing here touches a page. `parseHtml` reads HTML a browser wrote (every tag closed, attributes quoted) or that this editor wrote, into a small
 // tree; `cleanHtml` turns what an editing box made into the canonical form; the tests run on both without a browser.
 
+import { safeSpanStyle, spanColour } from "../../player/src/spanstyle.ts";
+
 export interface HNode { tag: string; attrs: Record<string, string>; kids: HChild[] }
 export type HChild = HNode | string;
 
@@ -90,7 +92,13 @@ function inlineOf(c: HChild): HChild[] {
   if (tag === "span" || tag === "font") {
     const lang = c.attrs["lang"];
     const marks = styleMarks(c.attrs["style"]);
-    const kids = lang && LANG.test(lang) ? [{ tag: "span", attrs: { lang }, kids: inside() } as HChild] : inside();
+    // A span keeps its language, its colour and its size (as a share of the text's own); a font tag's colour counts as a span's. Nothing else of a style stays.
+    const fontColour = tag === "font" && c.attrs["color"] ? spanColour(c.attrs["color"]) : null;
+    const style = safeSpanStyle(`${c.attrs["style"] ?? ""};${fontColour ? `color:${fontColour}` : ""}`);
+    const attrs: Record<string, string> = {};
+    if (lang && LANG.test(lang)) attrs["lang"] = lang;
+    if (style) attrs["style"] = style;
+    const kids = Object.keys(attrs).length > 0 ? [{ tag: "span", attrs, kids: inside() } as HChild] : inside();
     return wrap(marks, kids);
   }
   // A block inside a mark (an editing box sometimes makes one): its words stay, one line after another.

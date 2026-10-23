@@ -15,7 +15,7 @@ Try it with `examples/powerpoint/Introduction to Communication.pptx`.
 ## What comes across
 
 - **Slides**, in order, named by their title.
-- **Text**: a title becomes a heading; bulleted and numbered lists stay lists, with their levels; bold, italic, underline and links stay. A box that has more than one size or colour uses the one most of its words have.
+- **Text**: a title becomes a heading; bulleted and numbered lists stay lists, with their levels; bold, italic, underline and links stay. A box that has more than one size or colour keeps them: the colour and size most of its words have are the box's, and a part with another colour or size is marked (a colour as it is; a size as a share of the box's, so the box can still shrink to fit). Each colour is checked for contrast against the background like the box's own.
 - **Pictures**, with the alt text you wrote in PowerPoint. The picture files are saved in the project's images.
 - **Tables**, with their first row or column as headers.
 - **Shapes and lines**, with their fill and outline. A shape with no alt text is marked decorative, as a new shape in this editor is.

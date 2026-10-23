@@ -635,10 +635,15 @@ def _contrast(rel, obj, add, theme, slide_bg):
     if obj["type"] not in ("text", "button", "quizQuestion"):
         return
     is_button = obj["type"] == "button"
+    # A part of a text can have a colour of its own (a span with style color:#rrggbb): each is held to the same contrast as the text's.
+    part_colours = []
+    if obj["type"] == "text":
+        part_colours = sorted(set(m.lower() for m in re.findall(r'<span[^>]*\bstyle="[^"]*?\bcolor:\s*(#[0-9a-fA-F]{6})', str(obj["content"].get("html", "")))))
     for label, names, style in _variants(obj):
         colour = style.get("color")
         own_fill = style.get("fill", style.get("background"))
         fg = resolve_color(theme, colour) if colour is not None else theme["colors"]["onAccentStrong" if is_button else "text"]
+        _contrast_of_parts(rel, obj, add, theme, slide_bg, label, names, style, part_colours, own_fill)
         if own_fill is not None:
             bgs = [resolve_color(theme, own_fill)]
         elif is_button:
@@ -662,6 +667,25 @@ def _contrast(rel, obj, add, theme, slide_bg):
         if ratio < need:
             add(ERROR, rel, obj["id"], "contrast", "Contrast too low",
                 f"{fg} on {' to '.join(bgs)}{how}{label} is {ratio:.2f}:1; WCAG 2.2 AA needs {need}:1.")
+
+
+def _contrast_of_parts(rel, obj, add, theme, slide_bg, label, names, style, part_colours, own_fill):
+    """The colours of parts of a text, against the same background and with the same size rule as the whole text."""
+    if not part_colours:
+        return
+    bgs = [resolve_color(theme, own_fill)] if own_fill is not None else slide_bg
+    if any(b is None for b in bgs):
+        return
+    need = 3.0 if _is_large_text(style) else 4.5
+    solid = _solidness(style, names)
+    for colour in part_colours:
+        if solid < 1.0 and all(_hex_rgb(b) is not None for b in slide_bg):
+            ratio = min(contrast_ratio(_mix(_hex_rgb(colour), _hex_rgb(back), solid), _hex_rgb(back)) for back in slide_bg)
+        else:
+            ratio = min(contrast_ratio(_hex_rgb(colour), _hex_rgb(b)) for b in bgs)
+        if ratio < need:
+            add(ERROR, rel, obj["id"], "contrast", "Contrast too low",
+                f"Part of the text, {colour} on {' to '.join(bgs)}{label}, is {ratio:.2f}:1; WCAG 2.2 AA needs {need}:1.")
 
 
 def _states(rel, obj, add):

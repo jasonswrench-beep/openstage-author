@@ -10,6 +10,7 @@
 
 import type { Effect, EffectName, OSObject, Slide } from "../../../player/src/types.ts";
 import type { Narration } from "../narration.ts";
+import { spanStyleFor } from "../../../player/src/spanstyle.ts";
 import { FONT_CHOICES } from "../content.ts";
 import { box } from "../factory.ts";
 import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide, type DeckTransition } from "./deck.ts";
@@ -124,9 +125,31 @@ const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").rep
 const escapeAttr = (s: string) => escape(s).replace(/"/g, "&quot;");
 const SAFE_HREF = /^(https?:|mailto:)/i;
 
-function runHtml(r: DeckRun, allBold: boolean): string {
+/** What the text object itself already looks like, so a part of its words is marked only where it differs: the colour most of the words have, and the size (in points) of this level. */
+export interface TextLook {
+  color?: string;
+  size?: number;
+  /** The size of the deeper levels of a list, when they have their own (the object's `nestedSize`). */
+  deeper?: number;
+}
+
+/** A part of the words that has a colour or a size of its own, as the style of a span. A size is a share of the object's, so the box can still shrink to fit. Empty if it looks like the rest. */
+function partStyle(r: DeckRun, colour: string | undefined, size: number | undefined): string {
+  const own = r.color && r.color.toLowerCase() !== (colour ?? "").toLowerCase() ? r.color : undefined;
+  let percent: number | undefined;
+  if (r.size !== undefined && size) {
+    const p = Math.round((r.size / size) * 100);
+    if (Math.abs(p - 100) >= 5) percent = Math.min(300, Math.max(50, p));
+  }
+  return spanStyleFor(own, percent);
+}
+
+function runHtml(r: DeckRun, allBold: boolean, colour?: string, size?: number): string {
   if (r.br) return "<br>";
   let t = escape(r.text);
+  const part = partStyle(r, colour, size);
+  // A space at the edge of a part stays outside it, as the editor keeps it, so a colour does not paint the gap before the next word.
+  if (part && t.trim() !== "") t = t.replace(/^(\s*)([\s\S]*?)(\s*)$/, (_w, lead: string, inner: string, trail: string) => `${lead}<span style="${part}">${inner}</span>${trail}`);
   if (r.sup) t = `<sup>${t}</sup>`;
   if (r.sub) t = `<sub>${t}</sub>`;
   if (r.underline && !r.href) t = `<u>${t}</u>`;
@@ -137,8 +160,8 @@ function runHtml(r: DeckRun, allBold: boolean): string {
 }
 
 /** Paragraphs as HTML: a heading for a title, paragraphs, and lists (nested for deeper levels) for bulleted paragraphs. */
-export function parasToHtml(paras: DeckPara[], title: boolean, allBold: boolean): string {
-  const inner = (p: DeckPara) => p.runs.map((r) => runHtml(r, allBold)).join("");
+export function parasToHtml(paras: DeckPara[], title: boolean, allBold: boolean, look: TextLook = {}): string {
+  const inner = (p: DeckPara) => p.runs.map((r) => runHtml(r, allBold, look.color, p.level === 0 ? look.size : look.deeper ?? look.size)).join("");
   if (title) return `<h1>${paras.map(inner).join("<br>")}</h1>`;
   let out = "";
   const open: { tag: "ul" | "ol"; li: boolean }[] = [];
@@ -296,7 +319,7 @@ export function convertShape(shape: DeckShape, ctx: ConvertContext): Draft | nul
       if (shape.note) bump(notes.fills, shape.note);
       const text = plain(shape.paras);
       return {
-        type: "text", name: shape.name, geometry, content: { html: parasToHtml(shape.paras, title, allBold) }, style,
+        type: "text", name: shape.name, geometry, content: { html: parasToHtml(shape.paras, title, allBold, { ...(colour.value ? { color: colour.value } : {}), ...(size.value !== undefined ? { size: size.value } : {}), ...(deeper !== undefined ? { deeper } : {}) }) }, style,
         altText: shape.alt !== "" ? shape.alt : text, decorative: false, role: title ? "heading" : shape.paras.some((q) => q.bullet !== "none") ? "list" : "paragraph",
       };
     }
