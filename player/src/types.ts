@@ -472,7 +472,12 @@ export interface Timing {
   visibleFor: number | null;
   /** The object goes away when the learner shows this step of Show next item (or it comes by itself), `start` ms after it (added in 0.38.0). If visibleFor is also set, whichever is first. */
   until?: { step: number; start: number };
+  /** Only for a text: a timing for each paragraph, in the order they come in the text (see paragraphs.ts), so it can come in or go away one paragraph at a time (added in 0.41.0). */
+  paragraphs?: PartTiming[];
 }
+
+/** The timing of one paragraph of a text: an object's timing that cannot follow a clip or a narration, and has no paragraphs of its own. */
+export type PartTiming = Omit<Timing, "appear" | "media" | "paragraphs"> & { appear: "time" | "click" };
 
 export type EffectName = "none" | "fade" | "slideLeft" | "slideRight" | "slideTop" | "slideBottom" | "wipeLeft" | "wipeRight" | "wipeTop" | "wipeBottom" | "zoom";
 

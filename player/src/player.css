@@ -26,6 +26,9 @@ html, body { margin: 0; background: #f3f3f3; }
 
 .os-text, .os-shape, .os-image, .os-icon, .os-button, .os-hotspot, .os-quiz, .os-media, .os-interaction, .os-table, .os-scrolltext, .os-input, .os-results, .os-certificate-box, .os-download, .os-timer { position: absolute; box-sizing: border-box; }
 .os-timed-out { display: none !important; }
+/* A paragraph of a text that is not showing yet (or any more) keeps its room, so the lines round it do not jump when it comes. It is still out of the page for a screen reader and the keyboard. */
+.os-part-out { visibility: hidden !important; }
+.os-stage.os-reflow .os-part-out { display: none !important; }
 /* The object's own font size is the size the author chose. Without this, a browser makes an
    h1 twice that size and the text runs into whatever sits below it. */
 .os-text :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; margin: 0 0 .4em; }

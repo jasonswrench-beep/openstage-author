@@ -9,6 +9,7 @@ The same function (validate_project) is meant to power the command line and, lat
 the editor's problem list. Never write a second implementation.
 """
 import html as htmllib
+from html.parser import HTMLParser
 import json
 import os
 import pathlib
@@ -34,7 +35,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 40, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 41, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1689,6 +1690,55 @@ def _completion(project, slides, order, add):
 
 _WORDS_PER_SECOND = 3  # a comfortable reading pace, for the warning about text that goes too soon
 
+_PARAGRAPH_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li"}
+
+
+class _Paragraphs(HTMLParser):
+    """The paragraphs of a text, for timing them one at a time (a text's timing.paragraphs): a heading, a paragraph, a quotation, or a list item with the lists inside it,
+    in the order they come. The same rule is in player/src/paragraphs.ts and editor/src/paragraphs.ts; player/src/paragraph-cases.json holds the cases all three are tested on."""
+
+    VOID = {"br", "hr", "img", "input", "meta", "link", "wbr"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack = []
+        self.found = []  # the words of each paragraph
+        self.open_block = None  # depth of the open paragraph's own tag, and where its words go
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.VOID:
+            return
+        depth = len(self.stack)
+        if self.open_block is None:
+            top_level = depth == 0 and tag in _PARAGRAPH_TAGS and tag != "li"
+            list_item = tag == "li" and depth == 1 and self.stack[0] in ("ul", "ol")
+            if top_level or list_item:
+                self.open_block = (depth, [])
+                self.found.append(self.open_block[1])
+        self.stack.append(tag)
+
+    def handle_endtag(self, tag):
+        if tag in self.VOID or tag not in self.stack:
+            return
+        while self.stack:
+            top = self.stack.pop()
+            if self.open_block is not None and len(self.stack) == self.open_block[0]:
+                self.open_block = None
+            if top == tag:
+                break
+
+    def handle_data(self, data):
+        if self.open_block is not None:
+            self.open_block[1].append(data)
+
+
+def paragraphs_of(html):
+    """The words of each paragraph of a text's HTML, each on one line."""
+    parser = _Paragraphs()
+    parser.feed(html or "")
+    parser.close()
+    return [" ".join("".join(words).split()) for words in parser.found]
+
 
 def _timing(slides, add):
     """Things that appear or disappear on their own, and slides that move on on their own, can leave a learner behind."""
@@ -1736,7 +1786,36 @@ def _timing(slides, add):
             if duration is not None and layer is slide["baseLayer"] and t["appear"] == "time" and t["start"] >= duration:
                 add(WARNING, rel, oid, "timing-after-advance", "This object would appear after the slide has moved on",
                     f"It appears at {t['start'] / 1000:g} seconds and the slide moves on at {duration / 1000:g}.")
-            if obj["animation"]["exit"]["effect"] != "none" and t["visibleFor"] is None and not t.get("until"):
+            parts = t.get("paragraphs")
+            if parts:
+                # A text that comes in or goes away one paragraph at a time: each paragraph is a timing of its own.
+                if obj["type"] != "text":
+                    add(ERROR, rel, oid, "timing-paragraphs-type", "Only a text can come in one paragraph at a time",
+                        "Take away the paragraph timing, or put the words in a text box.")
+                else:
+                    count = len(paragraphs_of(obj["content"].get("html", "")))
+                    if len(parts) != count:
+                        add(WARNING, rel, oid, "timing-paragraphs-count",
+                            f"This text has {count} paragraph{'s' if count != 1 else ''}, but timing for {len(parts)}",
+                            "A paragraph with no timing is always there, and timing for a paragraph that is not there is not used. Open Timing and set each paragraph again.")
+                for number, part in enumerate(parts, 1):
+                    if part["appear"] == "click":
+                        waits_for_click = True
+                        click_steps.setdefault(layer["id"], set()).add(part["step"])
+                        last_delay = max(last_delay, part["start"])
+                    gone = part.get("until")
+                    if gone:
+                        waits_for_click = True
+                        click_steps.setdefault(layer["id"], set()).add(gone["step"])
+                        last_delay = max(last_delay, gone["start"])
+                        if part["appear"] == "click" and gone["step"] <= part["step"]:
+                            add(WARNING, rel, oid, "timing-until-before-appear", f"Paragraph {number} goes away before it ever shows",
+                                f"It appears at step {part['step']} and goes away at step {gone['step']}, so a learner never sees it. Choose a later step to go at.")
+                    if duration is not None and layer is slide["baseLayer"] and part["appear"] == "time" and part["start"] >= duration:
+                        add(WARNING, rel, oid, "timing-after-advance", f"Paragraph {number} would appear after the slide has moved on",
+                            f"It appears at {part['start'] / 1000:g} seconds and the slide moves on at {duration / 1000:g}.")
+            leaves = t["visibleFor"] is not None or bool(t.get("until")) or any(p.get("until") or p["visibleFor"] is not None for p in parts or [])
+            if obj["animation"]["exit"]["effect"] != "none" and not leaves:
                 add(WARNING, rel, oid, "animation-exit-never", "This object has an exit effect but never goes",
                     "An exit effect plays when the object disappears, at the end of its time or at a step, and this object has neither, so the effect would never play.")
             if t["visibleFor"] is not None and obj["type"] in INTERACTIVE:

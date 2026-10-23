@@ -85,11 +85,12 @@ export const HIDDEN_CLASS = "os-timed-out";
 export class Presenter {
   private readonly playing = new Map<string, Playing>();
 
-  set(id: string, el: HTMLElement, visible: boolean, motion?: Effect): void {
+  /** `hiddenClass` is what holds the element out of sight: a whole object leaves the page, a paragraph of a text keeps its room (see paragraphs.ts). */
+  set(id: string, el: HTMLElement, visible: boolean, motion?: Effect, hiddenClass: string = HIDDEN_CLASS): void {
     this.playing.get(id)?.cancel();
     this.playing.delete(id);
     if (visible) {
-      el.classList.remove(HIDDEN_CLASS);
+      el.classList.remove(hiddenClass);
       const entering = motion ? play(el, motion, "enter") : null;
       if (entering) {
         this.playing.set(id, entering);
@@ -97,16 +98,16 @@ export class Presenter {
       }
       return;
     }
-    const leaving = motion && !el.classList.contains(HIDDEN_CLASS) ? play(el, motion, "exit") : null;
+    const leaving = motion && !el.classList.contains(hiddenClass) ? play(el, motion, "exit") : null;
     if (!leaving) {
-      el.classList.add(HIDDEN_CLASS);
+      el.classList.add(hiddenClass);
       return;
     }
     this.playing.set(id, leaving);
     void leaving.finished.then(() => {
       if (this.playing.get(id) !== leaving) return;
       this.playing.delete(id);
-      el.classList.add(HIDDEN_CLASS);
+      el.classList.add(hiddenClass);
       leaving.cancel();
     });
   }

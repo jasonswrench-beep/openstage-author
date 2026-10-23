@@ -8,7 +8,7 @@ import { BACKGROUND_NAME, isBackgroundPicture } from "./backgrounds.ts";
 import { referencesVariable, renameReferences } from "./values.ts";
 import { importSlides, peopleProblem, type SetRead } from "./slidesets.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
-import type { Bank, CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
+import type { PartTiming, Bank, CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
@@ -35,7 +35,8 @@ import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } f
 import { describeAnimation, describeSlideTransition, validDuration, type Phase } from "./animation.ts";
 import { DEFAULT_DURATION, EFFECTS } from "../../player/src/animation.ts";
 import { TIMER_MAX_EXTEND, TIMER_MAX_SECONDS, TIMER_MIN_SECONDS, timerContentOf } from "../../player/src/timer.ts";
-import { describeTiming, MAX_MS, MAX_STEP, plainSeconds } from "./timing.ts";
+import { describeTiming, MAX_MS, MAX_STEP, plainSeconds, stepsUsed } from "./timing.ts";
+import { isPlainPart, paragraphsOf, partsFor } from "./paragraphs.ts";
 import { lookOf, withLook, CUSTOM_LOOK } from "./buttonlooks.ts";
 import { gameById, gameOptions } from "./gamesets.ts";
 import type { GameContent } from "./gameimport.ts";
@@ -45,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.40.0";
+export const FORMAT_VERSION = "0.41.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -753,8 +754,9 @@ export class Model {
     if (obj.content["html"] === html) return null;
     this.record(`text:${objectId}`);
     obj.content = { ...obj.content, html };
+    const note = this.alignParagraphs(obj);
     this.emit({ kind: "content", objectId });
-    return "Text updated";
+    return `Text updated${note}`;
   }
 
   /**
@@ -769,6 +771,7 @@ export class Model {
     if (obj.content["html"] === html && obj.style["fontSize"] === fontSize) return null;
     this.record(`block:${objectId}`);
     obj.content = { ...obj.content, html };
+    this.alignParagraphs(obj);
     // Text that follows the theme's fonts uses the heading font for headings and the body font for paragraphs.
     const font: Style = isThemeRef(obj.style["fontFamily"]) ? { fontFamily: block === "p" ? "theme:font.body" : "theme:font.heading" } : {};
     obj.style = { ...obj.style, fontSize, ...font };
@@ -886,8 +889,9 @@ export class Model {
     if (!obj || obj.type !== "text" || html.trim() === "" || obj.content["html"] === html) return null;
     this.record(`html:${objectId}`);
     obj.content = { ...obj.content, html };
+    const note = this.alignParagraphs(obj);
     this.emit({ kind: "content", objectId });
-    return "Text updated";
+    return `Text updated${note}`;
   }
 
   setLabel(objectId: string, label: string): string | null {
@@ -2619,8 +2623,7 @@ export class Model {
       next = { appear: "media", media, start: next.start, visibleFor: next.visibleFor };
     } else if (next.appear === "click") {
       // A new click step goes after the last one on the layer, unless the author names one.
-      const others = this.timingRows().filter((r) => r.layerId === row.layerId && r.object.id !== objectId && r.object.timing.appear === "click");
-      const step = patch.step ?? (obj.timing.appear === "click" ? obj.timing.step : undefined) ?? Math.max(0, ...others.map((r) => r.object.timing.step ?? 1)) + 1;
+      const step = patch.step ?? (obj.timing.appear === "click" ? obj.timing.step : undefined) ?? this.lastStep(row.layerId, objectId) + 1;
       if (!Number.isInteger(step) || step < 1 || step > MAX_STEP) return { ok: false, message: `The item number must be a whole number from 1 to ${MAX_STEP}.` };
       next = { appear: "click", step, start: next.start, visibleFor: next.visibleFor };
     } else {
@@ -2634,6 +2637,9 @@ export class Model {
       if (next.appear === "media") return { ok: false, message: "Something that follows a video or audio clip cannot also go away at an item." };
       next = { ...next, until: { step: until.step, start: until.start } };
     }
+    // The timing of each paragraph of a text is kept through any other change of timing.
+    const paragraphs = "paragraphs" in patch ? patch.paragraphs : obj.timing.paragraphs;
+    if (paragraphs !== undefined) next = { ...next, paragraphs };
     if (!whole(next.start, 0)) return { ok: false, message: "The time must be from 0 to 3600 seconds." };
     if (next.visibleFor !== null && !whole(next.visibleFor, 1)) return { ok: false, message: "How long it stays must be from a thousandth of a second to 3600 seconds, or blank to stay." };
     if (next.appear === "narration" && !obj.narration) return { ok: false, message: "Write this object's narration first, so there is something for it to follow." };
@@ -2642,6 +2648,99 @@ export class Model {
     obj.timing = next;
     this.emit({ kind: "content", objectId });
     return { ok: true, message: `${obj.name}: ${describeTiming(next, !row.onBase, this.mediaNameOf(next.media))}` };
+  }
+
+  /** The last item number any object on a layer uses (to appear at, to go away at, or for one of its paragraphs), other than the object `except`; 0 if none. */
+  private lastStep(layerId: string, except: string): number {
+    return Math.max(0, ...this.timingRows().filter((r) => r.layerId === layerId && r.object.id !== except).flatMap((r) => stepsUsed(r.object.timing)));
+  }
+
+  /** How many paragraphs a text object has, for timing them one at a time (see paragraphs.ts). Zero for anything else. */
+  paragraphCount(objectId: string): number {
+    const obj = this.find(objectId);
+    return obj && obj.type === "text" ? paragraphsOf(String(obj.content["html"] ?? "")).length : 0;
+  }
+
+  /**
+   * Change when one paragraph of a text appears and goes away: `appear` "click" (at item `step`) or "time", the seconds after, how long it stays, and the item it goes away at.
+   * A paragraph that ends up always there has no timing of its own. One undo step.
+   */
+  setParagraphTiming(objectId: string, index: number, patch: Partial<PartTiming>): { ok: boolean; message: string } {
+    const row = this.timingRows().find((r) => r.object.id === objectId);
+    if (!row) return { ok: false, message: "" };
+    const obj = row.object;
+    if (obj.type !== "text") return { ok: false, message: "Only a text can come in one paragraph at a time." };
+    const count = this.paragraphCount(objectId);
+    if (!Number.isInteger(index) || index < 0 || index >= count) return { ok: false, message: "That paragraph is not in the text." };
+    const parts = partsFor(count, obj.timing.paragraphs);
+    const now = parts[index]!;
+    const whole = (n: number, min: number) => Number.isInteger(n) && n >= min && n <= MAX_MS;
+    let next: PartTiming = { ...now, ...patch };
+    if (next.appear !== "time" && next.appear !== "click") return { ok: false, message: "A paragraph appears after the slide opens, or when the learner shows the next item." };
+    if (next.appear === "click") {
+      // A new item goes after the last one on the layer, counting this text's other paragraphs.
+      const others = parts.flatMap((p, i) => (i === index ? [] : stepsUsed({ ...p, appear: p.appear } as Timing)));
+      const step = patch.step ?? now.step ?? Math.max(this.lastStep(row.layerId, objectId), ...others) + 1;
+      if (!Number.isInteger(step) || step < 1 || step > MAX_STEP) return { ok: false, message: `The item number must be a whole number from 1 to ${MAX_STEP}.` };
+      next = { appear: "click", step, start: next.start, visibleFor: next.visibleFor };
+    } else {
+      next = { appear: "time", start: next.start, visibleFor: next.visibleFor };
+    }
+    const until = "until" in patch ? patch.until : now.until;
+    if (until !== undefined) {
+      if (!Number.isInteger(until.step) || until.step < 1 || until.step > MAX_STEP) return { ok: false, message: `The item it goes away at must be a whole number from 1 to ${MAX_STEP}.` };
+      if (!whole(until.start, 0)) return { ok: false, message: "The time after that item must be from 0 to 3600 seconds." };
+      next = { ...next, until: { step: until.step, start: until.start } };
+    }
+    if (!whole(next.start, 0)) return { ok: false, message: "The time must be from 0 to 3600 seconds." };
+    if (next.visibleFor !== null && !whole(next.visibleFor, 1)) return { ok: false, message: "How long it stays must be from a thousandth of a second to 3600 seconds, or blank to stay." };
+    if (JSON.stringify(next) === JSON.stringify(now)) return { ok: true, message: "" };
+    this.record(`paragraph-timing:${objectId}:${index}:${Object.keys(patch).join(",")}`);
+    parts[index] = next;
+    const { paragraphs: _gone, ...rest } = obj.timing;
+    obj.timing = parts.every(isPlainPart) ? rest : { ...rest, paragraphs: parts };
+    this.emit({ kind: "content", objectId });
+    return { ok: true, message: `${obj.name}: ${describeTiming(obj.timing, !row.onBase)}` };
+  }
+
+  /**
+   * Make a text come in one paragraph at a time (`on`): each paragraph is an item of Show next item, numbered after the last item on its layer, with the box itself there from
+   * the start; or all at once again (not `on`), which takes the timing of every paragraph away. One undo step.
+   */
+  buildByParagraph(objectId: string, on: boolean): { ok: boolean; message: string } {
+    const row = this.timingRows().find((r) => r.object.id === objectId);
+    if (!row) return { ok: false, message: "" };
+    const obj = row.object;
+    if (obj.type !== "text") return { ok: false, message: "Only a text can come in one paragraph at a time." };
+    const count = this.paragraphCount(objectId);
+    const { paragraphs: had, ...rest } = obj.timing;
+    if (!on) {
+      if (had === undefined) return { ok: true, message: "" };
+      this.record(`paragraphs:${objectId}`);
+      obj.timing = rest;
+      this.emit({ kind: "content", objectId });
+      return { ok: true, message: `${obj.name}: the whole text comes in together again.` };
+    }
+    if (count === 0) return { ok: false, message: "This text has no paragraphs to show one at a time." };
+    const first = this.lastStep(row.layerId, objectId) + 1;
+    if (first + count - 1 > MAX_STEP) return { ok: false, message: `There are not enough item numbers left on this layer (the most is ${MAX_STEP}).` };
+    const parts: PartTiming[] = Array.from({ length: count }, (_, i) => ({ appear: "click", step: first + i, start: 0, visibleFor: null }));
+    this.record(`paragraphs:${objectId}`);
+    obj.timing = { ...rest, paragraphs: parts };
+    this.emit({ kind: "content", objectId });
+    return { ok: true, message: `${obj.name}: ${describeTiming(obj.timing, !row.onBase)}` };
+  }
+
+  /** After the words of a text change, its paragraph timings are cut or filled out to fit the paragraphs it has now. Returns a sentence to add to the message, or "". */
+  private alignParagraphs(obj: OSObject): string {
+    const had = obj.timing.paragraphs;
+    if (!had) return "";
+    const count = paragraphsOf(String(obj.content["html"] ?? "")).length;
+    if (had.length === count) return "";
+    const parts = partsFor(count, had);
+    const { paragraphs: _gone, ...rest } = obj.timing;
+    obj.timing = parts.every(isPlainPart) ? rest : { ...rest, paragraphs: parts };
+    return ` The text now has ${count} ${count === 1 ? "paragraph" : "paragraphs"}, so the timing of its paragraphs was cut or filled out to fit: check it in Timing.`;
   }
 
   /**
@@ -2739,7 +2838,7 @@ export class Model {
     if (!doc) return 0;
     let n = 0;
     for (const layer of [doc.slide.baseLayer, ...doc.slide.layers]) {
-      n += new Set(layer.objects.filter((o) => o.timing.appear === "click").map((o) => o.timing.step)).size;
+      n += new Set(layer.objects.flatMap((o) => stepsUsed(o.timing))).size;
     }
     return n;
   }

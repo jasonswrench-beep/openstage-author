@@ -3162,7 +3162,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.40.0")
+        self.assertEqual(project["schemaVersion"], "0.41.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3320,6 +3320,98 @@ class AltSuggestionCases(unittest.TestCase):
         with MutatedProject() as p:
             self.mark(p, altText="", decorative=True, altSuggestion=good)
             self.assertEqual(rules(p.run(), "schema"), [])
+
+
+class TimingByParagraph(unittest.TestCase):
+    """A text that comes in or goes away one paragraph at a time (a text's timing.paragraphs, added in 0.41.0)."""
+
+    THREE = "<p>One</p><ul><li>Two</li><li>Three</li></ul>"
+
+    def make(self, p, parts, html=THREE, index=1):
+        def edit(o):
+            if o["type"] == "text":
+                o["content"]["html"] = html
+            o["timing"]["paragraphs"] = parts
+        p.obj(index, edit)
+
+    @staticmethod
+    def click(step, **more):
+        return {"appear": "click", "step": step, "start": 0, "visibleFor": None, **more}
+
+    PLAIN = {"appear": "time", "start": 0, "visibleFor": None}
+
+    def animate(self, p, index=1, **parts):
+        p.obj(index, lambda o: o["animation"].update(parts))
+
+    def rules(self, p):
+        return [f.rule for f in p.run() if f.rule.startswith("timing") or f.rule.startswith("animation") or f.rule == "schema"]
+
+    def test_the_paragraphs_of_a_text_are_counted_the_same_way_as_the_player_and_the_editor_count_them(self):
+        cases = json.loads((validate.ROOT / "player" / "src" / "paragraph-cases.json").read_text(encoding="utf-8"))
+        for case in cases:
+            self.assertEqual(validate.paragraphs_of(case["html"]), case["blocks"], case["html"])
+
+    def test_a_text_with_a_timing_for_each_paragraph_is_clean(self):
+        with MutatedProject() as p:
+            self.make(p, [self.click(1), self.click(2), self.click(3)])
+            self.assertEqual(self.rules(p), [])
+            self.assertEqual([f for f in p.run() if f.severity == "error"], [])
+
+    def test_a_paragraph_with_no_timing_needs_no_step_and_the_whole_can_go_away_at_a_step(self):
+        with MutatedProject() as p:
+            self.make(p, [dict(self.PLAIN, until={"step": 1, "start": 0}), self.click(2), self.PLAIN])
+            self.assertEqual(self.rules(p), [])
+
+    def test_timing_for_more_or_fewer_paragraphs_than_the_text_has_is_warned_about(self):
+        for parts in ([self.click(1), self.click(2)], [self.click(1)] * 4):
+            with MutatedProject() as p:
+                self.make(p, parts)
+                found = [f for f in p.run() if f.rule == "timing-paragraphs-count"]
+                self.assertEqual([(f.severity, f.object_id) for f in found], [("warning", "obj-0002")])
+                self.assertIn("3 paragraphs", found[0].message)
+
+    def test_only_a_text_can_come_in_a_paragraph_at_a_time(self):
+        with MutatedProject() as p:
+            self.make(p, [self.click(1)], index=2)  # the rectangle
+            found = [f for f in p.run() if f.rule == "timing-paragraphs-type"]
+            self.assertEqual([(f.severity, f.object_id) for f in found], [("error", "obj-0003")])
+
+    def test_a_paragraph_cannot_follow_a_clip_or_a_narration(self):
+        for appear in ("media", "narration"):
+            with MutatedProject() as p:
+                self.make(p, [{"appear": appear, "start": 0, "visibleFor": None}, self.PLAIN, self.PLAIN])
+                self.assertIn("schema", self.rules(p), appear)
+
+    def test_a_paragraph_that_goes_away_before_it_comes_is_warned_about(self):
+        with MutatedProject() as p:
+            self.make(p, [self.click(2, until={"step": 2, "start": 0}), self.click(3), self.click(4)])
+            found = [f for f in p.run() if f.rule == "timing-until-before-appear"]
+            self.assertEqual(len(found), 1)
+            self.assertIn("Paragraph 1", found[0].message)
+
+    def test_an_exit_effect_is_used_when_a_paragraph_goes_and_not_otherwise(self):
+        with MutatedProject() as p:
+            self.animate(p, exit={"effect": "wipeBottom", "duration": 500})
+            self.make(p, [self.click(1), self.click(2), self.click(3)])
+            self.assertIn("animation-exit-never", self.rules(p))
+        with MutatedProject() as p:
+            self.animate(p, exit={"effect": "wipeBottom", "duration": 500})
+            self.make(p, [self.click(1), self.click(2), self.click(3, until={"step": 4, "start": 0})])
+            self.assertEqual(self.rules(p), [])
+
+    def test_a_slide_that_moves_on_by_itself_is_warned_about_when_a_paragraph_waits_for_a_press(self):
+        with MutatedProject() as p:
+            p.slide1(lambda d: d.update(duration=20000))
+            self.make(p, [self.click(1), self.click(2), self.click(3)])
+            self.assertIn("timing-click-advance", self.rules(p))
+
+    def test_a_paragraph_timed_after_the_slide_has_moved_on_is_warned_about(self):
+        with MutatedProject() as p:
+            p.slide1(lambda d: d.update(duration=5000))
+            self.make(p, [self.PLAIN, {"appear": "time", "start": 9000, "visibleFor": None}, self.PLAIN])
+            found = [f for f in p.run() if f.rule == "timing-after-advance"]
+            self.assertEqual(len(found), 1)
+            self.assertIn("Paragraph 2", found[0].message)
 
 
 if __name__ == "__main__":

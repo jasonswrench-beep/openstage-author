@@ -166,7 +166,7 @@ const STARTING: AnimRec = { timing: { appear: "time", start: 0, visibleFor: null
 
 /** An object's timing and animation, or null when it has none (always there, no effects): the same as the deck having no effect for it. */
 const animOf = (o: OSObject): AnimRec | null => {
-  const plain = o.timing.appear === "time" && o.timing.start === 0 && o.timing.visibleFor === null && o.timing.until === undefined && o.animation.enter.effect === "none" && o.animation.exit.effect === "none";
+  const plain = o.timing.appear === "time" && o.timing.start === 0 && o.timing.visibleFor === null && o.timing.until === undefined && o.timing.paragraphs === undefined && o.animation.enter.effect === "none" && o.animation.exit.effect === "none";
   return plain ? null : { timing: o.timing, animation: o.animation };
 };
 
@@ -174,7 +174,7 @@ const animOf = (o: OSObject): AnimRec | null => {
 const animWords = (a: AnimRec | null): string => {
   if (!a) return "always there, no effects";
   const effects = [a.animation.enter.effect !== "none" ? `comes in with ${a.animation.enter.effect}` : "", a.animation.exit.effect !== "none" ? `goes with ${a.animation.exit.effect}` : ""].filter(Boolean);
-  return `${describeTiming(a.timing)}${effects.length > 0 ? ` (${effects.join(", ")})` : ""}`.replace(/\.$/, "");
+  return `${describeTiming(a.timing).replace(/\.$/, "")}${effects.length > 0 ? ` (${effects.join(", ")})` : ""}`;
 };
 
 export interface PlanItem {

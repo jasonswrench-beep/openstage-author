@@ -2,7 +2,7 @@
 // timing says in plain language. Nothing here touches a page, so all of it is tested directly. The format keeps whole
 // milliseconds, like a slide's duration; authors work in seconds.
 
-import type { Timing } from "../../player/src/types.ts";
+import type { PartTiming, Timing } from "../../player/src/types.ts";
 
 /** The longest a time can be, an hour, which is also the schema's limit. */
 export const MAX_MS = 3_600_000;
@@ -13,7 +13,19 @@ export const MAX_STEP = 200;
 /** Always there: the timing every new object starts with. */
 export const STARTING_TIMING: Timing = { appear: "time", start: 0, visibleFor: null };
 
-export const isStartingTiming = (t: Timing): boolean => t.appear === "time" && t.start === 0 && t.visibleFor === null && t.until === undefined;
+export const isStartingTiming = (t: Timing): boolean => t.appear === "time" && t.start === 0 && t.visibleFor === null && t.until === undefined && t.paragraphs === undefined;
+
+/** The item numbers a timing uses: the one it appears at and the one it goes away at, and those of each of its paragraphs. */
+export function stepsUsed(t: Timing): number[] {
+  const steps: number[] = [];
+  if (t.appear === "click") steps.push(t.step ?? 1);
+  if (t.until) steps.push(t.until.step);
+  for (const p of t.paragraphs ?? []) {
+    if (p.appear === "click") steps.push(p.step ?? 1);
+    if (p.until) steps.push(p.until.step);
+  }
+  return steps;
+}
 
 /** How an object goes away at a step: "goes away when the learner shows item 3", or "goes away 2 seconds after the learner shows item 3". */
 export function untilText(t: Timing): string {
@@ -51,6 +63,23 @@ export function plainSeconds(ms: number): string {
  */
 export function describeTiming(t: Timing, onLayer = false, clipName?: string): string {
   if (isStartingTiming(t)) return "Always there";
+  const own = describeOwnTiming(t, onLayer, clipName);
+  const parts = t.paragraphs ? describeParagraphs(t.paragraphs) : "";
+  return parts === "" ? own : `${own.replace(/\.$/, "")}. ${parts}`;
+}
+
+/** What each paragraph of a text does, in words: "Comes in one paragraph at a time, items 1 to 4." when they come at items in order, else each one that is timed. */
+export function describeParagraphs(parts: PartTiming[]): string {
+  const timed = parts.map((p, i) => ({ p, n: i + 1 })).filter(({ p }) => !(p.appear === "time" && p.start === 0 && p.visibleFor === null && p.until === undefined));
+  if (timed.length === 0) return "";
+  const inOrder = timed.length === parts.length && parts.length > 1 && parts.every((p, i) => p.appear === "click" && !p.until && p.start === 0 && p.visibleFor === null && p.step === (parts[0]!.step ?? 1) + i);
+  if (inOrder) return `Comes in one paragraph at a time, items ${parts[0]!.step} to ${parts[parts.length - 1]!.step}.`;
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  const said = timed.map(({ p, n }) => `Paragraph ${n} ${lower(describeOwnTiming(p as Timing)).replace(/\.$/, "")}`);
+  return `${said.join(". ")}.${timed.length < parts.length ? " The other paragraphs are always there." : ""}`;
+}
+
+function describeOwnTiming(t: Timing, onLayer = false, clipName?: string): string {
   // How it ends: it stays, or goes after a time, or goes at a step (or whichever of the last two is first).
   const ending = (appears: string): string => {
     const gone = untilText(t);

@@ -8,11 +8,12 @@
 //  - Alt text is what PowerPoint had. A shape with none is decorative, as a new shape in this editor is; a picture or table with none is
 //    left for the author, and the Problems list asks. Nothing is made up.
 
-import type { Effect, EffectName, OSObject, Slide } from "../../../player/src/types.ts";
+import type { Effect, EffectName, OSObject, PartTiming, Slide } from "../../../player/src/types.ts";
 import type { Narration } from "../narration.ts";
 import { spanStyleFor } from "../../../player/src/spanstyle.ts";
 import { FONT_CHOICES } from "../content.ts";
 import { box } from "../factory.ts";
+import { stepsUsed } from "../timing.ts";
 import { EMU_PER_INCH, type DeckEffect, type DeckPara, type DeckRun, type DeckShape, type DeckSlide, type DeckTransition } from "./deck.ts";
 
 /** How a deck is laid on the stage: how big an inch of the deck is in stage pixels, and how far in from the stage's top left corner the deck starts. */
@@ -52,12 +53,15 @@ export interface ConvertNotes {
   exits: number;
   exitsApproximated: number;
   exitsLeft: number;
+  /** Text boxes that come in or go away one paragraph at a time, and effects for single paragraphs that could not be matched to a paragraph (so they were left out). */
+  paragraphBoxes: number;
+  paragraphsLeft: number;
   /** Slides whose speaker notes became narration, and slides whose notes had no object to be the narration of. */
   narrated: number;
   notesUnused: number;
 }
 
-export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0, exits: 0, exitsApproximated: 0, exitsLeft: 0, narrated: 0, notesUnused: 0 });
+export const newNotes = (): ConvertNotes => ({ fontsReplaced: {}, mixedColour: 0, mixedSize: 0, formsRedrawn: {}, croppedPictures: 0, diagonalLines: 0, tableMerged: 0, fills: {}, shrinks: 0, animated: 0, animationApproximated: 0, waiting: 0, exits: 0, exitsApproximated: 0, exitsLeft: 0, paragraphBoxes: 0, paragraphsLeft: 0, narrated: 0, notesUnused: 0 });
 
 const bump = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
 
@@ -557,8 +561,78 @@ export function animationFor(ds: DeckSlide, keys: string[], notes: ConvertNotes)
   return keys.map((key) => {
     const shape = ds.shapes.find((s) => s.id === key);
     const mine = (e: DeckEffect) => key === e.target || shape?.groups?.includes(e.target) === true;
-    const enter = ds.effects.find((e) => e.phase === "enter" && mine(e));
-    const exit = ds.effects.find((e) => e.phase === "exit" && mine(e));
+    // An effect for some paragraphs of a text is for those, not for the whole box.
+    const whole = ds.effects.filter((e) => !e.para && mine(e));
+    const some = ds.effects.filter((e) => e.para && e.target === key);
+    const box = effectsFor(whole.find((e) => e.phase === "enter"), whole.find((e) => e.phase === "exit"), notes);
+    const parts = some.length > 0 ? paragraphsFor(shape, some, notes) : null;
+    if (!parts) return box;
+    const base: AnimRec = box ?? { timing: { appear: "time", start: 0, visibleFor: null }, animation: { enter: { ...NO_EFFECT_HERE }, exit: { ...NO_EFFECT_HERE } } };
+    return {
+      timing: { ...base.timing, paragraphs: parts.timings },
+      animation: { enter: base.animation.enter.effect !== "none" ? base.animation.enter : parts.enter, exit: base.animation.exit.effect !== "none" ? base.animation.exit : parts.exit },
+    };
+  });
+}
+
+/**
+ * Where each paragraph of a text is among the blocks the text becomes: a heading is one block whatever it holds; a paragraph, or a first level bullet, is a block;
+ * a bullet deeper in a list goes with the first level one above it (as PowerPoint's own "by first level paragraphs" counts), unless nothing above it is in a list.
+ * It follows how `parasToHtml` writes the paragraphs (see paragraphs.ts for the rule on the HTML), and keys each block by the paragraph's number in the deck, empty ones included.
+ */
+export function paragraphBlocks(paras: DeckPara[], title: boolean, src: number[] = []): { count: number; blockOf: Map<number, number> } {
+  const blockOf = new Map<number, number>();
+  if (title) {
+    paras.forEach((_, i) => blockOf.set(src[i] ?? i, 0));
+    return { count: paras.length > 0 ? 1 : 0, blockOf };
+  }
+  let block = -1;
+  paras.forEach((p, i) => {
+    const after = paras[i - 1];
+    if (p.bullet === "none" || p.level === 0 || block < 0 || after?.bullet === "none") block += 1;
+    blockOf.set(src[i] ?? i, block);
+  });
+  return { count: block + 1, blockOf };
+}
+
+/**
+ * The timing of each paragraph of a text, from the effects the deck has for some of its paragraphs: a paragraph with no effect is always there, and one with an entrance and an
+ * exit is read as a whole box would be. Null when the shape is not a text, or none of the effects could be matched to a paragraph (they are counted, and left out).
+ * The effects for the box (how a paragraph arrives and leaves) are the first the deck gives.
+ */
+function paragraphsFor(shape: DeckShape | undefined, effects: DeckEffect[], notes: ConvertNotes): { timings: PartTiming[]; enter: Effect; exit: Effect } | null {
+  if (!shape || shape.kind !== "text") { notes.paragraphsLeft += effects.length; return null; }
+  const title = shape.placeholder === "title" || shape.placeholder === "ctrTitle";
+  const { count, blockOf } = paragraphBlocks(shape.paras, title, shape.paraSrc);
+  const covering: DeckEffect[][] = Array.from({ length: count }, () => []);
+  for (const e of effects) {
+    const blocks = new Set<number>();
+    for (let i = e.para!.from; i <= e.para!.to; i++) { const b = blockOf.get(i); if (b !== undefined) blocks.add(b); }
+    if (blocks.size === 0) notes.paragraphsLeft += 1;
+    for (const b of blocks) covering[b]!.push(e);
+  }
+  // Counted as the box it is, not once for each paragraph.
+  const local = newNotes();
+  const recs = covering.map((list) => effectsFor(list.find((e) => e.phase === "enter"), list.find((e) => e.phase === "exit"), local));
+  if (recs.every((r) => r === null)) return null;
+  notes.paragraphBoxes += 1;
+  if (local.animated > 0) notes.animated += 1;
+  if (local.animationApproximated > 0) notes.animationApproximated += 1;
+  if (local.waiting > 0) notes.waiting += 1;
+  if (local.exits > 0) notes.exits += 1;
+  if (local.exitsApproximated > 0) notes.exitsApproximated += 1;
+  notes.exitsLeft += local.exitsLeft;
+  const first = (pick: (r: AnimRec) => Effect): Effect => pick(recs.find((r): r is AnimRec => r !== null && pick(r).effect !== "none") ?? recs.find((r): r is AnimRec => r !== null)!);
+  return {
+    timings: recs.map((r) => (r ? (r.timing as PartTiming) : { appear: "time", start: 0, visibleFor: null })),
+    enter: first((r) => r.animation.enter),
+    exit: first((r) => r.animation.exit),
+  };
+}
+
+/** The timing and animation an entrance and an exit give together, or null when there is neither (or only an exit that could not be matched). */
+function effectsFor(enter: DeckEffect | undefined, exit: DeckEffect | undefined, notes: ConvertNotes): AnimRec | null {
+  {
     if (!enter && !exit) return null;
     let timing: OSObject["timing"] = { appear: "time", start: 0, visibleFor: null };
     let animation: OSObject["animation"] = { enter: { ...NO_EFFECT_HERE }, exit: { ...NO_EFFECT_HERE } };
@@ -589,7 +663,7 @@ export function animationFor(ds: DeckSlide, keys: string[], notes: ConvertNotes)
     }
     // An object that only has an exit that could not be matched stays as it was.
     return applied ? { timing, animation } : null;
-  });
+  }
 }
 
 /** Give the objects the timing and animation the deck gave their shapes. */
@@ -689,7 +763,7 @@ export function convertSlide(ds: DeckSlide, ctx: SlideContext): ConvertedSlide {
  * (the objects keep their click steps; the slide says how fast), because a course has no presenter to click.
  */
 export function slideFrom(converted: ConvertedSlide, id: string, auto?: { first: number; every: number }): Slide {
-  const waits = auto !== undefined && converted.objects.some((o) => o.timing.appear === "click" || o.timing.until !== undefined);
+  const waits = auto !== undefined && converted.objects.some((o) => stepsUsed(o.timing).length > 0);
   return {
     id,
     name: converted.name,

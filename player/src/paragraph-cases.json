@@ -1,0 +1,14 @@
+[
+  { "html": "<p>One</p><p>Two</p>", "blocks": ["One", "Two"] },
+  { "html": "<h1>Title</h1>", "blocks": ["Title"] },
+  { "html": "<h1>Two<br>lines</h1>", "blocks": ["Twolines"] },
+  { "html": "<ul><li>A</li><li>B<ul><li>B1</li><li>B2</li></ul></li><li>C</li></ul>", "blocks": ["A", "BB1B2", "C"] },
+  { "html": "<p>Intro</p><ol><li>One</li><li>Two</li></ol><p>Outro</p>", "blocks": ["Intro", "One", "Two", "Outro"] },
+  { "html": "<ul><li><ul><li>Deep</li></ul></li></ul>", "blocks": ["Deep"] },
+  { "html": "loose <strong>words</strong>", "blocks": [] },
+  { "html": "<blockquote>Quote</blockquote><h2>Head</h2>", "blocks": ["Quote", "Head"] },
+  { "html": "<p>  spaced   out  </p>\n<ul>\n  <li> one </li>\n</ul>", "blocks": ["spaced out", "one"] },
+  { "html": "<ul><li>A</li></ul><ol><li>B</li></ol>", "blocks": ["A", "B"] },
+  { "html": "", "blocks": [] },
+  { "html": "<p>With <a href=\"https://example.org\">a link</a> and <em>style</em></p>", "blocks": ["With a link and style"] }
+]

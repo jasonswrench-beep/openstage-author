@@ -143,9 +143,16 @@ export interface EffectSpec {
   delay?: number;
   /** Milliseconds the effect takes. */
   dur?: number;
-  /** The effect is for one paragraph of the text, not the whole shape. */
-  para?: boolean;
+  /** The effect is for one paragraph of the text, not the whole shape: true is the first paragraph, or give the first and last (from 0, as the deck counts). */
+  para?: boolean | { from: number; to: number };
 }
+
+/** The part of an effect's target that names paragraphs of a text, if it is for some. */
+const pRg = (para: EffectSpec["para"]): string => {
+  if (!para) return "";
+  const r = para === true ? { from: 0, to: 0 } : para;
+  return `<p:txEl><p:pRg st="${r.from}" end="${r.to}"/></p:txEl>`;
+};
 
 /**
  * A slide's animation: a list of steps; each step is started by a press of the mouse (or, with `auto`, by the slide opening) and holds groups, each group
@@ -156,8 +163,8 @@ export function timing(steps: { auto?: boolean; groups: { delay?: number; effect
   const effect = (e: EffectSpec) => {
     const dur = e.dur ?? 500;
     const behaviour = e.preset === 1 || e.preset === undefined
-      ? `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${e.para ? '<p:txEl><p:pRg st="0" end="0"/></p:txEl>' : ""}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>`
-      : `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${e.para ? '<p:txEl><p:pRg st="0" end="0"/></p:txEl>' : ""}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>` +
+      ? `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${pRg(e.para)}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>`
+      : `<p:set><p:cBhvr><p:cTn id="${id++}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${e.spid}">${pRg(e.para)}</p:spTgt></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set>` +
         `<p:animEffect transition="in" filter="fade"><p:cBhvr><p:cTn id="${id++}" dur="${dur}"/><p:tgtEl><p:spTgt spid="${e.spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`;
     return `<p:par><p:cTn id="${id++}" presetID="${e.preset ?? 1}" presetClass="${e.cls ?? "entr"}" presetSubtype="${e.subtype ?? 0}" fill="hold" nodeType="${e.node ?? "clickEffect"}"><p:stCondLst><p:cond delay="${e.delay ?? 0}"/></p:stCondLst><p:childTnLst>${behaviour}</p:childTnLst></p:cTn></p:par>`;
   };

@@ -5,6 +5,7 @@ import { Runtime, type Host, type Snapshot } from "./runtime.ts";
 import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, hasSlideTransition, reducedMotion, type Phase } from "./animation.ts";
 import { Timeline, isTimed } from "./timeline.ts";
+import { partId, partOf } from "./paragraphs.ts";
 import { timerContentOf } from "./timer.ts";
 import { applyDraws, drawBanks, drawsFit, newSeed } from "./bank.ts";
 import { MediaFollower } from "./follow.ts";
@@ -14,7 +15,7 @@ import { shouldReflow } from "./reflow.ts";
 import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
 import { AccessibilityPanel } from "./a11ypanel.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
-import type { CoursePackage, Effect, ObjectAnimation, Slide } from "./types.ts";
+import type { CoursePackage, Effect, ObjectAnimation, Slide, Timing } from "./types.ts";
 
 export { readingOrder } from "./stage.ts";
 
@@ -322,11 +323,23 @@ export class Player implements Host {
   /** Start timing the timed objects of a layer that is now showing. */
   private timeLayer(layer: Slide["baseLayer"]): void {
     // An object with an entrance to play is listed even when it is there from the start, so its arrival can be animated.
-    const timed = layer.objects.filter((o) => isTimed(o.timing) || o.animation.enter.effect !== "none");
+    // A text with a timing for each paragraph has its effects for the paragraphs, not for the box.
+    const timed = layer.objects.filter((o) => isTimed(o.timing) || (o.animation.enter.effect !== "none" && !o.timing.paragraphs));
     for (const o of timed) this.animations.set(o.id, o.animation);
+    const entries = timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) }));
+    // Each paragraph that is timed is an item of its own, as far as the text has paragraphs.
+    for (const o of layer.objects) {
+      if (!o.timing.paragraphs) continue;
+      const count = this.stage.paragraphCount(o.id);
+      o.timing.paragraphs.slice(0, count).forEach((t, i) => {
+        if (!isTimed(t as Timing) && o.animation.enter.effect === "none") return;
+        this.animations.set(partId(o.id, i), o.animation);
+        entries.push({ id: partId(o.id, i), timing: t as Timing, hasAudio: false });
+      });
+    }
     // A timer starts counting when its layer is shown.
     for (const o of layer.objects) if (o.type === "timer") this.timeline.addTimer(layer.id, o.id, timerContentOf(o).seconds);
-    if (timed.length > 0) this.timeline.addLayer(layer.id, timed.map((o) => ({ id: o.id, timing: o.timing, hasAudio: Boolean(this.pkg.narration[o.id]?.audio) })));
+    if (entries.length > 0) this.timeline.addLayer(layer.id, entries);
   }
 
   /** "Item 2 of 7 is showing: the alt text or name." for the objects of the step that came, and "A went away." for those that left with it. */
@@ -340,6 +353,9 @@ export class Player implements Host {
 
   /** What a learner would call an object on the slide that is showing: its alt text, or its name. Nothing for something that is only decoration. */
   private nameOf(id: string): string {
+    // A paragraph of a text is named by what it says.
+    const part = partOf(id);
+    if (part) return this.stage.paragraphWords(part.objectId, part.index);
     const slide = this.runtime.currentSlide;
     const found = slide && [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).find((o) => o.id === id);
     if (!found || found.accessibility.decorative) return "";

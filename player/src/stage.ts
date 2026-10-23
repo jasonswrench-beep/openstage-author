@@ -8,6 +8,7 @@
 import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNeeded } from "./blocks.ts";
 import { buildInput, type InputChange } from "./inputs.ts";
 import { HIDDEN_CLASS, Presenter, play, type Playing } from "./animation.ts";
+import { blocksOf, blockWords, partOf, PART_HIDDEN_CLASS } from "./paragraphs.ts";
 import { buildDownload } from "./downloads.ts";
 import { buildTimer, type TimerInfo, type TimerView } from "./timer.ts";
 import { buildInteraction, type ItemSound } from "./interactions.ts";
@@ -217,8 +218,33 @@ export class StageRenderer {
    * states, so none of them can undo another. A hidden object is not in the page for assistive technology or the keyboard.
    */
   setObjectTimed(objectId: string, visible: boolean, motion?: Effect): void {
+    // A paragraph of a text (see paragraphs.ts) is timed on its own, under an id of its own.
+    const part = partOf(objectId);
+    if (part) {
+      const block = this.paragraphs(part.objectId)[part.index];
+      if (block) this.presenter.set(objectId, block, visible, motion, PART_HIDDEN_CLASS);
+      return;
+    }
     const el = this.mounted.get(objectId)?.el;
     if (el) this.presenter.set(objectId, el, visible, motion);
+  }
+
+  /** The paragraphs of a text object that is on the slide, in order (none for anything else). */
+  private paragraphs(objectId: string): HTMLElement[] {
+    const m = this.mounted.get(objectId);
+    if (!m || m.obj.type !== "text") return [];
+    return blocksOf(m.el.querySelector(".os-bubble-text") ?? m.el);
+  }
+
+  /** How many paragraphs a text object on the slide has, so a timing for more than that is not waited for. */
+  paragraphCount(objectId: string): number {
+    return this.paragraphs(objectId).length;
+  }
+
+  /** What one paragraph of a text says, for telling a learner it came or went. */
+  paragraphWords(objectId: string, index: number): string {
+    const block = this.paragraphs(objectId)[index];
+    return block ? blockWords(block) : "";
   }
 
   /** Show a timer as it is now. */

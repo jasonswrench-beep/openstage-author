@@ -70,6 +70,8 @@ export interface DeckEffect {
   delay: number;
   /** Milliseconds the effect takes. */
   duration: number;
+  /** Set when the effect is for some paragraphs of the shape's text (PowerPoint's "by paragraph"): the first and last paragraph, counting from 0 as the deck does, empty ones included. */
+  para?: { from: number; to: number };
 }
 
 /** What a slide's animation did that is not brought over, counted for the report. */
@@ -77,8 +79,6 @@ export interface AnimationLeft {
   exit: number;
   emphasis: number;
   path: number;
-  /** Words that came in one paragraph at a time, which come in all at once. */
-  byParagraph: number;
   /** Something that starts when a shape is clicked. */
   interactive: number;
 }
@@ -105,7 +105,7 @@ interface Common {
 }
 
 export type DeckShape = Common & (
-  | { kind: "text"; paras: DeckPara[]; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string; fitScale?: number; body?: DeckBody }
+  | { kind: "text"; paras: DeckPara[]; /** Where each kept paragraph was among the deck's paragraphs (empty ones are not kept), for an effect on some paragraphs. Not part of its fingerprint. */ paraSrc?: number[]; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string; fitScale?: number; body?: DeckBody }
   | { kind: "shape"; geom: string; fill: string | null; line: { color: string; width: number } | null; note?: string }
   | { kind: "line"; color: string; width: number }
   | { kind: "picture"; media: string | null; mediaHash: string; ext: string; cropped: boolean }
@@ -410,9 +410,9 @@ function textOfParas(paras: DeckPara[]): string {
   return paras.map((p) => p.runs.map((r) => (r.br ? " " : r.text)).join("")).join(" ").replace(/\s+/g, " ").trim();
 }
 
-function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | undefined)[], defaultColor: string | undefined, fitScale: number, inPlaceholder: boolean): DeckPara[] {
+function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | undefined)[], defaultColor: string | undefined, fitScale: number, inPlaceholder: boolean, src: number[] = []): DeckPara[] {
   const paras: DeckPara[] = [];
-  for (const p of kids(txBody, "a:p")) {
+  for (const [position, p] of kids(txBody, "a:p").entries()) {
     const pPr = child(p, "a:pPr");
     const level = Math.max(0, Math.min(8, num(pPr, "lvl") ?? 0));
     // What the levels of the master, the layout and the shape itself say, the later ones winning.
@@ -475,6 +475,7 @@ function readParas(txBody: XmlNode | undefined, ctx: Context, chain: (XmlNode | 
     if (para.before !== undefined) out.before = para.before;
     if (para.after !== undefined) out.after = para.after;
     paras.push(out);
+    src.push(position);
   }
   return paras;
 }
@@ -556,11 +557,12 @@ function readSp(sp: XmlNode, ctx: Context, t: Transform): DeckShape | null {
     // "Shrink text on overflow" is stored as a percentage the text was shrunk by.
     const fit = child(child(txBody, "a:bodyPr"), "a:normAutofit");
     const fitScale = (num(fit, "fontScale") ?? 100000) / 100000;
-    const paras = readParas(txBody, ctx, chain, fontRefColor, fitScale, !!ph);
+    const paraSrc: number[] = [];
+    const paras = readParas(txBody, ctx, chain, fontRefColor, fitScale, !!ph, paraSrc);
     if (paras.length > 0) {
       const body = bodyOf([child(child(masterPh?.sp, "p:txBody"), "a:bodyPr"), child(child(layoutPh?.sp, "p:txBody"), "a:bodyPr"), child(txBody, "a:bodyPr")]);
-      const shape: DeckShape = { ...common, kind: "text", paras, geom, fill, line, ...(note ? { note } : {}), ...(fitScale < 1 ? { fitScale } : {}), ...(body ? { body } : {}), hash: "" };
-      shape.hash = fingerprint({ ...shape, hash: undefined });
+      const shape: DeckShape = { ...common, kind: "text", paras, paraSrc, geom, fill, line, ...(note ? { note } : {}), ...(fitScale < 1 ? { fitScale } : {}), ...(body ? { body } : {}), hash: "" };
+      shape.hash = fingerprint({ ...shape, hash: undefined, paraSrc: undefined });
       return shape;
     }
   }
@@ -734,7 +736,7 @@ const delayOf = (cond: XmlNode | undefined): number | "indefinite" => {
  */
 function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; left: AnimationLeft } {
   const effects: DeckEffect[] = [];
-  const left: AnimationLeft = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };
+  const left: AnimationLeft = { exit: 0, emphasis: 0, path: 0, interactive: 0 };
   const timing = child(slide, "p:timing");
   if (!timing) return { effects, left };
   const nodes = descendants(timing, "p:cTn");
@@ -758,7 +760,9 @@ function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; lef
         if (cls !== "entr" && cls !== "exit") continue;
         const target = descendants(tn, "p:spTgt")[0];
         if (!target?.attrs["spid"]) continue;
-        if (child(target, "p:txEl")) left.byParagraph += 1;
+        const range = child(child(target, "p:txEl"), "p:pRg");
+        const from = range ? Number(range.attrs["st"]) : NaN;
+        const to = range ? Number(range.attrs["end"]) : NaN;
         const own = delayOf(child(child(tn, "p:stCondLst"), "p:cond"));
         const durations = descendants(tn, "p:cTn").map((c) => Number(c.attrs["dur"])).filter((d) => Number.isFinite(d) && d > 1);
         effects.push({
@@ -769,6 +773,7 @@ function readAnimation(slide: XmlNode | undefined): { effects: DeckEffect[]; lef
           click: bySelf ? null : clicks,
           delay: (groupDelay === "indefinite" ? 0 : groupDelay) + (own === "indefinite" ? 0 : own),
           duration: durations.length > 0 ? Math.max(...durations) : 0,
+          ...(Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to >= from ? { para: { from, to } } : {}),
         });
       }
     }

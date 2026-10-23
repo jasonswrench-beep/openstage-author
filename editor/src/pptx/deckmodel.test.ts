@@ -443,3 +443,41 @@ test("a narration the author changed is offered, unticked, against the deck's ne
   importDeck(plain, withNotes());
   assert.equal(resync(plain, changed).items.filter((i) => /speaker notes/.test(i.label)).length, 0);
 });
+
+test("the paragraph timing of a text comes forward when the deck changes it, is told in words, and undoes in one step", () => {
+  const bullet = (t: string) => ({ runs: [{ t }], bullet: "char" as const });
+  const forPara = (i: number, click: number) => ({ groups: [{ effects: [{ spid: 10, preset: 10, para: { from: i, to: i } }] }] }) as { groups: { effects: { spid: number; preset: number; para: { from: number; to: number } }[] }[] };
+  const deck = (clicks: number[]): DeckSpec => ({
+    slides: [{ id: 256, shapes: sp({ id: 10, name: "Body", box: { x: 1, y: 1, w: 6, h: 3 }, paras: [bullet("One"), bullet("Two"), bullet("Three")] }), timing: timing(clicks.map((c, i) => forPara(i, c)).reduce<Parameters<typeof timing>[0]>((steps, g, i) => {
+      // paragraphs that share a click are in the same step
+      const same = i > 0 && clicks[i] === clicks[i - 1];
+      if (same) steps[steps.length - 1]!.groups.push(...g.groups);
+      else steps.push({ groups: [...g.groups] });
+      return steps;
+    }, [])) }],
+  });
+  const m = fresh();
+  importDeck(m, deck([1, 2, 3]));
+  const body = () => m.slides.find((s) => s.baseLayer.objects.some((o) => o.name === "Body"))!.baseLayer.objects.find((o) => o.name === "Body")!;
+  assert.deepEqual(body().timing.paragraphs?.map((p) => p.step), [1, 2, 3]);
+  assert.deepEqual(baseAnimation_(m, "10"), body().timing, "the record has it, paragraphs and all");
+  assert.equal(resync(m, deck([1, 2, 3])).items.length, 0, "the same deck changes nothing");
+  const r = resync(m, deck([1, 1, 2]));
+  const item = r.items.find((i) => /Bring the animation forward/.test(i.label))!;
+  assert.ok(item, r.items.map((i) => i.label).join(" | "));
+  assert.match(item.detail.join(" | "), /Body: Shows when the slide opens, then stays\. Comes in one paragraph at a time, items 1 to 3 \(comes in with fade\) becomes Shows when the slide opens, then stays\. Paragraph 1 appears when the learner shows item 1, then stays\. Paragraph 2 appears when the learner shows item 1/);
+  accept(m, r);
+  assert.deepEqual(body().timing.paragraphs?.map((p) => p.step), [1, 1, 2]);
+  m.undo();
+  assert.deepEqual(body().timing.paragraphs?.map((p) => p.step), [1, 2, 3]);
+  // The author's own change to the paragraphs is a conflict, offered unticked.
+  m.setParagraphTiming(body().id, 2, { step: 9 });
+  const again = resync(m, deck([1, 1, 2]));
+  assert.ok(again.items.some((i) => /Replace your changes to the timing or animation of "Body"/.test(i.label) && !i.checked));
+});
+
+/** What the import recorded for a shape's timing, by the shape's number. */
+const baseAnimation_ = (m: Model, key: string) => {
+  const slide = m.slides.find((s) => s.baseLayer.objects.some((o) => o.name === "Body"))!;
+  return (slide.provenance as unknown as { base: { animation?: Record<string, { timing: unknown }> } }).base.animation?.[key]?.timing;
+};

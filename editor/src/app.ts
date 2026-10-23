@@ -46,6 +46,7 @@ import { openNarration } from "./narrationdialog.ts";
 import { openTiming } from "./timingdialog.ts";
 import { TimelinePanel } from "./timelinepanel.ts";
 import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText } from "./timing.ts";
+import { brief, paragraphsOf } from "./paragraphs.ts";
 import { describeAnimation, describeSlideTransition, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
 import { audioRowNote, audioRowText, audioStatus, engineOf, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
@@ -1147,6 +1148,41 @@ ${errorText(err)}`);
       ]),
       h("p", { id: "timing-summary", class: "note", text: describeTiming(t, !onBase, m.mediaNameOf(t.media)) }),
       h("div", { class: "btn-row" }, this.small("Timing list...", "When everything on this slide appears and disappears", () => void this.openTimingDialog())))];
+  }
+
+  /** Showing a text one paragraph at a time: each paragraph is an item of Show next item, or already there, and can go away at an item. */
+  private paragraphFields(m: Model, o: OSObject): HTMLElement[] {
+    const words = paragraphsOf(String(o.content["html"] ?? ""));
+    if (words.length === 0) return [];
+    const parts = o.timing.paragraphs;
+    const done = (r: { ok: boolean; message: string }) => { if (r.message) this.announce(r.message); this.renderProps(); };
+    const itemField = (id: string, label: string, value: number | undefined, change: (n: number | undefined) => void): HTMLElement =>
+      this.field(id, label, value === undefined ? "" : String(value), (v) => {
+        const text = v.trim();
+        if (text === "") { change(undefined); return; }
+        const n = Number(text);
+        if (!Number.isInteger(n) || n < 1 || n > MAX_STEP) { this.announce(`Write the item number as a whole number from 1 to ${MAX_STEP}, or leave it blank.`); this.renderProps(); return; }
+        change(n);
+      }, { number: true });
+    return [h("fieldset", { class: "paragraph-timing" }, h("legend", { text: "Paragraph by paragraph" }),
+      h("p", { class: "note", text: parts
+        ? "Each paragraph is its own item for the learner's Show next item button, in the order of its number. Paragraphs with the same number show together. The box itself is there from the start, and a paragraph that is not showing keeps its room, so the lines round it do not move."
+        : "Show this text one paragraph at a time, each its own item for the learner's Show next item button, as a PowerPoint text does when it builds by paragraph. The box itself is there from the start." }),
+      h("div", { class: "btn-row" }, parts
+        ? this.small("Show all the text together", "Take the timing of the paragraphs away", () => done(m.buildByParagraph(o.id, false)))
+        : this.small("Show one paragraph at a time", `Make each of the ${words.length} paragraphs an item`, () => done(m.buildByParagraph(o.id, true)))),
+      ...(parts ? [
+        ...words.map((w, i) => {
+          const p = parts[i] ?? { appear: "time" as const, start: 0, visibleFor: null };
+          return h("fieldset", { class: "paragraph-row" }, h("legend", { text: `Paragraph ${i + 1}: ${brief(w) || "(empty)"}` }),
+            itemField(`para-step-${i}`, "Appears when the learner shows item number (blank: already there)", p.appear === "click" ? p.step : undefined,
+              (n) => done(m.setParagraphTiming(o.id, i, n === undefined ? { appear: "time" } : { appear: "click", step: n }))),
+            itemField(`para-until-${i}`, "Goes away when the learner shows item number (blank: it stays)", p.until?.step,
+              (n) => done(m.setParagraphTiming(o.id, i, { until: n === undefined ? undefined : { step: n, start: p.until?.start ?? 0 } }))));
+        }),
+        h("p", { class: "note", text: describeTiming(o.timing, m.layer?.id !== m.slide?.baseLayer.id) }),
+      ] : [])),
+    ];
   }
 
   private previewing = false;
@@ -2795,7 +2831,7 @@ ${errorText(err)}`);
     // Which look is open, the looks the author named, and how many rules apply the open one. Whether a ready-made look is set is put back in place instead,
     // because the first thing typed into one makes it, and a panel redrawn under the author's cursor would lose their place.
     const looksSign = o && canHaveLooks(o.type) ? `|looks:${m.editingLookOf(o.id)}:${Object.keys(o.states).filter((n) => !isReadyLook(n)).join("\u0001")}:${m.lookUses(o.id, m.editingLookOf(o.id))}` : "";
-    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}:${o.timing.until ? 1 : 0}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
+    const marker = o ? `object:${o.id}:${shape}${rules}${narrated}|${o.timing.appear}:${o.timing.until ? 1 : 0}:${o.type === "text" ? `${m.paragraphCount(o.id)}/${(o.timing.paragraphs ?? []).map((p) => `${p.appear[0]}${p.step ?? ""}${p.until?.step ?? ""}`).join(",")}` : ""}${looksSign}|alt:${o.accessibility.altSuggestion ? 1 : 0}` : `slide:${m.sel.slideId}:${m.sel.layerId}:${m.slide && m.backgroundPictureOf(m.slide.id) ? "picture" : ""}`;
     if (valuesOnly && this.propsBody.dataset["for"] === marker && o) {
       this.fillValues(o);
       return;
@@ -3297,6 +3333,7 @@ ${errorText(err)}`);
       ...this.lookFields(m, o),
       ...this.narrationFields(m, o),
       ...this.timingFields(m, o),
+      ...(o.type === "text" ? this.paragraphFields(m, o) : []),
       ...this.animationFields(m, o),
       ...this.ruleFields(m, o),
       ...(o.type === "quizQuestion" ? this.quizFields(m, o) : []),

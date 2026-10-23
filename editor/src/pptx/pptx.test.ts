@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { convertShape, convertSlide, newNotes, parasToHtml, placementFor, scriptFromNotes, slideFrom, snapshotOf, transitionFor, type ConvertContext, type SlideContext } from "./convert.ts";
-import { readDeck, type DeckShape } from "./deck.ts";
+import { convertShape, convertSlide, newNotes, paragraphBlocks, parasToHtml, placementFor, scriptFromNotes, slideFrom, snapshotOf, transitionFor, type ConvertContext, type SlideContext } from "./convert.ts";
+import { readDeck, type DeckPara, type DeckShape } from "./deck.ts";
+import { paragraphsOf } from "../paragraphs.ts";
 import { describeImport } from "./import.ts";
 import { newNarration } from "../narration.ts";
 import { fingerprint, hashBytes, hashText } from "./hash.ts";
@@ -524,14 +525,15 @@ test("animation: an effect that starts by itself is not a press", () => {
   assert.deepEqual(ds.effects.map((e) => [e.target, e.click]), [["10", null], ["11", 1]]);
 });
 
-test("animation: emphasis, motion and paragraph by paragraph are counted and not brought in as steps; an exit is read as an effect", () => {
+test("animation: emphasis and motion are counted and not brought in as steps; an exit is read as an effect; an effect for a paragraph says which", () => {
   const ds = one(SHAPES(4), {}, {
     timing: timing([
       { groups: [{ effects: [{ spid: 10, cls: "exit", preset: 1 }, { spid: 11, cls: "emph", preset: 6 }, { spid: 12, cls: "path", preset: 0 }, { spid: 13, para: true }] }] },
     ]),
   });
-  assert.deepEqual(ds.animationLeft, { exit: 0, emphasis: 1, path: 1, byParagraph: 1, interactive: 0 });
-  assert.deepEqual(ds.effects.map((e) => [e.target, e.phase]), [["10", "exit"], ["13", "enter"]], "the exit is kept, and the one that makes the text appear, all at once");
+  assert.deepEqual(ds.animationLeft, { exit: 0, emphasis: 1, path: 1, interactive: 0 });
+  assert.deepEqual(ds.effects.map((e) => [e.target, e.phase]), [["10", "exit"], ["13", "enter"]], "the exit is kept, and the one that makes the text appear");
+  assert.deepEqual(ds.effects.map((e) => e.para), [undefined, { from: 0, to: 0 }], "the second is for the first paragraph only");
 });
 
 test("animation: the objects get the entrance, a step to wait for, and an effect that is the nearest this editor has", () => {
@@ -901,4 +903,111 @@ test("a Wipe effect comes across as a wipe from the side it starts from, going i
   assert.deepEqual(b!.animation.exit.effect, "fade", "a wipe out with no side fades");
   assert.equal(c.notes.animationApproximated, 0, "the four ways in are exact");
   assert.equal(c.notes.exitsApproximated, 1, "the exit with no side is counted");
+});
+
+// ---- a text that comes in, or goes away, one paragraph at a time
+
+const BULLET = (t: string, level = 0) => ({ runs: [{ t }], bullet: "char" as const, ...(level > 0 ? { lvl: level } : {}) });
+const LIST4 = sp({ id: 10, name: "Body", box: { x: 1, y: 1, w: 6, h: 3 }, paras: ["One", "Two", "Three", "Four"].map((t) => BULLET(t)) });
+const forParagraph = (spid: number, from: number, to = from, more: object = {}) => ({ groups: [{ effects: [{ spid, para: { from, to }, ...more }] }] });
+const convertWith = (shapes: string, steps: Parameters<typeof timing>[0]) => {
+  const c = ctx();
+  const out = convertSlide(one(shapes, {}, { timing: timing(steps) }), { ...slideCtx(), notes: c.notes });
+  return { out, notes: c.notes };
+};
+
+test("animation: an effect for some paragraphs says which, counting as the deck does, empty ones included, and the fingerprint does not change for it", () => {
+  const list = sp({ id: 10, name: "List", box: { x: 1, y: 1, w: 6, h: 3 }, paras: [BULLET("One"), { runs: [] }, BULLET("Two"), BULLET("Sub", 1), BULLET("Three")] });
+  const ds = one(list, {}, { timing: timing([forParagraph(10, 0), forParagraph(10, 2, 3), forParagraph(10, 4)]) });
+  assert.deepEqual(ds.effects.map((e) => e.para), [{ from: 0, to: 0 }, { from: 2, to: 3 }, { from: 4, to: 4 }]);
+  assert.deepEqual(text(ds.shapes[0]!).paraSrc, [0, 2, 3, 4], "the empty paragraph is not kept, but the numbers are the deck's");
+  assert.equal(ds.shapes[0]!.hash, one(list).shapes[0]!.hash, "the numbers are not part of the fingerprint");
+});
+
+test("paragraphs: how the deck's paragraphs become the blocks of a text agrees with the HTML the import writes", () => {
+  const P = (bullet: DeckPara["bullet"], level = 0): DeckPara => ({ level, bullet, runs: [{ text: "x" }] });
+  const lists: DeckPara[][] = [
+    [P("none"), P("none")],
+    [P("dot"), P("dot", 1), P("dot", 1), P("dot")],
+    [P("none"), P("dot", 1), P("dot")],
+    [P("dot"), P("number", 1), P("number", 1), P("dot", 2), P("dot")],
+    [P("dot", 2), P("dot")],
+    [P("none"), P("dot"), P("dot", 1), P("none"), P("dot")],
+    [P("dot"), P("number")],
+    [P("dot"), P("dot", 1), P("dot", 2), P("dot", 3), P("dot", 4), P("dot")],
+    [P("number"), P("number"), P("none"), P("number", 1)],
+  ];
+  for (const paras of lists) {
+    const label = JSON.stringify(paras.map((q) => [q.bullet, q.level]));
+    assert.equal(paragraphsOf(parasToHtml(paras, false, false)).length, paragraphBlocks(paras, false).count, label);
+  }
+  // A heading is one block whatever it holds.
+  const heading = [P("none"), P("none")];
+  assert.equal(paragraphsOf(parasToHtml(heading, true, false)).length, 1);
+  const { count, blockOf } = paragraphBlocks(heading, true, [1, 3]);
+  assert.deepEqual([count, [...blockOf]], [1, [[1, 0], [3, 0]]]);
+  // Where each lands, by the deck's numbers.
+  const mixed = paragraphBlocks([P("dot"), P("dot", 1), P("dot", 1), P("dot")], false, [0, 1, 3, 4]);
+  assert.deepEqual([mixed.count, [...mixed.blockOf]], [2, [[0, 0], [1, 0], [3, 0], [4, 1]]]);
+});
+
+test("animation: a text that comes in one paragraph at a time has a timing for each paragraph, and the box is there from the start", () => {
+  const { out, notes } = convertWith(LIST4, [0, 1, 2, 3].map((i) => forParagraph(10, i, i, { preset: 10 })));
+  const body = out.objects[0]!;
+  assert.deepEqual(body.timing, {
+    appear: "time", start: 0, visibleFor: null,
+    paragraphs: [1, 2, 3, 4].map((step) => ({ appear: "click", step, start: 0, visibleFor: null })),
+  });
+  assert.deepEqual(body.animation.enter, { effect: "fade", duration: 500 }, "how each paragraph arrives");
+  assert.equal(paragraphsOf(String(body.content["html"])).length, 4);
+  assert.deepEqual([notes.paragraphBoxes, notes.animated, notes.waiting, notes.paragraphsLeft], [1, 1, 1, 0], "one box, counted once");
+});
+
+test("animation: paragraphs that go away one at a time keep their room until their item, and the box leaves with the effect the deck gave", () => {
+  const { out, notes } = convertWith(LIST4, [0, 1, 2, 3].map((i) => forParagraph(10, i, i, { cls: "exit", preset: 22, subtype: 4 })));
+  const body = out.objects[0]!;
+  assert.deepEqual(body.timing.paragraphs, [1, 2, 3, 4].map((step) => ({ appear: "time", start: 0, visibleFor: null, until: { step, start: 0 } })));
+  assert.equal(body.timing.appear, "time");
+  assert.deepEqual(body.animation.exit, { effect: "wipeBottom", duration: 500 });
+  assert.deepEqual([notes.paragraphBoxes, notes.exits, notes.waiting], [1, 1, 1]);
+});
+
+test("animation: a bullet with bullets under it takes them along, and paragraphs with the same click show together", () => {
+  const list = sp({ id: 10, name: "Body", box: { x: 1, y: 1, w: 6, h: 3 }, paras: [BULLET("A"), BULLET("a1", 1), BULLET("a2", 1), BULLET("B")] });
+  const { out } = convertWith(list, [{ groups: [{ effects: [{ spid: 10, para: { from: 0, to: 2 } }] }] }, forParagraph(10, 3)]);
+  const body = out.objects[0]!;
+  assert.equal(paragraphsOf(String(body.content["html"])).length, 2, "two blocks: A with its two bullets, and B");
+  assert.deepEqual(body.timing.paragraphs, [{ appear: "click", step: 1, start: 0, visibleFor: null }, { appear: "click", step: 2, start: 0, visibleFor: null }]);
+});
+
+test("animation: a paragraph with no effect is always there, and one that waits for no click comes at its time", () => {
+  const { out } = convertWith(LIST4, [forParagraph(10, 1, 1, { preset: 10 }), { auto: true, groups: [{ delay: 1500, effects: [{ spid: 10, para: { from: 3, to: 3 } }] }] }]);
+  assert.deepEqual(out.objects[0]!.timing.paragraphs, [
+    { appear: "time", start: 0, visibleFor: null },
+    { appear: "click", step: 1, start: 0, visibleFor: null },
+    { appear: "time", start: 0, visibleFor: null },
+    { appear: "time", start: 1500, visibleFor: null },
+  ]);
+});
+
+test("animation: an effect for paragraphs on something that is not a text, or on paragraphs that are not there, is counted and left out", () => {
+  const shape = sp({ id: 10, name: "Box", box: { x: 0, y: 1, w: 1, h: 1 }, geom: "rect", fill: "FF0000" });
+  const a = convertWith(shape, [forParagraph(10, 0)]);
+  assert.equal(a.out.objects[0]!.timing.paragraphs, undefined);
+  assert.equal(a.notes.paragraphsLeft, 1);
+  const b = convertWith(LIST4, [forParagraph(10, 9)]);
+  assert.equal(b.out.objects[0]!.timing.paragraphs, undefined);
+  assert.deepEqual([b.notes.paragraphsLeft, b.notes.paragraphBoxes], [1, 0]);
+});
+
+test("animation: the report says how many texts come in a paragraph at a time", () => {
+  const spec: DeckSpec = {
+    slides: [{ id: 256, shapes: LIST4 + sp({ id: 11, name: "Other", box: { x: 1, y: 5, w: 3, h: 1 }, paras: [BULLET("x"), BULLET("y")] }), timing: timing([0, 1].map((i) => forParagraph(10, i, i)).concat([forParagraph(11, 0), forParagraph(11, 1)])) }],
+  };
+  const deck = readDeck(openDeck(buildDeck(spec)));
+  const c = slideCtx();
+  const converted = deck.slides.map((ds) => convertSlide(ds, c));
+  const lines = describeImport(deck, converted, c.notes, ppi96, [0]);
+  assert.match(lines.join(" "), /2 text boxes came in, or went away, one paragraph at a time in PowerPoint, and do here: each paragraph is an item of Show next item/);
+  assert.doesNotMatch(lines.join(" "), /The whole box comes in at once here/);
 });

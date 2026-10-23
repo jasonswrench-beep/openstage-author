@@ -270,6 +270,10 @@ Triggers that point at a missing target or variable are `trigger-target-missing`
 | A slide has a `duration` and holds an object that follows a clip (`timing-media-advance`) | Warning | A slide that moves on by itself holds objects that follow a video or audio clip |
 | An object goes away at a step (`until`) and follows a video or audio clip (`timing-until-media`) | Error | An object that follows a clip cannot also go away at a step |
 | An object appears at a step and goes away at the same or an earlier step (`timing-until-before-appear`) | Warning | This object goes away before it ever shows |
+| A paragraph of a text appears at a step and goes away at the same or an earlier step (`timing-until-before-appear`) | Warning | Paragraph 2 goes away before it ever shows |
+| An object other than a text has a timing for its paragraphs (`timing-paragraphs-type`) | Error | Only a text can come in one paragraph at a time |
+| A text has timing for more or fewer paragraphs than it has (`timing-paragraphs-count`) | Warning | This text has 3 paragraphs, but timing for 2 |
+| A paragraph is timed to appear after the slide has moved on (`timing-after-advance`) | Warning | Paragraph 2 would appear after the slide has moved on |
 | A slide has a `duration` and holds an object that waits for the learner to show it, or to take it away (`timing-click-advance`), unless the slide has `autoSteps` and its last step comes (with the longest delay of an object on it) before the duration | Warning | A slide that moves on by itself holds objects that wait for the learner to show them, or, with `autoSteps`, would move on before its items have all come |
 | An object has `appear` `click` and no `step`, or a `step` with any other `appear` (`schema`) | Error | The object's timing is not in the right shape |
 | A control (a button, an input, a question, an interaction, a download and the like) has a `visibleFor` (`timing-control-disappears`) | Warning | A control that disappears can leave a learner stuck |

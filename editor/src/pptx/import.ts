@@ -143,7 +143,7 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
     out.push(`${plural(notes.exits, "object")} had an exit effect in PowerPoint and ${notes.exits === 1 ? "goes" : "go"} away here the same way: when the learner shows the item PowerPoint's click took ${notes.exits === 1 ? "it" : "them"} away at, or after the time PowerPoint gave.${notes.exitsApproximated > 0 ? ` ${plural(notes.exitsApproximated, "exit")} used an effect this editor does not have, so ${notes.exitsApproximated === 1 ? "it fades" : "they fade"} out instead.` : ""}`);
   }
   if (notes.exitsLeft > 0) out.push(`${plural(notes.exitsLeft, "exit effect")} could not be matched with the object's entrance (it starts by itself while the object waits for a click, or comes before the object does), so ${notes.exitsLeft === 1 ? "it was" : "they were"} left out.`);
-  const gone = { exit: 0, emphasis: 0, path: 0, byParagraph: 0, interactive: 0 };
+  const gone = { exit: 0, emphasis: 0, path: 0, interactive: 0 };
   for (const s of taken) for (const k of Object.keys(gone) as (keyof typeof gone)[]) gone[k] += s.animationLeft[k];
   const leftOut = [
     gone.exit > 0 ? `${plural(gone.exit, "exit effect")}` : "",
@@ -152,7 +152,8 @@ export function describeImport(deck: Deck, converted: ConvertedSlide[], notes: C
     gone.interactive > 0 ? `${plural(gone.interactive, "animation started by clicking a shape", "animations started by clicking a shape")}` : "",
   ].filter((x) => x !== "");
   if (leftOut.length > 0) out.push(`Not brought in: ${leftOut.join(", ")}. What they moved or removed stays as it is when the slide opens: use Timing and Animation in the editor if it should come or go.`);
-  if (gone.byParagraph > 0) out.push(`${plural(gone.byParagraph, "text box", "text boxes")} came in one paragraph at a time in PowerPoint. The whole box comes in at once here.`);
+  if (notes.paragraphBoxes > 0) out.push(`${plural(notes.paragraphBoxes, "text box", "text boxes")} came in, or went away, one paragraph at a time in PowerPoint, and ${notes.paragraphBoxes === 1 ? "does" : "do"} here: each paragraph is an item of Show next item (or comes by itself, at the pace you chose), and a paragraph that is not showing keeps its room. In a list, a bullet with bullets under it takes them along.`);
+  if (notes.paragraphsLeft > 0) out.push(`${plural(notes.paragraphsLeft, "effect")} for single paragraphs could not be matched to a paragraph of a text, so ${notes.paragraphsLeft === 1 ? "it was" : "they were"} left out.`);
   const moved = converted.filter((c) => c.transition);
   if (moved.length > 0) {
     const near = moved.filter((c) => !c.transition!.exact).length;
