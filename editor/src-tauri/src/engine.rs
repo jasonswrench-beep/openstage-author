@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 pub const FOLDER: &str = "narration-engine";
 /// Written last. An engine is installed if this file is there and says so.
 pub const MARKER: &str = "engine.json";
+/// What the last install printed, line by line.
+pub const LOG: &str = "install-log.txt";
 /// The voice model, from its publisher on Hugging Face (Apache-2.0).
 pub const MODEL_REPO: &str = "hexgrad/Kokoro-82M";
 
@@ -49,6 +51,11 @@ impl Layout {
 
     pub fn marker(&self) -> PathBuf {
         self.root.join(MARKER)
+    }
+
+    /// Everything the install commands printed, kept for the author to send when an install stops (the screen only has room for the last lines).
+    pub fn log(&self) -> PathBuf {
+        self.root.join(LOG)
     }
 }
 
@@ -116,15 +123,21 @@ assert parts and len(parts[0]) > 1000, 'no sound was made'; print('It speaks.')"
 }
 
 /// The commands that install the engine, in order, each run with the editor's Python and `environment`. `requirements` is the pinned list of Python packages.
+///
+/// pip is told to use only packages that are already built (`--only-binary :all:`) and to look for them in the folder of the list as well as on PyPI. One package of the list
+/// (docopt) is published as source only; building it makes pip fetch a build tool into a temporary space and run it there, which stopped on one computer
+/// ("Cannot import 'setuptools.build_meta'"). Its built copy travels in that folder instead, so nothing is built on the author's computer.
 pub fn steps(layout: &Layout, requirements: &Path) -> Vec<Step> {
+    let built_here = requirements.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
     vec![
         Step {
             label: "Fetching and installing the Python packages for the voice".into(),
             args: [
-                "-m", "pip", "install", "--upgrade", "--no-cache-dir", "--disable-pip-version-check", "--no-warn-script-location", "--progress-bar", "off", "--target",
+                "-m", "pip", "install", "--upgrade", "--no-cache-dir", "--disable-pip-version-check", "--no-warn-script-location", "--progress-bar", "off", "--only-binary", ":all:", "--find-links",
             ]
             .iter()
             .map(|s| s.to_string())
+            .chain([built_here, "--target".into()])
             .chain([layout.site.to_string_lossy().into_owned(), "-r".into(), requirements.to_string_lossy().into_owned()])
             .collect(),
         },
@@ -222,6 +235,7 @@ mod tests {
         assert_eq!(layout.home, layout.root.join("huggingface"));
         assert_eq!(layout.tmp, layout.root.join("tmp"));
         assert_eq!(layout.marker(), layout.root.join("engine.json"));
+        assert_eq!(layout.log(), layout.root.join("install-log.txt"));
     }
 
     #[test]
@@ -272,6 +286,10 @@ mod tests {
         let r = first.iter().position(|a| a == "-r").unwrap();
         assert_eq!(first[r + 1], "D:/app/tools/narration-requirements.txt");
         assert!(first.contains(&"--no-cache-dir".to_string()), "nothing is left in pip's own cache, so removing the engine frees all of it");
+        let only = first.iter().position(|a| a == "--only-binary").unwrap();
+        assert_eq!(first[only + 1], ":all:", "pip builds nothing on the author's computer");
+        let links = first.iter().position(|a| a == "--find-links").unwrap();
+        assert_eq!(first[links + 1], "D:/app/tools", "what is built already travels beside the list");
         assert!(list[1].args[1].contains("snapshot_download") && list[1].args[1].contains(MODEL_REPO));
         assert!(list[2].args[1].contains("KPipeline") && list[2].args[1].contains("assert"));
         assert!(list.iter().all(|s| !s.label.is_empty()));
@@ -351,5 +369,15 @@ mod tests {
         assert!(lines.iter().any(|l| l.starts_with("click==")), "click is pinned");
         assert!(lines.len() > 60, "it is the whole closure, not a short list: {} lines", lines.len());
         assert!(lines.iter().all(|l| l.contains("==") || l.contains(" @ https://")), "every package is pinned: {lines:?}");
+    }
+
+    /// docopt is published as source only. Installing with `--only-binary :all:` needs its built copy beside the list, at the pinned version.
+    #[test]
+    fn docopt_comes_already_built_beside_the_list_at_the_pinned_version() {
+        let tools = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools");
+        let text = std::fs::read_to_string(tools.join("narration-requirements.txt")).unwrap();
+        let pin = text.lines().find_map(|l| l.trim().strip_prefix("docopt==")).expect("docopt is pinned");
+        let wheel = tools.join(format!("docopt-{pin}-py2.py3-none-any.whl"));
+        assert!(wheel.is_file(), "{} is missing: build it from the source on PyPI when the pin changes", wheel.display());
     }
 }

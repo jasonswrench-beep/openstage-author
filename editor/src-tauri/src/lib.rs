@@ -2221,6 +2221,8 @@ fn engine_install_blocking(python: &Path, layout: &engine::Layout, requirements:
 
 fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &Path, progress: &mut impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
     let steps = engine::steps(layout, requirements);
+    // Everything the commands print goes to a file as well, since the screen has room for the last lines only. Failing to keep it never stops the install.
+    let mut log = fs::File::create(layout.log()).ok();
     for (i, step) in steps.iter().enumerate() {
         progress(i + 1, steps.len(), &step.label, "");
         let mut cmd = Command::new(python);
@@ -2228,9 +2230,17 @@ fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &P
         for (name, value) in engine::install_environment(layout, std::env::var("PYTHONPATH").ok().as_deref()) {
             cmd.env(name, value);
         }
+        if let Some(file) = log.as_mut() {
+            use std::io::Write;
+            let _ = writeln!(file, "== {} ==", step.label);
+        }
         let mut tail: Vec<String> = Vec::new();
         let mut last = std::time::Instant::now() - Duration::from_secs(1);
         let outcome = run_streaming(cmd, |line| {
+            if let Some(file) = log.as_mut() {
+                use std::io::Write;
+                let _ = writeln!(file, "{line}");
+            }
             tail.push(line.to_string());
             if tail.len() > 6 {
                 tail.remove(0);
@@ -2242,7 +2252,14 @@ fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &P
         });
         match outcome {
             Ok(status) if status.success() => {}
-            Ok(_) => return Err(format!("{} did not finish. It said: {}", step.label, tail.iter().rev().take(2).rev().cloned().collect::<Vec<_>>().join(" "))),
+            Ok(_) => {
+                return Err(format!(
+                    "{} did not finish. It said: {} Everything it printed is in {}",
+                    step.label,
+                    tail.iter().rev().take(2).rev().cloned().collect::<Vec<_>>().join(" "),
+                    layout.log().display()
+                ))
+            }
             Err(JobError::Cancelled) => return Err("Installing the narration voice was stopped. Pressing the button again installs it from the start.".into()),
             Err(JobError::Missing) => return Err("The Python that came with this copy could not be started.".into()),
             Err(JobError::Failed(e)) => return Err(format!("Could not run {}: {e}", step.label)),

@@ -15,6 +15,8 @@ downloaded (about 670 MB, from pypi.org and huggingface.co), how much room it ta
 folder (`%LOCALAPPDATA%\com.openstageauthor.editor\narration-engine`), a step at a time, with Cancel. **Remove the narration voice...** takes it away again and frees the room. If you have named your own
 engine (below), the editor leaves yours alone and offers neither button. Run from the source folder (not installed) there is no Python of its own to install with, and the section says so.
 
+If a step of the install stops, the message says what it printed last and where all of it is: `install-log.txt`, in the same folder. Send that file when asking for help. Nothing is built on your computer (every Python package comes already built; the one that PyPI publishes only as source, docopt, comes with OpenStage in its tools folder), so a stop is almost always the network, a program that blocks downloads, or too little room on the drive.
+
 If the computer does not have Microsoft's Visual C++ runtime (a Windows that has only just been installed may not), the section says so and has a button, **Get Microsoft's Visual C++ runtime...**, that opens Microsoft's own download page. Install that, then press **Install the narration voice**.
 
 Where the editor offers it without being asked: after speaker notes are brought in from a PowerPoint deck (the last screen says the course is silent until the voice is installed and goes on to the Narration window), and whenever the Narration window opens with words that have no sound and nothing that could make it, the **Install the narration voice** button has the keyboard.

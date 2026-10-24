@@ -51,6 +51,12 @@ Speech engine (put on the user's own computer, at their request; not included, b
   downloads them. OpenStage Author's installer and website do not include, bundle, or host them.
   They keep their own licences.
 
+docopt 0.6.2 (tools/docopt-0.6.2-py2.py3-none-any.whl; carried in the installer, and put in the narration voice's folder by the install button above)
+  https://github.com/docopt/docopt
+  MIT License, Copyright (c) 2012 Vladimir Keleshev. The full text is in third-party/docopt-LICENSE.txt. It is the one package of the narration voice's list
+  that PyPI publishes as source only; the wheel is built, unchanged, from that source (checked against PyPI's own SHA-256), so that nothing has to be
+  built on the author's computer.
+
 AI services and voice plugins (connected by the user; not included, bundled or hosted by OpenStage Author)
   The editor can make voices and pictures with OpenAI (https://openai.com), and can run
   speech models the user installs as plugins. OpenStage Author includes no service, model,
