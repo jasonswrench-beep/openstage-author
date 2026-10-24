@@ -80,7 +80,10 @@ export class Player implements Host {
     this.backBtn = button(doc, "Back", "os-nav-btn");
     this.nextBtn = button(doc, "Next", "os-nav-btn");
     this.labelEl = el(doc, "span", "os-nav-label");
-    nav.append(this.backBtn, this.labelEl, this.nextBtn);
+    // Show next item is a way to move on like Next, so it sits beside it: the learner shows the items of a slide, then goes to the next slide. (Pause timing, Show everything now and Turn off animation stay in the Timing controls, early in the page.)
+    this.itemBtn = button(doc, "Show next item", "os-nav-btn");
+    this.itemBtn.hidden = true;
+    nav.append(this.backBtn, this.labelEl, this.itemBtn, this.nextBtn);
     if (pkg.project.credits && pkg.credits && pkg.credits.length > 0) nav.appendChild(this.creditsButton(doc, pkg.credits));
     this.backBtn.addEventListener("click", () => this.step(-1));
     this.nextBtn.addEventListener("click", () => this.step(1));
@@ -108,12 +111,11 @@ export class Player implements Host {
     this.timingBar = el(doc, "section", "os-timing");
     this.timingBar.setAttribute("aria-label", "Timing");
     this.timingBar.hidden = true;
-    this.itemBtn = button(doc, "Show next item", "os-nav-btn");
     this.pauseBtn = button(doc, "Pause timing", "os-nav-btn");
     this.showAllBtn = button(doc, "Show everything now", "os-nav-btn");
     this.animateBtn = button(doc, "Turn off animation", "os-nav-btn");
     this.animateBtn.setAttribute("aria-pressed", "false");
-    this.timingBar.append(this.itemBtn, this.pauseBtn, this.showAllBtn, this.animateBtn);
+    this.timingBar.append(this.pauseBtn, this.showAllBtn, this.animateBtn);
     this.itemBtn.addEventListener("click", () => {
       // aria-disabled, not disabled, once nothing is left, so the button the learner is on does not vanish from under them.
       if (this.itemBtn.getAttribute("aria-disabled") === "true") return;
