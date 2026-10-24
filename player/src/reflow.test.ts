@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { contrast, luminance, parseColor, planReflow, REFLOW_BELOW, shouldReflow } from "./reflow.ts";
+import { contrast, luminance, parseColor, planReflow, quarterTurned, REFLOW_BELOW, seenSize, shouldReflow } from "./reflow.ts";
 import type { OSObject, Style, Theme } from "./types.ts";
 
 const theme = {
@@ -123,4 +123,12 @@ test("a theme colour in a fill is read through the theme", () => {
   const panel = obj("shape", 100, 100, 600, 300, { decorative: true, style: { fill: "theme:color.dark" } });
   const text = obj("text", 120, 120, 400, 80, { z: 1, style: { color: "theme:color.onDark" } });
   assert.equal(planReflow([panel, text], theme).get(text.id)?.backdrop, "#12263f");
+});
+
+test("a shape turned a quarter turn keeps the shape it has on the stage in one column", () => {
+  assert.deepEqual([0, 90, 270, -90, 450, 85, 100, 180, 45, 135, 360].map(quarterTurned), [false, true, true, true, true, true, true, false, false, false, false]);
+  assert.deepEqual(seenSize(obj("shape", 0, 0, 6, 206, { rotation: 90 })), { width: 206, height: 6 });
+  assert.deepEqual(seenSize(obj("shape", 0, 0, 6, 206, { rotation: 0 })), { width: 6, height: 206 });
+  assert.deepEqual(seenSize(obj("image", 0, 0, 300, 100, { rotation: 270 })), { width: 100, height: 300 });
+  assert.deepEqual(seenSize(obj("image", 0, 0, 300, 100, { rotation: 30 })), { width: 300, height: 100 }, "a slight turn is not a swap");
 });

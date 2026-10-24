@@ -27,6 +27,18 @@ export interface ReflowNote {
   backdrop: string | null;
 }
 
+/** Is the object turned a quarter or three quarters of a turn (give or take a little), so its width and height swap places on the page? */
+export function quarterTurned(rotation: number): boolean {
+  const r = ((rotation % 180) + 180) % 180;
+  return Math.abs(r - 90) <= 10;
+}
+
+/** The size the object has on the stage as it is seen, for keeping its shape in one column: a quarter turn swaps width and height. */
+export function seenSize(o: Pick<OSObject, "geometry">): { width: number; height: number } {
+  const { width, height, rotation } = o.geometry;
+  return quarterTurned(rotation) ? { width: height, height: width } : { width, height };
+}
+
 /** How much a child may stick out of the object under it and still count as sitting on it, in stage pixels. */
 const TOLERANCE = 6;
 

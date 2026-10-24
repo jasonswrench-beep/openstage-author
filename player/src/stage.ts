@@ -15,7 +15,7 @@ import { buildInteraction, type ItemSound } from "./interactions.ts";
 import type { DescriptionHost } from "./description.ts";
 import { emptyMessage, isAnswered } from "./grading.ts";
 import { buildQuestion } from "./questions.ts";
-import { planReflow, type ReflowNote } from "./reflow.ts";
+import { planReflow, seenSize, type ReflowNote } from "./reflow.ts";
 import { buildScenario, type Move, type ScenarioSound } from "./scenario.ts";
 import { buildCertificate, buildResults, type CourseInfo, type CourseResults } from "./results.ts";
 import { buildLogo, logoFirst } from "./logo.ts";
@@ -703,8 +703,9 @@ export class StageRenderer {
     set("z-index", String(g.z));
     if (g.rotation) set("transform", `rotate(${g.rotation}deg)`);
     // The size the author gave, for the one-column layout, where a picture or video keeps its shape but fills the width.
-    set("--os-w", `${g.width}px`);
-    set("--os-ar", `${g.width} / ${Math.max(1, g.height)}`);
+    const seen = seenSize(m.obj);
+    set("--os-w", `${seen.width}px`);
+    set("--os-ar", `${seen.width} / ${Math.max(1, seen.height)}`);
 
     const theme = this.theme;
     const layers: Style[] = [resolveStyle(theme, obj.style), ...lookLayers(obj.states, { name: m.stateName, visited: m.visited, hover: m.hover }).map((s) => resolveStyle(theme, s))];
