@@ -1164,13 +1164,16 @@ ${errorText(err)}`);
         if (!Number.isInteger(n) || n < 1 || n > MAX_STEP) { this.announce(`Write the item number as a whole number from 1 to ${MAX_STEP}, or leave it blank.`); this.renderProps(); return; }
         change(n);
       }, { number: true });
+    // The same key for both of the button's states, so the keyboard stays on it when the panel is drawn again with the other one.
+    const toggle = parts
+      ? this.small("Show all the text together", "Take the timing of the paragraphs away", () => done(m.buildByParagraph(o.id, false)))
+      : this.small("Show one paragraph at a time", `Make each of the ${words.length} paragraphs an item`, () => done(m.buildByParagraph(o.id, true)));
+    toggle.dataset["key"] = "prop:paragraph-toggle";
     return [h("fieldset", { class: "paragraph-timing" }, h("legend", { text: "Paragraph by paragraph" }),
       h("p", { class: "note", text: parts
         ? "Each paragraph is its own item for the learner's Show next item button, in the order of its number. Paragraphs with the same number show together. The box itself is there from the start, and a paragraph that is not showing keeps its room, so the lines round it do not move."
         : "Show this text one paragraph at a time, each its own item for the learner's Show next item button, as a PowerPoint text does when it builds by paragraph. The box itself is there from the start." }),
-      h("div", { class: "btn-row" }, parts
-        ? this.small("Show all the text together", "Take the timing of the paragraphs away", () => done(m.buildByParagraph(o.id, false)))
-        : this.small("Show one paragraph at a time", `Make each of the ${words.length} paragraphs an item`, () => done(m.buildByParagraph(o.id, true)))),
+      h("div", { class: "btn-row" }, toggle),
       ...(parts ? [
         ...words.map((w, i) => {
           const p = parts[i] ?? { appear: "time" as const, start: 0, visibleFor: null };
