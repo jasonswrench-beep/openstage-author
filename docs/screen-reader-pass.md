@@ -340,6 +340,27 @@ NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with th
 
 **What it could not tell.** Browse mode (reading the page with NVDA's own keys) was not tried, so the off-slide title was heard through the slide's region being read out when it opens, and by focusing it, not by arrowing down the page. Narrator was not tried. A person who uses NVDA every day may find more.
 
+## A third NVDA pass, on text that comes one paragraph at a time and on Show next item beside Next (run 2026-10-23)
+
+NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with the author away, by the same method as before and the same filter, on the published Chapter 2 deck in a copy of Edge with its own profile folder. The raw log was deleted when each run ended.
+
+| What was done | What NVDA said | Verdict |
+| --- | --- | --- |
+| Tab along the navigation row on a slide with items | "Show next item (1 of 2), button"; "Next, button"; "Accessibility, button, collapsed" | works: Show next item now comes before Next |
+| Enter on Show next item, a text with two paragraphs | "Item 1 of 2 is showing: George Gerbner noted, corporations can almost act as ... a private "ministry of culture."." then "Item 2 of 2 is showing: Major corporations supply ... information today.. That was the last." | works; the doubled full stops were cosmetic (problem 18, fixed) |
+| Enter once more | nothing | works (the button stays, and says nothing when all is shown) |
+| Four paragraphs that go away, one Enter each | "Item 1 of 4. Cambridge Dictionary "a way of behaving ..." went away." ... "Item 4 of 4. Forbes "targeting or denouncing ..." went away. That was the last." | works |
+| Tab along the navigation row on a slide with no items | "Next, button"; "Accessibility, button, collapsed" (after Back) | works: no Show next item there |
+
+**Problems found, and what was done**
+
+| # | Where | What was said | What should have been said | How bad |
+| --- | --- | --- | --- | --- |
+| 18 | The course: an item that is a paragraph | "... today.. That was the last." (two full stops), and "...clauses., Also, ..." when two paragraphs came together | One full stop, and no comma after a full stop | cosmetic. Fixed: `itemSentence` in `player/src/timeline.ts` adds a full stop only where there is none, and joins a name that ends a sentence with a space. |
+| 19 | The editor: Paragraph by paragraph, the button | (found by a check of the real window, not heard) after Show one paragraph at a time or Show all the text together the keyboard fell to the top of the page, because the panel was drawn again with the other button | The keyboard staying on the button, now named for the other choice | awkward. Fixed: both states of the button share one key, so focus goes to the new one. Checked again in the real window. |
+
+**What it could not tell.** The editor half was not run with NVDA: the author's own copy of the editor was open, and the harness tells windows apart by program name only, so it could not be sure which window it was listening to. The labels of the new section were read from the page instead (each paragraph is a group named by its words, each box has a label). The steps that Tab through the Timing controls heard nothing in the log, though the page was in the right state (Pause timing, Show everything now and Turn off animation, in that order): that is the test, not the course, and was not run again. Narrator was not tried: its speech cannot be read by a program, so it needs a person.
+
 ## When it is done
 
 The roadmap item "ATAG Part A pass" stays open until the whole editor has been covered. When this baseline is finished, change the roadmap note to say exactly which patterns were covered with which screen readers, and list the open problems.

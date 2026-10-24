@@ -4,7 +4,7 @@
 import { Runtime, type Host, type Snapshot } from "./runtime.ts";
 import { NarrationBar, itemNarrationKey } from "./narration.ts";
 import { hasAnimation, hasSlideTransition, reducedMotion, type Phase } from "./animation.ts";
-import { Timeline, isTimed } from "./timeline.ts";
+import { Timeline, isTimed, itemSentence } from "./timeline.ts";
 import { partId, partOf } from "./paragraphs.ts";
 import { timerContentOf } from "./timer.ts";
 import { applyDraws, drawBanks, drawsFit, newSeed } from "./bank.ts";
@@ -348,9 +348,7 @@ export class Player implements Host {
   private itemSaid(ids: string[], pressed: number, total: number, left: string[] = []): string {
     const names = ids.map((id) => this.nameOf(id)).filter((n) => n !== "");
     const gone = left.map((id) => this.nameOf(id)).filter((n) => n !== "");
-    const lead = `Item ${pressed} of ${total}`;
-    const shown = names.length > 0 ? `${lead} is showing: ${names.join(", ")}.` : gone.length > 0 ? `${lead}.` : `${lead} is showing.`;
-    return `${shown}${gone.length > 0 ? ` ${gone.join(", ")} went away.` : ""}${pressed >= total ? " That was the last." : ""}`;
+    return itemSentence(names, gone, pressed, total);
   }
 
   /** What a learner would call an object on the slide that is showing: its alt text, or its name. Nothing for something that is only decoration. */

@@ -33,6 +33,19 @@ export function isTimed(t: Timing): boolean {
   return t.appear !== "time" || t.start > 0 || t.visibleFor !== null || t.until !== undefined;
 }
 
+/**
+ * What is said when an item came or went: "Item 2 of 7 is showing: the names." and "The names went away." A name is an object's alt text or name, or the words of a paragraph,
+ * which usually ends with its own full stop, so the sentence does not add another, and the next name follows it without a comma.
+ */
+export function itemSentence(names: string[], gone: string[], pressed: number, total: number): string {
+  const ends = (t: string) => /[.!?…]["”’')\]]*$/.test(t);
+  const list = (parts: string[]) => parts.reduce((all, part) => (all === "" ? part : `${all}${ends(all) ? " " : ", "}${part}`), "");
+  const stop = (t: string) => (ends(t) ? t : `${t}.`);
+  const lead = `Item ${pressed} of ${total}`;
+  const shown = names.length > 0 ? `${lead} is showing: ${stop(list(names))}` : gone.length > 0 ? `${lead}.` : `${lead} is showing.`;
+  return `${shown}${gone.length > 0 ? ` ${list(gone)} went away.` : ""}${pressed >= total ? " That was the last." : ""}`;
+}
+
 /** What the timeline needs to know about an object. */
 export interface TimedObject {
   id: string;

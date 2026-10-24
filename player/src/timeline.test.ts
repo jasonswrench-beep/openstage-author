@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isTimed, Timeline, type Clock, type TimedObject } from "./timeline.ts";
+import { isTimed, itemSentence, Timeline, type Clock, type TimedObject } from "./timeline.ts";
 import type { Timing } from "./types.ts";
 
 /** A clock moved by hand. Timers run, in order, as it passes their time. */
@@ -786,4 +786,18 @@ test("Show everything shows even what would have gone, and pausing holds a delay
   assert.deepEqual(m.take(), ["hide a"]);
   m.timeline.showEverything();
   assert.deepEqual(m.take().sort(), ["show a"], "everything means everything");
+});
+
+test("what is said for an item: the names, one full stop, and what went away", () => {
+  assert.equal(itemSentence(["Chart"], [], 2, 7), "Item 2 of 7 is showing: Chart.");
+  assert.equal(itemSentence(["Chart", "Caption"], [], 2, 7), "Item 2 of 7 is showing: Chart, Caption.");
+  assert.equal(itemSentence([], [], 1, 3), "Item 1 of 3 is showing.");
+  assert.equal(itemSentence(["Chart"], [], 3, 3), "Item 3 of 3 is showing: Chart. That was the last.");
+  assert.equal(itemSentence([], ["Chart"], 3, 5), "Item 3 of 5. Chart went away.");
+  assert.equal(itemSentence(["Sky"], ["Chart", "Map"], 4, 5), "Item 4 of 5 is showing: Sky. Chart, Map went away.");
+  // A paragraph ends with its own full stop: no second one, and the next paragraph follows it without a comma.
+  assert.equal(itemSentence(["The flow of information today."], [], 2, 2), "Item 2 of 2 is showing: The flow of information today. That was the last.");
+  assert.equal(itemSentence(["One.", "Two?", "Three"], [], 1, 1), "Item 1 of 1 is showing: One. Two? Three. That was the last.");
+  assert.equal(itemSentence(["She said “stop.”"], [], 1, 2), "Item 1 of 2 is showing: She said “stop.”");
+  assert.equal(itemSentence([], ["A quote: “gone.”"], 1, 2), "Item 1 of 2. A quote: “gone.” went away.");
 });
