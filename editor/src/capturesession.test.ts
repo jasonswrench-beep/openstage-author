@@ -244,6 +244,28 @@ test("warnings and problems are said once, and the checks that matter are always
   assert.equal(session.problem, "The disk is full.");
 });
 
+// ---- making the voice or the computer's sound louder or quieter in the video
+
+test("the loudness boxes start at 0, are sent to the recorder only when they are not 0, and are checked", () => {
+  assert.equal(defaultSettings().micGainDb, 0);
+  assert.equal(defaultSettings().systemGainDb, 0);
+  const plain = recordArgs(settings(), "F:/c/Demo 1.capture");
+  assert.ok(!plain.includes("--mic-gain-db") && !plain.includes("--system-gain-db"), "as heard: nothing sent");
+  const set = recordArgs(settings({ micGainDb: 3, systemGainDb: -10 }), "F:/c/Demo 1.capture");
+  assert.equal(set[set.indexOf("--mic-gain-db") + 1], "3");
+  assert.equal(set[set.indexOf("--system-gain-db") + 1], "-10");
+  const onlySystem = recordArgs(settings({ systemGainDb: -40 }), "F:/c/Demo 1.capture");
+  assert.ok(!onlySystem.includes("--mic-gain-db"));
+  assert.equal(onlySystem[onlySystem.indexOf("--system-gain-db") + 1], "-40");
+  assert.ok(!recordArgs(settings({ practice: true, micGainDb: 5 }), "F:/c/Demo 1.capture").includes("--mic-gain-db"), "a practice recording has no real sound to change");
+  assert.equal(settingsProblem(settings({ micGainDb: 20, systemGainDb: -40 })), null, "the ends of the range are fine");
+  for (const bad of [21, -41, 1.5, Number.NaN]) {
+    assert.match(settingsProblem(settings({ micGainDb: bad })) ?? "", /your voice is made is a whole number of decibels from -40 to 20/, String(bad));
+    assert.match(settingsProblem(settings({ systemGainDb: bad })) ?? "", /computer's sound is made is a whole number of decibels from -40 to 20/, String(bad));
+  }
+  assert.equal(settingsProblem(settings({ practice: true, micGainDb: 99 })), null, "not checked for a practice recording, which does not use them");
+});
+
 // ---- the recorder's advice about sound, and sentences that name its command line
 
 // The sentences are the recorder's own (capture/crates/openstage-capture-windows/src/balance.rs, cue_player.rs, record.rs, sound.rs).
@@ -252,11 +274,11 @@ const LOUD = "The computer's sound is about 9 decibels louder than your voice wh
 test("the recorder's sentences that name its options and files are put in the window's words", () => {
   assert.equal(
     plainWords(LOUD),
-    "The computer's sound is about 9 decibels louder than your voice while each is making sound, so in the mixed video your voice may be hard to hear. To put your voice about 6 decibels above it, make the computer's sound 15 decibels quieter in the mix. In the editor you can change the volume of the computer's sound.",
+    "The computer's sound is about 9 decibels louder than your voice while each is making sound, so in the mixed video your voice may be hard to hear. To put your voice about 6 decibels above it, make the computer's sound 15 decibels quieter in the mix (next time, set the computer's sound to -15 decibels before recording). In the editor you can change the volume of the computer's sound.",
   );
   assert.equal(
     plainWords("The computer's sound is about 30 decibels quieter than your voice, which may be too quiet to hear in the mixed video. If it should be heard, raise it in the editor, or record with a higher --system-gain-db."),
-    "The computer's sound is about 30 decibels quieter than your voice, which may be too quiet to hear in the mixed video. If it should be heard, raise it in the editor.",
+    "The computer's sound is about 30 decibels quieter than your voice, which may be too quiet to hear in the mixed video. If it should be heard, raise it in the editor, or set the computer's sound higher before recording.",
   );
   assert.equal(
     plainWords("The sounds are played at volume 50 of 100. To change it use --cue-volume with a number from 1 to 100; --cues off turns them off."),

@@ -80,6 +80,7 @@ import {
   setTextStyle,
   setZoom,
   setMuted,
+  setPlacement,
   setVolume,
   splitAt,
   stepTime,
@@ -87,6 +88,10 @@ import {
   trimItemEnd,
   trimItemStart,
   trimStart,
+  webcamChoiceOf,
+  webcamRect,
+  WEBCAM_SIZES,
+  WEBCAM_WHERE,
   type ArrowStyle,
   type CalloutKind,
   type Copied,
@@ -102,6 +107,8 @@ import {
   type Row,
   type StepKey,
   type TrackKind,
+  type WebcamSize,
+  type WebcamWhere,
 } from "../../capture-edit/src/index.ts";
 import { snapTargets, snapTo } from "./snap.ts";
 
@@ -162,6 +169,10 @@ export interface Details {
   readonly hasTextAlternative: boolean;
   readonly transitionIn?: Transition;
   readonly transitionOut?: Transition;
+  /** A webcam recording has a place for its picture in the video: a corner and a size. `other` is a place that was set some other way. */
+  readonly isWebcam: boolean;
+  readonly webcamWhere: WebcamWhere | "other";
+  readonly webcamSize: WebcamSize | "other";
 }
 
 /** A track the primary row could be moved to, or is on now. */
@@ -231,6 +242,19 @@ export function parseDecibels(text: string): { ok: true; db: number } | { ok: fa
   const db = Number(found[1]);
   if (!Number.isInteger(db)) return { ok: false, message: `The volume is changed in whole decibels, so "${trimmed}" is not allowed. ${how}` };
   return { ok: true, db };
+}
+
+/** The two sounds whose balance is set together: the voice, and the computer's own sound. */
+export type BalanceSound = "microphone" | "system-audio";
+
+const BALANCE_NAMES: Readonly<Record<BalanceSound, { readonly title: string; readonly plain: string }>> = {
+  microphone: { title: "Your voice", plain: "voice" },
+  "system-audio": { title: "The computer's sound", plain: "computer sound" },
+};
+
+/** A volume in words: "6 decibels quieter than recorded". */
+function volumeWords(db: number): string {
+  return db === 0 ? "as recorded" : `${Math.abs(db)} ${Math.abs(db) === 1 ? "decibel" : "decibels"} ${db < 0 ? "quieter" : "louder"} than recorded`;
 }
 
 export class EditSession {
@@ -330,6 +354,7 @@ export class EditSession {
     if (row === undefined) return undefined;
     const found = findClip(this.#history.model, row.clipId);
     const sourceKind = found === undefined ? undefined : findSource(this.#history.model, found.clip.source)?.kind;
+    const place = webcamChoiceOf(found?.clip.placement);
     return {
       id: row.clipId,
       name: row.name,
@@ -352,6 +377,9 @@ export class EditSession {
       hasPicture: found !== undefined && !["microphone", "system-audio", "audio"].includes(findSource(this.#history.model, found.clip.source)?.kind ?? "audio"),
       ...(found?.clip.transitionIn === undefined ? {} : { transitionIn: found.clip.transitionIn }),
       ...(found?.clip.transitionOut === undefined ? {} : { transitionOut: found.clip.transitionOut }),
+      isWebcam: sourceKind === "webcam",
+      webcamWhere: place.where,
+      webcamSize: place.size,
     };
   }
 
@@ -1254,6 +1282,43 @@ export class EditSession {
     return this.#run((m) => setVolume(m, row.clipId, parsed.db));
   }
 
+  // ---- the balance of the voice and the computer's sound ----
+
+  /** Every clip of one sound, wherever it is in the edit. */
+  #clipsOfSound(sound: BalanceSound): Clip[] {
+    const model = this.#history.model;
+    return model.tracks.flatMap((t) => t.clips).filter((c) => findSource(model, c.source)?.kind === sound);
+  }
+
+  /** The volume that every clip of one sound has, in decibels; "mixed" when they differ; undefined when the edit has none of that sound. */
+  soundBalance(sound: BalanceSound): number | "mixed" | undefined {
+    const volumes = this.#clipsOfSound(sound).map((c) => c.volumeDb);
+    const first = volumes[0];
+    if (first === undefined) return undefined;
+    return volumes.every((v) => v === first) ? first : "mixed";
+  }
+
+  /**
+   * Set the volume of every clip of one sound, the voice or the computer's sound, to what the author typed (whole decibels from -40 to 20), as one undo step.
+   * This is how the two are balanced against each other for the whole edit; a single clip's volume is still set in its own form.
+   */
+  setSoundBalance(sound: BalanceSound, text: string): Outcome {
+    const parsed = parseDecibels(text);
+    if (!parsed.ok) return no(parsed.message);
+    const name = BALANCE_NAMES[sound];
+    const clips = this.#clipsOfSound(sound);
+    if (clips.length === 0) return no(`There is no ${name.plain} in this edit.`);
+    if (clips.every((c) => c.volumeDb === parsed.db)) return ok(`${name.title} is already ${volumeWords(parsed.db)}.`);
+    const ids = new Set(clips.map((c) => c.id));
+    const rows = this.rows.filter((r) => ids.has(r.clipId));
+    return this.#runEach(
+      "set the balance",
+      rows,
+      (m, row) => setVolume(m, row.clipId, parsed.db),
+      () => `${name.title} is now ${volumeWords(parsed.db)}${clips.length === 1 ? "" : `, in all ${clips.length} of its clips`}.`,
+    );
+  }
+
   /** Set how long a clip's sound fades in, from what the author typed. */
   setFadeInText(text: string): Outcome {
     return this.#setFade("in", text);
@@ -1317,6 +1382,28 @@ export class EditSession {
     const parsed = parseTime(text);
     if (!parsed.ok) return no(parsed.message);
     return this.#run((m) => setTransition(m, c.clipId, which, had.kind, parsed.ms));
+  }
+
+  // ---- where the webcam picture goes ----
+
+  /**
+   * Choose where the chosen webcam clip's picture goes in the finished video: a corner (or `usual`, which takes the place away so the video maker draws it
+   * where it does when nothing is said, or `fill`, which covers the whole picture) and a size. The size does not matter for `usual` and `fill`.
+   */
+  setWebcamPlace(where: string, size: string): Outcome {
+    const row = this.#one();
+    if ("ok" in row) return row;
+    const found = findClip(this.#history.model, row.clipId);
+    if (found === undefined) return this.#notAClip(row, "Only a webcam recording has a place for its picture.");
+    if (findSource(this.#history.model, found.clip.source)?.kind !== "webcam") {
+      return no(`${quote(found.clip.name)} is not a webcam recording, so its place in the picture is not set here.`);
+    }
+    if (where === "other") return no("The place of this webcam picture was set another way, so it is not one of the choices. Choose a place from the list to replace it.");
+    const chosenWhere = WEBCAM_WHERE.find((k) => k === where);
+    const chosenSize = WEBCAM_SIZES.find((k) => k === size);
+    if (chosenWhere === undefined || chosenSize === undefined) return no("That is not one of the places or sizes to choose from.");
+    if (chosenWhere === "usual") return this.#run((m) => setPlacement(m, row.clipId, null));
+    return this.#run((m) => setPlacement(m, row.clipId, webcamRect(chosenWhere, chosenSize)));
   }
 
   // ---- drags ----

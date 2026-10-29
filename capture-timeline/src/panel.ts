@@ -24,7 +24,10 @@
  * each row (`aria-label`) or the cells read better, is what the first test with one has to settle.
  */
 
-import { COLUMNS, IN_KINDS, OUT_KINDS, TRANSITION_NAMES, formatTimecode, type Row, type StepKey, type TransitionKind } from "../../capture-edit/src/index.ts";
+import {
+  COLUMNS, IN_KINDS, OUT_KINDS, TRANSITION_NAMES, WEBCAM_SIZES, WEBCAM_SIZE_NAMES, WEBCAM_WHERE, WEBCAM_WHERE_NAMES, formatTimecode,
+  type Row, type StepKey, type TransitionKind,
+} from "../../capture-edit/src/index.ts";
 import { Announcer } from "./announcer.ts";
 import { COMMANDS, commandFor, isTextField } from "./commands.ts";
 import { h, nextId, type Attrs } from "./dom.ts";
@@ -184,6 +187,22 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     tfield("outKind", "tout", "Leaves with"),
     tfield("outLength", "toutLength", "Leave length"),
   );
+  // Where a webcam recording's picture goes in the finished video: a corner and a size. Nothing is disabled (the Tab order keeps every box); the size is simply
+  // not used when the picture fills the whole frame, and the hint says so. A place that was set some other way is shown, and cannot be chosen again.
+  const placeFields = {
+    where: h("select", { id: `${id}-where`, class: "os-cl-input", "aria-describedby": `${id}-place-hint` }),
+    size: h("select", { id: `${id}-size`, class: "os-cl-input", "aria-describedby": `${id}-place-hint` }),
+  };
+  placeFields.where.replaceChildren(...WEBCAM_WHERE.map((k) => h("option", { value: k }, WEBCAM_WHERE_NAMES[k])), h("option", { value: "other", disabled: true }, "Somewhere else, set before"));
+  placeFields.size.replaceChildren(...WEBCAM_SIZES.map((k) => h("option", { value: k }, WEBCAM_SIZE_NAMES[k])), h("option", { value: "other", disabled: true }, "Another size, set before"));
+  const pfield = (key: keyof typeof placeFields, label: string) => h("div", { class: "os-cl-field" }, h("label", { for: placeFields[key].id }, label), placeFields[key]);
+  const placeBox = h(
+    "div",
+    { class: "os-cl-fields os-cl-place", role: "group", "aria-label": "Where the webcam picture goes in the finished video" },
+    pfield("where", "Webcam picture: where"),
+    pfield("size", "Webcam picture: how big"),
+    h("p", { class: "os-cl-hint", id: `${id}-place-hint` }, "Where the webcam picture sits on the video, and how big it is. The usual place leaves it to the program that makes the video. How big does not matter when the picture fills the whole video."),
+  );
   const timeFields = h("div", { class: "os-cl-fields" }, field("name", "Name"), field("start", "Start"), field("length", "Length"), field("end", "End"));
   const trackField = h("div", { class: "os-cl-field" }, h("label", { for: `${id}-track` }, "Track"), trackSelect);
   const manyNote = h("p", { class: "os-cl-hint", id: `${id}-many` });
@@ -198,6 +217,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
     altBox,
     textBox,
     transitionBox,
+    placeBox,
     mutedLabel,
     formError,
   );
@@ -368,6 +388,7 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       trackField.hidden = true;
       soundFields.hidden = true;
       transitionBox.hidden = true;
+      placeBox.hidden = true;
       altBox.hidden = true;
       textBox.hidden = true;
       mutedLabel.hidden = true;
@@ -398,6 +419,11 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
       if (document.activeElement !== transitionFields.outKind) transitionFields.outKind.value = to?.kind ?? "none";
       setField(transitionFields.inLength, ti === undefined ? "" : formatTimecode(ti.durationMs));
       setField(transitionFields.outLength, to === undefined ? "" : formatTimecode(to.durationMs));
+    }
+    placeBox.hidden = !details.isWebcam;
+    if (details.isWebcam) {
+      if (document.activeElement !== placeFields.where) placeFields.where.value = details.webcamWhere;
+      if (document.activeElement !== placeFields.size) placeFields.size.value = details.webcamSize;
     }
     setField(fields.volume, String(details.volumeDb));
     setField(fields.fadeIn, formatTimecode(details.fadeInMs));
@@ -648,6 +674,19 @@ export function mountClipList(container: HTMLElement, session: EditSession, opti
   for (const [select, which] of [[transitionFields.inKind, "in"], [transitionFields.outKind, "out"]] as const) {
     select.addEventListener("change", () => {
       const outcome = session.setTransitionKind(which, select.value);
+      say(outcome.message);
+      if (!outcome.ok) syncForm();
+    });
+    select.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        focusSelected();
+      }
+    });
+  }
+  for (const select of [placeFields.where, placeFields.size]) {
+    select.addEventListener("change", () => {
+      const outcome = session.setWebcamPlace(placeFields.where.value, placeFields.size.value);
       say(outcome.message);
       if (!outcome.ok) syncForm();
     });

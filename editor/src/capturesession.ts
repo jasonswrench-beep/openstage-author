@@ -31,18 +31,26 @@ export interface RecordSettings {
   countdownSeconds: number;
   /** The recorder's own short sound for each step. */
   sounds: boolean;
+  /** How much louder (positive) or quieter (negative) the voice and the computer's sound are made in the mix inside the video, in whole decibels from -40 to 20. 0 leaves each as heard. */
+  micGainDb: number;
+  systemGainDb: number;
 }
 
 export function defaultSettings(): RecordSettings {
   return {
     name: "Recording", practice: false, target: "screen", display: 1, window: "",
     region: { left: "0", top: "0", width: "1280", height: "720" },
-    microphone: "default", output: "default", camera: "none", interactions: "off", countdownSeconds: 3, sounds: true,
+    microphone: "default", output: "default", camera: "none", interactions: "off", countdownSeconds: 3, sounds: true, micGainDb: 0, systemGainDb: 0,
   };
 }
 
 export const MIN_REGION = 64;
 export const MAX_COUNTDOWN = 10;
+/** The range the recorder accepts for making the voice or the computer's sound louder or quieter, in whole decibels. */
+export const MIN_GAIN_DB = -40;
+export const MAX_GAIN_DB = 20;
+
+const gainOk = (db: number): boolean => Number.isInteger(db) && db >= MIN_GAIN_DB && db <= MAX_GAIN_DB;
 
 /** The folder name for a recording: letters, digits, spaces, hyphens and underscores, nothing that could leave the captures folder. */
 export function safeName(name: string): string {
@@ -69,6 +77,8 @@ export function settingsProblem(s: RecordSettings): string | null {
     return `The countdown is a whole number of seconds from 0 to ${MAX_COUNTDOWN}.`;
   }
   if (s.practice) return null;
+  if (!gainOk(s.micGainDb)) return `How much louder or quieter your voice is made is a whole number of decibels from ${MIN_GAIN_DB} to ${MAX_GAIN_DB}. 0 leaves it as heard.`;
+  if (!gainOk(s.systemGainDb)) return `How much louder or quieter the computer's sound is made is a whole number of decibels from ${MIN_GAIN_DB} to ${MAX_GAIN_DB}. 0 leaves it as heard.`;
   if (!Number.isInteger(s.display) || s.display < 1) return "Choose a screen.";
   if (s.target === "window" && s.window.trim() === "") return "Choose the window to record. Press Look for windows to list them.";
   if (s.target === "region") {
@@ -87,6 +97,9 @@ export function recordArgs(s: RecordSettings, folder: string): string[] {
   if (s.target === "window") args.push("--window", s.window.trim());
   if (s.target === "region") args.push("--region", [s.region.left, s.region.top, s.region.width, s.region.height].map((n) => String(Number(n))).join(","));
   args.push("--microphone", s.microphone, "--output", s.output, "--camera", s.camera, "--interactions", s.interactions);
+  // Only when asked for: 0 is the recorder's own default, and a recorder from before the options existed never hears of them.
+  if (s.micGainDb !== 0) args.push("--mic-gain-db", String(s.micGainDb));
+  if (s.systemGainDb !== 0) args.push("--system-gain-db", String(s.systemGainDb));
   return args;
 }
 
@@ -190,9 +203,9 @@ const MAX_NOTES = 60;
  */
 export function plainWords(text: string): string {
   return text
-    .replace(/ \(record with --system-gain-db -?\d+\)/g, "")
+    .replace(/ \(record with --system-gain-db (-?\d+)\)/g, " (next time, set the computer's sound to $1 decibels before recording)")
     .replace(/, or balance mic\.wav and system\.wav in the editor: the separate files are not changed by the mix\./g, ". In the editor you can change the volume of the computer's sound.")
-    .replace(/, or record with a higher --system-gain-db\./g, ".")
+    .replace(/, or record with a higher --system-gain-db\./g, ", or set the computer's sound higher before recording.")
     .replace(/ To change it use --cue-volume with a number from 1 to 100; --cues off turns them off\./g, " To turn them off, untick the Sounds box before recording.")
     .replace(/ Use --cue-volume with a number from 1 to 100\./g, "")
     .replace(/To record without the webcam, leave out --camera\./g, "To record without the webcam, choose No webcam under A webcam.")

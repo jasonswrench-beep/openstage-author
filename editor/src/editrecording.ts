@@ -21,6 +21,7 @@ import { applyExportLine, exportPlan, initialExport, summariseExport, type Expor
 import { extrasFromEdit, type Extra } from "./captions.ts";
 import { chooseMedia, measureInBrowser } from "./mediapick.ts";
 import { recordingFolder } from "./recordingfolder.ts";
+import { mountSoundBalance } from "./soundbalance.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -93,12 +94,14 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const madeRow = h("div", { class: "dialog-actions", hidden: true }, place, captionsBtn, describeBtn, reveal);
     const exportBox = h("section", { "aria-labelledby": "re-export-title", hidden: true },
       h("h3", { id: "re-export-title", text: "The video" }), progress, exportSay, exportNotes, madeRow);
+    // ---- the balance of the voice and the computer's sound: its boxes are made when the recording is open (soundbalance.ts)
+    const balanceHost = h("div");
     dialog.append(
       heading,
       h("p", { class: "note", text: "Your changes are saved as a list of what to keep and what to add. The recording itself, its picture and its sound, is never changed. Press F6 to move between the preview, the timeline and the clip list." }),
       h("div", { class: "dialog-actions" }, save, make, cancelVideo, close),
       h("p", {}, reduce, " ", h("label", { for: "re-reduce", text: "Use cuts instead of animated zooms in the video (kinder to anyone bothered by movement)" })),
-      state, exportBox, host,
+      balanceHost, state, exportBox, host,
     );
     document.body.appendChild(dialog);
     dialog.showModal();
@@ -285,8 +288,11 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
           return suggestCalloutAlt(live.model, await clickLogs, item);
         },
       });
+      const balance = mountSoundBalance(live, (message) => editor?.announce(message));
+      balanceHost.replaceChildren(balance.element);
       live.subscribe((kind) => {
         if (kind === "model" || kind === "saved") showState();
+        if (kind === "model") balance.refresh();
       });
       showState();
       editor.announce(openingWords(project.title, modelLengthMs(project.model), listCaption(project.model), project.notes, project.problems));

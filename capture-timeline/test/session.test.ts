@@ -106,6 +106,9 @@ test("what the form shows: a clip can be muted, an overlay is not a clip", () =>
     decorative: false,
     isImportedMedia: false,
     hasTextAlternative: false,
+    isWebcam: false,
+    webcamWhere: "usual",
+    webcamSize: "medium",
   });
   select(s, "Zoom on the totals");
   assert.equal(s.details?.isClip, false);

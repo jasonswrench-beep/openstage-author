@@ -13,7 +13,7 @@ import { CHECK_LIMIT_MS, checkArguments, parseFinding, summarise, type Finding }
 import { runOneShot, type RecorderController } from "./capturecontroller.ts";
 import { recordingNameOf } from "./recordingfolder.ts";
 import {
-  describeSession, formatTime, MAX_COUNTDOWN, parseProbe, parseWindow, recordingFolder, settingsProblem,
+  describeSession, formatTime, MAX_COUNTDOWN, MAX_GAIN_DB, MIN_GAIN_DB, parseProbe, parseWindow, recordingFolder, settingsProblem,
   type Interactions, type RecordSettings, type Session, type Source, type Target, type WindowChoice,
 } from "./capturesession.ts";
 
@@ -102,6 +102,10 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     const countdown = h("input", { type: "number", id: "rc-countdown", min: "0", max: String(MAX_COUNTDOWN), step: "1", value: String(s.countdownSeconds) });
     const sounds = h("input", { type: "checkbox", id: "rc-sounds" });
     sounds.checked = s.sounds;
+    const gainBox = (id: string, value: number) =>
+      h("input", { type: "number", id, min: String(MIN_GAIN_DB), max: String(MAX_GAIN_DB), step: "1", value: String(value), "aria-describedby": "rc-gain-note" });
+    const micGain = gainBox("rc-mic-gain", s.micGainDb);
+    const systemGain = gainBox("rc-system-gain", s.systemGainDb);
 
     const field = (id: string, label: string, control: HTMLElement, extra: Node[] = []) =>
       h("div", { class: "field" }, h("label", { for: id, text: label }), h("div", {}, control, ...extra));
@@ -129,6 +133,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
         window: windowSel.value, region: { left: left.input.value, top: top.input.value, width: width.input.value, height: height.input.value },
         microphone: microphone.value, output: output.value, camera: camera.value, interactions: interactions.value as Interactions,
         countdownSeconds: countdown.value.trim() === "" ? Number.NaN : Number(countdown.value), sounds: sounds.checked,
+        micGainDb: micGain.value.trim() === "" ? Number.NaN : Number(micGain.value), systemGainDb: systemGain.value.trim() === "" ? Number.NaN : Number(systemGain.value),
       };
     }
 
@@ -139,7 +144,9 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
       h("fieldset", {}, h("legend", { text: "What to record" }), field("rc-target", "Record", target), screenGroup, windowGroup, regionGroup),
       h("fieldset", {}, h("legend", { text: "Sound and picture of you" }),
         field("rc-microphone", "Your voice", microphone), field("rc-output", "The computer's own sound", output), field("rc-camera", "A webcam", camera),
-        h("p", { class: "note", text: "A webcam, and your voice, are recorded only if you choose them. The computer's own sound includes a screen reader's speech." })),
+        h("p", { class: "note", text: "A webcam, and your voice, are recorded only if you choose them. The computer's own sound includes a screen reader's speech." }),
+        field("rc-mic-gain", "Make your voice louder or quieter, in decibels", micGain), field("rc-system-gain", "Make the computer's sound louder or quieter, in decibels", systemGain),
+        h("p", { class: "note", id: "rc-gain-note", text: `Whole numbers from ${MIN_GAIN_DB} to ${MAX_GAIN_DB}. 0 leaves it as heard, a negative number makes it quieter, and about 6 decibels is double or half the volume. This changes the sound inside the video only: the separate voice and computer sound files stay as heard, and a new edit of the recording starts each at the level you set here. If the computer's sound drowns your voice, try -10 for the computer's sound.` })),
       h("fieldset", {}, h("legend", { text: "What you do while recording" }),
         field("rc-interactions", "OpenScreen may", interactions),
         h("p", { class: "note", text: "Noting what you do is how a step-by-step lesson can be made from a recording later. It is kept in a private file inside the recording, never published, nothing is noted while paused, and the keys of a password box are never noted." })));
@@ -281,7 +288,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     stepsBtn.addEventListener("click", () => { if (recordingsSel.value !== "") void steps(recordingsSel.value, stepsBtn); });
     stepsNow.addEventListener("click", () => void steps(recordingNameOf(c.session.folder), stepsNow));
     show.addEventListener("click", () => { void b.revealInFolder(c.session.folder).catch((err: unknown) => say([`Could not show the folder. ${errorText(err)}`])); });
-    for (const el of [name, practice, target, display, windowSel, microphone, output, camera, interactions, countdown, sounds, left.input, top.input, width.input, height.input]) {
+    for (const el of [name, practice, target, display, windowSel, microphone, output, camera, interactions, countdown, sounds, micGain, systemGain, left.input, top.input, width.input, height.input]) {
       el.addEventListener("input", showSetup);
       el.addEventListener("change", showSetup);
     }

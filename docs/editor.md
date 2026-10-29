@@ -683,7 +683,10 @@ built yet, so apart from the check dialog in the first item nothing here shows o
     by its title), or part of a screen (four numbers, at least 64 by 64 pixels). They choose a microphone, whose sound to record (the computer's own sound includes a
     screen reader's speech), a webcam (none unless chosen), and whether to note what they do with the mouse and keyboard (off unless chosen, with a plain note about what that
     keeps and that password keys are never noted). The lists of screens, microphones, sound outputs and cameras come from the recorder's `probe`. A countdown of 0 to 10 seconds, and the
-    recorder's short sound for each step (countdown, start, pause, resume, stop, on by default for anyone who cannot see the screen) can be changed. **Practice** records a
+    recorder's short sound for each step (countdown, start, pause, resume, stop, on by default for anyone who cannot see the screen) can be changed. **Make your voice louder or quieter** and **Make the computer's sound
+    louder or quieter** (whole decibels from -40 to 20, 0 as heard, in the "Sound and picture of you" group, and checked before a recording starts) are sent to the recorder as `--mic-gain-db` and `--system-gain-db` only when they are
+    not 0; they change the mix inside the video only, and a new edit of the recording starts the voice and the computer's sound at those volumes. The recorder's advice about the balance of the two is said as a note, once, in
+    the window's own words (`plainWords` in `capturesession.ts` puts the sentences that name command-line options and files into words about these boxes and the editor). **Practice** records a
     made-up picture and sound instead of the screen, to try the controls. The recording is kept in a `captures` folder inside the course's own folder, in a folder named for the
     recording and ending in `.capture`, and the first time the editor adds `captures` to the course's `sourceExclude`, so the raw recording and its notes never go into a published
     package (the project then needs saving; it is not an undo step). **Start recording** says in words why it cannot start when a choice is missing.
@@ -704,7 +707,12 @@ built yet, so apart from the check dialog in the first item nothing here shows o
 - **OpenScreen: editing a recording.** The recorder's preview, timeline and clip list (`capture-timeline/`, plain DOM with no dependencies, with the edit model in `capture-edit/`) open in a
   dialog of their own: from **Edit a recording** in the OpenScreen dialog (every recording in the course's `captures` folder is listed) or from **Edit the recording I just made** when a recording has
   finished. The edit is a list of what to keep and what to add (trims, splits, text, shapes, blur, zoom); it is saved as `edit.json` inside the recording, whole or not at all, and the recorded picture
-  and sound are never changed. **Save the edit** or Ctrl+S saves it; Close asks first if there are changes that are not saved. The screens keep their own keys and their own line of
+  and sound are never changed. **Save the edit** or Ctrl+S saves it; Close asks first if there are changes that are not saved. Under the buttons, **Sound balance** has two boxes, **Your voice, in decibels**
+  and **The computer's sound, in decibels** (`editor/src/soundbalance.ts`): each shows the volume that every clip of that sound has (blank, with a sentence, when they differ; a sound that was not recorded has no box) and sets
+  every clip of it when a whole number from -40 to 20 is entered (Enter or leaving the box; Escape puts the old number back), as one undo step, said in words. A single clip's volume is still set in its own form in the clip list.
+  In that form, a **webcam recording** also has **Webcam picture: where** (the usual place at the bottom right, one of the four corners, or the whole picture) and **Webcam picture: how big** (small, medium, which is the usual size,
+  or large; it does not matter when the picture fills the whole video): the preview and the video maker already drew a clip's `placement`, and these two boxes are what sets it (`capture-edit/src/webcamPlace.ts`; the usual place is
+  the video maker's `DEFAULT_WEBCAM_PLACE`, and a test fails if the two ever differ). Nothing in the form is disabled; both boxes keep their place in the Tab order. The screens keep their own keys and their own line of
   announcements (a polite live region, so nothing is read twice): F6 and Shift+F6 move between the preview, the timeline and the clip list and say where they arrived, Ctrl+Z and Ctrl+Y undo and redo
   the edit. While the dialog is open the editor's own Ctrl+S, Ctrl+Z and F6 step aside, so none of them reaches the course. The screens are kept in their light colours to match the editor.
   The shell reaches a recording only by the course's folder and the recording's folder name: it lists the recordings, reads the recording's `.json` files, lists the folders of a take, writes `edit.json` and `steps.json`, keeps the copy of an older edit that a new edit of
