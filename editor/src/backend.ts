@@ -195,6 +195,8 @@ export interface Backend {
   recordingFolders(dir: string, name: string, rel: string): Promise<string[]>;
   /** Save the edit of a recording as its edit.json, whole or not at all. The only file ever written in a recording. */
   recordingWriteEdit(dir: string, name: string, text: string): Promise<void>;
+  /** Keep the saved edit before a new edit of the newest take replaces it: copied to `file`, which is `edit-before-take-<n>.json`. Whole or not at all, and never written over a different copy. */
+  recordingKeepEdit(dir: string, name: string, file: string, text: string): Promise<void>;
   /** Save a picture taken from a recording (the picture of a step) as a PNG in the course's images. Returns its path inside the course. */
   saveStepPicture(dir: string, nameHint: string, bytes: Uint8Array): Promise<string>;
   /** Save the steps made from a recording as its steps.json, whole or not at all. With edit.json, the only file ever written in a recording. */
@@ -447,6 +449,7 @@ const tauriBackend: Backend = {
   },
   recordingFolders: (dir, name, rel) => invoke<string[]>("recording_folders", { dir, name, rel }),
   recordingWriteEdit: (dir, name, text) => invoke<void>("recording_write_edit", { dir, name, text }),
+  recordingKeepEdit: (dir, name, file, text) => invoke<void>("recording_keep_edit", { dir, name, file, text }),
   recordingWriteSteps: (dir, name, text) => invoke<void>("recording_write_steps", { dir, name, text }),
   saveStepPicture: (dir, nameHint, bytes) => invoke<string>("save_step_picture", { dir, nameHint, data: bytesToBase64(bytes) }),
   async recordingMediaUrl(dir, name, rel) {
@@ -707,6 +710,9 @@ const previewBackend: Backend = {
     throw new Error("Editing a recording needs the desktop app.");
   },
   async recordingWriteEdit() {
+    throw new Error("Editing a recording needs the desktop app.");
+  },
+  async recordingKeepEdit() {
     throw new Error("Editing a recording needs the desktop app.");
   },
   async recordingWriteSteps() {

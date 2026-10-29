@@ -12,6 +12,7 @@ A recording lives in its own folder, named `something.capture`, **beside** the c
 lesson.capture/
   capture.json                  the manifest (small, rarely changes)
   edit.json                     the edit decisions (trims, splits, where clips sit); absent until the first edit
+  edit-before-take-2.json       a copy of an older edit, kept when a new edit of the newest take (take 2 here) replaced it; written by the editor, once, and never written over
   takes/
     take-001/                   a real screen recording
       take.json                 the only record of this take's state; lists its media files
@@ -133,7 +134,7 @@ Sound is recorded as 16-bit stereo at 48,000 samples per second and is stored **
 1. **Mixed, inside `screen.mp4`**, as one AAC sound track (128 kilobits per second) beside the picture. This is what every player plays. It is the microphone and the computer's sound added together.
 2. **Separately, as WAV files**: `mic.wav` (the microphone alone) and `system.wav` (the computer's own sound alone, including a screen reader's speech). The editor needs them apart, for example to remove an echo when the microphone also heard the speakers. A take lists a WAV file only if that sound was recorded.
 
-The mix inside the video can be adjusted without touching the originals: `microphoneGainDb` and `systemGainDb` (whole decibels from -40 to 20, 0 meaning as heard; about 6 decibels is half or double the volume) are applied only to the mix, and `take.json` records them in the video's `mix`. `mic.wav` and `system.wav` always hold the sound exactly as heard, so the editor can start again from them and set the balance by ear. Windows' own MP4 writer accepts only one sound stream per file (one picture, one sound), which is why the two sounds are kept apart as WAV files and not as two tracks inside the MP4.
+The mix inside the video can be adjusted without touching the originals: `microphoneGainDb` and `systemGainDb` (whole decibels from -40 to 20, 0 meaning as heard; about 6 decibels is half or double the volume) are applied only to the mix, and `take.json` records them in the video's `mix`. `mic.wav` and `system.wav` always hold the sound exactly as heard, so the editor can start again from them and set the balance by ear. A new edit made from a take starts the microphone clip and the computer's sound clip at the volume of that `mix` (a whole number of decibels from -40 to 20; 0 or no `mix` means as heard), so a video made from the edit has the balance that was chosen when recording, and the edit's notes say so. The clip's volume can then be changed like any other. Windows' own MP4 writer accepts only one sound stream per file (one picture, one sound), which is why the two sounds are kept apart as WAV files and not as two tracks inside the MP4.
 
 Every sound track is as long as the recording, to within a few hundredths of a second. The recording clock stands still while paused, so sound heard during a pause is thrown away, and so is any sound heard while the recorder was still starting up. If the computer plays nothing, Windows sends no sound at all for that time; the recorder fills the gap with silence so the track keeps its length.
 

@@ -118,6 +118,7 @@ body { background: #f4f5f7; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif
 .recorder-dialog .rc-pass { color: #1e6b2f; }
 .recorder-dialog .rc-problem { color: #8a1c1c; }
 .recorder-dialog #rc-status { font-weight: 600; margin: 10px 0 4px; }
+.recorder-dialog #rc-status .rc-say { display: block; }
 .captions-dialog [hidden] { display: none !important; }
 .captions-dialog fieldset { margin: 10px 0; border: 1px solid #cfd4db; padding: 6px 12px 10px; }
 .captions-dialog legend { font-weight: 600; padding: 0 6px; }

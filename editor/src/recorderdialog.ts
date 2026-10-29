@@ -68,8 +68,13 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     let busyQuery = false;
 
     const dialog = h("dialog", { class: "dialog wide recorder-dialog", "aria-labelledby": "rc-title" });
-    const status = h("p", { id: "rc-status", role: "status" });
-    const say = (messages: string[]) => { status.textContent = messages.join(" "); };
+    const status = h("p", { id: "rc-status", role: "status", "aria-atomic": "false" });
+    // Each thing said is a line of its own, added after the ones before. A status region that is replaced, or read whole, between two things said together (a take is
+    // set aside, then the next one starts) may be heard saying only the second. Only the last few lines are kept.
+    const say = (messages: string[]) => {
+      for (const m of messages) status.append(h("span", { class: "rc-say", text: m }));
+      while (status.childElementCount > 4) status.firstElementChild?.remove();
+    };
 
     // ---- choices
     const name = h("input", { type: "text", id: "rc-name", value: s.name, maxlength: "60" });
@@ -211,7 +216,7 @@ export function openRecorder(opts: RecorderDialogOptions): Promise<void> {
     // ---- showing the state
     function ready(): string | null {
       if (opts.dir === null) return "Open or make a course first. Recordings are kept inside the course's own folder.";
-      if (!usable && !practice.checked) return "The recorder program was not found, so only a practice recording could be tried. See the message under the check.";
+      if (!usable && !practice.checked) return "The recorder program was not found, so no recording can be made, not even a practice one. See the message under the check.";
       return settingsProblem(readSettings());
     }
 

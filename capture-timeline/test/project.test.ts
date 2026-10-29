@@ -218,3 +218,48 @@ test("the edit is written into the folder, making edit.json if there is none, an
   assert.equal(await folder.writeText("takes/take-001/notes.txt", "inside a take"), true);
   assert.equal(await folder.writeText("nowhere/edit.json", "x"), false, "a folder that is not there cannot be written to");
 });
+
+// ---- the loudness chosen when recording, and which edit is on the disk ----
+
+const withMix = (mix: unknown) =>
+  JSON.stringify({
+    id: 1,
+    state: "complete",
+    durationMs: 12_000,
+    media: [{ file: "screen.mp4", kind: "screen", container: "fragmented-mp4", mix }, { file: "mic.wav", kind: "microphone" }, { file: "system.wav", kind: "system-audio" }],
+  });
+
+test("the loudness take.json keeps for the video is the starting volume of the voice and the computer's sound in a new edit", async () => {
+  const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "takes/take-001/take.json": withMix({ microphoneGainDb: 2, systemGainDb: -19 }) });
+  const result = await readProject(folder);
+  assert.ok(result.ok);
+  const volumes = Object.fromEntries(result.project.model.tracks.flatMap((t) => t.clips.map((c) => [c.name, c.volumeDb])));
+  assert.deepEqual(volumes, { "Screen of take 1": 0, "Microphone of take 1": 2, "Computer sound of take 1": -19 });
+  assert.ok(result.project.notes.some((n) => n.startsWith("Computer sound of take 1 is 19 decibels quieter than it was heard")), result.project.notes.join(" | "));
+});
+
+test("a mix that is not whole decibels the editor accepts is ignored, so a new edit is as heard", async () => {
+  for (const mix of [{ microphoneGainDb: 1.5, systemGainDb: 0 }, { microphoneGainDb: 0, systemGainDb: 99 }, { microphoneGainDb: "loud", systemGainDb: 0 }, "loud", null, {}]) {
+    const folder = memoryFolder("lesson.capture", { "capture.json": manifest, "takes/take-001/take.json": withMix(mix) });
+    const result = await readProject(folder);
+    assert.ok(result.ok);
+    assert.deepEqual(result.project.model.tracks.flatMap((t) => t.clips.map((c) => c.volumeDb)), [0, 0, 0], JSON.stringify(mix));
+  }
+});
+
+test("only an edit opened from edit.json is the edit on the disk; a new edit, even of a recording that has one saved, is not", async () => {
+  const files = { "capture.json": manifest, "takes/take-001/take.json": take(1), "takes/take-002/take.json": take(2) };
+  const none = await readProject(memoryFolder("lesson.capture", files));
+  assert.ok(none.ok);
+  assert.equal(none.project.fromEditFile, false, "never saved: there is no edit.json for a video to be made from");
+  const saved = serialize(sampleModel());
+  const older = await readProject(memoryFolder("lesson.capture", { ...files, "edit.json": saved }));
+  assert.ok(older.ok);
+  assert.equal(older.project.fromEditFile, true, "opened from edit.json");
+  const fresh = await readProject(memoryFolder("lesson.capture", { ...files, "edit.json": saved }), { newestTakeOnly: true });
+  assert.ok(fresh.ok);
+  assert.equal(fresh.project.fromEditFile, false, "a new edit of the newest take is not what edit.json holds");
+  assert.equal(fresh.project.replacedEdit, saved, "and the edit it replaces is handed over to be kept");
+  assert.equal(fresh.project.newestTake, 2);
+  assert.equal(backupName(2), "edit-before-take-2.json");
+});

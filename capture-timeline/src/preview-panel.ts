@@ -154,6 +154,9 @@ export function mountPreview(container: HTMLElement, session: EditSession, initi
       } else {
         const el = kind === "video" ? h("video", { class: "os-pv-media", playsinline: true, preload: "auto" }) : h("audio", { preload: "auto" });
         if (el instanceof HTMLVideoElement) el.muted = true; // the exporter does not use a screen recording's own sound
+        // A sound goes through Web Audio (below), and Chromium gives silence from a file at another web address than the page unless it was asked for with CORS.
+        // The installed editor serves recordings from the file protocol (asset.localhost) while the page is at tauri.localhost; the protocol answers a CORS request.
+        if (el instanceof HTMLAudioElement) el.crossOrigin = "anonymous";
         el.src = url;
         if (el instanceof HTMLAudioElement) soundHost.append(el);
         made.el = el;

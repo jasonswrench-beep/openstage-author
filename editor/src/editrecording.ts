@@ -109,6 +109,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     let clickLogs: Promise<Map<number, LogEvent[]>> | undefined;
     /** The saved edit that a new edit of the newest take replaces, until it has been copied aside. */
     let toKeep: { text: string; name: string } | undefined;
+    /** Whether `edit.json` on the disk is the edit on the screen: true for an edit opened from `edit.json` and after a save; false for a new edit made from the takes, which has no changes yet and is not on the disk either. */
+    let onDisk = false;
 
     const showState = () => {
       if (session === undefined) return;
@@ -128,6 +130,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
         const ok = await folder.writeText("edit.json", serialize(session.model));
         if (ok) {
           session.markSaved();
+          onDisk = true;
           editor.announce(`Saved the edit in ${opts.name}.`);
         } else {
           editor.announce("The edit could not be saved. Nothing was changed on the disk.");
@@ -148,12 +151,12 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       exportNotes.replaceChildren(...state.notes.map((n) => h("li", {}, h("strong", { class: n.ok ? "rc-pass" : "rc-problem", text: n.ok ? "Note. " : "Problem. " }), h("span", { text: n.text }))));
     }
 
-    /** Make the video from the saved edit. The edit is saved first, because the recorder reads edit.json. */
+    /** Make the video from the saved edit. The edit is saved first when it has changes, or when `edit.json` is not the edit on the screen (a new edit that was never saved, or that replaces an older one), because the recorder reads `edit.json`. */
     async function makeVideo(): Promise<void> {
       if (session === undefined || exporting) return;
-      if (session.dirty) {
+      if (session.dirty || !onDisk) {
         await saveEdit();
-        if (session.dirty) { exportBox.hidden = false; exportSay.textContent = "The edit could not be saved, so no video was made."; return; }
+        if (session.dirty || !onDisk) { exportBox.hidden = false; exportSay.textContent = "The edit could not be saved, so no video was made."; return; }
       }
       if (!VIDEO_MAKER_DRAWS_TRANSITIONS && session.model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined))) {
         exportBox.hidden = false;
@@ -267,6 +270,7 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
         return;
       }
       const { project } = result;
+      onDisk = project.fromEditFile;
       heading.textContent = `Edit the recording: ${project.title}`;
       if (project.replacedEdit !== undefined && project.newestTake !== undefined) toKeep = { text: project.replacedEdit, name: backupName(project.newestTake) };
       const live = new EditSession(project.model);

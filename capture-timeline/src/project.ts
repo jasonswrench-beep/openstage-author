@@ -21,6 +21,7 @@ import {
   type SourceRef,
   type TakeFile,
   type TakeInfo,
+  type TakeMix,
 } from "../../capture-edit/src/index.ts";
 
 /** A recording folder, however it was reached. Paths are relative to the folder and use `/`. */
@@ -84,9 +85,17 @@ function readTake(text: string, folderName: string): TakeInfo | string {
   }
   if (!isObject(data) || typeof data["id"] !== "number") return `The file take.json of ${folderName} is not a take, so that take is left out.`;
   const media: TakeFile[] = [];
+  let mix: TakeMix | undefined;
   if (Array.isArray(data["media"])) {
     for (const entry of data["media"]) {
       if (isObject(entry) && typeof entry["file"] === "string" && typeof entry["kind"] === "string") media.push({ file: entry["file"], kind: entry["kind"] });
+      // The loudness chosen when recording is kept on the video's entry; it is used only if both numbers are whole decibels the editor accepts.
+      const said = isObject(entry) && isObject(entry["mix"]) ? entry["mix"] : undefined;
+      const mic = said?.["microphoneGainDb"];
+      const system = said?.["systemGainDb"];
+      if (typeof mic === "number" && typeof system === "number" && Number.isInteger(mic) && Number.isInteger(system) && Math.abs(mic) <= 40 && Math.abs(system) <= 40) {
+        mix = { microphoneGainDb: mic, systemGainDb: system };
+      }
     }
   }
   return {
@@ -94,6 +103,7 @@ function readTake(text: string, folderName: string): TakeInfo | string {
     state: typeof data["state"] === "string" ? data["state"] : "unknown",
     durationMs: typeof data["durationMs"] === "number" ? data["durationMs"] : null,
     media,
+    ...(mix === undefined ? {} : { mix }),
   };
 }
 

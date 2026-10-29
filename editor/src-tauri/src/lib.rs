@@ -2517,7 +2517,8 @@ fn allow_project_media(app: tauri::AppHandle, dir: String) -> Result<(), String>
 // A recording is a folder `<course>/captures/<name>.capture` that the recorder made. The editing screens read its small JSON files, write
 // `edit.json` back into it, and play its videos. Every command here takes the course's folder and the recording's folder NAME, never a path, so
 // nothing outside the course's `captures` folder can be reached: a name is one plain folder name ending in `.capture`, a path inside a recording
-// is plain names joined by `/`, only `.json` files are read as text, and the only file ever written is `edit.json`.
+// is plain names joined by `/`, only `.json` files are read as text, and the only files ever written are `edit.json`, `steps.json` and, once, the kept copy
+// of an older edit (`edit-before-take-<n>.json`, which is never written over).
 
 /// The most text read from, or written to, a recording's JSON file. An edit of a long recording is far smaller than this.
 const MAX_RECORDING_TEXT: u64 = 8 * 1024 * 1024;
@@ -2634,19 +2635,25 @@ fn recording_folders_at(dir: &Path, name: &str, rel: &str) -> Result<Vec<String>
     Ok(out)
 }
 
-/// Write one of the two files the editor keeps in a recording, `edit.json` (the edit) or `steps.json` (the steps made from what the author did), and nothing
-/// else ever. It has to be a JSON object, and it is put in place whole or not at all.
-fn write_recording_json_at(dir: &Path, name: &str, file: &str, what: &str, text: &str) -> Result<(), String> {
-    let base = recording_at(dir, name)?;
-    if file != "edit.json" && file != "steps.json" {
-        return Err("Only the edit and the steps can be saved in a recording.".into());
-    }
+/// Whether `text` is something a recording's JSON file may hold: a JSON object, of a sensible size.
+fn recording_json_ok(what: &str, text: &str) -> Result<(), String> {
     if text.len() as u64 > MAX_RECORDING_TEXT {
         return Err(format!("That {what} is larger than a {what} should be."));
     }
     if !serde_json::from_str::<serde_json::Value>(text).map(|v| v.is_object()).unwrap_or(false) {
         return Err(format!("The {what} is not in a form that can be saved."));
     }
+    Ok(())
+}
+
+/// Write one of the two files the editor keeps in a recording, `edit.json` (the edit) or `steps.json` (the steps made from what the author did), and nothing
+/// else ever (but for the kept copy of an older edit, below). It has to be a JSON object, and it is put in place whole or not at all.
+fn write_recording_json_at(dir: &Path, name: &str, file: &str, what: &str, text: &str) -> Result<(), String> {
+    let base = recording_at(dir, name)?;
+    if file != "edit.json" && file != "steps.json" {
+        return Err("Only the edit and the steps can be saved in a recording.".into());
+    }
+    recording_json_ok(what, text)?;
     let temp = base.join(format!("{file}.tmp"));
     fs::write(&temp, text).map_err(|e| format!("Could not save the {what}: {e}"))?;
     fs::rename(&temp, base.join(file)).map_err(|e| {
@@ -2663,6 +2670,33 @@ fn write_recording_edit_at(dir: &Path, name: &str, text: &str) -> Result<(), Str
 /// Write `steps.json` into a recording.
 fn write_recording_steps_at(dir: &Path, name: &str, text: &str) -> Result<(), String> {
     write_recording_json_at(dir, name, "steps.json", "list of steps", text)
+}
+
+/// The name of a kept copy of an older edit: `edit-before-take-` and the number of the take (one to four digits), then `.json`, and nothing else.
+fn kept_edit_name_ok(file: &str) -> bool {
+    file.strip_prefix("edit-before-take-")
+        .and_then(|rest| rest.strip_suffix(".json"))
+        .is_some_and(|number| (1..=4).contains(&number.len()) && number.chars().all(|c| c.is_ascii_digit()))
+}
+
+/// Keep the edit that a new edit of the newest take is about to replace, as `edit-before-take-<n>.json`, whole or not at all. A copy that is already there is
+/// never written over, since that would lose the older edit it holds. The same text again is fine: it is what a save that stopped half way asks for when tried again.
+fn keep_recording_edit_at(dir: &Path, name: &str, file: &str, text: &str) -> Result<(), String> {
+    let base = recording_at(dir, name)?;
+    if !kept_edit_name_ok(file) {
+        return Err("Only the edit that a new edit replaces can be kept in a recording.".into());
+    }
+    recording_json_ok("edit", text)?;
+    let target = base.join(file);
+    if target.exists() {
+        return if fs::read_to_string(&target).is_ok_and(|old| old == text) { Ok(()) } else { Err(format!("{file} is already in this recording, and it is not written over.")) };
+    }
+    let temp = base.join(format!("{file}.tmp"));
+    fs::write(&temp, text).map_err(|e| format!("Could not keep the edit: {e}"))?;
+    fs::rename(&temp, &target).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("Could not keep the edit: {e}")
+    })
 }
 
 /// The recordings in this course, by folder name.
@@ -2693,6 +2727,12 @@ fn recording_write_edit(dir: String, name: String, text: String) -> Result<(), S
 #[tauri::command]
 fn recording_write_steps(dir: String, name: String, text: String) -> Result<(), String> {
     write_recording_steps_at(Path::new(&dir), &name, &text)
+}
+
+/// Keep the saved edit of a recording as `edit-before-take-<n>.json` before a new edit of the newest take replaces it. Never writes over a different copy.
+#[tauri::command]
+fn recording_keep_edit(dir: String, name: String, file: String, text: String) -> Result<(), String> {
+    keep_recording_edit_at(Path::new(&dir), &name, &file, &text)
 }
 
 /// Let the page play the videos and sounds of one recording straight from disk, with seeking. Only that recording's `takes` folder is opened up, for
@@ -3263,7 +3303,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -4745,6 +4785,34 @@ mod tests {
         assert!(write_recording_edit_at(&project, "../Demo.capture", "{}").is_err());
         assert!(write_recording_edit_at(&project, "Missing.capture", "{}").is_err());
         assert!(write_recording_edit_at(&project, "Demo.capture", &format!("{{\"x\":\"{}\"}}", "a".repeat(9 * 1024 * 1024))).is_err(), "too large");
+        let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_edit_a_new_edit_replaces_is_kept_under_one_name_and_never_written_over() {
+        let project = temp_project("recording-keep");
+        let folder = recording_in(&project, "Demo.capture");
+        for good in ["edit-before-take-2.json", "edit-before-take-12.json", "edit-before-take-9999.json"] {
+            assert!(kept_edit_name_ok(good), "{good}");
+        }
+        for bad in ["edit.json", "steps.json", "capture.json", "edit-before-take-.json", "edit-before-take-12345.json", "edit-before-take-2.json.tmp", "edit-before-take-x.json", "../edit-before-take-2.json", "edit-before-take-2/x.json", "Edit-before-take-2.json", ""] {
+            assert!(!kept_edit_name_ok(bad), "{bad:?}");
+            assert!(keep_recording_edit_at(&project, "Demo.capture", bad, "{}").is_err(), "{bad:?}");
+        }
+        keep_recording_edit_at(&project, "Demo.capture", "edit-before-take-2.json", "{\"version\":1}").unwrap();
+        assert_eq!(fs::read_to_string(folder.join("edit-before-take-2.json")).unwrap(), "{\"version\":1}");
+        assert!(!folder.join("edit-before-take-2.json.tmp").exists(), "no half-written file is left");
+        keep_recording_edit_at(&project, "Demo.capture", "edit-before-take-2.json", "{\"version\":1}").expect("the same text again is what a save tried again asks for");
+        let refused = keep_recording_edit_at(&project, "Demo.capture", "edit-before-take-2.json", "{\"version\":2}").unwrap_err();
+        assert!(refused.contains("not written over"), "{refused}");
+        assert_eq!(fs::read_to_string(folder.join("edit-before-take-2.json")).unwrap(), "{\"version\":1}", "the older copy is still there");
+        for bad in ["", "not json", "[1,2]", "{\"unfinished\":"] {
+            assert!(keep_recording_edit_at(&project, "Demo.capture", "edit-before-take-3.json", bad).is_err(), "{bad:?}");
+        }
+        assert!(!folder.join("edit-before-take-3.json").exists(), "a refused copy leaves nothing");
+        assert!(keep_recording_edit_at(&project, "../Demo.capture", "edit-before-take-4.json", "{}").is_err());
+        assert!(keep_recording_edit_at(&project, "Missing.capture", "edit-before-take-4.json", "{}").is_err());
+        assert!(!folder.join("edit.json").exists(), "keeping a copy does not write the edit");
         let _ = fs::remove_dir_all(&project);
     }
 

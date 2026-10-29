@@ -8,7 +8,7 @@
  * turns what they say into an edit, so it can be tested without a folder.
  */
 
-import { addClip, addTrack, type Result } from "./ops.ts";
+import { addClip, addTrack, setVolume, type Result } from "./ops.ts";
 import { createModel, type Model, type SourceInfo, type SourceKind, type TrackKind } from "./model.ts";
 import { describeLength } from "./time.ts";
 
@@ -19,6 +19,16 @@ export interface TakeFile {
   readonly kind: string;
 }
 
+/**
+ * How loud the recorder was asked to make the voice and the computer's sound in the mix inside `screen.mp4`, in whole decibels (`take.json` keeps it as `mix` on
+ * the video's entry). `mic.wav` and `system.wav` hold the sound as it was heard, so a new edit starts each of them at this volume, and an exported video then has the
+ * balance that was chosen when recording. 0 means as heard.
+ */
+export interface TakeMix {
+  readonly microphoneGainDb: number;
+  readonly systemGainDb: number;
+}
+
 /** The parts of a take that an edit needs. */
 export interface TakeInfo {
   /** The take's number: 1 for `take-001`. */
@@ -27,6 +37,8 @@ export interface TakeInfo {
   readonly state: string;
   readonly durationMs: number | null;
   readonly media: readonly TakeFile[];
+  /** The loudness chosen when recording, if take.json says. */
+  readonly mix?: TakeMix;
 }
 
 export interface EditFromTakes {
@@ -108,8 +120,21 @@ export function editFromTakes(takes: readonly TakeInfo[]): EditFromTakes {
         startMs: at,
         name: `${lane.sourceName} of take ${take.take}`,
       });
-      if (result.ok) model = result.model;
-      else notes.push(`${lane.sourceName} of take ${take.take} could not be added: ${result.message}`);
+      if (!result.ok) {
+        notes.push(`${lane.sourceName} of take ${take.take} could not be added: ${result.message}`);
+        continue;
+      }
+      model = result.model;
+      // The loudness chosen when recording applies to the voice and to the computer's sound, and to nothing else.
+      const chosen = lane.source === "microphone" ? take.mix?.microphoneGainDb : lane.source === "system-audio" ? take.mix?.systemGainDb : undefined;
+      const clipId = result.focus?.[0];
+      if (chosen !== undefined && chosen !== 0 && clipId !== undefined) {
+        const set = setVolume(model, clipId, chosen);
+        if (set.ok) {
+          model = set.model;
+          notes.push(`${lane.sourceName} of take ${take.take} is ${Math.abs(chosen)} ${Math.abs(chosen) === 1 ? "decibel" : "decibels"} ${chosen < 0 ? "quieter" : "louder"} than it was heard, as set when recording. You can change this in the clip's volume.`);
+        }
+      }
     }
     at += take.durationMs;
   }

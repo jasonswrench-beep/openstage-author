@@ -58,6 +58,28 @@ test("several takes are laid one after another", () => {
   assert.deepEqual(validate(model), []);
 });
 
+test("the loudness chosen when recording is carried into a new edit, for the voice and the computer's sound only", () => {
+  const { model, notes } = editFromTakes([{ ...take1, mix: { microphoneGainDb: 3, systemGainDb: -19 } }]);
+  const volumes = Object.fromEntries(model.tracks.flatMap((t) => t.clips.map((c) => [c.name, c.volumeDb])));
+  assert.deepEqual(volumes, { "Screen of take 1": 0, "Webcam of take 1": 0, "Microphone of take 1": 3, "Computer sound of take 1": -19 });
+  assert.deepEqual(notes, [
+    "Microphone of take 1 is 3 decibels louder than it was heard, as set when recording. You can change this in the clip's volume.",
+    "Computer sound of take 1 is 19 decibels quieter than it was heard, as set when recording. You can change this in the clip's volume.",
+  ]);
+  assert.deepEqual(validate(model), []);
+  const back = parse(serialize(model));
+  assert.ok(back.ok);
+  assert.deepEqual(back.model, model, "and it is saved with the edit");
+});
+
+test("a take with no mix, or as heard, or outside what a clip's volume can be, gives clips as heard and says nothing", () => {
+  for (const mix of [undefined, { microphoneGainDb: 0, systemGainDb: 0 }, { microphoneGainDb: 21, systemGainDb: -41 }]) {
+    const { model, notes } = editFromTakes([{ ...take1, ...(mix === undefined ? {} : { mix }) }]);
+    assert.deepEqual(model.tracks.flatMap((t) => t.clips.map((c) => c.volumeDb)), [0, 0, 0, 0], JSON.stringify(mix));
+    assert.deepEqual(notes, [], JSON.stringify(mix));
+  }
+});
+
 test("a take that is not finished, or was set aside, or has no length, is left out and the reason is said", () => {
   const { model, notes } = editFromTakes([
     take1,

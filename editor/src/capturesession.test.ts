@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  applyLine, commandLine, defaultSettings, describeSession, formatTime, initialSession, keyAction, parseProbe, parseWindow, recordArgs, recordingFolder,
+  applyLine, commandLine, defaultSettings, describeSession, formatTime, initialSession, keyAction, parseProbe, parseWindow, plainWords, recordArgs, recordingFolder,
   safeName, settingsProblem, STOP_LINE, type RecordSettings, type Session,
 } from "./capturesession.ts";
 
@@ -242,6 +242,59 @@ test("warnings and problems are said once, and the checks that matter are always
   ]);
   assert.equal(session.notes.length, 5, "everything is kept in the list, but the repeated warning only once");
   assert.equal(session.problem, "The disk is full.");
+});
+
+// ---- the recorder's advice about sound, and sentences that name its command line
+
+// The sentences are the recorder's own (capture/crates/openstage-capture-windows/src/balance.rs, cue_player.rs, record.rs, sound.rs).
+const LOUD = "The computer's sound is about 9 decibels louder than your voice while each is making sound, so in the mixed video your voice may be hard to hear. To put your voice about 6 decibels above it, make the computer's sound 15 decibels quieter in the mix (record with --system-gain-db -15), or balance mic.wav and system.wav in the editor: the separate files are not changed by the mix.";
+
+test("the recorder's sentences that name its options and files are put in the window's words", () => {
+  assert.equal(
+    plainWords(LOUD),
+    "The computer's sound is about 9 decibels louder than your voice while each is making sound, so in the mixed video your voice may be hard to hear. To put your voice about 6 decibels above it, make the computer's sound 15 decibels quieter in the mix. In the editor you can change the volume of the computer's sound.",
+  );
+  assert.equal(
+    plainWords("The computer's sound is about 30 decibels quieter than your voice, which may be too quiet to hear in the mixed video. If it should be heard, raise it in the editor, or record with a higher --system-gain-db."),
+    "The computer's sound is about 30 decibels quieter than your voice, which may be too quiet to hear in the mixed video. If it should be heard, raise it in the editor.",
+  );
+  assert.equal(
+    plainWords("The sounds are played at volume 50 of 100. To change it use --cue-volume with a number from 1 to 100; --cues off turns them off."),
+    "The sounds are played at volume 50 of 100. To turn them off, untick the Sounds box before recording.",
+  );
+  assert.equal(plainWords("The volume is 0, so nothing can be heard. Use --cue-volume with a number from 1 to 100."), "The volume is 0, so nothing can be heard.");
+  assert.equal(
+    plainWords("Could not start the webcam 1: It is in use. To record without the webcam, leave out --camera."),
+    "Could not start the webcam 1: It is in use. To record without the webcam, choose No webcam under A webcam.",
+  );
+  assert.equal(
+    plainWords("Could not start noting what you do with the mouse and keyboard: Denied. To record without it, leave out --interactions."),
+    "Could not start noting what you do with the mouse and keyboard: Denied. To record without it, choose Note nothing under OpenScreen may.",
+  );
+  assert.equal(
+    plainWords("If sound was playing, it was probably going to a different sound output than sound output 2, Speakers. FIND SOUND OUTPUT.bat shows which one carries the sound."),
+    "If sound was playing, it was probably going to a different sound output than sound output 2, Speakers. Under The computer's own sound you can choose the one that carries the sound.",
+  );
+  for (const said of [LOUD, "Played back, this sounds like an echo."]) assert.doesNotMatch(plainWords(said), /--[a-z]|\.wav|\.bat/, "no option or file name is left in what is said");
+  assert.equal(plainWords("Nothing here names an option."), "Nothing here names an option.");
+});
+
+test("advice about the sound is a note, said once and not as a problem, while a silent microphone is still a problem", () => {
+  const { session, said } = play([
+    line({ event: "check", check: "balance", ok: false, message: LOUD }),
+    line({ event: "warning", code: "balance", message: `Balance: the computer's sound is about 9 decibels louder than your voice. To put your voice about 6 decibels above it, make the computer's sound 15 decibels quieter in the mix (record with --system-gain-db -15), or balance mic.wav and system.wav in the editor: the separate files are not changed by the mix.` }),
+    line({ event: "warning", code: "track-silent", message: "The computer's sound track is silent: nothing was heard from Speakers during this recording. If sound was playing, it was probably going to a different sound output than sound output 1, Speakers. FIND SOUND OUTPUT.bat shows which one carries the sound." }),
+    line({ event: "warning", code: "sound-went-quiet", message: "The computer's sound was heard until 0:20 and was silent for the last 0:10 of the recording." }),
+    line({ event: "warning", code: "track-silent", message: "The microphone track is silent: nothing was heard from Headset during this recording. Check that the microphone is not muted." }),
+  ]);
+  assert.equal(said.length, 4, "the balance is said once, not twice");
+  assert.ok(said.every((w) => !w.startsWith("Problem.")), "advice is not called a problem");
+  assert.ok(said.every((w) => !/--[a-z]|\.wav|\.bat/.test(w)), said.join(" | "));
+  assert.deepEqual(session.notes.map((n) => n.ok), [true, true, true, false], "the three pieces of advice are notes and the silent microphone is the one problem");
+  assert.match(session.notes[0]!.text, /In the editor you can change the volume of the computer's sound\.$/);
+  const good = play([line({ event: "check", check: "balance", ok: true, message: "Your voice is about 12 decibels louder than the computer's sound while each is making sound. That is a good balance for narration." })]);
+  assert.deepEqual(good.said, [], "a good balance is kept in the list and not said, as before");
+  assert.equal(good.session.notes.length, 1);
 });
 
 test("a recording that did not finish says so and keeps the reason", () => {

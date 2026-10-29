@@ -184,6 +184,30 @@ export function initialSession(folder = ""): Session {
 const ALWAYS_SAID = new Set(["interactions", "interactions-on", "interactions-log", "region", "camera", "window", "sound-devices", "cues"]);
 const MAX_NOTES = 60;
 
+/**
+ * What the recorder says, in the words of this window. The recorder is also run from a command line, so some of its sentences name its options and its files
+ * (`--camera`, `--system-gain-db`, `mic.wav`, `FIND SOUND OUTPUT.bat`); to someone using the window they mean nothing, and what to do is a box here.
+ */
+export function plainWords(text: string): string {
+  return text
+    .replace(/ \(record with --system-gain-db -?\d+\)/g, "")
+    .replace(/, or balance mic\.wav and system\.wav in the editor: the separate files are not changed by the mix\./g, ". In the editor you can change the volume of the computer's sound.")
+    .replace(/, or record with a higher --system-gain-db\./g, ".")
+    .replace(/ To change it use --cue-volume with a number from 1 to 100; --cues off turns them off\./g, " To turn them off, untick the Sounds box before recording.")
+    .replace(/ Use --cue-volume with a number from 1 to 100\./g, "")
+    .replace(/To record without the webcam, leave out --camera\./g, "To record without the webcam, choose No webcam under A webcam.")
+    .replace(/To record without it, leave out --interactions\./g, "To record without it, choose Note nothing under OpenScreen may.")
+    .replace(/FIND SOUND OUTPUT\.bat shows which one carries the sound\./g, "Under The computer's own sound you can choose the one that carries the sound.")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
+/** Findings that are advice about the sound, not a sign that the recording is bad: the recording is whole, and what the author can do about it is in the words. */
+function isAdvice(code: string, message: string): boolean {
+  if (code === "balance" || code === "sound-went-quiet") return true;
+  return code === "track-silent" && message.startsWith("The computer's sound");
+}
+
 function parseJson(line: string): Record<string, unknown> | null {
   try {
     const d: unknown = JSON.parse(line);
@@ -283,18 +307,20 @@ export function applyLine(s: Session, line: string): Update {
       break;
     }
     case "warning": {
-      const message = str(d["message"]);
-      if (message !== "") {
+      const code = str(d["code"], 60);
+      const message = plainWords(str(d["message"]));
+      // The balance is said once, by its check, which has the same advice.
+      if (message !== "" && !message.startsWith("Balance: ")) {
         const fresh = !next.notes.some((n) => n.text === message);
         if (fresh) {
-          next = { ...next, notes: [...next.notes, { ok: false, text: message }].slice(-MAX_NOTES) };
+          next = { ...next, notes: [...next.notes, { ok: isAdvice(code, message), text: message }].slice(-MAX_NOTES) };
           say.push(message);
         }
       }
       break;
     }
     case "error": {
-      const message = str(d["message"]) || "The recorder reported a problem and gave no details.";
+      const message = plainWords(str(d["message"])) || "The recorder reported a problem and gave no details.";
       next = { ...next, notes: [...next.notes, { ok: false, text: message }].slice(-MAX_NOTES) };
       if (d["fatal"] === true) next.problem = message;
       say.push(d["fatal"] === true ? `The recording is stopping because of a problem. ${message}` : message);
@@ -302,11 +328,13 @@ export function applyLine(s: Session, line: string): Update {
     }
     case "check": {
       const name = str(d["check"], 60);
-      const message = str(d["message"]);
+      const message = plainWords(str(d["message"]));
       if (name !== "" && message !== "" && typeof d["ok"] === "boolean") {
-        const ok = d["ok"];
+        // Advice about the sound is not a problem with the recording: it is a note, and said as one.
+        const advice = d["ok"] === false && isAdvice(name, message);
+        const ok = d["ok"] || advice;
         next = { ...next, notes: [...next.notes, { ok, text: message }].slice(-MAX_NOTES) };
-        if (!ok || ALWAYS_SAID.has(name)) say.push(ok ? message : `Problem. ${message}`);
+        if (!ok || advice || ALWAYS_SAID.has(name)) say.push(ok ? message : `Problem. ${message}`);
       }
       break;
     }
