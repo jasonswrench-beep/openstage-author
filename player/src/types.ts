@@ -475,6 +475,8 @@ export interface InteractionContent {
   items: InteractionItem[];
   /** labeledGraphic (added in 0.44.0): the picture the markers sit on. Its alt text says what the whole picture shows. */
   graphic?: { src: string; alt: string };
+  /** labeledGraphic (added in 0.45.0): also step through the markers in order, with Previous and Next buttons and a count of the steps. Absent means false. */
+  guided?: boolean;
 }
 
 /**

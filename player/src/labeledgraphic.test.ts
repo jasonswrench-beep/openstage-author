@@ -1,7 +1,7 @@
 // The labeled graphic kind of interaction (added in 0.44.0): where a marker sits and what it is called. The drawing itself needs a page, and is tried in a browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { INTERACTION_KINDS, ITEM_LIMITS, markerAt, markerName } from "./interactions.ts";
+import { INTERACTION_KINDS, ITEM_LIMITS, markerAt, markerName, stepText } from "./interactions.ts";
 import type { InteractionItem } from "./types.ts";
 
 const item = (extra: Partial<InteractionItem> = {}): InteractionItem => ({ id: "item-1", title: "Part", body: "<p>x</p>", image: null, narration: null, ...extra });
@@ -29,3 +29,10 @@ test("a labeled graphic is a kind of interaction with one to twelve markers", ()
   assert.ok((INTERACTION_KINDS as readonly string[]).includes("labeledGraphic"));
   assert.deepEqual(ITEM_LIMITS.labeledGraphic, { min: 1, max: 12 });
 });
+
+test("the step line of a guided labeled graphic counts when the slide opens, and names the step after the learner acts", () => {
+  assert.equal(stepText(0, 5, "The sender", false), "Step 1 of 5");
+  assert.equal(stepText(2, 5, "The channel", true), "Step 3 of 5: The channel");
+  assert.equal(stepText(4, 5, "Noise", true), "Step 5 of 5: Noise");
+});
+

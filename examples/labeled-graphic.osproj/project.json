@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.44.0",
+  "schemaVersion": "0.45.0",
   "meta": {
     "title": "Labeled graphic",
     "author": "",
@@ -25,7 +25,8 @@
       "id": "scene-main",
       "name": "Main",
       "slides": [
-        "slide-001"
+        "slide-001",
+        "slide-002"
       ]
     }
   ]

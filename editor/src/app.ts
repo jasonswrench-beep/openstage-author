@@ -3953,6 +3953,12 @@ ${errorText(err)}`);
         if (msg) this.announce(msg);
       }));
     }
+    if (c.kind === "labeledGraphic") {
+      const box = h("input", { id: "p-ix-guided", type: "checkbox", ...(c.guided === true ? { checked: true } : {}) });
+      box.dataset["key"] = "prop:ix-guided";
+      box.addEventListener("change", () => { const msg = m.setInteractionGuided(o.id, box.checked); if (msg) this.announce(msg); });
+      behaviour.push(h("div", { class: "field check" }, box, h("label", { for: "p-ix-guided", text: "Step through the markers in order, with Previous and Next buttons" })));
+    }
     if (c.kind === "clickReveal" || c.kind === "accordion") {
       const box = h("input", { id: "p-ix-multiple", type: "checkbox", ...(c.allowMultiple ? { checked: true } : {}) });
       box.dataset["key"] = "prop:ix-multiple";

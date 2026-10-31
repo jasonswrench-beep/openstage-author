@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.44.0",
+  "schemaVersion": "0.45.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -808,7 +808,9 @@ Each kind accepts only so many items, because a drawing has only so many places 
 Underneath it is the tabs pattern, as for a timeline: a tablist whose tabs are the markers, with the text of the one chosen in a panel. In reading order a screen reader meets the picture
 and its `alt` first, then the markers, then the panel. A marker shows only its number, and is named by it and the item's title ("3. The channel", which begins with the visible number). The chosen
 marker is larger and inverted, so it is not told by colour alone. A marker is 36 pixels across, and 44 when chosen. The picture is the thing being described, so it cannot be decorative: the validator
-asks for its alt text (`labeledgraphic-alt`), a place for every marker (`labeledgraphic-position`), and warns when two markers are within 5 percent of each other (`labeledgraphic-overlap`). Each item
+asks for its alt text (`labeledgraphic-alt`), a place for every marker (`labeledgraphic-position`), and warns when two markers are within 5 percent of each other (`labeledgraphic-overlap`). A labeled graphic with `"guided": true` (absent means false; only this kind may have it, `interaction-guided-kind`) also has **Previous step** and **Next step** buttons under the text and a line saying "Step 2 of 5". It is for a learner who is
+taken through the parts in order (the guided image of other tools); the markers still work as before, and the count follows whichever the learner uses. After the learner's own action the line names the step ("Step 3 of 5: The channel") and is a polite live
+region, so a screen reader says it; when the slide opens it only counts. Next is `aria-disabled` on the last step and Previous on the first, and pressing a disabled one does nothing. Each item
 has its own narration and Listen button as in any interaction, and its own picture if the author wants one. The picture's file must exist (`asset-missing`). The editor adds one with three markers and asks for
 the picture straight away; the picture's alt text and the markers' places are set in Properties, where a marker is moved by clicking the picture or with the arrow keys, or by typing its two numbers.
 
@@ -1658,6 +1660,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |
 | 0.43.0 | 0.44.0 | Adds the `labeledGraphic` kind of interaction: a picture (`content.graphic`, with its alt text) with a numbered marker for each item, placed by the item's `x` and `y` as percentages of the picture. Nothing in an older course changes. |
 | 0.42.0 | 0.43.0 | Adds the optional `enlargeable` of a picture (an image object's content): true gives the picture an Enlarge button that opens it as big as the window allows. Nothing in an older course changes. |
 | 0.41.0 | 0.42.0 | Adds two kinds of input, `slider` and `dial`: a number the learner sets between a lowest and a highest value, saved in a number variable (`min`, `max`, `step`, and optionally `unit`, `startLabel`, `endLabel`, `showValue`). Nothing in an older course changes. |

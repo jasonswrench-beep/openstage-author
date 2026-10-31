@@ -96,3 +96,20 @@ test("placing a marker is one undo step", () => {
   const after = content(m, o.id).items[0]!;
   assert.deepEqual([after.x, after.y], [before.x, before.y]);
 });
+
+test("a labeled graphic can be guided, and the key is only there while it is on", () => {
+  const m = fresh();
+  const o = m.addInteraction("labeledGraphic:horizontal")!;
+  assert.ok(!("guided" in content(m, o.id)), "off to begin with, and off is not written");
+  assert.equal(m.setInteractionGuided(o.id, true), "The markers can be stepped through in order");
+  assert.equal(content(m, o.id).guided, true);
+  assert.equal(m.setInteractionGuided(o.id, true), null, "no change, no undo step");
+  m.undo();
+  assert.ok(!("guided" in content(m, o.id)));
+  m.setInteractionGuided(o.id, true);
+  assert.equal(m.setInteractionGuided(o.id, false), "The markers are not stepped through in order");
+  assert.ok(!("guided" in content(m, o.id)));
+  const tabs = m.addInteraction("tabs:horizontal")!;
+  assert.equal(m.setInteractionGuided(tabs.id, true), null, "only a labeled graphic can be guided");
+});
+

@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.44.0";
+export const FORMAT_VERSION = "0.45.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3635,6 +3635,17 @@ export class Model {
     hit.c.allowMultiple = kind === "clickReveal";
     this.emit({ kind: "structure", objectId });
     return `Changed to ${kind}`;
+  }
+
+  /** Whether a labeled graphic also steps through its markers in order with Previous and Next buttons (`guided`, added in 0.45.0). Absent means not, so turning it off removes the key. */
+  setInteractionGuided(objectId: string, on: boolean): string | null {
+    const hit = this.interactionOf(objectId);
+    if (!hit || hit.c.kind !== "labeledGraphic" || (hit.c.guided === true) === on) return null;
+    this.record("");
+    if (on) hit.c.guided = true;
+    else delete hit.c.guided;
+    this.emit({ kind: "content", objectId });
+    return on ? "The markers can be stepped through in order" : "The markers are not stepped through in order";
   }
 
   /** The picture a labeled graphic's markers sit on. Its alt text is kept when the picture is changed. */

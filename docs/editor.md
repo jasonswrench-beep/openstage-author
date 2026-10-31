@@ -342,7 +342,8 @@ when the learner returns, and can be sent to the LMS.
 picture straight away. In Properties, a Picture box has what the picture shows (required: it is read to a screen reader) and a button to choose another, and a Place the markers box shows the
 picture with a button for each marker. Choose a marker, then click the picture to move it there, or press the arrow keys (one percent, five with Shift). Each item also has its place as two numbers,
 percent across and percent down, which is the way to do it without a mouse. The canvas draws the markers where they are; Preview shows how they behave. A marker with no picture behind it is
-drawn on an empty frame until a picture is chosen, and the Problems list asks for it.
+drawn on an empty frame until a picture is chosen, and the Problems list asks for it. "Step through the markers in order, with Previous and Next buttons" (under Behaviour) makes it a
+guided image: the learner can follow the parts one at a time, with a count of the steps, as well as choosing a marker.
 
 **Enlarging a picture.** Selecting a picture shows a Picture box in Properties with "Let the learner enlarge this
 picture". On, the published picture has an Enlarge button that opens it as big as the window allows, with a button to see it at

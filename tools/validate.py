@@ -36,7 +36,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 44, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 45, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -986,6 +986,9 @@ def _interaction(rel, obj, add):
                 f"The image on item '{item['title']}' has no alt text.")
     if obj["content"]["kind"] == "labeledGraphic":
         _labeled_graphic(rel, obj, items, add)
+    elif obj["content"].get("guided"):
+        add(ERROR, rel, obj["id"], "interaction-guided-kind", "Only a labeled graphic can be guided",
+            f"Stepping through in order is an option of a labeled graphic, but this is a {obj['content']['kind']}. Turn guided off, or change the kind.")
 
 
 def _labeled_graphic(rel, obj, items, add):

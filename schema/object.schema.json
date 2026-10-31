@@ -684,6 +684,7 @@
         "kind": { "enum": ["clickReveal", "flipCards", "tabs", "accordion", "carousel", "steps", "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix", "labeledGraphic"] },
         "orientation": { "enum": ["horizontal", "vertical"] },
         "allowMultiple": { "type": "boolean" },
+        "guided": { "$comment": "For kind labeledGraphic (added in 0.45.0): also step through the markers in order with Previous and Next buttons. Absent means false.", "type": "boolean" },
         "graphic": {
           "$comment": "For kind labeledGraphic (added in 0.44.0): the picture the markers sit on. alt says what the whole picture shows and is checked by the validator.",
           "type": "object",

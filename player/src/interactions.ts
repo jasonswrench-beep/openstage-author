@@ -331,6 +331,12 @@ export function markerAt(item: InteractionItem, i: number, n: number): { x: numb
   return { x: ((i + 0.5) / n) * 100, y: 92 };
 }
 
+/** What the step line of a guided labeled graphic says. After the learner's own action it names the step; when the slide opens it only counts. */
+export function stepText(i: number, n: number, title: string, announce: boolean): string {
+  const count = `Step ${i + 1} of ${n}`;
+  return announce ? `${count}: ${title}` : count;
+}
+
 /** What a marker is called to a screen reader: its number, which is all it shows, then its title. */
 export function markerName(i: number, title: string): string {
   return `${i + 1}. ${title}`;
@@ -339,8 +345,9 @@ export function markerName(i: number, title: string): string {
 function buildSelector(ctx: Ctx, kind: SelectorKind): void {
   const { doc, c, root } = ctx;
   const diagram = DIAGRAMS.has(kind);
-  // A labeled graphic is a picture with its tabs laid over it as numbered markers.
+  // A labeled graphic is a picture with its tabs laid over it as numbered markers. A guided one also steps through them in order.
   const spatial = kind === "labeledGraphic";
+  const guided = spatial && c.guided === true;
   const vertical = kind === "tabs" && c.orientation === "vertical";
   const n = c.items.length;
 
@@ -348,6 +355,14 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
   if (kind === "tabs") tablist.setAttribute("aria-orientation", c.orientation);
   else if (kind === "timeline") tablist.setAttribute("aria-orientation", "horizontal");
   const panels = make(doc, "div", "os-ix-panels");
+  // For a guided labeled graphic: Previous, "Step 2 of 5", Next. The same bar as a carousel's, so it works and reads the same way.
+  const guideBar = make(doc, "div", "os-ix-bar");
+  const guidePrev = btn(doc, "os-ix-nav");
+  guidePrev.textContent = "Previous step";
+  const guideNext = btn(doc, "os-ix-nav");
+  guideNext.textContent = "Next step";
+  const guideStatus = make(doc, "span", "os-ix-status", { "aria-live": "polite", "aria-atomic": "true" });
+  guideBar.append(guidePrev, guideStatus, guideNext);
 
   if (kind === "processCircle") tablist.appendChild(ringArrows(doc, n));
   const pieces = diagram ? piecesFor(kind, n) : [];
@@ -412,25 +427,41 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
     }
     frame.appendChild(tablist);
     root.classList.add("os-ix-withgraphic");
-    root.append(frame, panels);
+    // The text of the chosen marker, and for a guided one the bar that steps through them, sit together beside the picture.
+    const side = make(doc, "div", "os-ix-side");
+    side.appendChild(panels);
+    if (guided) side.appendChild(guideBar);
+    root.append(frame, side);
   } else {
     root.append(tablist, panels);
   }
 
   // Choosing a tab speaks its item, but only when the learner activates it (a click, or Enter or Space). Arrow keys
   // move through the tabs without speaking, so a screen reader can read each name undisturbed; the Listen button is there.
-  const select = (i: number, focus: boolean, speak = false) => {
+  const select = (i: number, focus: boolean, speak = false, announce = false) => {
     tabs.forEach((t, j) => {
       t.tab.setAttribute("aria-selected", String(j === i));
       t.tab.tabIndex = j === i ? 0 : -1;
       t.panel.hidden = j !== i;
     });
+    if (guided) {
+      guidePrev.setAttribute("aria-disabled", String(i === 0));
+      guideNext.setAttribute("aria-disabled", String(i === n - 1));
+      // The live region is only filled by the learner's own action, so opening the slide is not noisy.
+      guideStatus.textContent = stepText(i, n, c.items[i]!.title, announce);
+    }
     if (focus) tabs[i]!.tab.focus();
     if (speak) ctx.sound?.play(c.items[i]!.id);
   };
   select(0, false);
   if (ctx.editing) return;
-  tabs.forEach((t, i) => t.tab.addEventListener("click", () => select(i, false, true)));
+  tabs.forEach((t, i) => t.tab.addEventListener("click", () => select(i, false, true, true)));
+  if (guided) {
+    const current = () => tabs.findIndex((t) => t.tab.getAttribute("aria-selected") === "true");
+    const go = (to: number) => { if (to >= 0 && to < n) select(to, false, true, true); };
+    guidePrev.addEventListener("click", () => go(current() - 1));
+    guideNext.addEventListener("click", () => go(current() + 1));
+  }
   tablist.addEventListener("keydown", (e) => {
     const at = tabs.findIndex((t) => t.tab === doc.activeElement);
     if (at === -1) return;
@@ -441,7 +472,7 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
     const to = forward.includes(e.key) ? (at + 1) % n : backward.includes(e.key) ? (at - 1 + n) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
     if (to < 0) return;
     e.preventDefault();
-    select(to, true);
+    select(to, true, false, true);
   });
 }
 

@@ -3162,7 +3162,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.44.0")
+        self.assertEqual(project["schemaVersion"], "0.45.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3503,7 +3503,7 @@ class LabeledGraphic(unittest.TestCase):
     def items(self, n=3):
         return [{"id": f"item-{i}", "title": f"Part {i}", "body": "<p>Text</p>", "image": None, "narration": None, "x": 7 * i + 5, "y": 10 + 6 * i} for i in range(1, n + 1)]
 
-    def run_with(self, graphic=None, items=None, make_file=True):
+    def run_with(self, graphic=None, items=None, make_file=True, extra=None):
         with MutatedProject() as p:
             if make_file:
                 pic = p.root / "assets" / "images" / "diagram.png"
@@ -3512,6 +3512,7 @@ class LabeledGraphic(unittest.TestCase):
             content = {"kind": "labeledGraphic", "orientation": "horizontal", "allowMultiple": False, "items": items if items is not None else self.items()}
             if graphic != "none":
                 content["graphic"] = graphic or {"src": "assets/images/diagram.png", "alt": "A diagram of the model with three parts"}
+            content.update(extra or {})
 
             def add(slide):
                 obj = copy.deepcopy(slide["baseLayer"]["objects"][0])
@@ -3554,6 +3555,13 @@ class LabeledGraphic(unittest.TestCase):
         self.assertEqual(len(rules(found, "labeledgraphic-overlap", severity="warning")), 1)
         self.assertEqual(rules(self.run_with(), "labeledgraphic-overlap"), [], "markers well apart are fine")
 
+    def test_a_labeled_graphic_can_be_guided_and_nothing_else_can(self):
+        self.assertEqual([f for f in self.run_with(extra={"guided": True}) if f.severity == "error"], [])
+        found = self.run_with(extra={"kind": "tabs", "guided": True})
+        self.assertEqual(len(rules(found, "interaction-guided-kind", severity="error")), 1)
+        self.assertEqual(rules(self.run_with(extra={"kind": "tabs", "guided": False}), "interaction-guided-kind"), [], "turned off, there is nothing to say")
+        self.assertTrue(rules(self.run_with(extra={"guided": "yes"}), severity="error"), "the schema asks for true or false")
+
     def test_it_has_one_to_twelve_markers(self):
         self.assertEqual(len(rules(self.run_with(items=self.items(13)), "interaction-item-count", severity="error")), 1)
         self.assertEqual(rules(self.run_with(items=self.items(12)), "interaction-item-count"), [])
@@ -3561,3 +3569,4 @@ class LabeledGraphic(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
+

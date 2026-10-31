@@ -32,7 +32,7 @@ export function newProjectFiles(input: NewProjectInput): FileText[] {
   const author = input.author.trim();
   const theme = input.theme ?? DEFAULT_THEME;
   const project = {
-    schemaVersion: "0.44.0",
+    schemaVersion: "0.45.0",
     meta: { title, author, language: input.language.trim(), created: input.today, modified: input.today },
     stage: { width: 1280, height: 720 },
     variables: [],
