@@ -36,7 +36,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 42, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 43, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -457,6 +457,7 @@ def _check_slide(rel, slide, variables, slides_by_id, add, theme, allowed=None, 
         _input(rel, obj, variables, add, cast or {})
         _scenario(rel, obj, variables, cast or {}, chosen or set(), add)
         _embed(rel, obj, add)
+        _image(rel, obj, add)
         _download(rel, obj, add)
         _timer(rel, obj, add)
         _shuffle_words(rel, obj, add)
@@ -1069,6 +1070,15 @@ def _input(rel, obj, variables, add, cast=None):
 _YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 _VIMEO_ID = re.compile(r"^[0-9]{1,12}$")
 _VIMEO_HASH = re.compile(r"^[A-Za-z0-9]{0,32}$")
+
+
+def _image(rel, obj, add):
+    """A picture with an Enlarge button (content.enlargeable, added in 0.43.0). The button is named after the picture's alt text, so a decorative picture, which says nothing, cannot have one."""
+    if obj["type"] != "image" or not obj["content"].get("enlargeable"):
+        return
+    if obj["accessibility"].get("decorative"):
+        add(ERROR, rel, obj["id"], "image-enlarge-decorative", "A decorative picture cannot have an Enlarge button",
+            "The button is named after the picture's alt text, and a decorative picture has none. Describe the picture and mark it as not decorative, or turn Enlarge off.")
 
 
 def _embed(rel, obj, add):

@@ -266,6 +266,19 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-semantic-left { text-align: right; }
 @media (forced-colors: active) { .os-input-select { border-color: ButtonText; } }
 
+/* A picture a learner can enlarge (0.43.0): the picture fills a box that also holds the Enlarge button and its pop-up. */
+.os-image-in { display: block; width: 100%; height: 100%; object-fit: contain; }
+.os-enlarge { position: absolute; right: 8px; bottom: 8px; padding: 8px 14px; border-radius: 6px; border: 2px solid var(--os-accent-strong, #1d3f8f); background: var(--os-accent-strong, #1d3f8f); color: var(--os-on-accent-strong, #fff); font: inherit; font-size: 16px; line-height: 1.2; cursor: pointer; }
+.os-enlarge:focus-visible { outline: 3px solid var(--os-focus, #0b3fb3); outline-offset: 3px; box-shadow: 0 0 0 2px var(--os-bg, #fff); }
+.os-enlarge-dialog { padding: 0; max-width: 96vw; max-height: 96vh; border: 2px solid var(--os-text, #1a1a1a); border-radius: 8px; background: var(--os-bg, #fff); color: var(--os-text, #1a1a1a); }
+.os-enlarge-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.os-enlarge-bar { display: flex; justify-content: flex-end; gap: 10px; padding: 10px; }
+.os-enlarge-view { max-width: 94vw; max-height: calc(92vh - 70px); overflow: auto; display: flex; align-items: flex-start; }
+.os-enlarge-img { display: block; flex: none; margin: 0 auto; max-width: 94vw; max-height: calc(92vh - 70px); object-fit: contain; }
+.os-enlarge-actual .os-enlarge-img { max-width: none; max-height: none; }
+.os-enlarge-view:focus-visible { outline: 3px solid var(--os-focus, #0b3fb3); outline-offset: -3px; }
+@media (forced-colors: active) { .os-enlarge { border-color: ButtonText; } .os-enlarge:focus-visible, .os-enlarge-view:focus-visible { outline: 3px solid Highlight; } }
+
 /* Slider and dial. Both are one native range control. The thumb is 28 pixels, past the 24 pixel minimum for a target (WCAG 2.5.8). */
 .os-slider-row { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
 .os-slider-end { flex: 0 0 auto; max-width: 22%; font-weight: 600; }
@@ -418,8 +431,11 @@ a.os-download-link:hover { text-decoration: underline; }
 .os-stage.os-reflow .os-layer > .os-reflow-backed { padding: 10px 14px; border-radius: 8px; }
 .os-stage.os-reflow { overflow-wrap: anywhere; }
 
+/* In one column an enlargeable picture's box keeps its own corner, so its button has something to sit in. */
+.os-stage.os-reflow .os-layer > .os-image-box { position: relative !important; }
 /* Pictures, shapes and video keep their shape but fill the width, no wider than the author drew them. */
 .os-stage.os-reflow .os-layer > img.os-image,
+.os-stage.os-reflow .os-layer > .os-image-box,
 .os-stage.os-reflow .os-layer > .os-shape,
 .os-stage.os-reflow .os-layer > svg.os-icon,
 .os-stage.os-reflow .os-layer > video.os-media { width: 100% !important; max-width: var(--os-w) !important; aspect-ratio: var(--os-ar); }

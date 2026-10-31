@@ -21,6 +21,7 @@ import { buildCertificate, buildResults, type CourseInfo, type CourseResults } f
 import { buildLogo, logoFirst } from "./logo.ts";
 import { bubbleParts, bubblePaddingCss, isBubbleKind, tailOf, type BubbleKind, type BubbleTail } from "./bubble.ts";
 import { buildIcon, strokeWidthOf } from "./icon.ts";
+import { buildEnlargeablePicture } from "./enlarge.ts";
 import { lookLayers, spokenOnChange } from "./looks.ts";
 import { appendSanitizedHtml } from "./sanitize.ts";
 import { splitReferences, totalsFromResults, valueFor } from "./valuetext.ts";
@@ -459,7 +460,8 @@ export class StageRenderer {
         const img = el(doc, "img", "os-image") as HTMLImageElement;
         img.src = String(obj.content["src"] ?? "");
         img.alt = a.decorative ? "" : a.altText;
-        node = img;
+        // A picture the author let learners enlarge sits in a box with its button. The editor draws the picture alone, as it always did.
+        node = obj.content["enlargeable"] === true && !a.decorative && !this.behavior.editing ? buildEnlargeablePicture(doc, img, obj) : img;
         break;
       }
       case "shape": {

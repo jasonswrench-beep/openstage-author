@@ -388,7 +388,10 @@
     "contentImage": {
       "type": "object",
       "required": ["src"],
-      "properties": { "src": { "$ref": "#/$defs/assetPath" } }
+      "properties": {
+        "src": { "$ref": "#/$defs/assetPath" },
+        "enlargeable": { "$comment": "Optional, added in 0.43.0. True gives the picture an Enlarge button that opens it as big as the window allows. Absent means false. Not for a decorative picture.", "type": "boolean" }
+      }
     },
     "contentShape": {
       "type": "object",

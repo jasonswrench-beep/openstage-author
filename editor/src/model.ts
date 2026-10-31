@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.42.0";
+export const FORMAT_VERSION = "0.43.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3448,6 +3448,19 @@ export class Model {
     hit.c.showValue = show;
     this.emit({ kind: "content", objectId });
     return show ? "The number is shown" : "The number is not shown";
+  }
+
+  /** Whether a learner can enlarge a picture (`enlargeable`, added in 0.43.0). Absent means they cannot, so turning it off removes the key. */
+  setImageEnlargeable(objectId: string, on: boolean): string | null {
+    const obj = this.find(objectId);
+    if (!obj || obj.type !== "image" || (obj.content["enlargeable"] === true) === on) return null;
+    // The Enlarge button is named after the picture's alt text, and a decorative picture has none.
+    if (on && obj.accessibility.decorative) return "A decorative picture cannot be enlarged. Describe it and mark it as not decorative first.";
+    this.record("");
+    if (on) obj.content["enlargeable"] = true;
+    else delete obj.content["enlargeable"];
+    this.emit({ kind: "content", objectId });
+    return on ? "Learners can enlarge this picture" : "Learners cannot enlarge this picture";
   }
 
   // ---- tables and scrolling text

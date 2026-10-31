@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.42.0",
+  "schemaVersion": "0.43.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -307,7 +307,7 @@ group's objects is not grouped. (Added in 0.17.0.)
 | Type | `content` |
 | --- | --- |
 | `text` | `html`, optional `bubble` and `tail` (see Speech and thought bubbles) |
-| `image` | `src` (under `assets/`) |
+| `image` | `src` (under `assets/`); optional `enlargeable` (see Enlarging a picture) |
 | `shape` | `shape`, and `tail` for a speech or thought bubble |
 | `button` | `label`, optional `icon` and `iconPlacement` (see Icons) |
 | `icon` | `set`, `name`, `shapes` (see Icons) |
@@ -611,6 +611,15 @@ one `numeric` answer: the value the learner stops at, not every step on the way.
 or the learner leaves the control. Settling on the same value twice in a row reports it once. A control that is not moved, such as one tabbed through, reports nothing.
 The thumb and the dial's pointer area are at least 28 pixels. The validator checks the range and the step (`input-slider-range`, `input-slider-step`) and, like any
 input, that the variable exists and is a number. It does not check conditions that read a slider's variable against the scale.
+
+**Enlarging a picture** (added in 0.43.0). An `image` object's content may have `"enlargeable": true` (absent means false). The picture then has an **Enlarge**
+button in its corner. The button opens the picture in a pop-up as big as the window allows, with a button to see it at its own size (a picture bigger than the window
+scrolls, and the scrolling part can be reached and moved with the keyboard) and a Close button. It is for a learner who wants a closer look at a diagram or a photograph; it moves
+nothing on the slide, so it adds no motion. The pop-up is a modal `<dialog>`: Escape closes it, focus stays inside it, and focus goes back to the Enlarge button when it
+closes. The button is named after the picture's alt text ("Enlarge picture: A chart of the four channels", which begins with the visible word Enlarge), so a list of buttons does
+not hold several that sound the same, and the pop-up is named the same way. A picture marked `decorative` cannot be enlarged, because it has no description to name the button
+with (`image-enlarge-decorative`, an error). In one column (reflow) the picture fills the width as any picture does and keeps its button in its corner. The editor draws the
+picture alone, with no button.
 
 ### Scenarios
 
@@ -1634,6 +1643,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.42.0 | 0.43.0 | Adds the optional `enlargeable` of a picture (an image object's content): true gives the picture an Enlarge button that opens it as big as the window allows. Nothing in an older course changes. |
 | 0.41.0 | 0.42.0 | Adds two kinds of input, `slider` and `dial`: a number the learner sets between a lowest and a highest value, saved in a number variable (`min`, `max`, `step`, and optionally `unit`, `startLabel`, `endLabel`, `showValue`). Nothing in an older course changes. |
 | 0.40.0 | 0.41.0 | Adds the optional `paragraphs` of a text object's `timing`: a timing for each paragraph or list item, so a text can come in or go away one paragraph at a time (how a PowerPoint text that builds by paragraph comes across). Nothing in an older course changes. |
 | 0.39.0 | 0.40.0 | Adds four wipe effects, `wipeLeft`, `wipeRight`, `wipeTop` and `wipeBottom`, to the effects an object's `animation` or a slide's `transition` can use (how a Wipe in PowerPoint comes across). Nothing in an older course changes. |

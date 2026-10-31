@@ -3162,7 +3162,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.42.0")
+        self.assertEqual(project["schemaVersion"], "0.43.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3459,6 +3459,42 @@ class SliderAndDial(unittest.TestCase):
         text = [{"id": "var-rate", "name": "rate", "type": "string", "initial": ""}]
         self.assertEqual(len(rules(self.run_with(self.SLIDER, text), "input-variable-type", severity="error")), 1)
         self.assertEqual(len(rules(self.run_with({**self.SLIDER, "variable": "var-nothing"}), "input-unknown-variable", severity="error")), 1)
+
+
+class EnlargeablePicture(unittest.TestCase):
+    """A picture that learners can enlarge (an image object's content.enlargeable, added in 0.43.0)."""
+
+    def run_with(self, enlargeable, decorative=False, alt="A chart of the four channels"):
+        with MutatedProject() as p:
+            pic = p.root / "assets" / "images" / "chart.png"
+            pic.parent.mkdir(parents=True, exist_ok=True)
+            pic.write_bytes(bytes([0x89]) + b"PNG")
+
+            def add_picture(slide):
+                obj = copy.deepcopy(slide["baseLayer"]["objects"][0])
+                content = {"src": "assets/images/chart.png"}
+                if enlargeable is not None:
+                    content["enlargeable"] = enlargeable
+                obj.update(id="obj-0960", type="image", name="Chart", content=content, triggers=[], narration=None)
+                obj["accessibility"] = {"altText": "" if decorative else alt, "role": "img", "tabOrder": 96, "decorative": decorative}
+                slide["baseLayer"]["objects"].append(obj)
+            p.edit("slides/slide-001.json", add_picture)
+            return p.run()
+
+    def test_a_picture_with_alt_text_can_be_enlarged(self):
+        for value in (True, False, None):
+            found = self.run_with(value)
+            self.assertEqual(rules(found, "image-enlarge-decorative"), [], value)
+            self.assertEqual([f for f in found if f.severity == "error"], [], value)
+
+    def test_a_decorative_picture_cannot_have_an_enlarge_button(self):
+        found = self.run_with(True, decorative=True)
+        self.assertEqual(len(rules(found, "image-enlarge-decorative", severity="error")), 1)
+        self.assertEqual(rules(self.run_with(False, decorative=True), "image-enlarge-decorative"), [], "turned off, there is nothing to say")
+        self.assertEqual(rules(self.run_with(None, decorative=True), "image-enlarge-decorative"), [])
+
+    def test_enlargeable_must_be_true_or_false(self):
+        self.assertTrue(rules(self.run_with("yes"), severity="error"), "the schema refuses text")
 
 
 if __name__ == "__main__":

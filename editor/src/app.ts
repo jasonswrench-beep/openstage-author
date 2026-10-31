@@ -3348,6 +3348,7 @@ ${errorText(err)}`);
       ...(o.type === "embed" ? this.embedFields(m, o) : []),
       ...(o.type === "table" ? this.tableFields(m, o) : []),
       ...(o.type === "input" ? this.inputFields(m, o) : []),
+      ...(o.type === "image" ? this.imageFields(m, o) : []),
       ...(o.type === "scrollingText" ? this.scrollFields(m, o) : []),
       ...(o.type === "results" ? this.resultsFields(m, o) : []),
       ...(o.type === "certificate" ? this.certificateFields(m, o) : []),
@@ -4368,6 +4369,21 @@ ${errorText(err)}`);
       if (msg) this.announce(msg); else this.fillInput(o);
     });
     return [select, name];
+  }
+
+  /** What a learner can do with a picture: enlarge it. */
+  private imageFields(m: Model, o: OSObject): HTMLElement[] {
+    const box = h("input", { id: "p-img-enlarge", type: "checkbox", ...(o.content["enlargeable"] === true ? { checked: true } : {}) });
+    box.dataset["key"] = "prop:img-enlarge";
+    box.addEventListener("change", () => {
+      const msg = m.setImageEnlargeable(o.id, box.checked);
+      if (msg) this.announce(msg);
+      // A refused change leaves the model as it was, so the box goes back to what the model says.
+      box.checked = o.content["enlargeable"] === true;
+    });
+    return [h("fieldset", {}, h("legend", { text: "Picture" }),
+      h("div", { class: "field check" }, box, h("label", { for: "p-img-enlarge", text: "Let the learner enlarge this picture" })),
+      h("p", { class: "note", text: "The picture gets an Enlarge button that opens it as big as the window allows, with a button to see it at its own size. The button is named after the picture's alt text, so describe the picture first. Not for a decorative picture." }))];
   }
 
   /** The prompt, whether answers go to the LMS, and the options, boxes or rows that make up the input. */

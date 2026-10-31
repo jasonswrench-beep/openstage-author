@@ -338,6 +338,11 @@ and whether the number shows. The canvas draws them but they do not move there; 
 these variables to change what the course does (see Rules above); the values are also saved, shown again
 when the learner returns, and can be sent to the LMS.
 
+**Enlarging a picture.** Selecting a picture shows a Picture box in Properties with "Let the learner enlarge this
+picture". On, the published picture has an Enlarge button that opens it as big as the window allows, with a button to see it at
+its own size. The button is named after the picture's alt text, so describe the picture first: the editor will not turn it on for
+a picture marked decorative, and the validator refuses the two together. The canvas draws the picture alone; Preview shows the button.
+
 **Tables and scrolling text.** "Table or scrolling text..." in the Add menu opens a picker. A new table has
 a header row and three by three cells, with no name: the author gives it one in the Alt text field, which
 a screen reader reads, and the validator asks for it until then. In the Properties panel a table has a
