@@ -1500,6 +1500,95 @@ under `source/` (not listed in the manifest, so the LMS ignores it). The ADL sch
   questions), with the student's response, result, weighting and correct response.
 - **Review and browse mode** are read only: nothing is written.
 
+## Which tracking the page uses
+
+One published course serves all three kinds of package (SCORM 1.2, SCORM 2004 and xAPI): the files are the same and only
+the file that describes the package differs. When the page opens it looks, in this order, for a SCORM 2004 API
+(`window.API_1484_11`), then a SCORM 1.2 API (`window.API`), each in a parent frame or the opener, and then for the launch
+details of a learning record store in its own address (`endpoint` and `actor`). The first it finds reports for the course. With none, such as a
+file opened from disk, the course runs untracked. What counts as complete, and what counts as passed, is the same under all
+three: the sections "Completion", "Score" and "Pass mark" of SCORM 1.2 tracking above are the one definition.
+
+## SCORM 2004 tracking
+
+The package is `<name>-scorm2004.zip`, for SCORM 2004 4th edition: the course, an `imsmanifest.xml`, and the editable
+project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bundled.
+
+- **Two statuses.** `cmi.completion_status` is `incomplete` until the course is complete, then `completed`. `cmi.success_status`
+  is written only when the course is complete and the assessment is finished: `passed` or `failed`. They are separate, so a
+  learner who finishes everything but fails is `completed` and `failed`, which 1.2 cannot say. A finished status is never moved back.
+- **Score.** Written once, when the course is complete: `cmi.score.min` 0, `max` 100, `raw`, and `scaled` (raw over 100, to four
+  decimals). `cmi.progress_measure` is the share of slides seen, and stays below 1 (0.99 at most) until the course is complete.
+- **Pass mark.** For a course with a quiz the manifest gives the primary objective `satisfiedByMeasure` with a
+  `minNormalizedMeasure` of 0.8, so an LMS that works success out from the scaled score gets the answer the course gives.
+  Every course's manifest also says the content sets its own completion and success (`completionSetByContent` and
+  `objectiveSetByContent`); without that an LMS may mark the course complete when the learner leaves, whatever it reported.
+- **Position and resume.** `cmi.location` holds the slide id and `cmi.suspend_data` the same text as in 1.2, but may be up to
+  64000 characters (what the standard asks every LMS to hold), so nothing is dropped from it unless it would not fit even then.
+  On `cmi.entry` of `resume` the course restores the state, exactly as in 1.2.
+- **Exit.** `cmi.exit` is `suspend` unless the course is complete, when it is `normal`. `cmi.session_time` is an ISO 8601
+  duration such as `PT1H2M3.45S`. `Terminate` is called once, when the page is hidden or unloaded.
+- **Interactions.** Each quiz submission is one interaction: `id`, then `type`, then `timestamp`, `learner_response`, `result`
+  (`correct` or `incorrect`; a partly right answer is `incorrect` and the share of points is in the score), `weighting` and
+  `correct_responses`. The order matters: an LMS refuses an answer before its type. The standard's own answer syntax is used,
+  not the plainer forms of 1.2:
+
+  | Question | `type` | `learner_response` and patterns |
+  | --- | --- | --- |
+  | Multiple choice, multiple response, hotspot | `choice` | letters joined by `[,]`, such as `a[,]c` |
+  | Sequencing | `sequencing` | letters in order, `b[,]a[,]c` |
+  | Matching | `matching` | `1[.]a[,]2[.]c` (item, then option) |
+  | Number | `numeric` | a number, and the pattern `1[:]5` for a range or `7` for an exact answer |
+  | Short answer | `fill_in` | the text; the pattern begins `{case_matters=true}` when capitals matter |
+  | Fill in the blanks | `fill_in` | each blank joined by `[,]`; the pattern begins `{case_matters=...}{order_matters=true}` (a word picked from a list is exact) |
+
+  A number question answered with something that is not a number is sent as type `other`. A separator typed inside a learner's
+  words (`[,]`, `[.]`, `[:]`) is changed to have a space in it, so it cannot be mistaken for one. An input the author chose to
+  report is an interaction too: a tick box is `true_false` with `true` or `false`, a rating is `likert`, a drop-down or radio group is `choice`.
+- **Review and browse mode** are read only: nothing is written.
+- **Not done.** Only the primary objective is used, there is one SCO (so no sequencing between parts), and `adl.nav.request`, `cmi.comments_from_learner` and
+  `cmi.interactions.n.objectives` are not written.
+
+## xAPI tracking
+
+The package is `<name>-xapi.zip`: the course, a `tincan.xml` (which names the course, its identifier and its launch file, `index.html`),
+and the editable project under `source/`. It is for xAPI 1.0.3. The LMS or learning record store (LRS) opens `index.html` with
+its details in the address (the "TinCan launch"): `endpoint`, `auth` (the Authorization header value), `actor` (JSON),
+`registration` (a UUID, optional) and `activity_id` (optional).
+
+- **Launch rules.** The `endpoint` must be https, except on the learner's own computer (`localhost`, `127.0.0.1`, `[::1]`),
+  because the learner's answers are sent to it. The `actor` must name the learner in exactly one way (`mbox`, `mbox_sha1sum`,
+  `openid` or `account`); the older launch form with each value in a list is understood. If the details are missing or do not meet
+  these rules the course runs untracked.
+- **The course's identifier** is `activity_id` from the address if there is one, otherwise
+  `https://openstageauthor.com/xapi/course/<the title as a slug>-<the project's created date>`, which is also the id in
+  `tincan.xml`. It stays the same each time the course is published, and changes if the title is changed.
+- **Statements.** Each has a UUID, the actor, the registration if there is one, and the platform `OpenStage Author`.
+
+  | Verb | Object | When |
+  | --- | --- | --- |
+  | `initialized` | the course | the course opens |
+  | `resumed` | the course | the course opens at a saved place |
+  | `experienced` | a slide | a slide is shown (once each time it changes) |
+  | `answered` | a question, as an interaction | a question is submitted, or a reported input is changed; the result has `response`, `success` (every part right) and `score` (the share of the question's points); the object has `interactionType` and `correctResponsesPattern`, in the same syntax as SCORM 2004 above |
+  | `completed` | the course | once, when the course is complete; `completion` true, `duration`, and the score |
+  | `passed` or `failed` | the course | once, when the course is complete and the assessment is finished; `success`, and the score (`scaled`, `raw`, `min` 0, `max` 100) |
+  | `suspended` or `terminated` | the course | the learner leaves: `terminated` if the course is complete, `suspended` if not; `duration` |
+
+  `completed` and the result are never sent before the course is complete, and never twice in one launch.
+- **Position and resume.** The learner's place is kept in the State resource, under the state id `openstage-progress` for the
+  course, the actor and the registration: `{"v":1,"suspend":"...","completed":false}`, where `suspend` is the same text as in
+  SCORM. It has no size limit in xAPI, so nothing is dropped from it. It is saved when it changes. On a launch with a saved place
+  that is not complete the course restores it, as in 1.2. A finished course starts again from the beginning. A different registration is a different place.
+- **Delivery.** Statements go in order, in one request for what one click did. A request the LRS refuses as wrong (a 4xx other than 429) is not
+  sent again; one it could not answer (no network, 5xx, 429) is tried up to three times. When the learner leaves, the last
+  statements and the saved place are sent so they can outlive the page (`keepalive`). If the LRS has not answered the request for the saved place in
+  four seconds, or answers that there is none, the course opens at the start and goes on sending statements as usual. While it waits the page is marked `aria-busy`.
+- **The credential.** `auth` is used only as the Authorization header of requests to the `endpoint` it came with. It is not put in a statement,
+  a message, or storage.
+- **Not done.** cmi5 (a different launch and statement profile), statement signing and attachments. A learner who opens a finished
+  course again starts it again, and sends new `completed` and result statements for that attempt.
+
 ## How the editor writes files
 
 The editor writes a file only if its content really changed. Opening a project and saving

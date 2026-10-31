@@ -1,13 +1,17 @@
-// Publishes a project folder as a folder of static web files and a SCORM 1.2 package.
+// Publishes a project folder as a folder of static web files and as packages for an LMS or an LRS: SCORM 1.2,
+// SCORM 2004 (4th edition) and xAPI. The three packages hold the same course files; they differ only in the file that
+// describes them (imsmanifest.xml, or tincan.xml). The course finds out at run time which one it is running under.
 //
-//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview]
+//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi]
 //
 // Runs the validator first and refuses to publish if it reports errors.
 //
 //   --json     Print one JSON result on standard output, for the editor to read. Progress goes to
 //              standard error instead, so standard output is only that result.
 //   --preview  A quick look, not a release: no problem check, no narration is generated (audio that
-//              already exists is used), and no SCORM zip or stand-in LMS page is written.
+//              already exists is used), and no package zip or stand-in LMS page is written.
+//   --targets  Which packages to make, as a comma-separated list. All three if left out. Each zip carries the
+//              project source as well, so a project with a lot of video may want only the one it needs.
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -15,7 +19,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { zipSync } from "fflate";
-import { buildManifest, manifestId } from "./src/scorm-manifest.ts";
+import { buildManifest, buildManifest2004, manifestId } from "./src/scorm-manifest.ts";
+import { buildTincanXml } from "./src/xapi-manifest.ts";
+import { courseActivityId } from "./src/xapi.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
 import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
@@ -23,12 +29,22 @@ import { isExcluded } from "./src/exclude.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 
+const TARGETS = ["scorm12", "scorm2004", "xapi"] as const;
+type Target = (typeof TARGETS)[number];
+
 const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi]";
 if (!projectArg || !outArg) {
-  console.error("Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview]");
+  console.error(usage);
+  process.exit(2);
+}
+const targetsFlag = flags.find((a) => a.startsWith("--targets="));
+const targets: Target[] = targetsFlag ? (targetsFlag.slice("--targets=".length).split(",").map((t) => t.trim()).filter(Boolean) as Target[]) : [...TARGETS];
+if (targets.length === 0 || targets.some((t) => !TARGETS.includes(t))) {
+  console.error(`${usage}\nThe targets can be ${TARGETS.join(", ")}.`);
   process.exit(2);
 }
 const projectDir = path.resolve(projectArg);
@@ -220,11 +236,12 @@ writeFileSync(
 );
 
 const graded = slides.some((sl) => [sl.baseLayer, ...sl.layers].some((l) => l.objects.some((o) => o.type === "quizQuestion")));
-const zipPath = `${outDir}-scorm12.zip`;
+/** The zip of each package made, by target. */
+const zips: Partial<Record<Target, string>> = {};
 
 if (!preview) {
-  // 5. The SCORM 1.2 package: the course plus imsmanifest.xml, and the editable project source
-  // alongside (not listed in the manifest, so the LMS ignores it).
+  // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and the
+  // editable project source alongside (not listed in the description, so the LMS ignores it).
   function walk(dir: string, base = dir): string[] {
     return readdirSync(dir).flatMap((name) => {
       const full = path.join(dir, name);
@@ -232,18 +249,29 @@ if (!preview) {
     });
   }
   const courseFiles = walk(outDir);
-  const manifest = buildManifest({ title: project.meta.title, files: courseFiles, graded });
-  writeFileSync(path.join(outDir, "imsmanifest.xml"), manifest);
+  const description: Record<Target, { file: string; text: string }> = {
+    scorm12: { file: "imsmanifest.xml", text: buildManifest({ title: project.meta.title, files: courseFiles, graded }) },
+    scorm2004: { file: "imsmanifest.xml", text: buildManifest2004({ title: project.meta.title, files: courseFiles, graded }) },
+    xapi: { file: "tincan.xml", text: buildTincanXml({ title: project.meta.title, language: project.meta.language, activityId: courseActivityId(project.meta) }) },
+  };
+  // The web-files folder keeps the SCORM 1.2 manifest, as it always has.
+  if (targets.includes("scorm12")) writeFileSync(path.join(outDir, "imsmanifest.xml"), description.scorm12.text);
 
-  const zipEntries: Record<string, Uint8Array> = { "imsmanifest.xml": new TextEncoder().encode(manifest) };
-  for (const f of courseFiles) zipEntries[f] = readFileSync(path.join(outDir, f));
+  // The files every package holds are read once.
+  const shared: Record<string, Uint8Array> = {};
+  for (const f of courseFiles) shared[f] = readFileSync(path.join(outDir, f));
   // The cache is never carried, and neither are the empty .gitkeep placeholders (the course folder leaves them out too, and an LMS may
   // not like empty hidden files). Whatever the project lists in sourceExclude stays out too (raw recordings, for instance).
   const exclude = project.sourceExclude ?? [];
   for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/") && path.basename(f) !== ".gitkeep" && !isExcluded(f, exclude))) {
-    zipEntries[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
+    shared[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
   }
-  writeFileSync(zipPath, zipSync(zipEntries, { level: 6 }));
+  for (const target of targets) {
+    const zipPath = `${outDir}-${target}.zip`;
+    const { file, text } = description[target];
+    writeFileSync(zipPath, zipSync({ [file]: new TextEncoder().encode(text), ...shared }, { level: 6 }));
+    zips[target] = zipPath;
+  }
 
   // 6. A stand-in LMS page for trying the course by hand. Not part of the package.
   await build({
@@ -257,15 +285,18 @@ if (!preview) {
   writeFileSync(path.join(outDir, "_scorm-test.html"), readFileSync(path.join(here, "scorm-test.html")));
 }
 
+// `zip` is the one package the editor reveals: the SCORM 1.2 one if it was made, which is what it has always been.
+const mainZip = preview ? null : (zips.scorm12 ?? zips[targets[0]!] ?? null);
 if (asJson) {
   console.log(JSON.stringify({
     ok: true, preview, slides: slides.length, outDir, indexHtml: path.join(outDir, "index.html"),
-    zip: preview ? null : zipPath, graded, findings, narration: narrationSummary,
+    zip: mainZip, zips: preview ? {} : zips, graded, findings, narration: narrationSummary,
   }));
 } else {
   console.log(`\n${preview ? "Previewed" : "Published"} ${slides.length} slide(s) to ${outDir}`);
   if (!preview) {
-    console.log(`SCORM 1.2 package (${manifestId(project.meta.title)}${graded ? ", graded" : ""}): ${zipPath}`);
+    const names: Record<Target, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 (4th edition)", xapi: "xAPI" };
+    for (const t of targets) console.log(`${names[t]} package (${manifestId(project.meta.title)}${graded ? ", graded" : ""}): ${zips[t]}`);
     console.log(`Try it with a stand-in LMS: open _scorm-test.html from a local web server.`);
   }
 }

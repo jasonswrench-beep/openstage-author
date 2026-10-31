@@ -31,6 +31,8 @@ export interface Graded {
   response: string;
   /** What to tell the LMS is right, one pattern for each way of being right. */
   patterns: string[];
+  /** Only for blanks: what is in each, and the first accepted answer of each. SCORM 2004 and xAPI have their own separator, so they need the parts, not the text joined with commas. */
+  blankParts?: { response: string[]; pattern: string[] };
 }
 
 /** SCORM 1.2 holds 255 characters of an answer. */
@@ -190,6 +192,7 @@ function gradeBlanks(q: FillBlanksQuiz, answer: string): Graded {
     scormType: "fill-in",
     response: cut(values.map((v) => v.trim()).join(",")),
     patterns: [cut(q.blanks.map((b) => b.answers[0] ?? "").join(","))],
+    blankParts: { response: values.map((v) => v.trim()), pattern: q.blanks.map((b) => b.answers[0] ?? "") },
   };
 }
 

@@ -145,7 +145,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
 
     dialog.append(
       h("h2", { id: "pb-title", text: "Publish" }),
-      h("p", { class: "note", text: "Publishing makes a SCORM 1.2 package, a zip file to upload to your LMS, and the same course as web files. It saves your project first and checks it for problems. Errors stop it; warnings do not." }),
+      h("p", { class: "note", text: "Publishing makes three packages, each a zip file: SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store. Upload the one your system asks for. It also makes the same course as web files. It saves your project first and checks it for problems. Errors stop it; warnings do not." }),
       h("div", { class: "field" }, h("label", { for: "pb-folder", text: "Publish into this folder" }), folderBox),
       h("div", { class: "btn-row" }, choose),
       h("p", { class: "note", text: "A folder named after your project is made inside it, with the package beside that folder. Publishing again replaces them." }),

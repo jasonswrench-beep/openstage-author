@@ -66,9 +66,12 @@ The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`
 ## Publishing a course
 
 Open a project in the editor (`OPEN EDITOR.bat`). **Preview** shows the course in your browser as it is now, even
-if you have not saved. **Publish** saves, checks the project for problems, and makes a SCORM 1.2 zip to upload
-to your LMS, with the same course as web files beside it. Both need Node.js installed, and Publish needs Python.
-`PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor.
+if you have not saved. **Publish** saves, checks the project for problems, and makes three zips to upload
+(SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store; use the one your system asks for), with the same
+course as web files beside them. Both need Node.js installed, and Publish needs Python.
+`PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
+without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and
+`TEST WITH STAND-IN LRS.bat` (xAPI) open the published example against a pretend one. They are test aids, not the real thing.
 
 ## Trying a course in a real LMS
 

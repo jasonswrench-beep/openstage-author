@@ -281,7 +281,7 @@ export class App {
     this.undoBtn = this.tool("Undo", "Undo the last change (Ctrl+Z)", () => this.undo());
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
-    this.publishBtn = this.tool("Publish", "Make a SCORM package for your LMS (Ctrl+Shift+P)", () => void this.publish());
+    this.publishBtn = this.tool("Publish", "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI (Ctrl+Shift+P)", () => void this.publish());
     this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
     const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.aboutBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);

@@ -11,6 +11,11 @@ export interface PublishNarration {
   engine: "none" | "failed" | "skipped" | "ready";
 }
 
+/** The kinds of package a publish makes. */
+export type PackageKind = "scorm12" | "scorm2004" | "xapi";
+
+const PACKAGE_NAMES: Record<PackageKind, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004", xapi: "xAPI" };
+
 /** The publishing tool's answer. */
 export interface PublishResult {
   ok: boolean;
@@ -25,8 +30,10 @@ export interface PublishResult {
   outDir?: string;
   /** The course's first page, to open in a browser. */
   indexHtml?: string;
-  /** The SCORM package, or null for a preview. */
+  /** The package to show the author first (SCORM 1.2 when it was made), or null for a preview. */
   zip?: string | null;
+  /** Every package made, by kind. Absent from a result written before SCORM 2004 and xAPI. */
+  zips?: Partial<Record<PackageKind, string>>;
   graded?: boolean;
   narration?: PublishNarration;
 }
@@ -72,7 +79,9 @@ export function failureText(r: PublishResult): string {
 /** What a publish that worked produced, as sentences. */
 export function publishSummary(r: PublishResult): string[] {
   const lines = [`Published ${plural(r.slides ?? 0, "slide", "slides")}.`];
-  if (r.zip) lines.push(`The package to upload to your LMS is ${fileName(r.zip)}.`);
+  const made = (Object.keys(PACKAGE_NAMES) as PackageKind[]).flatMap((k) => (r.zips?.[k] ? [`${fileName(r.zips[k]!)} (${PACKAGE_NAMES[k]})`] : []));
+  if (made.length > 1) lines.push(`The packages are ${made.slice(0, -1).join(", ")} and ${made.at(-1)}. Upload the one your LMS or learning record store asks for.`);
+  else if (r.zip) lines.push(`The package to upload to your LMS is ${fileName(r.zip)}.`);
   if (r.outDir) lines.push(`The same course as web files is in the folder ${fileName(r.outDir)}.`);
   const narration = narrationLine(r.narration);
   if (narration) lines.push(`${narration[0]!.toUpperCase()}${narration.slice(1)}`);

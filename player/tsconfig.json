@@ -14,5 +14,5 @@
     "resolveJsonModule": true,
     "skipLibCheck": true
   },
-  "include": ["src", "publish.ts"]
+  "include": ["src", "publish.ts", "stand-in-xapi.ts"]
 }

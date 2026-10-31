@@ -67,8 +67,10 @@ if errorlevel 1 goto :failed
 popd
 
 echo.
-echo The SCORM 1.2 package is dist\minimal-scorm12.zip (upload this to an LMS).
-echo Use TEST WITH STAND-IN LMS.bat to try tracking and resume without an LMS.
+echo The packages are dist\minimal-scorm12.zip, dist\minimal-scorm2004.zip and dist\minimal-xapi.zip
+echo (upload the one your LMS or learning record store asks for).
+echo Use TEST WITH STAND-IN LMS.bat to try SCORM tracking and resume without an LMS,
+echo and TEST WITH STAND-IN LRS.bat to try xAPI.
 echo.
 echo Opening the published course in your browser.
 start "" "%~dp0dist\minimal\index.html"

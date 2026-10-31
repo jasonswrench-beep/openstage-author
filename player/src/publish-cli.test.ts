@@ -66,6 +66,61 @@ test("a publish writes the folder, the SCORM zip and the manifest, and reports w
   }
 });
 
+test("a publish makes a SCORM 1.2, a SCORM 2004 and an xAPI package from the same files", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
+    assert.equal(status, 0);
+    const zips = (result as unknown as { zips: Record<string, string> }).zips;
+    assert.deepEqual(Object.keys(zips).sort(), ["scorm12", "scorm2004", "xapi"]);
+    assert.equal(zips["scorm12"], path.join(dir, "course-scorm12.zip"));
+    assert.equal(zips["scorm2004"], path.join(dir, "course-scorm2004.zip"));
+    assert.equal(zips["xapi"], path.join(dir, "course-xapi.zip"));
+    assert.equal(result.zip, zips["scorm12"], "the editor still reveals the SCORM 1.2 package");
+
+    const read = (name: string) => unzipSync(new Uint8Array(readFileSync(zips[name]!)));
+    const text = (entries: Record<string, Uint8Array>, name: string) => new TextDecoder().decode(entries[name]!);
+    const [s12, s2004, xapi] = [read("scorm12"), read("scorm2004"), read("xapi")];
+
+    assert.match(text(s12, "imsmanifest.xml"), /<schemaversion>1\.2<\/schemaversion>/);
+    assert.match(text(s2004, "imsmanifest.xml"), /<schemaversion>2004 4th Edition<\/schemaversion>/);
+    assert.match(text(s2004, "imsmanifest.xml"), /<imsss:minNormalizedMeasure>0\.8<\/imsss:minNormalizedMeasure>/, "the example is graded");
+    assert.ok(!("imsmanifest.xml" in xapi) && "tincan.xml" in xapi, "xAPI is described by tincan.xml, not a SCORM manifest");
+    assert.ok(!("tincan.xml" in s12) && !("tincan.xml" in s2004));
+    assert.match(text(xapi, "tincan.xml"), /<launch lang="[^"]+">index\.html<\/launch>/);
+
+    // Everything but the description is the same in all three, and the SCORM ones list those files.
+    const rest = (e: Record<string, Uint8Array>) => Object.keys(e).filter((k) => k !== "imsmanifest.xml" && k !== "tincan.xml").sort();
+    assert.deepEqual(rest(s2004), rest(s12));
+    assert.deepEqual(rest(xapi), rest(s12));
+    assert.ok(rest(s12).includes("index.html") && rest(s12).includes("player.js"));
+    for (const f of ["index.html", "player.js"]) assert.ok(text(s2004, "imsmanifest.xml").includes(`<file href="${f}"/>`));
+    assert.ok(Buffer.from(s2004["player.js"]!).equals(Buffer.from(s12["player.js"]!)), "one player serves every kind of package");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--targets makes only the packages asked for, and refuses one that does not exist", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"), "--targets=xapi");
+    assert.equal(status, 0);
+    assert.deepEqual(Object.keys((result as unknown as { zips: object }).zips), ["xapi"]);
+    assert.equal(result.zip, path.join(dir, "course-xapi.zip"), "with no SCORM 1.2 package, the editor is shown the one that was made");
+    assert.ok(existsSync(path.join(dir, "course-xapi.zip")));
+    assert.ok(!existsSync(path.join(dir, "course-scorm12.zip")) && !existsSync(path.join(dir, "course-scorm2004.zip")));
+    assert.ok(!existsSync(path.join(dir, "course", "imsmanifest.xml")), "the web files carry the SCORM 1.2 manifest only when that package was asked for");
+
+    const bad = spawnSync(process.execPath, ["publish.ts", path.join(examples, "minimal.osproj"), path.join(dir, "other"), "--targets=scorm12,flash"], { cwd: player, encoding: "utf-8" });
+    assert.equal(bad.status, 2);
+    assert.match(bad.stderr, /targets can be scorm12, scorm2004, xapi/);
+    assert.ok(!existsSync(path.join(dir, "other")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a project with errors is not published, and the errors come back", { skip: !havePython }, () => {
   const dir = scratch();
   try {

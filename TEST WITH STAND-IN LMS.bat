@@ -1,6 +1,7 @@
 @echo off
-REM Double-click to try the published example in a stand-in SCORM 1.2 LMS.
+REM Double-click to try the published example in a stand-in SCORM LMS (1.2, or 2004 by the link on the page).
 REM Run PUBLISH EXAMPLE.bat first. Close this window when you are finished.
+REM For xAPI, use TEST WITH STAND-IN LRS.bat instead.
 REM Note: this is a test aid. The real tests are in Moodle, Canvas and Brightspace.
 
 setlocal

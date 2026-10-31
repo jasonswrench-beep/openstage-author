@@ -60,6 +60,21 @@ test("a publish that worked is summed up in sentences", () => {
   ]);
 });
 
+test("a publish that made several packages names each one and says to upload the one the system asks for", () => {
+  const dir = "C:\\Courses\\Published courses\\";
+  assert.deepEqual(publishSummary({
+    ok: true, slides: 3, zip: `${dir}intro-scorm12.zip`, findings: [],
+    zips: { scorm12: `${dir}intro-scorm12.zip`, scorm2004: `${dir}intro-scorm2004.zip`, xapi: `${dir}intro-xapi.zip` },
+  }), [
+    "Published 3 slides.",
+    "The packages are intro-scorm12.zip (SCORM 1.2), intro-scorm2004.zip (SCORM 2004) and intro-xapi.zip (xAPI). Upload the one your LMS or learning record store asks for.",
+  ]);
+  // Two kinds, in the same fixed order whatever order the tool listed them in.
+  assert.match(publishSummary({ ok: true, findings: [], zips: { xapi: "/a/x-xapi.zip", scorm2004: "/a/x-scorm2004.zip" } })[1]!, /^The packages are x-scorm2004\.zip \(SCORM 2004\) and x-xapi\.zip \(xAPI\)\./);
+  // One kind is said the old way, and a result from before the packages were several still reads as before.
+  assert.equal(publishSummary({ ok: true, findings: [], zip: "/a/x-xapi.zip", zips: { xapi: "/a/x-xapi.zip" } })[1], "The package to upload to your LMS is x-xapi.zip.");
+});
+
 test("a problem is described by where it is, then what is wrong", () => {
   assert.equal(problemLine(finding("error", "Object needs alt text", "obj-0007", "Describe it.")), "obj-0007: Object needs alt text Describe it.");
   assert.equal(problemLine(finding("error", "Slide file missing", "-")), "Slide file missing");

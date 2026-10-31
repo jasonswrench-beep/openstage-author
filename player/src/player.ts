@@ -10,6 +10,8 @@ import { timerContentOf } from "./timer.ts";
 import { applyDraws, drawBanks, drawsFit, newSeed } from "./bank.ts";
 import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
+import { attachScorm2004 } from "./scorm2004.ts";
+import { attachXapi, readLaunch } from "./xapi.ts";
 import { creditParts } from "./credits.ts";
 import { shouldReflow } from "./reflow.ts";
 import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
@@ -506,10 +508,28 @@ export function mount(): void {
   if (!data || !root) return;
   const pkg = JSON.parse(data.textContent ?? "") as CoursePackage;
   const player = new Player(root, pkg);
-  // If an LMS is there, report to it and pick up where the learner left off. If not
-  // (a preview opened straight from disk), the course just runs.
-  const lms = attachTracker(window, player.runtime);
-  player.start(lms?.resume ?? null);
+  // If an LMS is there, report to it and pick up where the learner left off: SCORM 2004 if it offers that, else SCORM 1.2.
+  // The same published files serve every kind of package; only the manifest around them differs.
+  const lms = attachScorm2004(window, player.runtime) ?? attachTracker(window, player.runtime);
+  if (lms) {
+    player.start(lms.resume);
+    return;
+  }
+  // No LMS, but the course may have been launched with the address of a learning record store (xAPI). The learner's saved place is
+  // fetched from it first, so the course opens a moment later; if the store does not answer it opens at the start.
+  const launch = readLaunch(window.location.search, pkg.project);
+  if (!launch) {
+    // A preview opened straight from disk: the course just runs.
+    player.start(null);
+    return;
+  }
+  root.setAttribute("aria-busy", "true");
+  void attachXapi(window, player.runtime, launch)
+    .then((attached) => attached.resume, () => null)
+    .then((resume) => {
+      root.removeAttribute("aria-busy");
+      player.start(resume);
+    });
 }
 
 if (typeof document !== "undefined") {

@@ -30,13 +30,13 @@ export interface ScormApi {
   LMSGetDiagnostic(code: string): string;
 }
 
-/** Walk up through parent frames, then the opener, looking for window.API. */
-export function findApi(start: Window): ScormApi | null {
-  const search = (from: Window): ScormApi | null => {
+/** Walk up through parent frames, then the opener, looking for a window property that holds an LMS API (`API` for SCORM 1.2, `API_1484_11` for SCORM 2004). */
+export function findNamedApi<T>(start: Window, name: string): T | null {
+  const search = (from: Window): T | null => {
     let win: Window | null = from;
     for (let depth = 0; win && depth < 500; depth++) {
       try {
-        const api = (win as unknown as { API?: ScormApi }).API;
+        const api = (win as unknown as Record<string, T | undefined>)[name];
         if (api) return api;
         if (win.parent === win) return null;
         win = win.parent;
@@ -53,6 +53,11 @@ export function findApi(start: Window): ScormApi | null {
   } catch {
     return null;
   }
+}
+
+/** Walk up through parent frames, then the opener, looking for window.API. */
+export function findApi(start: Window): ScormApi | null {
+  return findNamedApi<ScormApi>(start, "API");
 }
 
 // ---- policy: completion, success, score
@@ -107,7 +112,7 @@ export function evaluate(runtime: Runtime): Progress {
   return { completed, success: pct >= PASSING_PERCENT, scorePercent: pct };
 }
 
-const FINAL = new Set(["passed", "completed", "failed"]);
+export const FINAL = new Set(["passed", "completed", "failed"]);
 
 /** Fold the two facts into SCORM 1.2's one field. Never moves a finished status backwards. */
 export function lessonStatus(p: Progress, current: string): string {
@@ -119,7 +124,7 @@ export function lessonStatus(p: Progress, current: string): string {
 
 // ---- suspend data
 
-export function encodeSuspend(snap: Snapshot): string {
+export function encodeSuspend(snap: Snapshot, limit: number = SUSPEND_LIMIT): string {
   // The learner's random choices (the seed and the slides each bank showed) are kept in every form: without them the quiz results and
   // the visited slides would belong to slides the learner is no longer shown.
   const full = { v: 1, s: snap.slide, x: snap.vars, q: snap.quiz, l: snap.layers, d: snap.visited, c: snap.scenario, r: snap.seed, b: snap.draws };
@@ -135,7 +140,7 @@ export function encodeSuspend(snap: Snapshot): string {
   ];
   for (const a of attempts) {
     const text = JSON.stringify(a);
-    if (text.length <= SUSPEND_LIMIT) return text;
+    if (text.length <= limit) return text;
   }
   return JSON.stringify({ v: 1, s: snap.slide, r: snap.seed, b: snap.draws });
 }

@@ -629,10 +629,13 @@ it is the order a screen reader reads that decides what comes first (see Reflow 
 
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then
 checks it for problems with the same checker as the Problems list. Errors stop it, and are listed in the
-dialog; warnings do not. It makes the course as a folder of web files and as a SCORM 1.2 package (a zip,
-which also carries the editable project in a `source` folder the LMS ignores) beside it, in the folder you
+dialog; warnings do not. It makes the course as a folder of web files and as three packages beside it: SCORM 1.2
+(`<name>-scorm12.zip`), SCORM 2004 (`<name>-scorm2004.zip`) and xAPI (`<name>-xapi.zip`). Each is a zip that also carries
+the editable project in a `source` folder the LMS ignores, and all three hold the same course files; only the file that
+describes them differs. The author uploads the one the LMS or learning record store asks for (see "SCORM 2004 tracking"
+and "xAPI tracking" in the format spec). They go in the folder you
 choose with "Choose folder...". Until you choose, that is a "Published courses" folder beside the project, and
-the folder you choose is remembered for next time. The folder and the package are named after the project.
+the folder you choose is remembered for next time. The folder and the packages are named after the project.
 Publishing again replaces them, and it refuses a place that is inside the project, holds the project, or
 already has a folder of that name with other things in it, so it can never empty something that is yours.
 Narration audio is made for any narrated object that has none, if a speech engine is set up (`local-settings.bat`
@@ -640,7 +643,9 @@ names the Python that has Kokoro; see `docs/narration-setup.md`); otherwise the 
 the dialog says so. The first time this can take several minutes, so the button becomes "Cancel publishing",
 and Escape cancels too. When it finishes the dialog says what was made and offers "Show the package in its
 folder" and "Open the course in my browser". The web-files folder also holds `_scorm-test.html`, a stand-in
-LMS page for trying scoring and resume; it has to be opened from a local web server and is not in the package.
+LMS page for trying scoring and resume (SCORM 1.2, or SCORM 2004 by the link on the page); it has to be opened from a
+local web server and is not in the package. For xAPI, `TEST WITH STAND-IN LRS.bat` starts a stand-in learning record
+store and a page that lists every statement the course sends.
 
 Preview and Publish both run `player/publish.ts` under Node, the same tool as the command line, in the
 background, so the editor stays usable. Only one of them runs at a time. Both need Node.js installed; Publish
