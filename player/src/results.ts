@@ -7,6 +7,7 @@
 // the font and its size come from the object's style.
 
 import type { CertificateContent, OSObject, ResultsContent } from "./types.ts";
+import { t, tn } from "./playertext.ts";
 
 export type QuestionState = "correct" | "partial" | "incorrect" | "open" | "unanswered";
 
@@ -49,37 +50,35 @@ export interface ResultsDeps {
 
 // ---- the words
 
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
-
 /** 80, 66.67 and 100: no needless decimals. */
 export const roundPercent = (n: number): string => String(Math.round(n * 100) / 100);
 
 export function scoreSentence(r: CourseResults): string {
-  if (r.questions.length === 0) return "This course has no quiz questions.";
-  if (r.finished) return `You scored ${r.earnedPoints} of ${r.totalPoints} points (${roundPercent(r.percent ?? 0)}%).`;
+  if (r.questions.length === 0) return t("results.none");
+  if (r.finished) return t("results.scored", { earned: r.earnedPoints, total: r.totalPoints, percent: roundPercent(r.percent ?? 0) });
   const done = r.questions.filter((q) => q.state === "correct" || q.state === "partial" || q.state === "incorrect").length;
-  return `You have finished ${done} of ${plural(r.questions.length, "question", "questions")} so far.`;
+  return tn("results.progress", r.questions.length, { done });
 }
 
 export function verdictSentence(r: CourseResults, c: ResultsContent): string {
   if (r.questions.length === 0) return "";
-  if (!r.finished) return "Finish every question to see whether you passed.";
+  if (!r.finished) return t("results.finishFirst");
   const extra = (r.passed ? c.passMessage : c.failMessage).trim();
-  return `${r.passed ? "You passed." : "You did not reach the pass mark."}${extra ? ` ${extra}` : ""}`;
+  return `${r.passed ? t("results.passed") : t("results.failed")}${extra ? ` ${extra}` : ""}`;
 }
 
-export const passMarkSentence = (r: CourseResults): string => `The pass mark is ${r.passMark}%.`;
+export const passMarkSentence = (r: CourseResults): string => t("results.passMark", { mark: r.passMark });
 
 /** What one question came to, in words that do not depend on colour. */
 export function questionLine(q: QuestionResult): string {
   const how = {
-    correct: `correct, ${q.earned} of ${plural(q.points, "point", "points")}`,
-    partial: `partly correct, ${q.earned} of ${plural(q.points, "point", "points")}`,
-    incorrect: `not correct, 0 of ${plural(q.points, "point", "points")}`,
-    open: "answered, but not right yet, and you can still try again",
-    unanswered: "not answered yet",
+    correct: tn("results.lineCorrect", q.points, { earned: q.earned }),
+    partial: tn("results.linePartial", q.points, { earned: q.earned }),
+    incorrect: tn("results.lineIncorrect", q.points),
+    open: t("results.lineOpen"),
+    unanswered: t("results.lineUnanswered"),
   }[q.state];
-  return `${q.slideName}: ${how}`;
+  return t("results.line", { slide: q.slideName, how });
 }
 
 // ---- the certificate's words
@@ -113,17 +112,17 @@ export function certificateLines(c: CertificateContent, name: string, r: CourseR
   add("os-cert-name", name);
   add("os-cert-achievement", c.achievement);
   add("os-cert-course", info.title);
-  if (c.showScore && r && r.percent !== null) add("os-cert-fact", `Score: ${roundPercent(r.percent)}%`);
-  if (c.showDate) add("os-cert-fact", `Date: ${certificateDate(now, info.language)}`);
+  if (c.showScore && r && r.percent !== null) add("os-cert-fact", t("certificate.score", { percent: roundPercent(r.percent) }));
+  if (c.showDate) add("os-cert-fact", t("certificate.date", { date: certificateDate(now, info.language) }));
   add("os-cert-issuer", c.issuedBy);
   return lines;
 }
 
 /** Why there is no certificate yet, for a learner who has not passed. */
 export function lockedSentence(r: CourseResults | undefined): string {
-  if (!r || r.questions.length === 0) return "There is no certificate to earn in this course.";
-  if (!r.finished) return "Your certificate is available once you pass the quiz. Finish every question first.";
-  return "The certificate is for learners who pass the quiz, and you did not reach the pass mark.";
+  if (!r || r.questions.length === 0) return t("certificate.none");
+  if (!r.finished) return t("certificate.locked");
+  return t("certificate.notPassed");
 }
 
 // ---- drawing
@@ -155,7 +154,7 @@ export function buildResults(doc: Document, obj: OSObject, deps: ResultsDeps): H
   const data = deps.editing ? SAMPLE : deps.results();
   if (!data) {
     const p = make(doc, "p");
-    p.textContent = "Results are not available here.";
+    p.textContent = t("results.unavailable");
     box.appendChild(p);
     return box;
   }
@@ -165,13 +164,13 @@ export function buildResults(doc: Document, obj: OSObject, deps: ResultsDeps): H
     p.textContent = text;
     box.appendChild(p);
   };
-  if (deps.editing) line("os-results-sample", "Example only. Each learner sees their own results here.");
+  if (deps.editing) line("os-results-sample", t("results.example"));
   line("os-results-score", scoreSentence(data));
   line("os-results-verdict", verdictSentence(data, c));
   if (data.questions.length > 0) line("os-results-mark", passMarkSentence(data));
   if (c.review && data.questions.length > 0) {
     const list = make(doc, "ol", "os-results-review");
-    list.setAttribute("aria-label", "Your answers, question by question");
+    list.setAttribute("aria-label", t("results.reviewLabel"));
     for (const q of data.questions) {
       const li = make(doc, "li", `os-results-${q.state}`);
       li.textContent = questionLine(q);
@@ -185,7 +184,7 @@ export function buildResults(doc: Document, obj: OSObject, deps: ResultsDeps): H
 function paperOf(doc: Document, lines: CertificateLine[]): HTMLElement {
   const paper = make(doc, "div", "os-certificate");
   paper.setAttribute("role", "group");
-  paper.setAttribute("aria-label", "Certificate");
+  paper.setAttribute("aria-label", t("certificate.label"));
   for (const l of lines) {
     const e = make(doc, l.tag, l.cls);
     e.textContent = l.text;
@@ -207,8 +206,8 @@ export function buildCertificate(doc: Document, obj: OSObject, deps: ResultsDeps
 
   if (deps.editing) {
     const note = make(doc, "p", "os-results-sample");
-    note.textContent = "Example only. A learner who passes types their name and prints this.";
-    box.append(note, paperOf(doc, certificateLines(c, "Learner's name", data, info, new Date())));
+    note.textContent = t("certificate.example");
+    box.append(note, paperOf(doc, certificateLines(c, t("certificate.sampleName"), data, info, new Date())));
     return box;
   }
   if (!data || data.passed !== true) {
@@ -222,7 +221,7 @@ export function buildCertificate(doc: Document, obj: OSObject, deps: ResultsDeps
   const id = `os-cert-name-${obj.id}`;
   const label = make(doc, "label") as HTMLLabelElement;
   label.htmlFor = id;
-  label.textContent = "Your name, as it should appear on the certificate";
+  label.textContent = t("certificate.nameLabel");
   const input = make(doc, "input", "os-cert-input") as HTMLInputElement;
   input.id = id;
   input.type = "text";
@@ -230,13 +229,13 @@ export function buildCertificate(doc: Document, obj: OSObject, deps: ResultsDeps
   input.autocomplete = "name";
   const makeBtn = make(doc, "button", "os-nav-btn os-cert-make") as HTMLButtonElement;
   makeBtn.type = "submit";
-  makeBtn.textContent = "Make my certificate";
+  makeBtn.textContent = t("certificate.make");
   const status = make(doc, "p", "os-cert-status");
   status.setAttribute("role", "status");
   const holder = make(doc, "div", "os-cert-holder");
   const print = make(doc, "button", "os-nav-btn os-cert-print") as HTMLButtonElement;
   print.type = "button";
-  print.textContent = "Print or save as PDF";
+  print.textContent = t("certificate.print");
   print.hidden = true;
   // The print button sits in the same row as the name, so it is never pushed below the certificate and out of sight.
   form.append(label, input, makeBtn, print);
@@ -247,14 +246,14 @@ export function buildCertificate(doc: Document, obj: OSObject, deps: ResultsDeps
     e.preventDefault();
     const name = cleanName(input.value);
     if (name === "") {
-      status.textContent = "Type your name first.";
+      status.textContent = t("certificate.saidNoName");
       input.focus();
       return;
     }
     paper = paperOf(doc, certificateLines(c, name, data, info, new Date()));
     holder.replaceChildren(paper);
     print.hidden = false;
-    status.textContent = "Your certificate is ready. Choose Print or save as PDF.";
+    status.textContent = t("certificate.saidReady");
   });
 
   print.addEventListener("click", () => {

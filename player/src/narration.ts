@@ -2,6 +2,7 @@
 // are the script itself. Nothing here listens to the audio to work out what was said.
 
 import type { Cue, NarrationAsset } from "./types.ts";
+import { t } from "./playertext.ts";
 
 export function cueAt(cues: Cue[], t: number): Cue | null {
   return cues.find((c) => c.start <= t && t < c.end) ?? null;
@@ -54,16 +55,16 @@ export class NarrationBar {
     this.doc = doc;
     this.events = events;
     this.el = make(doc, "section", "os-narration");
-    this.el.setAttribute("aria-label", "Narration");
+    this.el.setAttribute("aria-label", t("narration.label"));
     this.el.hidden = true;
     this.audio = make(doc, "audio");
     this.audio.preload = "auto";
 
     const controls = make(doc, "div", "os-narration-controls");
-    this.playBtn = this.button("Play narration", "os-nav-btn");
-    this.replayBtn = this.button("Replay narration", "os-nav-btn");
-    this.capBtn = this.button("Captions", "os-nav-btn");
-    this.transBtn = this.button("Transcript", "os-nav-btn");
+    this.playBtn = this.button(t("narration.play"), "os-nav-btn");
+    this.replayBtn = this.button(t("narration.replay"), "os-nav-btn");
+    this.capBtn = this.button(t("narration.captions"), "os-nav-btn");
+    this.transBtn = this.button(t("narration.transcript"), "os-nav-btn");
     this.capBtn.setAttribute("aria-pressed", "true");
     this.transBtn.setAttribute("aria-expanded", "false");
     controls.append(this.playBtn, this.replayBtn, this.capBtn, this.transBtn);
@@ -121,7 +122,7 @@ export class NarrationBar {
     if (items.length === 0) return;
 
     const heading = make(this.doc, "h2", "os-sr-only");
-    heading.textContent = "Transcript";
+    heading.textContent = t("narration.transcript");
     this.transcript.appendChild(heading);
     for (const item of items) this.addToTranscript(item);
 
@@ -144,7 +145,7 @@ export class NarrationBar {
     this.audio.removeAttribute("src");
     if (this.shown.size === 0) {
       const heading = make(this.doc, "h2", "os-sr-only");
-      heading.textContent = "Transcript";
+      heading.textContent = t("narration.transcript");
       this.transcript.appendChild(heading);
     }
     for (const item of items) this.addToTranscript(item);
@@ -206,7 +207,7 @@ export class NarrationBar {
 
   private syncPlayButton(): void {
     const playing = !this.audio.paused && !this.audio.ended;
-    this.playBtn.textContent = playing ? "Pause narration" : "Play narration";
+    this.playBtn.textContent = playing ? t("narration.pause") : t("narration.play");
   }
 
   private updateCaption(): void {

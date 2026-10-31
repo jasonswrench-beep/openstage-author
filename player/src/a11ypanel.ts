@@ -6,10 +6,11 @@
 // is built in transcript.ts; both are tested without a page. Nothing here sends anything anywhere, and nothing speaks unless the learner asks.
 
 import {
-  bandTop, browserStorage, COLOUR_LABELS, COLOURS, DEFAULTS, describe, isDefault, loadSettings, pickVoice, RATE, saveSettings, SPACING_LABELS, SPACINGS, SPEED_LABELS, SPEEDS, speechChunks,
-  TEXT_SIZE_LABELS, TEXT_SIZES, type A11ySettings,
+  bandTop, browserStorage, colourLabel, COLOURS, DEFAULTS, describe, isDefault, loadSettings, pickVoice, RATE, saveSettings, spacingLabel, SPACINGS, speedLabel, SPEEDS, speechChunks,
+  textSizeLabel, TEXT_SIZES, type A11ySettings,
 } from "./a11y.ts";
 import { button } from "./stage.ts";
+import { t } from "./playertext.ts";
 import { buildTranscript, transcriptFileName, transcriptText } from "./transcript.ts";
 import type { CoursePackage } from "./types.ts";
 
@@ -64,7 +65,7 @@ export class AccessibilityPanel {
     this.remembered = this.storage !== null;
     this.current = loadSettings(this.storage);
 
-    this.button = button(doc, "Accessibility", "os-nav-btn os-a11y-open");
+    this.button = button(doc, t("a11y.title"), "os-nav-btn os-a11y-open");
     this.button.setAttribute("aria-expanded", "false");
     this.button.setAttribute("aria-controls", "os-a11y-panel");
 
@@ -76,7 +77,7 @@ export class AccessibilityPanel {
     this.panel = panel;
     const title = make(doc, "h2", "os-a11y-title");
     title.id = "os-a11y-title";
-    title.textContent = "Accessibility";
+    title.textContent = t("a11y.title");
     this.note = make(doc, "p", "os-a11y-note");
 
     const field = (id: string, label: string, options: [string, string][], value: string, onChange: (v: string) => void): { box: HTMLElement; select: HTMLSelectElement } => {
@@ -110,11 +111,11 @@ export class AccessibilityPanel {
       return p;
     };
 
-    const size = field("os-a11y-size", "Text size", TEXT_SIZES.map((n) => [String(n), TEXT_SIZE_LABELS[n]]), String(this.current.textSize), (v) => this.change({ textSize: Number(v) as A11ySettings["textSize"] }));
-    const lines = field("os-a11y-lines", "Space between lines", SPACINGS.map((s) => [s, SPACING_LABELS[s]]), this.current.lineSpacing, (v) => this.change({ lineSpacing: v as A11ySettings["lineSpacing"] }));
-    const letters = field("os-a11y-letters", "Space between letters and words", SPACINGS.map((s) => [s, SPACING_LABELS[s]]), this.current.letterSpacing, (v) => this.change({ letterSpacing: v as A11ySettings["letterSpacing"] }));
-    const colours = field("os-a11y-colours", "Colours", COLOURS.map((c) => [c, COLOUR_LABELS[c]]), this.current.colours, (v) => this.change({ colours: v as A11ySettings["colours"] }));
-    const speed = field("os-a11y-speed", "Reading speed", SPEEDS.map((s) => [s, SPEED_LABELS[s]]), this.current.speed, (v) => this.change({ speed: v as A11ySettings["speed"] }));
+    const size = field("os-a11y-size", t("a11y.textSize"), TEXT_SIZES.map((n) => [String(n), textSizeLabel(n)]), String(this.current.textSize), (v) => this.change({ textSize: Number(v) as A11ySettings["textSize"] }));
+    const lines = field("os-a11y-lines", t("a11y.lineSpacing"), SPACINGS.map((s) => [s, spacingLabel(s)]), this.current.lineSpacing, (v) => this.change({ lineSpacing: v as A11ySettings["lineSpacing"] }));
+    const letters = field("os-a11y-letters", t("a11y.letterSpacing"), SPACINGS.map((s) => [s, spacingLabel(s)]), this.current.letterSpacing, (v) => this.change({ letterSpacing: v as A11ySettings["letterSpacing"] }));
+    const colours = field("os-a11y-colours", t("a11y.colours"), COLOURS.map((c) => [c, colourLabel(c)]), this.current.colours, (v) => this.change({ colours: v as A11ySettings["colours"] }));
+    const speed = field("os-a11y-speed", t("a11y.speed"), SPEEDS.map((s) => [s, speedLabel(s)]), this.current.speed, (v) => this.change({ speed: v as A11ySettings["speed"] }));
 
     const lineBox = make(doc, "div", "os-a11y-check");
     const lineInput = make(doc, "input", "");
@@ -124,38 +125,38 @@ export class AccessibilityPanel {
     lineInput.setAttribute("aria-describedby", "os-a11y-line-note");
     const lineLabel = make(doc, "label", "");
     lineLabel.htmlFor = "os-a11y-line";
-    lineLabel.textContent = "Reading line";
+    lineLabel.textContent = t("a11y.readingLine");
     lineBox.append(lineInput, lineLabel);
     lineInput.addEventListener("change", () => this.change({ readingLine: lineInput.checked }));
-    const lineNote = text("os-a11y-note", "A band that follows your pointer, or the part of the page the keyboard is on, to help you keep your place.");
+    const lineNote = text("os-a11y-note", t("a11y.readingLineNote"));
     lineNote.id = "os-a11y-line-note";
 
-    this.readBtn = button(doc, "Read aloud", "os-nav-btn");
+    this.readBtn = button(doc, t("a11y.readAloud"), "os-nav-btn");
     this.readBtn.setAttribute("aria-describedby", "os-a11y-read-note");
     this.readNote = text("os-a11y-note", "");
     this.readNote.id = "os-a11y-read-note";
     this.readBtn.addEventListener("click", () => (this.speaking ? this.stopSpeaking(true) : this.readAloud()));
 
-    const showBtn = button(doc, "Show the transcript", "os-nav-btn");
-    const downloadBtn = button(doc, "Download the transcript", "os-nav-btn");
+    const showBtn = button(doc, t("a11y.showTranscript"), "os-nav-btn");
+    const downloadBtn = button(doc, t("a11y.downloadTranscript"), "os-nav-btn");
     showBtn.addEventListener("click", () => this.showTranscript());
     downloadBtn.addEventListener("click", () => this.downloadTranscript());
-    const resetBtn = button(doc, "Put everything back", "os-nav-btn");
+    const resetBtn = button(doc, t("a11y.reset"), "os-nav-btn");
     resetBtn.addEventListener("click", () => this.reset());
-    const closeBtn = button(doc, "Close", "os-nav-btn");
+    const closeBtn = button(doc, t("common.close"), "os-nav-btn");
     // Several things in the course have a Close button; this one says which.
-    closeBtn.setAttribute("aria-label", "Close the accessibility panel");
+    closeBtn.setAttribute("aria-label", t("a11y.closePanel"));
     closeBtn.addEventListener("click", () => this.close());
     const actions = make(doc, "div", "os-a11y-actions");
     actions.append(resetBtn, closeBtn);
 
     panel.append(
       title, this.note,
-      group("Text", size.box, lines.box, letters.box),
-      group("Colours", colours.box),
-      group("Reading", lineBox, lineNote),
-      group("Read aloud", this.readNote, speed.box, this.readBtn),
-      group("Transcript", text("os-a11y-note", "Everything said and written in this course, slide by slide, without the quiz questions."), showBtn, downloadBtn),
+      group(t("a11y.groupText"), size.box, lines.box, letters.box),
+      group(t("a11y.colours"), colours.box),
+      group(t("a11y.groupReading"), lineBox, lineNote),
+      group(t("a11y.readAloud"), this.readNote, speed.box, this.readBtn),
+      group(t("narration.transcript"), text("os-a11y-note", t("a11y.transcriptNote")), showBtn, downloadBtn),
       actions,
     );
     this.controls = { textSize: size.select, lineSpacing: lines.select, letterSpacing: letters.select, colours: colours.select, readingLine: lineInput, speed: speed.select };
@@ -228,11 +229,11 @@ export class AccessibilityPanel {
     this.stopSpeaking(false);
     this.syncReadingLine();
     this.host.apply(this.settings());
-    this.host.say(`${describe(this.current)} The course is back as its author made it.`);
+    this.host.say(t("a11y.saidReset", { described: describe(this.current) }));
   }
 
   private syncNote(): void {
-    this.note.textContent = `These choices change how this course looks and sounds on your computer only. Nothing is sent anywhere. ${this.remembered ? "They are remembered on this computer." : "Your browser does not let them be remembered, so they last for this visit only."}`;
+    this.note.textContent = t("a11y.note", { remembered: this.remembered ? t("a11y.noteRemembered") : t("a11y.noteNotRemembered") });
   }
 
   // ---- the reading line
@@ -300,43 +301,43 @@ export class AccessibilityPanel {
     let words: string;
     let ok = true;
     if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
-      words = "This browser cannot read aloud.";
+      words = t("a11y.readNoSynth");
       ok = false;
     } else if (this.voice() === null) {
-      words = `This computer has no voice for this course's language (${lang}) that works without the internet, so it cannot read aloud. Voices that send your words to a service are not used.`;
+      words = t("a11y.readNoVoice", { lang });
       ok = synth.getVoices().length === 0; // the list may not have loaded yet; try, and say so if it is still empty
-      if (ok) words = "Reads the words on this slide that have no recorded voice, such as your score or the name on a certificate, with a voice on this computer. Nothing is sent anywhere.";
+      if (ok) words = t("a11y.readNoteLoading");
     } else {
-      words = "Reads the words on this slide that have no recorded voice, such as your score or the name on a certificate, with a voice on this computer. Nothing is sent anywhere. Parts that have narration keep their own voice, and nothing is read while narration is playing. A screen reader reads the page by itself, so you do not need this if you use one.";
+      words = t("a11y.readNote");
     }
     this.readNote.textContent = words;
     this.readBtn.disabled = !ok && !this.speaking;
-    this.readBtn.textContent = this.speaking ? "Stop reading" : "Read aloud";
+    this.readBtn.textContent = this.speaking ? t("a11y.stopReading") : t("a11y.readAloud");
   }
 
   private readAloud(): void {
     const synth = this.win.speechSynthesis;
     if (!synth) return;
     if (this.host.narrationPlaying()) {
-      this.host.say("The narration is playing. Pause it first, then read aloud.");
+      this.host.say(t("a11y.saidNarrationPlaying"));
       return;
     }
     const voice = this.voice();
     if (voice === null) {
-      this.host.say("This computer has no voice that works without the internet for this course's language, so it cannot read aloud.");
+      this.host.say(t("a11y.saidNoVoice"));
       this.syncRead();
       return;
     }
-    const chunks = this.host.unvoicedText().flatMap((t) => speechChunks(t));
+    const chunks = this.host.unvoicedText().flatMap((words) => speechChunks(words));
     if (chunks.length === 0) {
-      this.host.say("Everything on this slide that has words is already narrated, or there are no words to read.");
+      this.host.say(t("a11y.saidNothingToRead"));
       return;
     }
     synth.cancel();
     const mine = ++this.run;
     this.speaking = true;
     this.syncRead();
-    this.host.say("Reading aloud. Press Escape, or Stop reading, to stop.");
+    this.host.say(t("a11y.saidReading"));
     let i = 0;
     const next = (): void => {
       if (mine !== this.run) return;
@@ -368,33 +369,33 @@ export class AccessibilityPanel {
     this.win.speechSynthesis?.cancel();
     this.speaking = false;
     this.syncRead();
-    if (tell) this.host.say("Stopped reading.");
+    if (tell) this.host.say(t("a11y.saidStopped"));
   }
 
   // ---- the transcript
 
   private showTranscript(): void {
-    const t = buildTranscript(this.host.pkg);
+    const transcript = buildTranscript(this.host.pkg);
     const d = this.transcriptDialog;
     d.replaceChildren();
     d.setAttribute("aria-labelledby", "os-a11y-transcript-title");
-    d.lang = t.language;
+    d.lang = transcript.language;
     const h = make(this.doc, "h2", "");
     h.id = "os-a11y-transcript-title";
-    h.textContent = `Transcript: ${t.title}`;
+    h.textContent = t("a11y.transcriptTitle", { title: transcript.title });
     // The words scroll, so they can be reached by keyboard; a region with a name, so a screen reader says what it is when focus lands there.
     h.tabIndex = -1;
     const body = make(this.doc, "div", "os-a11y-transcript-body");
     body.setAttribute("role", "region");
-    body.setAttribute("aria-label", "The words of the transcript");
+    body.setAttribute("aria-label", t("a11y.transcriptWords"));
     body.tabIndex = 0;
-    for (const s of t.sections) {
+    for (const s of transcript.sections) {
       const sh = make(this.doc, "h3", "");
       sh.textContent = s.title;
       body.appendChild(sh);
       if (s.paragraphs.length === 0) {
         const p = make(this.doc, "p", "os-a11y-empty");
-        p.textContent = "Nothing to read on this slide.";
+        p.textContent = t("a11y.nothingToRead");
         body.appendChild(p);
       }
       for (const text of s.paragraphs) {
@@ -403,10 +404,10 @@ export class AccessibilityPanel {
         body.appendChild(p);
       }
     }
-    const save = button(this.doc, "Download the transcript", "os-nav-btn");
+    const save = button(this.doc, t("a11y.downloadTranscript"), "os-nav-btn");
     save.addEventListener("click", () => this.downloadTranscript());
-    const close = button(this.doc, "Close", "os-nav-btn");
-    close.setAttribute("aria-label", "Close the transcript");
+    const close = button(this.doc, t("common.close"), "os-nav-btn");
+    close.setAttribute("aria-label", t("a11y.closeTranscript"));
     close.addEventListener("click", () => d.close());
     const actions = make(this.doc, "div", "os-a11y-actions");
     actions.append(save, close);
@@ -419,18 +420,18 @@ export class AccessibilityPanel {
   }
 
   private downloadTranscript(): void {
-    const t = buildTranscript(this.host.pkg);
-    const blob = new Blob(["﻿", transcriptText(t)], { type: "text/plain;charset=utf-8" });
+    const transcript = buildTranscript(this.host.pkg);
+    const blob = new Blob(["﻿", transcriptText(transcript)], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = this.doc.createElement("a");
     a.href = url;
-    a.download = transcriptFileName(t.title);
+    a.download = transcriptFileName(transcript.title);
     a.hidden = true;
     this.doc.body.appendChild(a);
     a.click();
     a.remove();
     this.win.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    this.host.say(`The transcript is being saved as ${a.download}. If nothing is saved, your browser or learning system may not allow downloads; use Show the transcript instead.`);
+    this.host.say(t("a11y.saidDownload", { file: a.download }));
   }
 
   /** Is anything other than the course's own turned on? */

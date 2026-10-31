@@ -319,6 +319,11 @@ def parse_args(argv):
 
 
 def main(argv):
+    # Scripts, alt text and names can be in any language, and a Windows pipe or console is not UTF-8 unless asked: what is printed (the JSON the editor
+    # and the publisher read, the progress and the messages) is made UTF-8 so a course in Japanese does not stop the tool.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     parsed = parse_args(argv)
     if parsed is None:
         print("Usage: narrate.py PROJECT_DIR [--no-generate] [--json] [--only ID,ID] [--cache-root DIR] "

@@ -6,6 +6,7 @@
 // wires objects to the course runtime, the editor leaves them inert.
 
 import { buildEmbed, buildMedia, buildScrollingText, buildTable, scrollableIfNeeded } from "./blocks.ts";
+import { t } from "./playertext.ts";
 import { buildInput, type InputChange } from "./inputs.ts";
 import { HIDDEN_CLASS, Presenter, play, type Playing } from "./animation.ts";
 import { blocksOf, blockWords, partOf, PART_HIDDEN_CLASS } from "./paragraphs.ts";
@@ -651,7 +652,7 @@ export class StageRenderer {
     const doc = this.doc;
     const q = obj.content as unknown as QuizContent;
     const view = buildQuestion(doc, obj, { editing: !!this.behavior.editing, announce: (m) => this.behavior.announce?.(m), seed: this.behavior.sessionSeed?.() });
-    const check = button(doc, "Check answer", "os-button os-quiz-check");
+    const check = button(doc, t("quiz.check"), "os-button os-quiz-check");
     view.el.appendChild(check);
     if (this.behavior.editing) return view.el;
 

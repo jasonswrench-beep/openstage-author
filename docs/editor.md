@@ -657,10 +657,34 @@ Narration audio is made for any narrated object that has none, if a speech engin
 names the Python that has Kokoro; see `docs/narration-setup.md`); otherwise the course has transcripts and no new audio, and
 the dialog says so. The first time this can take several minutes, so the button becomes "Cancel publishing",
 and Escape cancels too. When it finishes the dialog says what was made and offers "Show the package in its
-folder" and "Open the course in my browser". The web-files folder also holds `_scorm-test.html`, a stand-in
+folder", "Show the Word review document" and "Open the course in my browser". The web-files folder also holds `_scorm-test.html`, a stand-in
 LMS page for trying scoring and resume (SCORM 1.2, or SCORM 2004 by the link on the page); it has to be opened from a
 local web server and is not in the package. For xAPI, `TEST WITH STAND-IN LRS.bat` starts a stand-in learning record
 store and a page that lists every statement the course sends.
+
+**The Word review document.** Beside the packages, Publish writes `<name>-review.docx`: a Word copy of the course for
+colleagues and accessibility reviewers who will not open the editor. It holds, for each slide in the order the course plays
+them, every object in the order a screen reader reads them: the words of each text, each picture's name and its alt text
+(or a plain "MISSING" where there is none, or "Decorative: a screen reader skips it"), the narration script and voice, the
+wording of each button, the rows of each table, and every quiz question with its choices and the right answers marked
+"(correct answer)", with the feedback layers named and why each one shows. A labeled graphic says where each marker sits as
+percentages across and down. Near the front is a table of the problems the checker found (kind, where, problem, detail), so a
+reviewer sees what you already know about. It is built with real Word headings, lists and tables (a header row that repeats
+on each page), the course's language, and a title, so it reads well with a screen reader and in the navigation pane.
+The same course always gives the same file, byte for byte. Pictures are named, not shown. It is made by
+`tools/review_doc.py` (Python's standard library only; run it by hand with `python tools/review_doc.py PROJECT_DIR OUT.docx`),
+`--targets=review` asks the command line for just that, and a publish that cannot make it still makes the packages and says so.
+Not built: pictures inside the document, and reading reviewers' comments back into the project.
+
+**Translate.** The Translate button opens a dialog for translating the course into another language. Type a language tag (`fr-FR`,
+`es-MX`, `de`; a list of common ones is offered) and choose **Make the translation file...**: the project is saved, you say where to
+put the file, and it is written as XLIFF 1.2, which OmegaT, Weblate and most other translation tools read. When the translated file
+comes back, **Bring in a translated file...** makes a new course beside the original (`Intro-fr-FR.osproj`) with the translations put back, the
+course language set and its narration scripts marked as being in the new language. The original is never changed. The dialog says how
+many pieces of text were put back, which were left alone and why, and what the checker finds in the new course. **Make a
+pseudo-translation** fills the file with accented, longer text so you can see where words do not fit without a translator. Caption files
+are not in the file; the player's own words (Next, Listen and the rest) are, as a group at the end, and come back as the new course's `playerText`. It runs `tools/xliff.py`;
+see `docs/translation.md`.
 
 Preview and Publish both run `player/publish.ts` under Node, the same tool as the command line, in the
 background, so the editor stays usable. Only one of them runs at a time. Both need Node.js installed; Publish

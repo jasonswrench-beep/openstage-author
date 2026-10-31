@@ -68,10 +68,19 @@ The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`
 Open a project in the editor (`OPEN EDITOR.bat`). **Preview** shows the course in your browser as it is now, even
 if you have not saved. **Publish** saves, checks the project for problems, and makes three zips to upload
 (SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store; use the one your system asks for), with the same
-course as web files beside them. Both need Node.js installed, and Publish needs Python.
+course as web files beside them, and a Word copy of the course (`-review.docx`) for colleagues and accessibility
+reviewers: the slide text, alt text, narration scripts, quiz answers and the problems the checker found.
+Both need Node.js installed, and Publish needs Python.
 `PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
 without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and
 `TEST WITH STAND-IN LRS.bat` (xAPI) open the published example against a pretend one. They are test aids, not the real thing.
+
+## Translating a course
+
+**Translate** in the editor's toolbar makes a file for a translator (XLIFF 1.2, which OmegaT, Weblate and most other tools read)
+and brings the translated file back as a new copy of the course, named after the language (`Intro-fr-FR.osproj`). Your own course is never
+changed. The player's own words, such as Next and Listen, are in the file too, so the translated course speaks its language all the way
+through. The whole story, and the command line, is in `docs/translation.md`.
 
 ## Trying a course in a real LMS
 

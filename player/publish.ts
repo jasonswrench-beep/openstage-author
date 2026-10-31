@@ -1,8 +1,9 @@
 // Publishes a project folder as a folder of static web files and as packages for an LMS or an LRS: SCORM 1.2,
 // SCORM 2004 (4th edition) and xAPI. The three packages hold the same course files; they differ only in the file that
 // describes them (imsmanifest.xml, or tincan.xml). The course finds out at run time which one it is running under.
+// Beside them goes a Word copy of the course for colleagues and accessibility reviewers (tools/review_doc.py).
 //
-//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi]
+//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review]
 //
 // Runs the validator first and refuses to publish if it reports errors.
 //
@@ -10,8 +11,10 @@
 //              standard error instead, so standard output is only that result.
 //   --preview  A quick look, not a release: no problem check, no narration is generated (audio that
 //              already exists is used), and no package zip or stand-in LMS page is written.
-//   --targets  Which packages to make, as a comma-separated list. All three if left out. Each zip carries the
-//              project source as well, so a project with a lot of video may want only the one it needs.
+//   --targets  Which packages to make, as a comma-separated list. All three if left out, and the Word review
+//              document too. Each zip carries the project source as well, so a project with a lot of video may
+//              want only the one it needs. "review" is the Word document, which is not a package: it is made
+//              only when it is named or when --targets is left out.
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -25,28 +28,33 @@ import { courseActivityId } from "./src/xapi.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
 import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
+import { setPlayerText, t } from "./src/playertext.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 
 const TARGETS = ["scorm12", "scorm2004", "xapi"] as const;
 type Target = (typeof TARGETS)[number];
+/** The Word copy for reviewers. Named in --targets like a package, but it has no zip and no manifest. */
+const REVIEW = "review";
 
 const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review]";
 if (!projectArg || !outArg) {
   console.error(usage);
   process.exit(2);
 }
 const targetsFlag = flags.find((a) => a.startsWith("--targets="));
-const targets: Target[] = targetsFlag ? (targetsFlag.slice("--targets=".length).split(",").map((t) => t.trim()).filter(Boolean) as Target[]) : [...TARGETS];
-if (targets.length === 0 || targets.some((t) => !TARGETS.includes(t))) {
-  console.error(`${usage}\nThe targets can be ${TARGETS.join(", ")}.`);
+const asked: string[] = targetsFlag ? targetsFlag.slice("--targets=".length).split(",").map((t) => t.trim()).filter(Boolean) : [...TARGETS, REVIEW];
+if (asked.length === 0 || asked.some((t) => t !== REVIEW && !(TARGETS as readonly string[]).includes(t))) {
+  console.error(`${usage}\nThe targets can be ${[...TARGETS, REVIEW].join(", ")}.`);
   process.exit(2);
 }
+const targets = asked.filter((t): t is Target => t !== REVIEW);
+const wantReview = asked.includes(REVIEW);
 const projectDir = path.resolve(projectArg);
 const outDir = path.resolve(outArg);
 
@@ -140,6 +148,8 @@ const narrationSummary = {
 // 3. Load the project in scene order.
 const readJson = <T,>(file: string): T => JSON.parse(readFileSync(file, "utf-8")) as T;
 const project = readJson<Project>(path.join(projectDir, "project.json"));
+// The words that go into the package itself (the credits for icons and the narration) are in the course's language, as the player's own words are.
+setPlayerText(project.playerText);
 const slideIds = [...new Set(project.scenes.flatMap((s) => s.slides))];
 const slides = slideIds.map((id) => readJson<Slide>(path.join(projectDir, "slides", `${id}.json`)));
 const narration: Record<string, NarrationAsset> = {};
@@ -160,8 +170,8 @@ credits.push(...narrationCredits(Object.values(narrationInfo).filter((i) => i.au
 const usesIcons = slideText.includes('"set":"lucide"');
 if (usesIcons) {
   credits.push({
-    path: "icons", title: "Icons", kind: "image",
-    source: { provider: "other", url: "https://lucide.dev", creator: "Lucide Icons and Contributors", creatorUrl: "https://lucide.dev", licence: "ISC licence (the notice is in licenses/lucide.txt)", requiresCredit: true },
+    path: "icons", title: t("credits.icons"), kind: "image",
+    source: { provider: "other", url: "https://lucide.dev", creator: "Lucide Icons and Contributors", creatorUrl: "https://lucide.dev", licence: t("credits.iconsLicence"), requiresCredit: true },
   });
 }
 // The size of each file the course offers for download, so learners are told how big it is before they save it.
@@ -238,6 +248,8 @@ writeFileSync(
 const graded = slides.some((sl) => [sl.baseLayer, ...sl.layers].some((l) => l.objects.some((o) => o.type === "quizQuestion")));
 /** The zip of each package made, by target. */
 const zips: Partial<Record<Target, string>> = {};
+/** The Word review document, or null when it was not asked for or could not be made. */
+let reviewPath: string | null = null;
 
 if (!preview) {
   // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and the
@@ -273,6 +285,26 @@ if (!preview) {
     zips[target] = zipPath;
   }
 
+  // The Word copy for reviewers. It is a courtesy beside the packages, so when it cannot be made the publish still stands.
+  if (wantReview) {
+    const docxPath = `${outDir}-review.docx`;
+    try {
+      rmSync(docxPath, { force: true });
+    } catch {
+      // Not a file we can clear (a folder of that name, say): the tool below will say what is wrong.
+    }
+    const made = spawnSync(python, [path.join(repoRoot, "tools", "review_doc.py"), projectDir, docxPath, "--json"], { encoding: "utf-8", maxBuffer: 16 * 1024 * 1024, windowsHide: true });
+    let reason = "";
+    try {
+      const answer = JSON.parse(made.stdout) as { ok: boolean; message?: string };
+      if (answer.ok) reviewPath = docxPath;
+      else reason = answer.message ?? "";
+    } catch {
+      reason = (made.stderr || made.error?.message || "").trim();
+    }
+    if (!reviewPath) console.error(`The Word review document could not be made${reason ? `: ${reason}` : "."} The packages were made.`);
+  }
+
   // 6. A stand-in LMS page for trying the course by hand. Not part of the package.
   await build({
     entryPoints: [path.join(here, "src", "harness.ts")],
@@ -290,13 +322,14 @@ const mainZip = preview ? null : (zips.scorm12 ?? zips[targets[0]!] ?? null);
 if (asJson) {
   console.log(JSON.stringify({
     ok: true, preview, slides: slides.length, outDir, indexHtml: path.join(outDir, "index.html"),
-    zip: mainZip, zips: preview ? {} : zips, graded, findings, narration: narrationSummary,
+    zip: mainZip, zips: preview ? {} : zips, review: preview ? null : reviewPath, graded, findings, narration: narrationSummary,
   }));
 } else {
   console.log(`\n${preview ? "Previewed" : "Published"} ${slides.length} slide(s) to ${outDir}`);
   if (!preview) {
     const names: Record<Target, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 (4th edition)", xapi: "xAPI" };
     for (const t of targets) console.log(`${names[t]} package (${manifestId(project.meta.title)}${graded ? ", graded" : ""}): ${zips[t]}`);
+    if (reviewPath) console.log(`Word review document: ${reviewPath}`);
     console.log(`Try it with a stand-in LMS: open _scorm-test.html from a local web server.`);
   }
 }

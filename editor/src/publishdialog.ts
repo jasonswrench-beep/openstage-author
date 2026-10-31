@@ -54,8 +54,9 @@ export function openPublish(opts: PublishOptions): Promise<void> {
     const failure = h("p", { class: "dialog-error", role: "alert" });
     const problems = h("ul", { class: "pb-problems", "aria-label": "Errors that stopped publishing" });
     const reveal = h("button", { type: "button", text: "Show the package in its folder" });
+    const revealReview = h("button", { type: "button", text: "Show the Word review document" });
     const view = h("button", { type: "button", text: "Open the course in my browser" });
-    const after = h("div", { class: "dialog-actions pb-after", hidden: true }, reveal, view);
+    const after = h("div", { class: "dialog-actions pb-after", hidden: true }, reveal, revealReview, view);
     const go = h("button", { type: "button", text: "Publish" });
     const closeBtn = h("button", { type: "button", text: "Close" });
 
@@ -97,6 +98,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
         if (result.ok) {
           // One paragraph in the live region, so a screen reader reads all of it once.
           say(publishSummary(result).join(" "));
+          revealReview.hidden = !result.review;
           after.hidden = false;
           await rememberFolder(b, folder);
         } else {
@@ -139,13 +141,16 @@ export function openPublish(opts: PublishOptions): Promise<void> {
     reveal.addEventListener("click", () => {
       if (last?.zip) void b.revealInFolder(last.zip).catch((err) => fail(errorText(err)));
     });
+    revealReview.addEventListener("click", () => {
+      if (last?.review) void b.revealInFolder(last.review).catch((err) => fail(errorText(err)));
+    });
     view.addEventListener("click", () => {
       if (last?.indexHtml) void b.openInBrowser(last.indexHtml).catch((err) => fail(errorText(err)));
     });
 
     dialog.append(
       h("h2", { id: "pb-title", text: "Publish" }),
-      h("p", { class: "note", text: "Publishing makes three packages, each a zip file: SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store. Upload the one your system asks for. It also makes the same course as web files. It saves your project first and checks it for problems. Errors stop it; warnings do not." }),
+      h("p", { class: "note", text: "Publishing makes three packages, each a zip file: SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store. Upload the one your system asks for. It also makes the same course as web files, and a Word document for colleagues and accessibility reviewers: the slide text, alt text, narration scripts, quiz answers and the problems the checker found. It saves your project first and checks it for problems. Errors stop it; warnings do not." }),
       h("div", { class: "field" }, h("label", { for: "pb-folder", text: "Publish into this folder" }), folderBox),
       h("div", { class: "btn-row" }, choose),
       h("p", { class: "note", text: "A folder named after your project is made inside it, with the package beside that folder. Publishing again replaces them." }),

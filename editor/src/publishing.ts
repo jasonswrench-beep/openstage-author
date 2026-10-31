@@ -34,6 +34,8 @@ export interface PublishResult {
   zip?: string | null;
   /** Every package made, by kind. Absent from a result written before SCORM 2004 and xAPI. */
   zips?: Partial<Record<PackageKind, string>>;
+  /** The Word copy for colleagues and accessibility reviewers, or null when it was not made. Absent from an older result. */
+  review?: string | null;
   graded?: boolean;
   narration?: PublishNarration;
 }
@@ -83,6 +85,7 @@ export function publishSummary(r: PublishResult): string[] {
   if (made.length > 1) lines.push(`The packages are ${made.slice(0, -1).join(", ")} and ${made.at(-1)}. Upload the one your LMS or learning record store asks for.`);
   else if (r.zip) lines.push(`The package to upload to your LMS is ${fileName(r.zip)}.`);
   if (r.outDir) lines.push(`The same course as web files is in the folder ${fileName(r.outDir)}.`);
+  if (r.review) lines.push(`A Word copy for colleagues and accessibility reviewers is ${fileName(r.review)}. It holds the slide text, alt text, narration scripts, quiz answers and the problems the checker found.`);
   const narration = narrationLine(r.narration);
   if (narration) lines.push(`${narration[0]!.toUpperCase()}${narration.slice(1)}`);
   const { warnings } = problemCounts(r.findings);

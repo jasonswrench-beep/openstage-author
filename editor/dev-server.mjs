@@ -152,6 +152,17 @@ createServer(async (req, res) => {
       if (r.status !== 0) return send(res, 500, r.stderr || "migration failed", "text/plain");
       return send(res, 200, r.stdout);
     }
+    // Translation files: the same tool the desktop app runs, so the Translate dialog can be tried in a browser.
+    if (url.pathname === "/api/translation-export" || url.pathname === "/api/translation-import") {
+      const b = await body(req);
+      const args = url.pathname === "/api/translation-export"
+        ? ["export", String(b.dir), String(b.dest), "--to", String(b.language), ...(b.pseudo ? ["--pseudo"] : [])]
+        : ["import", String(b.dir), String(b.source), "--into", String(b.into)];
+      const r = spawnSync(python, [path.join(repo, "tools", "xliff.py"), ...args, "--json"], { encoding: "utf-8" });
+      const line = (r.stdout ?? "").split("\n").reverse().find((l) => l.trimStart().startsWith("{"));
+      if (!line) return send(res, 500, r.stderr || "the translation tool gave no result", "text/plain");
+      return send(res, 200, line);
+    }
     if (url.pathname === "/api/validate") {
       const { dir, files } = await body(req);
       const temp = mkdtempSync(path.join(os.tmpdir(), "openstage-validate-"));

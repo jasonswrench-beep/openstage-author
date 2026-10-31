@@ -65,6 +65,7 @@ import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from 
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
+import { openTranslate } from "./translatedialog.ts";
 import { failureText, narrationLine } from "./publishing.ts";
 import { newProjectFiles } from "./template.ts";
 import { askTheme } from "./themepicker.ts";
@@ -199,6 +200,7 @@ export class App {
   private readonly redoBtn: HTMLButtonElement;
   private readonly previewBtn: HTMLButtonElement;
   private readonly publishBtn: HTMLButtonElement;
+  private readonly translateBtn: HTMLButtonElement;
 
   private readonly slideList: HTMLElement;
   private readonly addSlideBtn: HTMLButtonElement;
@@ -283,8 +285,9 @@ export class App {
     this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI (Ctrl+Shift+P)", () => void this.publish());
+    this.translateBtn = this.tool("Translate", "Make a file for translating the course into another language, and bring the translation back", () => void this.translate());
     this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.aboutBtn);
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.translateBtn, this.aboutBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -606,6 +609,25 @@ export class App {
       this.updateChrome();
       this.publishBtn.focus();
       void this.refreshNarration(); // a publish makes any audio that was missing
+    }
+  }
+
+  /** The Translate dialog: makes a file for a translator, and brings the translated file back as a new course. */
+  async translate(): Promise<void> {
+    const m = this.model;
+    if (!m || this.working) return;
+    this.working = true;
+    this.updateChrome();
+    try {
+      await openTranslate({
+        backend, dir: m.dir,
+        save: async () => (await this.writeChanges()) !== null,
+        announce: (msg) => this.announce(msg),
+      });
+    } finally {
+      this.working = false;
+      this.updateChrome();
+      this.translateBtn.focus();
     }
   }
 
@@ -2513,6 +2535,7 @@ ${errorText(err)}`);
     this.setEnabled(this.redoBtn, !!m?.canRedo);
     this.setEnabled(this.previewBtn, !!m && !this.working);
     this.setEnabled(this.publishBtn, !!m && !this.working);
+    this.setEnabled(this.translateBtn, !!m && !this.working);
     this.statusSave.textContent = !m ? "No project open" : m.dirty ? "Unsaved changes" : "All changes saved";
     const idx = m ? m.slides.findIndex((s) => s.id === m.sel.slideId) : -1;
     this.statusSlide.textContent = m ? `Slide ${idx + 1} of ${m.slides.length}` : "";

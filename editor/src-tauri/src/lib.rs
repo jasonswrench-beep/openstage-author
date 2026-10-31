@@ -609,6 +609,53 @@ fn migrate_blocking(dir: &Path) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Run one command of tools/xliff.py with --json and return the one line of JSON it prints. A translation the tool refuses comes back as
+/// an {"ok":false,"message":...} answer for the author; only a tool that cannot run at all is an Err.
+fn translation_tool(args: &[std::ffi::OsString]) -> Result<String, String> {
+    let tool = find_tool("xliff.py").ok_or("Could not find tools/xliff.py.")?;
+    let python = std::env::var("OPENSTAGE_PYTHON").unwrap_or_else(|_| "python".into());
+    let mut cmd = Command::new(python);
+    cmd.arg(&tool).args(args).arg("--json");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window flashing up
+    }
+    let out = cmd.output().map_err(|e| format!("Could not run Python for the translation: {e}"))?;
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    match stdout.lines().rev().find(|l| l.trim_start().starts_with('{')) {
+        Some(line) => Ok(line.to_string()),
+        None => Err(format!("The translation tool gave no result. {}", String::from_utf8_lossy(&out.stderr).trim()).trim().to_string()),
+    }
+}
+
+/// Write the project's words to an XLIFF file for translating into `language`.
+fn translation_export_blocking(dir: &Path, language: &str, dest: &Path, pseudo: bool) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    let ending = dest.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase());
+    if ending.as_deref() != Some("xlf") && ending.as_deref() != Some("xliff") {
+        return Err("The translation file must be saved with the ending .xlf.".into());
+    }
+    let mut args: Vec<std::ffi::OsString> = vec!["export".into(), dir.into(), dest.into(), "--to".into(), language.into()];
+    if pseudo {
+        args.push("--pseudo".into());
+    }
+    translation_tool(&args)
+}
+
+/// Make a translated copy of the project from a translated XLIFF file, in a new folder inside `into`.
+fn translation_import_blocking(dir: &Path, source: &Path, into: &Path) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !source.is_file() {
+        return Err("The translated file was not found.".into());
+    }
+    translation_tool(&["import".into(), dir.into(), source.into(), "--into".into(), into.into()])
+}
+
 // ---- preview and publish
 //
 // Both run the player's publish.ts under Node, so there is exactly one way a course is published: the same
@@ -1973,6 +2020,20 @@ fn create_project(dir: String, files: Vec<FileText>) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn translation_export(dir: String, language: String, dest: String, pseudo: bool) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || translation_export_blocking(Path::new(&dir), &language, Path::new(&dest), pseudo))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn translation_import(dir: String, source: String, into: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || translation_import_blocking(Path::new(&dir), Path::new(&source), Path::new(&into)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn migrate_project(dir: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || migrate_blocking(Path::new(&dir)))
         .await
@@ -3303,7 +3364,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3585,15 +3646,55 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.45.0");
+        assert_eq!(report["to"], "0.46.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.45.0\""));
+        assert!(opened.project.contains("\"0.46.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.
         let again: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(again["status"], "current");
         let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Runs the real xliff.py on the minimal example the way the Translate dialog does. Needs Python, so only when OPENSTAGE_PYTHON is set.
+    #[test]
+    fn a_course_can_be_sent_for_translation_and_the_translation_brought_back_through_the_editors_path() {
+        if std::env::var("OPENSTAGE_PYTHON").is_err() {
+            eprintln!("skipped: OPENSTAGE_PYTHON is not set");
+            return;
+        }
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+        let example = repo.join("examples").join("minimal.osproj");
+        let work = std::env::temp_dir().join(format!("openstage-test-translate-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&work);
+        fs::create_dir_all(&work).unwrap();
+        let xlf = work.join("minimal-fr-FR.xlf");
+        let said: serde_json::Value = serde_json::from_str(&translation_export_blocking(&example, "fr-FR", &xlf, true).unwrap()).unwrap();
+        assert_eq!(said["ok"], true);
+        assert!(said["units"].as_i64().unwrap() > 0);
+        assert_eq!(said["targetLanguage"], "fr-FR");
+        assert!(xlf.is_file());
+
+        let made: serde_json::Value = serde_json::from_str(&translation_import_blocking(&example, &xlf, &work).unwrap()).unwrap();
+        assert_eq!(made["ok"], true);
+        assert_eq!(made["language"], "fr-FR");
+        assert_eq!(made["validator"]["errors"], 0);
+        assert!(work.join("minimal-fr-FR.osproj").join("project.json").is_file(), "named after the project and the language");
+
+        // A second time the folder is taken: the tool answers with a reason, and nothing is overwritten.
+        let refused: serde_json::Value = serde_json::from_str(&translation_import_blocking(&example, &xlf, &work).unwrap()).unwrap();
+        assert_eq!(refused["ok"], false);
+        assert!(refused["message"].as_str().unwrap().contains("not empty"));
+        // The same language is refused with a reason too.
+        let same: serde_json::Value = serde_json::from_str(&translation_export_blocking(&example, "en-US", &work.join("same.xlf"), false).unwrap()).unwrap();
+        assert_eq!(same["ok"], false);
+
+        // Things the shell itself refuses before the tool is asked.
+        assert!(translation_export_blocking(&example, "fr-FR", &work.join("not-xliff.txt"), false).is_err());
+        assert!(translation_export_blocking(&work, "fr-FR", &work.join("x.xlf"), false).is_err(), "not a project");
+        assert!(translation_import_blocking(&example, &work.join("missing.xlf"), &work).is_err());
+        let _ = fs::remove_dir_all(work);
     }
 
     #[test]

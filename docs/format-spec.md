@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.45.0",
+  "schemaVersion": "0.46.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -124,6 +124,21 @@ A person may also have **`poses`** (added in 0.29.0): more pictures of them, eac
 ```
 
 `poses` has up to 40 entries. A pose's `id` is a plain id, unique for the person (`character-pose-duplicate`); `label` (1 to 60 letters) is what a menu says; `src` is a file in the project (`asset-missing`). The ids a pack uses are the same from one person to the next where the standard names are used (`welcome`, `think`, `present-left`, `arms-crossed`...), so a pose carries over when a line is given to someone else. A pose has no alt text of its own: it is shown only beside the person's name, so a screen reader skips it, as with the picture. `library` is `{ "pack", "person" }`, two ids of a character pack (`docs/character-packs.md`); the course never reads it. A pose that a line uses cannot be taken out of the cast in the editor until the line is changed.
+
+`playerText` is optional (added in 0.46.0): the player's own words in the course's language. The player has phrases of its own, for its buttons, its
+labels and what it says to a screen reader (Next, Listen, "Slide 2 of 9" and so on). Each has a key and an English default, listed in
+`tools/player-text.json`, which the player, the validator and the translation tool all read. `playerText` maps a key to the course's own phrase; a key left
+out keeps its English.
+
+```json
+"playerText": { "nav.next": "Suivant", "nav.back": "Retour", "nav.slideOf": "Diapositive {n} sur {total}" }
+```
+
+A phrase may hold `{places}`, which the player fills in (`{n}`, `{total}`), and must hold exactly the same ones as the English phrase
+(`player-text-places`, an error), so the learner is never shown a hole or a stray brace. An empty phrase is an error (`player-text-empty`), and a key
+the player does not have is a warning (`player-text-unknown-key`), since it does nothing. A key that ends `.one` or `.other` is the form for exactly one,
+or for any other number; a language with more forms than that uses the closest of the two. The editing stage always shows the English; only the published
+player uses `playerText`. The translation tool (`docs/translation.md`) lists every key as a piece of text to translate and puts the translations here.
 
 `sourceExclude` is optional. It lists files and folders to leave out of the `source/` copy of the project that a published package carries beside the
 course (the cache and the empty `.gitkeep` placeholder files are always left out). A name with no slash, such as `events.jsonl` or `capture`, matches a file or folder of that name at any depth; a path
@@ -1661,6 +1676,7 @@ updated.
 | From | To | What changes |
 | --- | --- | --- |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |
+| 0.45.0 | 0.46.0 | Adds the optional `playerText` of a project: the player's own words (Next, Listen and the rest) in the course's language. Nothing in an older course changes. |
 | 0.43.0 | 0.44.0 | Adds the `labeledGraphic` kind of interaction: a picture (`content.graphic`, with its alt text) with a numbered marker for each item, placed by the item's `x` and `y` as percentages of the picture. Nothing in an older course changes. |
 | 0.42.0 | 0.43.0 | Adds the optional `enlargeable` of a picture (an image object's content): true gives the picture an Enlarge button that opens it as big as the window allows. Nothing in an older course changes. |
 | 0.41.0 | 0.42.0 | Adds two kinds of input, `slider` and `dial`: a number the learner sets between a lowest and a highest value, saved in a number variable (`min`, `max`, `step`, and optionally `unit`, `startLabel`, `endLabel`, `showValue`). Nothing in an older course changes. |

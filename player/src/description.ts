@@ -9,6 +9,7 @@
 // is tested without a browser; the dialog is built at the bottom.
 
 import type { DescriptionCue, OSObject } from "./types.ts";
+import { t } from "./playertext.ts";
 
 /** What the logic needs of a video. An HTMLVideoElement has all of it. */
 export interface MediaLike {
@@ -265,7 +266,7 @@ export function buildDescriptionControls(doc: Document, obj: OSObject, video: HT
   const player = new DescriptionPlayer(video, cues, host);
   const wrap = make(doc, "div", "os-ad");
 
-  const open = make(doc, "button", "os-nav-btn os-ad-open", "Audio description");
+  const open = make(doc, "button", "os-nav-btn os-ad-open", t("ad.title"));
   open.type = "button";
   open.setAttribute("aria-haspopup", "dialog");
   // Said where it can be heard when it is on, and not drawn when it is off.
@@ -275,9 +276,9 @@ export function buildDescriptionControls(doc: Document, obj: OSObject, video: HT
   const dialog = make(doc, "dialog", "os-ad-dialog") as HTMLDialogElement;
   const titleId = `os-ad-title-${obj.id}`;
   dialog.setAttribute("aria-labelledby", titleId);
-  const title = make(doc, "h2", "", "Audio description");
+  const title = make(doc, "h2", "", t("ad.title"));
   title.id = titleId;
-  const intro = make(doc, "p", "", `These say what the picture in "${obj.accessibility.altText || "the video"}" shows, for anyone who cannot see it.`);
+  const intro = make(doc, "p", "", t("ad.intro", { name: obj.accessibility.altText || t("ad.theVideo") }));
 
   const list = make(doc, "ol", "os-ad-list");
   for (const cue of cues) {
@@ -286,31 +287,31 @@ export function buildDescriptionControls(doc: Document, obj: OSObject, video: HT
     list.appendChild(li);
   }
 
-  const listenBtn = make(doc, "button", "os-nav-btn", "Listen to the description");
+  const listenBtn = make(doc, "button", "os-nav-btn", t("ad.listen"));
   listenBtn.type = "button";
-  const withBtn = make(doc, "button", "os-nav-btn", "Play the video with the description");
+  const withBtn = make(doc, "button", "os-nav-btn", t("ad.playWith"));
   withBtn.type = "button";
   const note = make(doc, "p", "os-ad-note");
   const progress = make(doc, "p", "os-ad-progress");
   progress.setAttribute("role", "status");
-  const close = make(doc, "button", "os-nav-btn", "Close");
+  const close = make(doc, "button", "os-nav-btn", t("common.close"));
   close.type = "button";
   const actions = make(doc, "div", "os-ad-actions");
   if (player.voiced) actions.append(listenBtn, withBtn);
   actions.append(close);
   note.textContent = player.voiced
-    ? "Playing the video with the description speaks each one at its time. Some pause the video while they are spoken. Pressing play skips the rest of one that is holding the video."
-    : "These descriptions are written only, so they can be read here but not heard.";
+    ? t("ad.noteVoiced")
+    : t("ad.noteWritten");
 
   dialog.append(title, intro, list, note, progress, actions);
   wrap.append(open, state, dialog);
 
   const show = (): void => {
-    state.textContent = player.withVideo ? "Audio description is on." : "";
+    state.textContent = player.withVideo ? t("ad.isOn") : "";
     const l = player.listening;
-    progress.textContent = l ? `Listening to description ${l.at} of ${l.of}.` : "";
-    listenBtn.textContent = l ? "Stop listening" : "Listen to the description";
-    withBtn.textContent = player.withVideo ? "Turn off the description voice" : "Play the video with the description";
+    progress.textContent = l ? t("ad.progress", { at: l.at, of: l.of }) : "";
+    listenBtn.textContent = l ? t("ad.stopListening") : t("ad.listen");
+    withBtn.textContent = player.withVideo ? t("ad.turnOffVoice") : t("ad.playWith");
   };
   player.onChange = show;
   show();

@@ -2,6 +2,7 @@
 // turns the parts into text and links.
 
 import type { CreditEntry } from "./types.ts";
+import { t } from "./playertext.ts";
 
 export type CreditPart = { text: string } | { text: string; href: string };
 
@@ -13,21 +14,30 @@ const SITE_NAMES: Record<string, string> = {
 /** A link only if the address is a web address. Anything else, such as a javascript: address in a project that was handed over, is just words. */
 const link = (text: string, href: string): CreditPart => (/^https?:\/\//i.test(href) ? { text, href } : { text });
 
+/** A phrase such as "{title}, by {creator}" as parts: the words between the places are plain text, and each place is the part it is given. */
+function fromTemplate(template: string, places: Record<string, CreditPart>): CreditPart[] {
+  return template.split(/(\{[A-Za-z0-9_]+\})/).flatMap((piece): CreditPart[] => {
+    const name = /^\{([A-Za-z0-9_]+)\}$/.exec(piece)?.[1];
+    if (name !== undefined) return Object.hasOwn(places, name) ? [places[name]!] : [{ text: piece }];
+    return piece === "" ? [] : [{ text: piece }];
+  });
+}
+
 /**
  * One credit as the parts of a sentence. A file from a library reads "Title, by Creator, from Library. Licence." A picture or sound an AI
  * service made reads "Title, made with Service (model). Licence." The words that made it are kept in the project, not shown to learners.
  */
 export function creditParts(c: CreditEntry): CreditPart[] {
   const s = c.source;
-  const parts: CreditPart[] = [{ text: c.title || c.path.split("/").pop() || c.path }];
-  if (s.provider === "generated") {
-    parts.push({ text: ", made with " }, link(s.creator || "an AI service", s.url));
-  } else {
-    if (s.creator) parts.push({ text: ", by " }, link(s.creator, s.creatorUrl));
-    const site = SITE_NAMES[s.provider];
-    if (site) parts.push({ text: ", from " }, link(site, s.url));
-  }
-  if (s.licence) parts.push({ text: `. ${s.licence}.` });
+  const title: CreditPart = { text: c.title || c.path.split("/").pop() || c.path };
+  const site = SITE_NAMES[s.provider];
+  const parts: CreditPart[] =
+    s.provider === "generated" ? fromTemplate(t("credits.made"), { title, service: link(s.creator || t("credits.anAiService"), s.url) })
+    : s.creator && site ? fromTemplate(t("credits.byFrom"), { title, creator: link(s.creator, s.creatorUrl), site: link(site, s.url) })
+    : s.creator ? fromTemplate(t("credits.by"), { title, creator: link(s.creator, s.creatorUrl) })
+    : site ? fromTemplate(t("credits.from"), { title, site: link(site, s.url) })
+    : [title];
+  if (s.licence) parts.push(...fromTemplate(t("credits.licence"), { licence: { text: s.licence } }));
   return parts;
 }
 
@@ -67,11 +77,11 @@ export function narrationCredits(uses: readonly NarrationVoiceUse[]): CreditEntr
   for (const u of uses) if (!engines.has(u.engine)) engines.set(u.engine, u);
   return [...engines.values()].map((u) => ({
     path: `narration/${u.engine}`,
-    title: "Narration",
+    title: t("credits.narration"),
     kind: "audio" as const,
     source: {
       provider: "generated" as const, url: u.home ?? "", creator: u.name, creatorUrl: "", requiresCredit: true,
-      licence: u.where === "computer" ? "Synthetic voices made on this computer, not a person" : u.where === "internet" ? "Synthetic voices from an AI service, not a person" : "Synthetic voices, not a person",
+      licence: ({ computer: t("credits.voicesComputer"), internet: t("credits.voicesInternet") } as Record<string, string>)[u.where] ?? t("credits.voices"),
     },
   }));
 }

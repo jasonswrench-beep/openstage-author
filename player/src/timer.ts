@@ -4,6 +4,7 @@
 // This file draws the timer and works out the words; the clock itself is in timeline.ts, so every rule can be tested.
 
 import type { OSObject, TimerContent } from "./types.ts";
+import { t, tn } from "./playertext.ts";
 
 export const TIMER_MIN_SECONDS = 5;
 export const TIMER_MAX_SECONDS = 3600;
@@ -32,7 +33,6 @@ export function clockText(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${rest}` : `${m}:${rest}`;
 }
 
-const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** The time in words, for a screen reader: "1 minute 5 seconds". */
 export function spokenTime(seconds: number): string {
@@ -40,13 +40,13 @@ export function spokenTime(seconds: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const rest = s % 60;
-  const parts = [h > 0 ? unit(h, "hour") : "", m > 0 ? unit(m, "minute") : "", rest > 0 || s === 0 ? unit(rest, "second") : ""].filter(Boolean);
+  const parts = [h > 0 ? tn("time.hour", h) : "", m > 0 ? tn("time.minute", m) : "", rest > 0 || s === 0 ? tn("time.second", rest) : ""].filter(Boolean);
   return parts.join(" ");
 }
 
 /** The words on the button that adds time. */
 export function addTimeLabel(extendBy: number): string {
-  return `Add ${spokenTime(extendBy)}`;
+  return t("timer.add", { time: spokenTime(extendBy) });
 }
 
 /** Is a content object a timer the player can run? (The validator says why one is not.) */
@@ -54,7 +54,7 @@ export function timerContentOf(obj: OSObject): TimerContent {
   const c = obj.content as Partial<TimerContent>;
   const seconds = typeof c.seconds === "number" && Number.isFinite(c.seconds) ? Math.min(TIMER_MAX_SECONDS, Math.max(TIMER_MIN_SECONDS, Math.round(c.seconds))) : TIMER_DEFAULT.seconds;
   const extendBy = typeof c.extendBy === "number" && Number.isFinite(c.extendBy) ? Math.min(TIMER_MAX_EXTEND, Math.max(0, Math.round(c.extendBy))) : TIMER_DEFAULT.extendBy;
-  const label = typeof c.label === "string" && c.label.trim() !== "" ? c.label : TIMER_DEFAULT.label;
+  const label = typeof c.label === "string" && c.label.trim() !== "" ? c.label : t("timer.label");
   return { seconds, label, extendBy };
 }
 
@@ -64,13 +64,13 @@ export function timerContentOf(obj: OSObject): TimerContent {
  */
 export function timerMessage(before: TimerInfo | null, now: TimerInfo, first: number): string | null {
   if (before === null) return null;
-  if (now.state === "off") return before.state === "off" ? null : "The timer is off.";
-  if (now.state === "done") return before.state === "done" ? null : "Time is up.";
+  if (now.state === "off") return before.state === "off" ? null : t("timer.isOff");
+  if (now.state === "done") return before.state === "done" ? null : t("timer.timeUp");
   if (now.state === "stopped" || before.state !== "running") return null;
   // Time was added: the number went up by more than a second passing could explain.
-  if (now.seconds > before.seconds) return `Time added. ${spokenTime(now.seconds)} left.`;
+  if (now.seconds > before.seconds) return t("timer.added", { time: spokenTime(now.seconds) });
   for (const mark of TIMER_MILESTONES) {
-    if (mark < first && before.seconds > mark && now.seconds <= mark) return `${spokenTime(mark)} left.`;
+    if (mark < first && before.seconds > mark && now.seconds <= mark) return t("timer.left", { time: spokenTime(mark) });
   }
   return null;
 }
@@ -121,7 +121,7 @@ export function buildTimer(doc: Document, obj: OSObject, options: TimerOptions):
   said.setAttribute("role", "status");
 
   const add = make(doc, options.editing ? "span" : "button", "os-timer-btn os-timer-add", addTimeLabel(c.extendBy));
-  const off = make(doc, options.editing ? "span" : "button", "os-timer-btn os-timer-off", "Turn off the timer");
+  const off = make(doc, options.editing ? "span" : "button", "os-timer-btn os-timer-off", t("timer.turnOff"));
   for (const b of [add, off]) if (!options.editing) b.setAttribute("type", "button");
   const buttons = make(doc, "div", "os-timer-buttons");
   if (c.extendBy > 0) buttons.append(add);
@@ -143,9 +143,9 @@ export function buildTimer(doc: Document, obj: OSObject, options: TimerOptions):
       last = info;
       widest = Math.max(widest, info.seconds);
       const running = info.state === "running";
-      clock.textContent = info.state === "off" ? "Off" : clockText(info.seconds);
+      clock.textContent = info.state === "off" ? t("timer.clockOff") : clockText(info.seconds);
       fill.style.width = running ? `${Math.max(0, Math.min(100, (info.seconds / widest) * 100))}%` : "0%";
-      note.textContent = info.state === "off" ? "The timer is off." : info.state === "done" ? "Time is up." : info.state === "stopped" ? "Stopped." : info.paused ? "Paused" : "";
+      note.textContent = info.state === "off" ? t("timer.isOff") : info.state === "done" ? t("timer.timeUp") : info.state === "stopped" ? t("timer.stopped") : info.paused ? t("timer.paused") : "";
       for (const b of [add, off]) b.setAttribute("aria-disabled", String(!running));
       if (message !== null) said.textContent = message;
     },

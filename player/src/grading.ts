@@ -17,6 +17,7 @@
 //   sequencing  the items in their right place over all the items
 
 import type { ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, SequencingQuiz, ShortAnswerQuiz } from "./types.ts";
+import { t } from "./playertext.ts";
 
 /** The kinds of interaction SCORM 1.2 knows, and so the ones an LMS can be told about. */
 export type ScormType = "choice" | "fill-in" | "numeric" | "matching" | "sequencing";
@@ -264,13 +265,13 @@ export function isAnswered(q: QuizContent, answer: string | null): boolean {
 /** What to tell the learner when there is nothing to check yet. */
 export function emptyMessage(q: QuizContent): string {
   switch (q.questionType) {
-    case "multipleResponse": return "Choose at least one answer first.";
-    case "shortAnswer": return "Type your answer first.";
-    case "numeric": return "Type a number first.";
-    case "fillBlanks": return q.mode === "typed" ? "Fill in at least one blank first." : "Choose a word for at least one blank first.";
-    case "matching": return "Match at least one item first.";
-    case "hotspot": return "Choose an area first.";
-    default: return "Choose an answer first.";
+    case "multipleResponse": return t("quiz.emptyMulti");
+    case "shortAnswer": return t("quiz.emptyShort");
+    case "numeric": return t("quiz.emptyNumber");
+    case "fillBlanks": return q.mode === "typed" ? t("quiz.emptyBlanksTyped") : t("quiz.emptyBlanksChoose");
+    case "matching": return t("quiz.emptyMatching");
+    case "hotspot": return t("quiz.emptyArea");
+    default: return t("quiz.emptyDefault");
   }
 }
 

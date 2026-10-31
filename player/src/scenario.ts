@@ -11,6 +11,7 @@
 // small enough to keep with the learner's other progress in an LMS.
 
 import type { Character, CharacterPose, OSObject, Primitive, ScenarioChoice, ScenarioContent, ScenarioEffect, ScenarioLine, ScenarioMeter, ScenarioNode } from "./types.ts";
+import { t } from "./playertext.ts";
 
 /** The most choices one walk through a scenario can hold. A story that loops back on itself stops here, so what is remembered stays small. */
 export const MAX_STEPS = 120;
@@ -110,7 +111,7 @@ const poseOf = (person: Character, id: string | null | undefined): CharacterPose
 export function speakerOf(line: ScenarioLine, cast: Character[], you: Character | null): Speaker | null {
   if (line.speaker === null) return null;
   // The learner's own character shows the pose a line asks for if they have it: who they are is only known when the course is played.
-  if (line.speaker === "you") return you ? { name: you.name, picture: you.picture, pose: poseOf(you, line.pose) } : { name: "You", picture: null, pose: null };
+  if (line.speaker === "you") return you ? { name: you.name, picture: you.picture, pose: poseOf(you, line.pose) } : { name: t("scenario.you"), picture: null, pose: null };
   const person = cast.find((p) => p.id === line.speaker);
   // Someone who is not in the cast is the validator's to report; the line is still shown, as the narrator's.
   return person ? { name: person.name, picture: person.picture, pose: poseOf(person, line.pose) } : null;
@@ -133,7 +134,7 @@ export function describeMeterChanges(meters: ScenarioMeter[], before: number[], 
   const parts: string[] = [];
   meters.forEach((m, i) => {
     const change = round((after[i] ?? 0) - (before[i] ?? 0));
-    if (change !== 0) parts.push(`${m.label} is now ${after[i]}, ${change > 0 ? "up" : "down"} ${Math.abs(change)}.`);
+    if (change !== 0) parts.push(change > 0 ? t("scenario.meterUp", { label: m.label, value: after[i] ?? 0, change }) : t("scenario.meterDown", { label: m.label, value: after[i] ?? 0, change: -change }));
   });
   return parts.join(" ");
 }
@@ -195,7 +196,7 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
   // ---- meters
   const meterEls: { meter: HTMLElement; text: HTMLElement; m: ScenarioMeter }[] = [];
   if (c.meters.length > 0) {
-    const group = make(doc, "div", "os-scenario-meters", { role: "group", "aria-label": "Meters" });
+    const group = make(doc, "div", "os-scenario-meters", { role: "group", "aria-label": t("scenario.meters") });
     for (const m of c.meters) {
       const row = make(doc, "div", "os-scenario-meter");
       const text = make(doc, "span", "os-scenario-meter-text");
@@ -214,8 +215,8 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
       bar.min = m.min;
       bar.max = m.max;
       bar.value = v;
-      bar.setAttribute("aria-valuetext", `${v}, on a scale from ${m.min} to ${m.max}`);
-      text.textContent = `${m.label}: ${v}`;
+      bar.setAttribute("aria-valuetext", t("scenario.meterValue", { value: v, min: m.min, max: m.max }));
+      text.textContent = t("scenario.meterLabel", { label: m.label, value: v });
     });
   };
 
@@ -270,7 +271,7 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
     refreshers = [];
     const w = walk(c, path);
     if (!w) {
-      panel.appendChild(textOf(doc, "p", "os-scenario-text", "This scenario has no starting situation."));
+      panel.appendChild(textOf(doc, "p", "os-scenario-text", t("scenario.noStart")));
       return;
     }
     path = w.path;
@@ -281,8 +282,8 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
     // What the choice just made led to, before the next situation.
     if (just) {
       const result = make(doc, "div", "os-scenario-result");
-      const h = heading(2, just.response.length > 0 ? "What happened" : "Your choice");
-      result.append(h, textOf(doc, "p", "os-scenario-chosen", `You chose: ${just.label}`));
+      const h = heading(2, just.response.length > 0 ? t("scenario.whatHappened") : t("scenario.yourChoice"));
+      result.append(h, textOf(doc, "p", "os-scenario-chosen", t("scenario.youChose", { label: just.label })));
       if (just.response.length > 0) result.appendChild(linesList(just.response));
       for (const line of just.response) spoken.push(line.id);
       panel.appendChild(result);
@@ -296,11 +297,11 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
     focusTarget ??= title;
 
     const audible = hooks.sound ? spoken.filter((lineId) => hooks.sound!.has(lineId)) : [];
-    if (audible.length > 0) situation.appendChild(control("Listen to this part", "os-nav-btn os-scenario-listen", () => hooks.sound!.play(audible)));
+    if (audible.length > 0) situation.appendChild(control(t("scenario.listen"), "os-nav-btn os-scenario-listen", () => hooks.sound!.play(audible)));
 
     const ended = isEnding(node);
     if (!ended && path.length >= MAX_STEPS) {
-      situation.appendChild(textOf(doc, "p", "os-scenario-text", "This scenario has gone on for a very long time. Start again to try a different way through."));
+      situation.appendChild(textOf(doc, "p", "os-scenario-text", t("scenario.tooLong")));
     } else if (!ended) {
       const group = make(doc, "div", "os-scenario-choices", { role: "group", "aria-labelledby": id("prompt") });
       group.appendChild(textOf(doc, "p", "os-scenario-prompt", node.prompt.trim() || node.title, { id: id("prompt") }));
@@ -308,16 +309,16 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
       situation.appendChild(group);
     } else {
       const review = make(doc, "div", "os-scenario-review");
-      review.appendChild(heading(3, "Your path"));
+      review.appendChild(heading(3, t("scenario.yourPath")));
       const steps = pathReview(w);
       if (steps.length > 0) {
         const ol = make(doc, "ol", "os-scenario-path");
-        for (const s of steps) ol.appendChild(textOf(doc, "li", "", `${s.situation}: ${s.choice}`));
+        for (const s of steps) ol.appendChild(textOf(doc, "li", "", t("scenario.pathLine", { situation: s.situation, choice: s.choice })));
         review.appendChild(ol);
       }
       if (c.reflection.trim()) {
         const p = make(doc, "p", "os-scenario-reflection");
-        p.append(textOf(doc, "strong", "", "Something to think about: "), doc.createTextNode(c.reflection));
+        p.append(textOf(doc, "strong", "", `${t("scenario.reflection")} `), doc.createTextNode(c.reflection));
         review.appendChild(p);
       }
       situation.appendChild(review);
@@ -325,8 +326,8 @@ export function buildScenario(doc: Document, obj: OSObject, hooks: ScenarioHooks
 
     if (w.choices.length > 0 && (c.allowRetry || ended)) {
       const controls = make(doc, "div", "os-scenario-controls");
-      if (c.allowRetry) controls.appendChild(control("Take back my last choice", "os-nav-btn", () => back(1)));
-      controls.appendChild(control("Start again", "os-nav-btn", () => back(w.choices.length)));
+      if (c.allowRetry) controls.appendChild(control(t("scenario.takeBack"), "os-nav-btn", () => back(1)));
+      controls.appendChild(control(t("scenario.startAgain"), "os-nav-btn", () => back(w.choices.length)));
       situation.appendChild(controls);
     }
     panel.appendChild(situation);

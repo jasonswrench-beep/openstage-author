@@ -17,6 +17,7 @@ import { shouldReflow } from "./reflow.ts";
 import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
 import { AccessibilityPanel } from "./a11ypanel.ts";
 import { StageRenderer, button, el, readingOrder, type StageBehavior } from "./stage.ts";
+import { setPlayerText, t } from "./playertext.ts";
 import type { CoursePackage, Effect, ObjectAnimation, Slide, Timing } from "./types.ts";
 
 export { readingOrder } from "./stage.ts";
@@ -61,6 +62,7 @@ export class Player implements Host {
   constructor(root: HTMLElement, pkg: CoursePackage) {
     this.root = root;
     this.pkg = pkg;
+    setPlayerText(pkg.project.playerText);
     this.runtime = new Runtime(pkg, this);
 
     const doc = root.ownerDocument;
@@ -78,12 +80,12 @@ export class Player implements Host {
     main.appendChild(viewport);
 
     const nav = el(doc, "nav", "os-nav");
-    nav.setAttribute("aria-label", "Course navigation");
-    this.backBtn = button(doc, "Back", "os-nav-btn");
-    this.nextBtn = button(doc, "Next", "os-nav-btn");
+    nav.setAttribute("aria-label", t("nav.label"));
+    this.backBtn = button(doc, t("nav.back"), "os-nav-btn");
+    this.nextBtn = button(doc, t("nav.next"), "os-nav-btn");
     this.labelEl = el(doc, "span", "os-nav-label");
     // Show next item is a way to move on like Next, so it sits beside it: the learner shows the items of a slide, then goes to the next slide. (Pause timing, Show everything now and Turn off animation stay in the Timing controls, early in the page.)
-    this.itemBtn = button(doc, "Show next item", "os-nav-btn");
+    this.itemBtn = button(doc, t("nav.showNextItem"), "os-nav-btn");
     this.itemBtn.hidden = true;
     nav.append(this.backBtn, this.labelEl, this.itemBtn, this.nextBtn);
     if (pkg.project.credits && pkg.credits && pkg.credits.length > 0) nav.appendChild(this.creditsButton(doc, pkg.credits));
@@ -111,11 +113,11 @@ export class Player implements Host {
       failed: (id) => this.timeline.clipFailed(id),
     });
     this.timingBar = el(doc, "section", "os-timing");
-    this.timingBar.setAttribute("aria-label", "Timing");
+    this.timingBar.setAttribute("aria-label", t("timing.label"));
     this.timingBar.hidden = true;
-    this.pauseBtn = button(doc, "Pause timing", "os-nav-btn");
-    this.showAllBtn = button(doc, "Show everything now", "os-nav-btn");
-    this.animateBtn = button(doc, "Turn off animation", "os-nav-btn");
+    this.pauseBtn = button(doc, t("timing.pause"), "os-nav-btn");
+    this.showAllBtn = button(doc, t("timing.showAll"), "os-nav-btn");
+    this.animateBtn = button(doc, t("timing.animationOff"), "os-nav-btn");
     this.animateBtn.setAttribute("aria-pressed", "false");
     this.timingBar.append(this.pauseBtn, this.showAllBtn, this.animateBtn);
     this.itemBtn.addEventListener("click", () => {
@@ -130,23 +132,23 @@ export class Player implements Host {
       this.animationOff = !this.animationOff;
       if (this.animationOff) this.stage.endAnimations();
       this.syncTimingBar();
-      this.say(this.animationOff ? "Animation turned off." : "Animation turned on.");
+      this.say(this.animationOff ? t("said.animationOff") : t("said.animationOn"));
     });
     this.pauseBtn.addEventListener("click", () => {
       // Pausing the timing also pauses a clip that is playing, so everything holds still; resuming plays it again.
       if (this.timeline.paused) {
         this.timeline.resume();
         const played = this.follower.release();
-        this.say(played > 0 ? "Timing resumed. The video or audio plays again." : "Timing resumed.");
+        this.say(played > 0 ? t("said.timingResumedMedia") : t("said.timingResumed"));
       } else {
         this.timeline.pause();
         const stopped = this.follower.hold();
-        this.say(stopped > 0 ? "Timing paused. The video or audio is paused too." : "Timing paused.");
+        this.say(stopped > 0 ? t("said.timingPausedMedia") : t("said.timingPaused"));
       }
     });
     this.showAllBtn.addEventListener("click", () => {
       this.timeline.showEverything();
-      this.say("Everything on this slide is now showing.");
+      this.say(t("said.everythingShowing"));
     });
 
     // The stage draws; the runtime decides what objects do. This is where they meet.
@@ -182,7 +184,7 @@ export class Player implements Host {
       onTimerAddTime: (obj) => this.timeline.addTime(obj.id, timerContentOf(obj).extendBy),
       onTimerOff: () => {
         this.timeline.turnOffTimers();
-        this.say("Timers are off for the rest of this course.");
+        this.say(t("said.timersOff"));
       },
       announce: (msg) => {
         this.announcer.textContent = "";
@@ -220,12 +222,12 @@ export class Player implements Host {
 
   /** A button that opens the credits for the images and media in the course. It is a native dialog, so focus is kept inside it and Escape closes it. */
   private creditsButton(doc: Document, credits: NonNullable<CoursePackage["credits"]>): HTMLElement {
-    const open = button(doc, "Credits", "os-nav-btn");
+    const open = button(doc, t("credits.title"), "os-nav-btn");
     const dialog = el(doc, "dialog", "os-credits") as HTMLDialogElement;
     dialog.setAttribute("aria-labelledby", "os-credits-title");
     const h = el(doc, "h2", "");
     h.id = "os-credits-title";
-    h.textContent = "Credits";
+    h.textContent = t("credits.title");
     const list = el(doc, "ul", "os-credits-list");
     for (const c of credits) {
       const li = el(doc, "li", "");
@@ -240,7 +242,7 @@ export class Player implements Host {
       }
       list.appendChild(li);
     }
-    const close = button(doc, "Close", "os-nav-btn");
+    const close = button(doc, t("common.close"), "os-nav-btn");
     close.addEventListener("click", () => dialog.close());
     dialog.append(h, list, close);
     open.addEventListener("click", () => dialog.showModal());
@@ -310,7 +312,7 @@ export class Player implements Host {
 
     const idx = this.runtime.slideIndex;
     const total = this.pkg.slides.length;
-    this.labelEl.textContent = `Slide ${idx + 1} of ${total}`;
+    this.labelEl.textContent = t("nav.slideOf", { n: idx + 1, total });
     this.backBtn.disabled = idx <= 0;
     this.nextBtn.disabled = idx >= total - 1;
     // A game slide leaves Back and Next out: the way on is the game's own (a tile, an answer, a Continue button). Hidden, not dimmed, so there is nothing to find and press.
@@ -384,14 +386,14 @@ export class Player implements Host {
     this.timingBar.hidden = !timed && !animated;
     const { total, pressed } = this.timeline.steps;
     this.itemBtn.hidden = total === 0;
-    this.itemBtn.textContent = pressed >= total ? "All items are showing" : `Show next item (${pressed + 1} of ${total})`;
+    this.itemBtn.textContent = pressed >= total ? t("nav.allItemsShowing") : t("nav.showNextItemCount", { n: pressed + 1, total });
     if (pressed >= total) this.itemBtn.setAttribute("aria-disabled", "true"); else this.itemBtn.removeAttribute("aria-disabled");
     this.pauseBtn.hidden = !timed;
     this.showAllBtn.hidden = !timed;
     this.animateBtn.hidden = !animated;
-    this.animateBtn.textContent = this.animationOff ? "Turn on animation" : "Turn off animation";
+    this.animateBtn.textContent = this.animationOff ? t("timing.animationOn") : t("timing.animationOff");
     this.animateBtn.setAttribute("aria-pressed", String(this.animationOff));
-    this.pauseBtn.textContent = this.timeline.paused ? "Resume timing" : "Pause timing";
+    this.pauseBtn.textContent = this.timeline.paused ? t("timing.resume") : t("timing.pause");
     this.pauseBtn.setAttribute("aria-pressed", String(this.timeline.paused));
     this.showAllBtn.toggleAttribute("disabled", this.timeline.allShown);
   }

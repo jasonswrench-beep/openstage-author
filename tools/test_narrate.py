@@ -182,5 +182,34 @@ class RunOptions(unittest.TestCase):
         self.assertIsNone(narrate.parse_args(["P", "--cache-root"]))
 
 
+class AnyLanguage(unittest.TestCase):
+    """A course may be in a language a Windows pipe cannot carry unless the tool says UTF-8 (the narration of a translated course used to stop the
+    publisher: the tool crashed printing it, and the course was published with no narration at all)."""
+
+    def test_the_command_line_reports_narration_in_any_script(self):
+        import json
+        import os
+        import shutil
+        import subprocess
+        import tempfile
+
+        root = pathlib.Path(__file__).resolve().parent.parent
+        with tempfile.TemporaryDirectory() as tmp:
+            project = pathlib.Path(tmp) / "p.osproj"
+            shutil.copytree(root / "examples" / "minimal.osproj", project, ignore=shutil.ignore_patterns(".cache"))
+            slide = project / "slides" / "slide-001.json"
+            data = json.loads(slide.read_text(encoding="utf-8"))
+            words = "\u7d44\u7e54\u306e\u30b3\u30df\u30e5\u30cb\u30b1\u30fc\u30b7\u30e7\u30f3 \u1e82\u1e83 \u0416\u0436"
+            for obj in data["baseLayer"]["objects"]:
+                if obj.get("narration"):
+                    obj["narration"]["script"] = words
+            slide.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+            run = subprocess.run([sys.executable, str(root / "tools" / "narrate.py"), str(project), "--json", "--no-generate"], capture_output=True, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr.decode("utf-8", "replace"))
+            said = json.loads(run.stdout.decode("utf-8"))
+            self.assertIn(words, [item["script"] for item in said.values()])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

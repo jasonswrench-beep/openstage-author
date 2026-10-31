@@ -1,0 +1,1089 @@
+{
+  "description": "The player's own words: what its buttons, labels and announcements say, with the English each starts as. A course may replace any of them in its project's playerText. {name} is a value the player fills in: keep it in a translation. A key ending .one or .other is the form for exactly one, or for any other number.",
+  "keys": {
+    "nav.label": {
+      "text": "Course navigation",
+      "note": "Spoken name of the bar with the Back and Next buttons"
+    },
+    "nav.back": {
+      "text": "Back",
+      "note": "Button: go to the previous slide"
+    },
+    "nav.next": {
+      "text": "Next",
+      "note": "Button: go to the next slide"
+    },
+    "nav.slideOf": {
+      "text": "Slide {n} of {total}",
+      "note": "Where the learner is: slide number n of total"
+    },
+    "nav.showNextItem": {
+      "text": "Show next item",
+      "note": "Button: show the next thing held back on this slide"
+    },
+    "nav.showNextItemCount": {
+      "text": "Show next item ({n} of {total})",
+      "note": "The same button, with how many are showing"
+    },
+    "nav.allItemsShowing": {
+      "text": "All items are showing",
+      "note": "The same button when nothing is left to show"
+    },
+    "credits.title": {
+      "text": "Credits",
+      "note": "Button and heading for the list of where pictures and sounds came from"
+    },
+    "common.close": {
+      "text": "Close",
+      "note": "Button that closes a pop-up"
+    },
+    "timing.label": {
+      "text": "Timing",
+      "note": "Spoken name of the group of timing buttons"
+    },
+    "timing.pause": {
+      "text": "Pause timing",
+      "note": "Button: stop things appearing by themselves"
+    },
+    "timing.resume": {
+      "text": "Resume timing",
+      "note": "Button: let things appear by themselves again"
+    },
+    "timing.showAll": {
+      "text": "Show everything now",
+      "note": "Button: show everything on the slide at once"
+    },
+    "timing.animationOff": {
+      "text": "Turn off animation",
+      "note": "Button: stop things moving"
+    },
+    "timing.animationOn": {
+      "text": "Turn on animation",
+      "note": "Button: let things move again"
+    },
+    "said.animationOff": {
+      "text": "Animation turned off.",
+      "note": "Said to a screen reader after the animation button"
+    },
+    "said.animationOn": {
+      "text": "Animation turned on.",
+      "note": "Said to a screen reader after the animation button"
+    },
+    "said.timingResumedMedia": {
+      "text": "Timing resumed. The video or audio plays again.",
+      "note": "Said after Resume timing when a clip was held"
+    },
+    "said.timingResumed": {
+      "text": "Timing resumed.",
+      "note": "Said after Resume timing"
+    },
+    "said.timingPausedMedia": {
+      "text": "Timing paused. The video or audio is paused too.",
+      "note": "Said after Pause timing when a clip was playing"
+    },
+    "said.timingPaused": {
+      "text": "Timing paused.",
+      "note": "Said after Pause timing"
+    },
+    "said.everythingShowing": {
+      "text": "Everything on this slide is now showing.",
+      "note": "Said after Show everything now"
+    },
+    "said.timersOff": {
+      "text": "Timers are off for the rest of this course.",
+      "note": "Said when the learner turns timers off"
+    },
+    "narration.label": {
+      "text": "Narration",
+      "note": "Spoken name of the narration controls"
+    },
+    "narration.play": {
+      "text": "Play narration",
+      "note": "Button: play the spoken narration"
+    },
+    "narration.replay": {
+      "text": "Replay narration",
+      "note": "Button: play the narration again from the start"
+    },
+    "narration.pause": {
+      "text": "Pause narration",
+      "note": "Button: pause the narration while it plays"
+    },
+    "narration.captions": {
+      "text": "Captions",
+      "note": "Button that turns the words of the narration on the screen on or off, and the label of a video's caption track"
+    },
+    "narration.transcript": {
+      "text": "Transcript",
+      "note": "Button, heading and disclosure for the written words of the narration, a video or audio"
+    },
+    "inputs.chooseOption": {
+      "text": "Choose an option",
+      "note": "The first, empty entry of a drop-down list"
+    },
+    "item.lead": {
+      "text": "Item {n} of {total}",
+      "note": "Said when something held back on the slide is shown: which item of how many"
+    },
+    "item.showingNames": {
+      "text": "{lead} is showing: {names}",
+      "note": "{lead} is the sentence above; {names} are what the item is"
+    },
+    "item.leadOnly": {
+      "text": "{lead}.",
+      "note": "Said when an item came and only things went away"
+    },
+    "item.showing": {
+      "text": "{lead} is showing.",
+      "note": "Said when an item came that has no name"
+    },
+    "item.wentAway": {
+      "text": "{names} went away.",
+      "note": "Added when things left as the next item came"
+    },
+    "item.last": {
+      "text": "That was the last.",
+      "note": "Added after the last item of a slide"
+    },
+    "enlarge.open": {
+      "text": "Enlarge",
+      "note": "Visible words of the button that opens a picture bigger"
+    },
+    "enlarge.openNamed": {
+      "text": "Enlarge picture: {words}",
+      "note": "Spoken name of the Enlarge button, with the picture's description"
+    },
+    "enlarge.openUnnamed": {
+      "text": "Enlarge picture",
+      "note": "Spoken name of the Enlarge button for a picture with no description"
+    },
+    "enlarge.dialogNamed": {
+      "text": "Enlarged picture: {words}",
+      "note": "Spoken name of the pop-up with the big picture, with the picture's description"
+    },
+    "enlarge.dialogUnnamed": {
+      "text": "Enlarged picture",
+      "note": "Spoken name of the pop-up for a picture with no description"
+    },
+    "enlarge.actualSize": {
+      "text": "Actual size",
+      "note": "Button: show the enlarged picture at its own size"
+    },
+    "enlarge.fit": {
+      "text": "Fit to window",
+      "note": "Button: fit the enlarged picture to the window"
+    },
+    "enlarge.viewHelp": {
+      "text": "The picture at its own size. Use the arrow keys to move around it.",
+      "note": "Spoken name of the scrolling area when the picture is at its own size"
+    },
+    "download.help": {
+      "text": "Selecting Download saves this file to your computer. You can then open it with your own programs, including a screen reader.",
+      "note": "What a file to download says about saving it"
+    },
+    "download.link": {
+      "text": "Download {title}",
+      "note": "The link that saves a file: {title} is the file's title"
+    },
+    "transcript.timer": {
+      "text": "{label}: a timer of {time}. {rest}",
+      "note": "A timer, in the transcript: {label} is its label, {time} how long, {rest} what the learner can do"
+    },
+    "transcript.timerExtendable": {
+      "text": "{add} or turn it off.",
+      "note": "{add} is the words of the button that adds time"
+    },
+    "transcript.timerOff": {
+      "text": "It can be turned off.",
+      "note": "In the transcript, for a timer that cannot have time added"
+    },
+    "transcript.description": {
+      "text": "Audio description, at {time}: {text}",
+      "note": "An audio description of a video in the transcript: at what time, and what it says"
+    },
+    "transcript.quizSlide": {
+      "text": "This slide has a quiz question. Quiz questions are not part of the transcript.",
+      "note": "In the transcript, for a slide with a question"
+    },
+    "transcript.nothing": {
+      "text": "(Nothing to read on this slide.)",
+      "note": "In the downloaded transcript file, for a slide with no words"
+    },
+    "time.hour.one": {
+      "text": "{n} hour",
+      "note": "A length of time said aloud: exactly one hour"
+    },
+    "time.hour.other": {
+      "text": "{n} hours",
+      "note": "A length of time said aloud: any other number of hours"
+    },
+    "time.minute.one": {
+      "text": "{n} minute",
+      "note": "A length of time said aloud: exactly one minute"
+    },
+    "time.minute.other": {
+      "text": "{n} minutes",
+      "note": "A length of time said aloud: any other number of minutes"
+    },
+    "time.second.one": {
+      "text": "{n} second",
+      "note": "A length of time said aloud: exactly one second"
+    },
+    "time.second.other": {
+      "text": "{n} seconds",
+      "note": "A length of time said aloud: any other number of seconds"
+    },
+    "timer.label": {
+      "text": "Time left",
+      "note": "The words above a timer's clock when the author gave it none"
+    },
+    "timer.add": {
+      "text": "Add {time}",
+      "note": "Button on a timer: add this much time"
+    },
+    "timer.turnOff": {
+      "text": "Turn off the timer",
+      "note": "Button on a timer: stop the timer for good"
+    },
+    "timer.isOff": {
+      "text": "The timer is off.",
+      "note": "Said, and shown, when the learner turned the timer off"
+    },
+    "timer.timeUp": {
+      "text": "Time is up.",
+      "note": "Said, and shown, when the time ran out"
+    },
+    "timer.added": {
+      "text": "Time added. {time} left.",
+      "note": "Said when time was added to a timer"
+    },
+    "timer.left": {
+      "text": "{time} left.",
+      "note": "Said at the marks of a timer: how much time is left"
+    },
+    "timer.stopped": {
+      "text": "Stopped.",
+      "note": "Shown on a timer that a rule stopped"
+    },
+    "timer.paused": {
+      "text": "Paused",
+      "note": "Shown on a timer while the timing is paused"
+    },
+    "timer.clockOff": {
+      "text": "Off",
+      "note": "Shown in place of the clock when the timer is off"
+    },
+    "a11y.title": {
+      "text": "Accessibility",
+      "note": "Button and heading of the learner's accessibility panel"
+    },
+    "a11y.textSize": {
+      "text": "Text size",
+      "note": "Label of a choice in the accessibility panel"
+    },
+    "a11y.lineSpacing": {
+      "text": "Space between lines",
+      "note": "Label of a choice in the accessibility panel"
+    },
+    "a11y.letterSpacing": {
+      "text": "Space between letters and words",
+      "note": "Label of a choice in the accessibility panel"
+    },
+    "a11y.colours": {
+      "text": "Colours",
+      "note": "Label of a choice, and heading of its group, in the accessibility panel"
+    },
+    "a11y.speed": {
+      "text": "Reading speed",
+      "note": "Label of a choice in the accessibility panel"
+    },
+    "a11y.groupText": {
+      "text": "Text",
+      "note": "Heading of the group of text choices in the accessibility panel"
+    },
+    "a11y.groupReading": {
+      "text": "Reading",
+      "note": "Heading of the reading line group in the accessibility panel"
+    },
+    "a11y.readingLine": {
+      "text": "Reading line",
+      "note": "Label of the tick box that turns on a band that follows the pointer"
+    },
+    "a11y.readingLineNote": {
+      "text": "A band that follows your pointer, or the part of the page the keyboard is on, to help you keep your place.",
+      "note": "Help under the reading line tick box"
+    },
+    "a11y.readAloud": {
+      "text": "Read aloud",
+      "note": "Button, and heading of its group, that reads the words on the slide aloud"
+    },
+    "a11y.stopReading": {
+      "text": "Stop reading",
+      "note": "The same button while it is reading"
+    },
+    "a11y.showTranscript": {
+      "text": "Show the transcript",
+      "note": "Button in the accessibility panel"
+    },
+    "a11y.downloadTranscript": {
+      "text": "Download the transcript",
+      "note": "Button that saves the transcript as a file"
+    },
+    "a11y.transcriptNote": {
+      "text": "Everything said and written in this course, slide by slide, without the quiz questions.",
+      "note": "Help above the transcript buttons"
+    },
+    "a11y.reset": {
+      "text": "Put everything back",
+      "note": "Button that sets every accessibility choice back to the course's own"
+    },
+    "a11y.closePanel": {
+      "text": "Close the accessibility panel",
+      "note": "Spoken name of the Close button of the accessibility panel"
+    },
+    "a11y.closeTranscript": {
+      "text": "Close the transcript",
+      "note": "Spoken name of the Close button of the transcript window"
+    },
+    "a11y.transcriptTitle": {
+      "text": "Transcript: {title}",
+      "note": "Heading of the transcript window: {title} is the course's title"
+    },
+    "a11y.transcriptWords": {
+      "text": "The words of the transcript",
+      "note": "Spoken name of the scrolling area of the transcript"
+    },
+    "a11y.nothingToRead": {
+      "text": "Nothing to read on this slide.",
+      "note": "In the transcript window, for a slide with no words"
+    },
+    "a11y.note": {
+      "text": "These choices change how this course looks and sounds on your computer only. Nothing is sent anywhere. {remembered}",
+      "note": "Help at the top of the accessibility panel"
+    },
+    "a11y.noteRemembered": {
+      "text": "They are remembered on this computer.",
+      "note": "Added to the help when the browser keeps the choices"
+    },
+    "a11y.noteNotRemembered": {
+      "text": "Your browser does not let them be remembered, so they last for this visit only.",
+      "note": "Added to the help when the browser cannot keep the choices"
+    },
+    "a11y.readNoSynth": {
+      "text": "This browser cannot read aloud.",
+      "note": "Help under Read aloud when the browser has no speech"
+    },
+    "a11y.readNoVoice": {
+      "text": "This computer has no voice for this course's language ({lang}) that works without the internet, so it cannot read aloud. Voices that send your words to a service are not used.",
+      "note": "Help under Read aloud when no suitable voice is found"
+    },
+    "a11y.readNoteLoading": {
+      "text": "Reads the words on this slide that have no recorded voice, such as your score or the name on a certificate, with a voice on this computer. Nothing is sent anywhere.",
+      "note": "Help under Read aloud while the voices are still loading"
+    },
+    "a11y.readNote": {
+      "text": "Reads the words on this slide that have no recorded voice, such as your score or the name on a certificate, with a voice on this computer. Nothing is sent anywhere. Parts that have narration keep their own voice, and nothing is read while narration is playing. A screen reader reads the page by itself, so you do not need this if you use one.",
+      "note": "Help under Read aloud"
+    },
+    "a11y.saidNarrationPlaying": {
+      "text": "The narration is playing. Pause it first, then read aloud.",
+      "note": "Said when Read aloud is pressed while the narration plays"
+    },
+    "a11y.saidNoVoice": {
+      "text": "This computer has no voice that works without the internet for this course's language, so it cannot read aloud.",
+      "note": "Said when Read aloud is pressed and no voice is found"
+    },
+    "a11y.saidNothingToRead": {
+      "text": "Everything on this slide that has words is already narrated, or there are no words to read.",
+      "note": "Said when Read aloud has nothing to read"
+    },
+    "a11y.saidReading": {
+      "text": "Reading aloud. Press Escape, or Stop reading, to stop.",
+      "note": "Said when reading aloud begins"
+    },
+    "a11y.saidStopped": {
+      "text": "Stopped reading.",
+      "note": "Said when reading aloud is stopped"
+    },
+    "a11y.saidDownload": {
+      "text": "The transcript is being saved as {file}. If nothing is saved, your browser or learning system may not allow downloads; use Show the transcript instead.",
+      "note": "Said when the transcript download begins"
+    },
+    "a11y.saidReset": {
+      "text": "{described} The course is back as its author made it.",
+      "note": "Said after Put everything back: {described} is the sentence about what is now set"
+    },
+    "a11y.saidDefault": {
+      "text": "Everything is as the course has it.",
+      "note": "Said when every accessibility choice is the course's own"
+    },
+    "a11y.saidNow": {
+      "text": "Now {parts}.",
+      "note": "Said after a choice: {parts} lists what is different from the course's own"
+    },
+    "a11y.partTextSize": {
+      "text": "text size {n} percent",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.partLineSpacing": {
+      "text": "line spacing {value}",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.partLetterSpacing": {
+      "text": "letter and word spacing {value}",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.partColours": {
+      "text": "colours: {value}",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.partReadingLine": {
+      "text": "reading line on",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.partSpeed": {
+      "text": "reading speed {value}",
+      "note": "One of the parts of the sentence above"
+    },
+    "a11y.valueWide": {
+      "text": "wide",
+      "note": "Said in the sentence above for the wide spacing"
+    },
+    "a11y.valueWider": {
+      "text": "wider",
+      "note": "Said in the sentence above for the wider spacing"
+    },
+    "a11y.size100": {
+      "text": "100% (the course's own)",
+      "note": "The first text size in the list"
+    },
+    "a11y.spacingNormal": {
+      "text": "The course's own",
+      "note": "The first spacing in the list"
+    },
+    "a11y.spacingWide": {
+      "text": "Wide",
+      "note": "A spacing in the list"
+    },
+    "a11y.spacingWider": {
+      "text": "Wider",
+      "note": "A spacing in the list"
+    },
+    "a11y.coloursCourse": {
+      "text": "The course's own colours",
+      "note": "The first colour choice in the list"
+    },
+    "a11y.coloursDark": {
+      "text": "Dark",
+      "note": "A colour choice in the list"
+    },
+    "a11y.coloursContrast": {
+      "text": "High contrast: white on black",
+      "note": "A colour choice in the list"
+    },
+    "a11y.coloursYellow": {
+      "text": "Yellow on black",
+      "note": "A colour choice in the list"
+    },
+    "a11y.speedSlow": {
+      "text": "Slower",
+      "note": "A reading speed in the list"
+    },
+    "a11y.speedNormal": {
+      "text": "Normal",
+      "note": "A reading speed in the list"
+    },
+    "a11y.speedFast": {
+      "text": "Faster",
+      "note": "A reading speed in the list"
+    },
+    "quiz.check": {
+      "text": "Check answer",
+      "note": "Button under a question that checks the learner's answer"
+    },
+    "quiz.hintMulti": {
+      "text": "Choose every answer that is right.",
+      "note": "Hint on a question with more than one right answer"
+    },
+    "quiz.chooseWord": {
+      "text": "Choose a word",
+      "note": "The first, empty entry of the list in a blank"
+    },
+    "quiz.wordBank": {
+      "text": "Word bank:",
+      "note": "Label of the row of words to drag into the blanks"
+    },
+    "quiz.dragWordHint": {
+      "text": "Drag a word onto a blank, or choose the word from the list in the blank.",
+      "note": "Hint on a fill-in-the-blanks question that is dragged"
+    },
+    "quiz.matchHint": {
+      "text": "Choose the match for each item.",
+      "note": "Hint on a matching question"
+    },
+    "quiz.chooseMatch": {
+      "text": "Choose a match",
+      "note": "The first, empty entry of the list beside an item to match"
+    },
+    "quiz.dragMatchHint": {
+      "text": "You can also drag a match onto its item.",
+      "note": "Hint on a matching question that can be dragged"
+    },
+    "quiz.orderHint": {
+      "text": "Put the items in the right order. Use Move up and Move down.",
+      "note": "Hint on a question about putting items in order"
+    },
+    "quiz.blankName": {
+      "text": "Blank {n} of {total}",
+      "note": "Spoken name of a blank: which of how many"
+    },
+    "quiz.moveUp": {
+      "text": "Move up",
+      "note": "Button beside an item in an order question"
+    },
+    "quiz.moveDown": {
+      "text": "Move down",
+      "note": "Button beside an item in an order question"
+    },
+    "quiz.moveUpNamed": {
+      "text": "Move up: {item}",
+      "note": "Spoken name of the Move up button, with the item"
+    },
+    "quiz.moveDownNamed": {
+      "text": "Move down: {item}",
+      "note": "Spoken name of the Move down button, with the item"
+    },
+    "quiz.nowNumber": {
+      "text": "{item} is now number {n} of {total}.",
+      "note": "Said after an item is moved in an order question"
+    },
+    "quiz.chooseArea": {
+      "text": "Choose an area of the picture",
+      "note": "Heading of the list of areas of a picture to choose from"
+    },
+    "quiz.emptyMulti": {
+      "text": "Choose at least one answer first.",
+      "note": "Said when Check answer is pressed with nothing chosen"
+    },
+    "quiz.emptyShort": {
+      "text": "Type your answer first.",
+      "note": "Said when Check answer is pressed with nothing typed"
+    },
+    "quiz.emptyNumber": {
+      "text": "Type a number first.",
+      "note": "Said when Check answer is pressed with no number typed"
+    },
+    "quiz.emptyBlanksTyped": {
+      "text": "Fill in at least one blank first.",
+      "note": "Said when Check answer is pressed with every blank empty"
+    },
+    "quiz.emptyBlanksChoose": {
+      "text": "Choose a word for at least one blank first.",
+      "note": "Said when Check answer is pressed with no word chosen"
+    },
+    "quiz.emptyMatching": {
+      "text": "Match at least one item first.",
+      "note": "Said when Check answer is pressed with nothing matched"
+    },
+    "quiz.emptyArea": {
+      "text": "Choose an area first.",
+      "note": "Said when Check answer is pressed with no area chosen"
+    },
+    "quiz.emptyDefault": {
+      "text": "Choose an answer first.",
+      "note": "Said when Check answer is pressed with no answer chosen"
+    },
+    "results.none": {
+      "text": "This course has no quiz questions.",
+      "note": "Results box, for a course with no questions"
+    },
+    "results.scored": {
+      "text": "You scored {earned} of {total} points ({percent}%).",
+      "note": "Results box: the learner's score"
+    },
+    "results.progress.one": {
+      "text": "You have finished {done} of {n} question so far.",
+      "note": "Results box before the quiz is finished: exactly one question in the course"
+    },
+    "results.progress.other": {
+      "text": "You have finished {done} of {n} questions so far.",
+      "note": "Results box before the quiz is finished: any other number of questions"
+    },
+    "results.finishFirst": {
+      "text": "Finish every question to see whether you passed.",
+      "note": "Results box before the quiz is finished"
+    },
+    "results.passed": {
+      "text": "You passed.",
+      "note": "Results box: the learner passed"
+    },
+    "results.failed": {
+      "text": "You did not reach the pass mark.",
+      "note": "Results box: the learner did not pass"
+    },
+    "results.passMark": {
+      "text": "The pass mark is {mark}%.",
+      "note": "Results box: the percentage needed to pass"
+    },
+    "results.lineCorrect.one": {
+      "text": "correct, {earned} of {n} point",
+      "note": "One line of the review of answers: exactly one point possible"
+    },
+    "results.lineCorrect.other": {
+      "text": "correct, {earned} of {n} points",
+      "note": "One line of the review of answers: any other number of points possible"
+    },
+    "results.linePartial.one": {
+      "text": "partly correct, {earned} of {n} point",
+      "note": "One line of the review of answers: exactly one point possible"
+    },
+    "results.linePartial.other": {
+      "text": "partly correct, {earned} of {n} points",
+      "note": "One line of the review of answers: any other number of points possible"
+    },
+    "results.lineIncorrect.one": {
+      "text": "not correct, 0 of {n} point",
+      "note": "One line of the review of answers: exactly one point possible"
+    },
+    "results.lineIncorrect.other": {
+      "text": "not correct, 0 of {n} points",
+      "note": "One line of the review of answers: any other number of points possible"
+    },
+    "results.lineOpen": {
+      "text": "answered, but not right yet, and you can still try again",
+      "note": "One line of the review of answers"
+    },
+    "results.lineUnanswered": {
+      "text": "not answered yet",
+      "note": "One line of the review of answers"
+    },
+    "results.line": {
+      "text": "{slide}: {how}",
+      "note": "One line of the review of answers: {slide} is the slide's name, {how} the words above"
+    },
+    "results.unavailable": {
+      "text": "Results are not available here.",
+      "note": "Results box when the course cannot work out results"
+    },
+    "results.example": {
+      "text": "Example only. Each learner sees their own results here.",
+      "note": "Shown in the editor in place of real results"
+    },
+    "results.reviewLabel": {
+      "text": "Your answers, question by question",
+      "note": "Spoken name of the review list"
+    },
+    "certificate.label": {
+      "text": "Certificate",
+      "note": "Spoken name of the certificate itself"
+    },
+    "certificate.score": {
+      "text": "Score: {percent}%",
+      "note": "A line of the certificate"
+    },
+    "certificate.date": {
+      "text": "Date: {date}",
+      "note": "A line of the certificate"
+    },
+    "certificate.none": {
+      "text": "There is no certificate to earn in this course.",
+      "note": "Said where the certificate would be, in a course with no quiz"
+    },
+    "certificate.locked": {
+      "text": "Your certificate is available once you pass the quiz. Finish every question first.",
+      "note": "Said where the certificate would be, before the quiz is finished"
+    },
+    "certificate.notPassed": {
+      "text": "The certificate is for learners who pass the quiz, and you did not reach the pass mark.",
+      "note": "Said where the certificate would be, after failing"
+    },
+    "certificate.example": {
+      "text": "Example only. A learner who passes types their name and prints this.",
+      "note": "Shown in the editor above a sample certificate"
+    },
+    "certificate.sampleName": {
+      "text": "Learner's name",
+      "note": "The name on the sample certificate in the editor"
+    },
+    "certificate.nameLabel": {
+      "text": "Your name, as it should appear on the certificate",
+      "note": "Label of the box where the learner types their name"
+    },
+    "certificate.make": {
+      "text": "Make my certificate",
+      "note": "Button that makes the certificate"
+    },
+    "certificate.print": {
+      "text": "Print or save as PDF",
+      "note": "Button that prints the certificate or saves it as a PDF"
+    },
+    "certificate.saidNoName": {
+      "text": "Type your name first.",
+      "note": "Said when Make my certificate is pressed with no name"
+    },
+    "certificate.saidReady": {
+      "text": "Your certificate is ready. Choose Print or save as PDF.",
+      "note": "Said when the certificate has been made"
+    },
+    "ix.listen": {
+      "text": "Listen",
+      "note": "Button on an item of an interaction that has a recorded voice"
+    },
+    "ix.listenNamed": {
+      "text": "Listen to: {title}",
+      "note": "Spoken name of that button, with the item's title"
+    },
+    "ix.selectToFlip": {
+      "text": "Select to flip",
+      "note": "Hint on a flip card"
+    },
+    "ix.flipBack": {
+      "text": "Flip back",
+      "note": "Button on the back of a flip card"
+    },
+    "ix.flipBackNamed": {
+      "text": "Flip back: {title}",
+      "note": "Spoken name of that button, with the card's title"
+    },
+    "ix.previousStep": {
+      "text": "Previous step",
+      "note": "Button: go to the earlier step of steps or a guided picture"
+    },
+    "ix.nextStep": {
+      "text": "Next step",
+      "note": "Button: go to the later step of steps or a guided picture"
+    },
+    "ix.previous": {
+      "text": "Previous",
+      "note": "Button: go to the earlier item of a carousel"
+    },
+    "ix.next": {
+      "text": "Next",
+      "note": "Button: go to the later item of a carousel"
+    },
+    "ix.noPicture": {
+      "text": "No picture chosen yet.",
+      "note": "Shown in the editor where a labeled graphic has no picture"
+    },
+    "ix.searchTerms": {
+      "text": "Search terms",
+      "note": "Label of the search box of a glossary"
+    },
+    "ix.jumpToLetter": {
+      "text": "Jump to letter",
+      "note": "Spoken name of the row of letters of a glossary"
+    },
+    "ix.terms": {
+      "text": "Terms",
+      "note": "Spoken name of the list of terms of a glossary"
+    },
+    "ix.termsStarting": {
+      "text": "Terms starting with {letter}",
+      "note": "Spoken name of a letter button of a glossary"
+    },
+    "ix.definition": {
+      "text": "Definition",
+      "note": "Spoken name of the area that shows a term's definition"
+    },
+    "ix.termCount.one": {
+      "text": "{n} term",
+      "note": "How many terms a glossary shows: exactly one"
+    },
+    "ix.termCount.other": {
+      "text": "{n} terms",
+      "note": "How many terms a glossary shows: any other number"
+    },
+    "ix.noTermsMatch": {
+      "text": "No terms match",
+      "note": "Said when a glossary search finds nothing"
+    },
+    "ix.stepNamed": {
+      "text": "Step {n}: {title}",
+      "note": "Spoken name of a step button, with the step's title"
+    },
+    "ix.stepOf": {
+      "text": "Step {n} of {total}",
+      "note": "Where the learner is in a series of steps"
+    },
+    "ix.itemOf": {
+      "text": "Item {n} of {total}",
+      "note": "Where the learner is in a carousel"
+    },
+    "ix.countNamed": {
+      "text": "{count}: {title}",
+      "note": "The line above with the title of the step or item, said after the learner moves"
+    },
+    "ix.panelLabel": {
+      "text": "{n} of {total}: {title}",
+      "note": "Spoken name of one item of a carousel"
+    },
+    "ix.markerName": {
+      "text": "{n}. {title}",
+      "note": "Spoken name of a numbered marker on a labeled graphic"
+    },
+    "scenario.you": {
+      "text": "You",
+      "note": "The name shown beside a line the learner's own character says, when they have not chosen one"
+    },
+    "scenario.meters": {
+      "text": "Meters",
+      "note": "Spoken name of the group of meters of a scenario"
+    },
+    "scenario.meterLabel": {
+      "text": "{label}: {value}",
+      "note": "A meter's name and its value"
+    },
+    "scenario.meterValue": {
+      "text": "{value}, on a scale from {min} to {max}",
+      "note": "Spoken value of a meter"
+    },
+    "scenario.noStart": {
+      "text": "This scenario has no starting situation.",
+      "note": "Shown when a scenario has nothing to start with"
+    },
+    "scenario.whatHappened": {
+      "text": "What happened",
+      "note": "Heading above what a choice led to"
+    },
+    "scenario.yourChoice": {
+      "text": "Your choice",
+      "note": "Heading above the choice just made, when it led to nothing said"
+    },
+    "scenario.youChose": {
+      "text": "You chose: {label}",
+      "note": "The choice just made"
+    },
+    "scenario.listen": {
+      "text": "Listen to this part",
+      "note": "Button that plays the recorded voices of the situation"
+    },
+    "scenario.tooLong": {
+      "text": "This scenario has gone on for a very long time. Start again to try a different way through.",
+      "note": "Shown when a scenario has no end in reach"
+    },
+    "scenario.yourPath": {
+      "text": "Your path",
+      "note": "Heading above the review of the learner's choices at an ending"
+    },
+    "scenario.pathLine": {
+      "text": "{situation}: {choice}",
+      "note": "One line of the review: the situation and what the learner chose"
+    },
+    "scenario.reflection": {
+      "text": "Something to think about:",
+      "note": "Starts the reflection at the end of a scenario"
+    },
+    "scenario.takeBack": {
+      "text": "Take back my last choice",
+      "note": "Button that goes back one choice"
+    },
+    "scenario.startAgain": {
+      "text": "Start again",
+      "note": "Button that begins the scenario again"
+    },
+    "ad.title": {
+      "text": "Audio description",
+      "note": "Button and heading of the audio descriptions of a video"
+    },
+    "ad.intro": {
+      "text": "These say what the picture in \"{name}\" shows, for anyone who cannot see it.",
+      "note": "Opening line of the audio description window: {name} is the video's description"
+    },
+    "ad.theVideo": {
+      "text": "the video",
+      "note": "Used for {name} above when the video has no description"
+    },
+    "ad.listen": {
+      "text": "Listen to the description",
+      "note": "Button that speaks the audio descriptions"
+    },
+    "ad.stopListening": {
+      "text": "Stop listening",
+      "note": "The same button while it speaks"
+    },
+    "ad.playWith": {
+      "text": "Play the video with the description",
+      "note": "Button that plays the video with the descriptions spoken at their times"
+    },
+    "ad.turnOffVoice": {
+      "text": "Turn off the description voice",
+      "note": "The same button while it is on"
+    },
+    "ad.noteVoiced": {
+      "text": "Playing the video with the description speaks each one at its time. Some pause the video while they are spoken. Pressing play skips the rest of one that is holding the video.",
+      "note": "Help in the audio description window"
+    },
+    "ad.noteWritten": {
+      "text": "These descriptions are written only, so they can be read here but not heard.",
+      "note": "Help in the audio description window when there is no voice"
+    },
+    "ad.isOn": {
+      "text": "Audio description is on.",
+      "note": "Said and shown while the video plays with its descriptions"
+    },
+    "ad.progress": {
+      "text": "Listening to description {at} of {of}.",
+      "note": "Shown while the descriptions are being spoken"
+    },
+    "credits.by": {
+      "text": "{title}, by {creator}",
+      "note": "A line of the credits: a picture or sound and the person who made it"
+    },
+    "credits.from": {
+      "text": "{title}, from {site}",
+      "note": "A line of the credits: a picture or sound and the library it came from"
+    },
+    "credits.byFrom": {
+      "text": "{title}, by {creator}, from {site}",
+      "note": "A line of the credits: a picture or sound, who made it and the library it came from"
+    },
+    "credits.made": {
+      "text": "{title}, made with {service}",
+      "note": "A line of the credits: a picture or sound made with an AI service"
+    },
+    "credits.anAiService": {
+      "text": "an AI service",
+      "note": "Used for {service} above when the service has no name"
+    },
+    "credits.licence": {
+      "text": ". {licence}.",
+      "note": "Ends a line of the credits with its licence"
+    },
+    "input.scalePoint": {
+      "text": "{n} of {total}",
+      "note": "Spoken name of a point on a rating scale: which of how many"
+    },
+    "input.scaleEnd": {
+      "text": "{n} of {total}, closest to {word}",
+      "note": "Spoken name of the first and last point of a rating scale: {word} is what that end stands for"
+    },
+    "download.bytes.one": {
+      "text": "{n} byte",
+      "note": "A file's size: exactly one byte"
+    },
+    "download.bytes.other": {
+      "text": "{n} bytes",
+      "note": "A file's size: any other number of bytes"
+    },
+    "download.kb": {
+      "text": "{n} KB",
+      "note": "A file's size in kilobytes"
+    },
+    "download.mb": {
+      "text": "{n} MB",
+      "note": "A file's size in megabytes"
+    },
+    "download.details": {
+      "text": "{kind}, {size}",
+      "note": "What a file to download is and how big: {kind} is words such as PDF document"
+    },
+    "download.typeOther": {
+      "text": "File",
+      "note": "The kind of a file that is none of the kinds below"
+    },
+    "download.type.pdf": {
+      "text": "PDF document",
+      "note": "The kind of file a learner can download: a .pdf file"
+    },
+    "download.type.docx": {
+      "text": "Word document",
+      "note": "The kind of file a learner can download: a .docx file"
+    },
+    "download.type.doc": {
+      "text": "Word document",
+      "note": "The kind of file a learner can download: a .doc file"
+    },
+    "download.type.odt": {
+      "text": "OpenDocument text document",
+      "note": "The kind of file a learner can download: a .odt file"
+    },
+    "download.type.rtf": {
+      "text": "Rich text document",
+      "note": "The kind of file a learner can download: a .rtf file"
+    },
+    "download.type.txt": {
+      "text": "Plain text file",
+      "note": "The kind of file a learner can download: a .txt file"
+    },
+    "download.type.xlsx": {
+      "text": "Excel spreadsheet",
+      "note": "The kind of file a learner can download: a .xlsx file"
+    },
+    "download.type.xls": {
+      "text": "Excel spreadsheet",
+      "note": "The kind of file a learner can download: a .xls file"
+    },
+    "download.type.ods": {
+      "text": "OpenDocument spreadsheet",
+      "note": "The kind of file a learner can download: a .ods file"
+    },
+    "download.type.csv": {
+      "text": "Comma-separated data file",
+      "note": "The kind of file a learner can download: a .csv file"
+    },
+    "download.type.pptx": {
+      "text": "PowerPoint presentation",
+      "note": "The kind of file a learner can download: a .pptx file"
+    },
+    "download.type.ppt": {
+      "text": "PowerPoint presentation",
+      "note": "The kind of file a learner can download: a .ppt file"
+    },
+    "download.type.odp": {
+      "text": "OpenDocument presentation",
+      "note": "The kind of file a learner can download: a .odp file"
+    },
+    "download.type.zip": {
+      "text": "Zip archive",
+      "note": "The kind of file a learner can download: a .zip file"
+    },
+    "quiz.yourAnswer": {
+      "text": "Your answer",
+      "note": "Label of the box where the learner types an answer"
+    },
+    "quiz.yourAnswerNumber": {
+      "text": "Your answer (a number)",
+      "note": "Label of the box where the learner types a number"
+    },
+    "scenario.meterUp": {
+      "text": "{label} is now {value}, up {change}.",
+      "note": "Said when a meter of a scenario went up"
+    },
+    "scenario.meterDown": {
+      "text": "{label} is now {value}, down {change}.",
+      "note": "Said when a meter of a scenario went down"
+    },
+    "ix.roleCarousel": {
+      "text": "carousel",
+      "note": "What a screen reader calls a carousel of items (an ARIA role description: lower case, one word)"
+    },
+    "ix.roleSlide": {
+      "text": "slide",
+      "note": "What a screen reader calls one item of a carousel (an ARIA role description: lower case, one word)"
+    },
+    "credits.narration": {
+      "text": "Narration",
+      "note": "The title of the line of the credits that says the narration is a synthetic voice"
+    },
+    "credits.voicesComputer": {
+      "text": "Synthetic voices made on this computer, not a person",
+      "note": "The licence line of the narration credit when the voice was made on the author's computer"
+    },
+    "credits.voicesInternet": {
+      "text": "Synthetic voices from an AI service, not a person",
+      "note": "The licence line of the narration credit when an AI service made the voice"
+    },
+    "credits.voices": {
+      "text": "Synthetic voices, not a person",
+      "note": "The licence line of the narration credit when it is not known where the voice was made"
+    },
+    "credits.icons": {
+      "text": "Icons",
+      "note": "The title of the credits line for the icons the course uses"
+    },
+    "credits.iconsLicence": {
+      "text": "ISC licence (the notice is in licenses/lucide.txt)",
+      "note": "The licence line of the credits line for the icons"
+    }
+  }
+}

@@ -17,7 +17,7 @@ const player = path.resolve(here, "..");
 const examples = path.resolve(player, "..", "examples");
 const havePython = Boolean(process.env["OPENSTAGE_PYTHON"]);
 
-interface Result { ok: boolean; message?: string; findings: { severity: string; rule: string }[]; preview?: boolean; slides?: number; outDir?: string; indexHtml?: string; zip?: string | null; narration?: { engine: string } }
+interface Result { ok: boolean; message?: string; findings: { severity: string; rule: string }[]; preview?: boolean; slides?: number; outDir?: string; indexHtml?: string; zip?: string | null; zips?: Record<string, string>; review?: string | null; narration?: { engine: string } }
 
 function scratch(): string {
   return mkdtempSync(path.join(os.tmpdir(), "openstage-publish-test-"));
@@ -39,6 +39,8 @@ test("a preview writes the page and nothing else: no zip, no stand-in LMS, no pr
     assert.equal(result.ok, true);
     assert.equal(result.preview, true);
     assert.equal(result.zip, null);
+    assert.equal(result.review, null);
+    assert.ok(!existsSync(path.join(dir, "site-review.docx")), "a preview makes no Word document either");
     assert.equal(result.narration?.engine, "skipped");
     assert.ok(existsSync(path.join(dir, "site", "index.html")) && existsSync(path.join(dir, "site", "player.js")));
     assert.ok(!existsSync(path.join(dir, "site-scorm12.zip")));
@@ -111,11 +113,60 @@ test("--targets makes only the packages asked for, and refuses one that does not
     assert.ok(existsSync(path.join(dir, "course-xapi.zip")));
     assert.ok(!existsSync(path.join(dir, "course-scorm12.zip")) && !existsSync(path.join(dir, "course-scorm2004.zip")));
     assert.ok(!existsSync(path.join(dir, "course", "imsmanifest.xml")), "the web files carry the SCORM 1.2 manifest only when that package was asked for");
+    assert.equal(result.review, null, "the Word document is made only when it is named");
+    assert.ok(!existsSync(path.join(dir, "course-review.docx")));
 
     const bad = spawnSync(process.execPath, ["publish.ts", path.join(examples, "minimal.osproj"), path.join(dir, "other"), "--targets=scorm12,flash"], { cwd: player, encoding: "utf-8" });
     assert.equal(bad.status, 2);
-    assert.match(bad.stderr, /targets can be scorm12, scorm2004, xapi/);
+    assert.match(bad.stderr, /targets can be scorm12, scorm2004, xapi, review/);
     assert.ok(!existsSync(path.join(dir, "other")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a publish also writes a Word copy for reviewers beside the packages, and --targets=review asks for just that", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
+    assert.equal(status, 0);
+    assert.equal(result.review, path.join(dir, "course-review.docx"));
+    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["scorm12", "scorm2004", "xapi"], "it is not a package");
+    const parts = unzipSync(new Uint8Array(readFileSync(result.review!)));
+    assert.ok("[Content_Types].xml" in parts && "word/document.xml" in parts && "word/styles.xml" in parts, "it is a Word document");
+    const body = new TextDecoder().decode(parts["word/document.xml"]!);
+    assert.ok(body.includes("What Is Organizational Communication?"), "it carries the course's words");
+    assert.ok(body.includes("(correct answer)"), "and marks the right answers");
+
+    const only = run(path.join(examples, "minimal.osproj"), path.join(dir, "only"), "--targets=review");
+    assert.equal(only.status, 0);
+    assert.equal(only.result.review, path.join(dir, "only-review.docx"));
+    assert.deepEqual(Object.keys(only.result.zips ?? {}), []);
+    assert.equal(only.result.zip, null, "with no package, the editor has none to show first");
+    assert.ok(existsSync(path.join(dir, "only-review.docx")) && !existsSync(path.join(dir, "only-scorm12.zip")));
+    assert.ok(existsSync(path.join(dir, "only", "index.html")), "the web files are made as always");
+
+    const both = run(path.join(examples, "minimal.osproj"), path.join(dir, "both"), "--targets=xapi,review");
+    assert.equal(both.status, 0);
+    assert.deepEqual(Object.keys(both.result.zips ?? {}), ["xapi"]);
+    assert.ok(existsSync(path.join(dir, "both-review.docx")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a Word document that cannot be made says so and does not stop the packages", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    // A folder where the file should go: the tool cannot write there.
+    mkdirSync(path.join(dir, "course-review.docx"));
+    const { result, status, stderr } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
+    assert.equal(status, 0, JSON.stringify(result));
+    assert.equal(result.ok, true);
+    assert.equal(result.review, null);
+    assert.match(stderr, /The Word review document could not be made: .*The packages were made\./);
+    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["scorm12", "scorm2004", "xapi"]);
+    assert.ok(existsSync(path.join(dir, "course-scorm12.zip")));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

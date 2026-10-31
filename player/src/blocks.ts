@@ -3,6 +3,7 @@
 // pairs the theme already guarantees, so only the font and its size come from the object's style.
 
 import { appendSanitizedHtml } from "./sanitize.ts";
+import { t } from "./playertext.ts";
 import { buildDescriptionControls, descriptionCues, type DescriptionHost } from "./description.ts";
 import type { EmbedContent, OSObject, TableContent } from "./types.ts";
 
@@ -82,7 +83,7 @@ function transcriptOf(doc: Document, html: string): HTMLElement | null {
   if (html.replace(/<[^>]*>/g, "").trim() === "") return null;
   const details = make(doc, "details", "os-transcript");
   const summary = make(doc, "summary");
-  summary.textContent = "Transcript";
+  summary.textContent = t("narration.transcript");
   const body = make(doc, "div", "os-transcript-body");
   appendSanitizedHtml(body, html);
   details.append(summary, body);
@@ -103,7 +104,7 @@ export function buildMedia(doc: Document, obj: OSObject, onEnded: (id: string) =
   if (typeof captions === "string" && captions !== "") {
     const track = make(doc, "track") as HTMLTrackElement;
     track.kind = "captions";
-    track.label = "Captions";
+    track.label = t("narration.captions");
     track.src = captions;
     media.appendChild(track);
   }

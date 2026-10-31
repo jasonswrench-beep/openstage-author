@@ -75,6 +75,21 @@ test("a publish that made several packages names each one and says to upload the
   assert.equal(publishSummary({ ok: true, findings: [], zip: "/a/x-xapi.zip", zips: { xapi: "/a/x-xapi.zip" } })[1], "The package to upload to your LMS is x-xapi.zip.");
 });
 
+test("a publish that made the Word copy says what is in it, and one that did not says nothing", () => {
+  const dir = "C:\\Courses\\Published courses\\";
+  const lines = publishSummary({ ok: true, slides: 2, zip: `${dir}intro-scorm12.zip`, outDir: `${dir}intro`, review: `${dir}intro-review.docx`, findings: [] });
+  assert.deepEqual(lines, [
+    "Published 2 slides.",
+    "The package to upload to your LMS is intro-scorm12.zip.",
+    "The same course as web files is in the folder intro.",
+    "A Word copy for colleagues and accessibility reviewers is intro-review.docx. It holds the slide text, alt text, narration scripts, quiz answers and the problems the checker found.",
+  ]);
+  for (const review of [null, undefined]) {
+    assert.ok(!publishSummary({ ok: true, slides: 2, zip: `${dir}intro-scorm12.zip`, review, findings: [] }).some((l) => l.includes("Word")));
+  }
+  assert.equal(parsePublishResult('{"ok":true,"review":"C:\\\\out\\\\x-review.docx","findings":[]}').review, "C:\\out\\x-review.docx");
+});
+
 test("a problem is described by where it is, then what is wrong", () => {
   assert.equal(problemLine(finding("error", "Object needs alt text", "obj-0007", "Describe it.")), "obj-0007: Object needs alt text Describe it.");
   assert.equal(problemLine(finding("error", "Slide file missing", "-")), "Slide file missing");

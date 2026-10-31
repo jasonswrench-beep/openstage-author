@@ -5,6 +5,8 @@
 // choices are, which are the same as the course's own, how they are written to the page, how they are saved, which voice may read aloud, how long text is cut for a
 // voice), so they are tested with Node alone. The panel that shows them is in a11ypanel.ts.
 
+import { t } from "./playertext.ts";
+
 export const TEXT_SIZES = [100, 125, 150, 200, 300] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
 
@@ -33,10 +35,11 @@ export interface A11ySettings {
 
 export const DEFAULTS: Readonly<A11ySettings> = { textSize: 100, lineSpacing: "normal", letterSpacing: "normal", colours: "course", readingLine: false, speed: "normal" };
 
-export const TEXT_SIZE_LABELS: Record<TextSize, string> = { 100: "100% (the course's own)", 125: "125%", 150: "150%", 200: "200%", 300: "300%" };
-export const SPACING_LABELS: Record<Spacing, string> = { normal: "The course's own", wide: "Wide", wider: "Wider" };
-export const COLOUR_LABELS: Record<Colours, string> = { course: "The course's own colours", dark: "Dark", contrast: "High contrast: white on black", yellow: "Yellow on black" };
-export const SPEED_LABELS: Record<Speed, string> = { slow: "Slower", normal: "Normal", fast: "Faster" };
+/** The words for each choice. Functions, not tables, because the course may have its own words for them and they are chosen when the player starts. */
+export const textSizeLabel = (n: TextSize): string => (n === 100 ? t("a11y.size100") : `${n}%`);
+export const spacingLabel = (s: Spacing): string => ({ normal: t("a11y.spacingNormal"), wide: t("a11y.spacingWide"), wider: t("a11y.spacingWider") })[s];
+export const colourLabel = (c: Colours): string => ({ course: t("a11y.coloursCourse"), dark: t("a11y.coloursDark"), contrast: t("a11y.coloursContrast"), yellow: t("a11y.coloursYellow") })[c];
+export const speedLabel = (s: Speed): string => ({ slow: t("a11y.speedSlow"), normal: t("a11y.speedNormal"), fast: t("a11y.speedFast") })[s];
 
 const oneOf = <T extends string | number>(list: readonly T[], value: unknown, fallback: T): T => (list as readonly unknown[]).includes(value) ? (value as T) : fallback;
 
@@ -94,15 +97,16 @@ export function pageSettings(s: A11ySettings): PageSettings {
 
 /** In words, for the learner and a screen reader: what is different from the course's own. */
 export function describe(s: A11ySettings): string {
-  if (isDefault(s)) return "Everything is as the course has it.";
+  if (isDefault(s)) return t("a11y.saidDefault");
+  const spacing = (v: Spacing): string => ({ normal: "", wide: t("a11y.valueWide"), wider: t("a11y.valueWider") })[v];
   const parts: string[] = [];
-  if (s.textSize !== DEFAULTS.textSize) parts.push(`text size ${s.textSize} percent`);
-  if (s.lineSpacing !== "normal") parts.push(`line spacing ${s.lineSpacing}`);
-  if (s.letterSpacing !== "normal") parts.push(`letter and word spacing ${s.letterSpacing}`);
-  if (s.colours !== "course") parts.push(`colours: ${COLOUR_LABELS[s.colours].toLowerCase()}`);
-  if (s.readingLine) parts.push("reading line on");
-  if (s.speed !== "normal") parts.push(`reading speed ${SPEED_LABELS[s.speed].toLowerCase()}`);
-  return `Now ${parts.join(", ")}.`;
+  if (s.textSize !== DEFAULTS.textSize) parts.push(t("a11y.partTextSize", { n: s.textSize }));
+  if (s.lineSpacing !== "normal") parts.push(t("a11y.partLineSpacing", { value: spacing(s.lineSpacing) }));
+  if (s.letterSpacing !== "normal") parts.push(t("a11y.partLetterSpacing", { value: spacing(s.letterSpacing) }));
+  if (s.colours !== "course") parts.push(t("a11y.partColours", { value: colourLabel(s.colours).toLowerCase() }));
+  if (s.readingLine) parts.push(t("a11y.partReadingLine"));
+  if (s.speed !== "normal") parts.push(t("a11y.partSpeed", { value: speedLabel(s.speed).toLowerCase() }));
+  return t("a11y.saidNow", { parts: parts.join(", ") });
 }
 
 // ---- remembering them

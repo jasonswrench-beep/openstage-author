@@ -7,6 +7,7 @@
 // (a11ypanel.ts).
 
 import { namesInBrackets } from "./valuetext.ts";
+import { t } from "./playertext.ts";
 import { descriptionCues } from "./description.ts";
 import { itemNarrationKey } from "./narration.ts";
 import { addTimeLabel, spokenTime, timerContentOf } from "./timer.ts";
@@ -87,15 +88,16 @@ function partsOf(o: OSObject, pkg: CoursePackage): string[] {
       break;
     case "timer": {
       // A reader of the transcript should know there is a time limit, and that it can be added to or turned off.
-      const t = timerContentOf(o);
-      onScreen.push(`${t.label}: a timer of ${spokenTime(t.seconds)}. ${t.extendBy > 0 ? `${addTimeLabel(t.extendBy)} or turn it off.` : "It can be turned off."}`);
+      const timer = timerContentOf(o);
+      const rest = timer.extendBy > 0 ? t("transcript.timerExtendable", { add: addTimeLabel(timer.extendBy) }) : t("transcript.timerOff");
+      onScreen.push(t("transcript.timer", { label: timer.label, time: spokenTime(timer.seconds), rest }));
       break;
     }
     default:
       break;
   }
   if (o.type === "video") {
-    for (const cue of descriptionCues(o)) if (cue.text.trim() !== "") out.push(`Audio description, at ${clock(cue.time)}: ${cue.text.trim()}`);
+    for (const cue of descriptionCues(o)) if (cue.text.trim() !== "") out.push(t("transcript.description", { time: clock(cue.time), text: cue.text.trim() }));
   }
   // The narration says what the object says. When it only repeats what is on the screen, it is not written twice.
   if (spoken !== "" && !same(onScreen.join(" "), spoken) && !onScreen.some((l) => same(l, spoken))) out.unshift(spoken);
@@ -111,7 +113,7 @@ export function buildTranscript(pkg: CoursePackage): Transcript {
     const paragraphs: string[] = [];
     if (hasQuiz) {
       // The question's words, its choices and its feedback layers ("Correct", "Try again") are all part of the quiz.
-      paragraphs.push("This slide has a quiz question. Quiz questions are not part of the transcript.");
+      paragraphs.push(t("transcript.quizSlide"));
     } else {
       for (const layer of layers) {
         for (const o of readingOrder(layer.objects)) {
@@ -125,11 +127,11 @@ export function buildTranscript(pkg: CoursePackage): Transcript {
 }
 
 /** The transcript as a plain text file's contents: the course's title, then each slide numbered, with a blank line between paragraphs. */
-export function transcriptText(t: Transcript, newline = "\r\n"): string {
-  const out: string[] = [t.title, "Transcript", ""];
-  t.sections.forEach((s, i) => {
+export function transcriptText(transcript: Transcript, newline = "\r\n"): string {
+  const out: string[] = [transcript.title, t("narration.transcript"), ""];
+  transcript.sections.forEach((s, i) => {
     out.push(`${i + 1}. ${s.title}`, "");
-    if (s.paragraphs.length === 0) out.push("(Nothing to read on this slide.)", "");
+    if (s.paragraphs.length === 0) out.push(t("transcript.nothing"), "");
     for (const p of s.paragraphs) out.push(p, "");
   });
   return out.join(newline).replace(/(\r?\n)+$/, newline);

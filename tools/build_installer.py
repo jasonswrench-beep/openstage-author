@@ -46,7 +46,7 @@ PIP_PACKAGES = ["jsonschema==4.26.0", "pip==26.2.1"]  # jsonschema is what tools
 
 # Only these example courses go in (the others are test material).
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj"]
-TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "charpack.py", "pngio.py"]
+TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenStage Author Trial"}
 

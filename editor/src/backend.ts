@@ -13,6 +13,7 @@ import type { FileText, OpenedProject } from "./model.ts";
 import { base64ToBytes, parseMakeResult, type CachedAudio, type MakeResult } from "./narration.ts";
 import { parseSample, type SampleAnswer } from "./voicesample.ts";
 import { parsePublishResult, type PublishResult } from "./publishing.ts";
+import { parseTranslationAnswer, type TranslationExported, type TranslationFailed, type TranslationImported } from "./translation.ts";
 import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState } from "./recorder.ts";
 import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
@@ -130,6 +131,14 @@ export interface Backend {
   pickQuestionFile(): Promise<string | null>;
   /** Ask where to save the blank table of questions, with a file dialog. Null if the author cancelled. */
   pickQuestionTemplateSave(name?: string): Promise<string | null>;
+  /** Ask where to save the translation file, with a file dialog. Null if the author cancelled. */
+  pickTranslationSave(name: string): Promise<string | null>;
+  /** Ask which translated file to bring in, with a file dialog. Null if the author cancelled. */
+  pickTranslationFile(): Promise<string | null>;
+  /** Write the words of the project to an XLIFF file for translating into `language`. A refusal comes back as an answer with a reason. */
+  translationExport(dir: string, language: string, dest: string, pseudo: boolean): Promise<TranslationExported | TranslationFailed>;
+  /** Make a translated copy of the project from a translated XLIFF file, in a new folder inside `into`. */
+  translationImport(dir: string, source: string, into: string): Promise<TranslationImported | TranslationFailed>;
   /** The words of a table of questions saved as CSV or text, whatever way the spreadsheet program saved them. */
   questionFileRead(source: string): Promise<string>;
   /** Write the blank table of questions to a file the author chose. */
@@ -281,7 +290,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
  * window.__openstageTestPick to a function that returns the path to use instead. Nothing in the
  * app sets it, so it has no effect unless a test (or someone in the developer tools) does.
  */
-type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | "setfile" | "setsave" | "questionfile" | "questionsave" | AssetKindName;
+type PickKind = "open" | "new" | "publish" | "captionsource" | "packzip" | "setfile" | "setsave" | "questionfile" | "questionsave" | "translationfile" | "translationsave" | AssetKindName;
 type TestPick = (kind: PickKind) => string | null | undefined;
 /** The same seam for the questions the editor asks with a native Yes or No: a test sets window.__openstageTestConfirm to a function that answers. */
 const testConfirm = (message: string): boolean | undefined =>
@@ -384,6 +393,24 @@ const tauriBackend: Backend = {
   },
   questionFileRead: (source) => invoke<string>("question_file_read", { source }),
   questionTemplateWrite: (dest, text) => invoke<void>("question_template_write", { dest, text }),
+  async pickTranslationSave(name) {
+    const forced = testPick("translationsave");
+    if (forced !== undefined) return forced;
+    const picked = await saveDialog({ title: "Save the translation file", defaultPath: name, filters: [{ name: "XLIFF translation files", extensions: ["xlf"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async pickTranslationFile() {
+    const forced = testPick("translationfile");
+    if (forced !== undefined) return forced;
+    const picked = await openDialog({ multiple: false, title: "Choose the translated file", filters: [{ name: "XLIFF translation files", extensions: ["xlf", "xliff"] }] });
+    return typeof picked === "string" ? picked : null;
+  },
+  async translationExport(dir, language, dest, pseudo) {
+    return parseTranslationAnswer<TranslationExported>(await invoke<string>("translation_export", { dir, language, dest, pseudo }));
+  },
+  async translationImport(dir, source, into) {
+    return parseTranslationAnswer<TranslationImported>(await invoke<string>("translation_import", { dir, source, into }));
+  },
   async pickSetSave(name) {
     const forced = testPick("setsave");
     if (forced !== undefined) return forced;
@@ -619,6 +646,15 @@ const previewBackend: Backend = {
   async questionTemplateWrite() {
     throw new Error("Saving the template needs the desktop app.");
   },
+  // In a web browser there is no file dialog, so the web page is given the paths in its address (?translationsave=...&translationfile=...).
+  async pickTranslationSave() {
+    return new URLSearchParams(location.search).get("translationsave");
+  },
+  async pickTranslationFile() {
+    return new URLSearchParams(location.search).get("translationfile");
+  },
+  translationExport: (dir, language, dest, pseudo) => post<TranslationExported | TranslationFailed>("/api/translation-export", { dir, language, dest, pseudo }),
+  translationImport: (dir, source, into) => post<TranslationImported | TranslationFailed>("/api/translation-import", { dir, source, into }),
   async setRead() {
     return { ok: false, message: "Taking in a set of slides needs the desktop app." };
   },

@@ -7,6 +7,7 @@
 // Nothing here moves by itself, nothing needs a mouse, and every control is a native button.
 
 import { appendSanitizedHtml } from "./sanitize.ts";
+import { t, tn } from "./playertext.ts";
 import type { InteractionContent, InteractionItem, OSObject } from "./types.ts";
 
 export const INTERACTION_KINDS = [
@@ -77,8 +78,8 @@ export interface ItemSound {
  */
 function listenButton(doc: Document, item: InteractionItem, sound: ItemSound | undefined): HTMLElement | null {
   if (!sound?.has(item.id)) return null;
-  const b = btn(doc, "os-ix-listen", { "aria-label": `Listen to: ${item.title}` });
-  b.textContent = "Listen";
+  const b = btn(doc, "os-ix-listen", { "aria-label": t("ix.listenNamed", { title: item.title }) });
+  b.textContent = t("ix.listen");
   b.addEventListener("click", () => sound.play(item.id));
   return b;
 }
@@ -181,7 +182,7 @@ function buildFlipCards(ctx: Ctx): void {
     const title = make(doc, "span", "os-ix-title");
     title.textContent = item.title;
     front.append(title, make(doc, "span", "os-ix-hint"));
-    front.lastElementChild!.textContent = "Select to flip";
+    front.lastElementChild!.textContent = t("ix.selectToFlip");
     const back = make(doc, "div", "os-ix-face os-ix-backface", { id: ctx.id(item, "p"), role: "region", "aria-labelledby": ctx.id(item, "b") });
     back.hidden = true;
     const heading = make(doc, "h3", "os-ix-heading");
@@ -189,8 +190,8 @@ function buildFlipCards(ctx: Ctx): void {
     back.appendChild(heading);
     fillPanel(doc, back, item, ctx.sound);
     const turn = btn(doc, "os-ix-turn");
-    turn.textContent = "Flip back";
-    turn.setAttribute("aria-label", `Flip back: ${item.title}`);
+    turn.textContent = t("ix.flipBack");
+    turn.setAttribute("aria-label", t("ix.flipBackNamed", { title: item.title }));
     back.appendChild(turn);
     card.append(front, back);
     list.appendChild(card);
@@ -333,13 +334,13 @@ export function markerAt(item: InteractionItem, i: number, n: number): { x: numb
 
 /** What the step line of a guided labeled graphic says. After the learner's own action it names the step; when the slide opens it only counts. */
 export function stepText(i: number, n: number, title: string, announce: boolean): string {
-  const count = `Step ${i + 1} of ${n}`;
-  return announce ? `${count}: ${title}` : count;
+  const count = t("ix.stepOf", { n: i + 1, total: n });
+  return announce ? t("ix.countNamed", { count, title }) : count;
 }
 
 /** What a marker is called to a screen reader: its number, which is all it shows, then its title. */
 export function markerName(i: number, title: string): string {
-  return `${i + 1}. ${title}`;
+  return t("ix.markerName", { n: i + 1, title });
 }
 
 function buildSelector(ctx: Ctx, kind: SelectorKind): void {
@@ -358,9 +359,9 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
   // For a guided labeled graphic: Previous, "Step 2 of 5", Next. The same bar as a carousel's, so it works and reads the same way.
   const guideBar = make(doc, "div", "os-ix-bar");
   const guidePrev = btn(doc, "os-ix-nav");
-  guidePrev.textContent = "Previous step";
+  guidePrev.textContent = t("ix.previousStep");
   const guideNext = btn(doc, "os-ix-nav");
-  guideNext.textContent = "Next step";
+  guideNext.textContent = t("ix.nextStep");
   const guideStatus = make(doc, "span", "os-ix-status", { "aria-live": "polite", "aria-atomic": "true" });
   guideBar.append(guidePrev, guideStatus, guideNext);
 
@@ -422,7 +423,7 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
       frame.appendChild(pic);
     } else {
       const none = make(doc, "p", "os-ix-nopicture");
-      none.textContent = "No picture chosen yet.";
+      none.textContent = t("ix.noPicture");
       frame.appendChild(none);
     }
     frame.appendChild(tablist);
@@ -485,12 +486,12 @@ function buildGlossary(ctx: Ctx): void {
   const side = make(doc, "div", "os-ix-gloss-side");
   const searchId = `${ctx.obj.id}-search`;
   const searchLabel = make(doc, "label", "os-ix-search-label", { for: searchId });
-  searchLabel.textContent = "Search terms";
+  searchLabel.textContent = t("ix.searchTerms");
   const search = make(doc, "input", "os-ix-search", { id: searchId, type: "search", autocomplete: "off" }) as HTMLInputElement;
   const count = make(doc, "p", "os-ix-gloss-count", { "aria-live": "polite", "aria-atomic": "true" });
 
-  const letters = make(doc, "div", "os-ix-letters", { role: "group", "aria-label": "Jump to letter" });
-  const listEl = make(doc, "ul", "os-ix-terms", { "aria-label": "Terms" });
+  const letters = make(doc, "div", "os-ix-letters", { role: "group", "aria-label": t("ix.jumpToLetter") });
+  const listEl = make(doc, "ul", "os-ix-terms", { "aria-label": t("ix.terms") });
   const entries = items.map((item) => {
     const li = make(doc, "li");
     const b = btn(doc, "os-ix-term", { id: ctx.id(item, "b"), "aria-controls": `${ctx.obj.id}-definition` });
@@ -502,14 +503,14 @@ function buildGlossary(ctx: Ctx): void {
   const first = (item: InteractionItem) => (item.title.trim()[0] ?? "").toUpperCase();
   const present = new Set(entries.map((e) => first(e.item)));
   const letterButtons = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((ch) => {
-    const b = btn(doc, "os-ix-letter", { "aria-label": `Terms starting with ${ch}` });
+    const b = btn(doc, "os-ix-letter", { "aria-label": t("ix.termsStarting", { letter: ch }) });
     b.textContent = ch;
     if (!present.has(ch)) b.setAttribute("aria-disabled", "true");
     letters.appendChild(b);
     return { ch, b };
   });
 
-  const definition = make(doc, "div", "os-ix-panel os-ix-definition", { id: `${ctx.obj.id}-definition`, role: "region", "aria-label": "Definition", "aria-live": "polite", tabindex: "0" });
+  const definition = make(doc, "div", "os-ix-panel os-ix-definition", { id: `${ctx.obj.id}-definition`, role: "region", "aria-label": t("ix.definition"), "aria-live": "polite", tabindex: "0" });
 
   side.append(searchLabel, search, count, letters, listEl);
   root.append(side, definition);
@@ -525,7 +526,7 @@ function buildGlossary(ctx: Ctx): void {
   };
   const shown = () => entries.filter((e) => !e.li.hidden);
   if (entries[0]) show(entries[0].item);
-  count.textContent = `${entries.length} terms`;
+  count.textContent = tn("ix.termCount", entries.length);
   if (ctx.editing) return;
 
   entries.forEach((e) => e.b.addEventListener("click", () => { show(e.item); ctx.sound?.play(e.item.id); }));
@@ -533,12 +534,12 @@ function buildGlossary(ctx: Ctx): void {
     const q = search.value.trim().toLowerCase();
     entries.forEach((e) => { e.li.hidden = q !== "" && !e.item.title.toLowerCase().includes(q); });
     const k = shown().length;
-    count.textContent = k === 0 ? "No terms match" : `${k} ${k === 1 ? "term" : "terms"}`;
+    count.textContent = k === 0 ? t("ix.noTermsMatch") : tn("ix.termCount", k);
   });
   letterButtons.forEach(({ ch, b }) => b.addEventListener("click", () => {
     if (b.getAttribute("aria-disabled") === "true") return;
     // A letter jumps to its first term, and clears a search that would hide it.
-    if (search.value !== "") { search.value = ""; entries.forEach((e) => (e.li.hidden = false)); count.textContent = `${entries.length} terms`; }
+    if (search.value !== "") { search.value = ""; entries.forEach((e) => (e.li.hidden = false)); count.textContent = tn("ix.termCount", entries.length); }
     const hit = entries.find((e) => first(e.item) === ch);
     if (hit) { hit.b.focus(); hit.b.scrollIntoView({ block: "nearest" }); }
   }));
@@ -549,7 +550,7 @@ function buildGlossary(ctx: Ctx): void {
 function buildCarousel(ctx: Ctx, steps: boolean): void {
   const { doc, c, root } = ctx;
   const n = c.items.length;
-  if (!steps) root.setAttribute("aria-roledescription", "carousel");
+  if (!steps) root.setAttribute("aria-roledescription", t("ix.roleCarousel"));
 
   const stepList = steps ? make(doc, "ol", "os-ix-steps") : null;
   const stepButtons = c.items.map((item, i) => {
@@ -561,7 +562,7 @@ function buildCarousel(ctx: Ctx, steps: boolean): void {
     const label = make(doc, "span", "os-ix-title");
     label.textContent = item.title;
     // "Step 2: Title" for a screen reader, since the visible number is hidden from it.
-    b.setAttribute("aria-label", `Step ${i + 1}: ${item.title}`);
+    b.setAttribute("aria-label", t("ix.stepNamed", { n: i + 1, title: item.title }));
     b.append(num, label);
     li.appendChild(b);
     stepList.appendChild(li);
@@ -572,7 +573,7 @@ function buildCarousel(ctx: Ctx, steps: boolean): void {
   const panels = c.items.map((item, i) => {
     const p = make(doc, "div", "os-ix-panel", { id: ctx.id(item, "p"), role: steps ? "region" : "group", tabindex: "0" });
     if (steps) p.setAttribute("aria-labelledby", ctx.id(item, "b"));
-    else { p.setAttribute("aria-roledescription", "slide"); p.setAttribute("aria-label", `${i + 1} of ${n}: ${item.title}`); }
+    else { p.setAttribute("aria-roledescription", t("ix.roleSlide")); p.setAttribute("aria-label", t("ix.panelLabel", { n: i + 1, total: n, title: item.title })); }
     p.hidden = true;
     const h = make(doc, "h3", "os-ix-heading");
     h.textContent = item.title;
@@ -584,9 +585,9 @@ function buildCarousel(ctx: Ctx, steps: boolean): void {
 
   const bar = make(doc, "div", "os-ix-bar");
   const prev = btn(doc, "os-ix-nav");
-  prev.textContent = steps ? "Previous step" : "Previous";
+  prev.textContent = steps ? t("ix.previousStep") : t("ix.previous");
   const next = btn(doc, "os-ix-nav");
-  next.textContent = steps ? "Next step" : "Next";
+  next.textContent = steps ? t("ix.nextStep") : t("ix.next");
   const status = make(doc, "span", "os-ix-status", { "aria-live": "polite", "aria-atomic": "true" });
   bar.append(prev, status, next);
 
@@ -601,9 +602,9 @@ function buildCarousel(ctx: Ctx, steps: boolean): void {
     });
     prev.setAttribute("aria-disabled", String(at === 0));
     next.setAttribute("aria-disabled", String(at === n - 1));
-    const text = `${steps ? "Step" : "Item"} ${at + 1} of ${n}`;
+    const text = steps ? t("ix.stepOf", { n: at + 1, total: n }) : t("ix.itemOf", { n: at + 1, total: n });
     // The live region is only filled by the learner's own action, so opening the slide is not noisy.
-    status.textContent = announce ? `${text}: ${c.items[at]!.title}` : text;
+    status.textContent = announce ? t("ix.countNamed", { count: text, title: c.items[at]!.title }) : text;
   };
 
   if (stepList) root.appendChild(stepList);

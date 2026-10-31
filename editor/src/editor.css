@@ -320,6 +320,10 @@ button.small:hover { background: #e3e6eb; }
 /* ---- Publish dialog */
 .publish-dialog .field input[readonly] { background: #f1f3f6; }
 .publish-dialog .btn-row { margin: 4px 0 8px; }
+
+/* ---- Translate dialog */
+.translate-dialog .field.check { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.translate-dialog .btn-row { margin: 4px 0 8px; }
 .pb-problems { list-style: none; margin: 8px 0; padding: 0; max-height: 14em; overflow: auto; }
 .pb-problems li { padding: 4px 8px; border-left: 4px solid #a4262c; background: #fbeeee; margin: 3px 0; font-size: 13px; }
 .pb-after { margin-top: 8px; }

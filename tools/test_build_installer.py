@@ -36,6 +36,21 @@ class Pieces(unittest.TestCase):
         self.assertTrue((b.ROOT / "character-packs" / "README.txt").is_file())
         self.assertTrue(any((b.ROOT / "character-packs").glob("*/pack.json")))
 
+    def test_every_tool_the_editor_runs_by_name_goes_in(self):
+        # The editor looks for its Python tools by name next to the program. One that is not in the installer works from a checkout and fails for everyone
+        # who installed (the translation tool and the review document were found missing this way).
+        import re
+
+        source = (b.TAURI / "src" / "lib.rs").read_text(encoding="utf-8")
+        named = set(re.findall(r'find_tool\("([^"]+)"\)', source))
+        self.assertTrue({"validate.py", "xliff.py", "narrate.py"} <= named, named)
+        self.assertEqual(sorted(named - set(b.TOOLS)), [])
+
+    def test_the_tools_that_read_a_shared_file_have_it_with_them(self):
+        # validate.py reads these when it starts, so without them the problem check does not even run.
+        for name in ("download-types.json", "player-text.json", "theme-rules.json"):
+            self.assertIn(name, b.TOOLS)
+
     def test_what_the_uninstall_screen_offers_to_delete_is_named(self):
         text = (b.TAURI / "installer" / "English.nsh").read_text(encoding="utf-8-sig")
         self.assertIn('LangString deleteAppData ${LANG_ENGLISH} "Also delete my settings, models, narration voice and character packs"', text)

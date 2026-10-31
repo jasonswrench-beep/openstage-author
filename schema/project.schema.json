@@ -91,6 +91,12 @@
         "not": { "pattern": "(^|/)\\.\\.(/|$)" }
       }
     },
+    "playerText": {
+      "description": "Optional (added in 0.46.0). The player's own words in this course's language: a phrase for any of the keys listed in tools/player-text.json, such as nav.next. A key left out keeps its English. A phrase must hold the same {places} as the English one.",
+      "type": "object",
+      "maxProperties": 1000,
+      "additionalProperties": { "type": "string", "maxLength": 500 }
+    },
     "completion": {
       "type": "object",
       "additionalProperties": false,

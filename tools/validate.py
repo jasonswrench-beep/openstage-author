@@ -36,7 +36,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 45, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 46, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1130,6 +1130,10 @@ def _embed(rel, obj, add):
 # The kinds of file a course can offer for download: tools/download-types.json, shared with the editor and the player.
 DOWNLOAD_TYPES = {t["ext"]: t["label"] for t in json.loads((ROOT / "tools" / "download-types.json").read_text(encoding="utf-8"))["types"]}
 
+# The player's own words, with the English each starts as: tools/player-text.json, shared with the player and the translation tool.
+PLAYER_TEXT = json.loads((ROOT / "tools" / "player-text.json").read_text(encoding="utf-8"))["keys"]
+_PLAYER_TEXT_PLACE = re.compile(r"\{[A-Za-z0-9_]+\}")
+
 
 def _timer(rel, obj, add):
     """A countdown. Its numbers are checked by the schema. What the validator adds is that running out should lead somewhere, and that the
@@ -1511,6 +1515,7 @@ def validate_project(project_dir, asset_root=None):
     findings += p_findings
     if p_hard:
         return findings
+    _player_text(project, add)
 
     theme = default_theme()
     ref = (project.get("theme") or {}).get("ref")
@@ -1635,6 +1640,26 @@ def validate_project(project_dir, asset_root=None):
 
 _LETTERED = re.compile(r"^\s*\(?[A-Ha-h][.):]\s")
 _POSITIONAL = re.compile(r"\b(all|none|neither|both)\b.{0,12}\b(of the above|of these)\b|\b(both|either)\s+[A-Ha-h]\s+(and|or)\s+[A-Ha-h]\b|\bthe above\b", re.IGNORECASE)
+
+
+def _player_text(project, add):
+    """The course's own words for the player (`playerText`, added in 0.46.0). A key the player does not have does nothing, so it is worth
+    a warning: a typing mistake would otherwise look as if it worked. An empty phrase would leave a button with no name, and a phrase
+    that loses or changes a {place} would show the learner a hole or a stray brace, so both are errors."""
+    for key, value in (project.get("playerText") or {}).items():
+        if key not in PLAYER_TEXT:
+            add(WARNING, "project.json", key, "player-text-unknown-key", "The course changes a word the player does not have",
+                f"'{key}' is not one of the player's words (the list is in tools/player-text.json), so it does nothing. A typing mistake, or a word from a newer version.")
+            continue
+        if not value.strip():
+            add(ERROR, "project.json", key, "player-text-empty", "A word of the player is empty",
+                f"'{key}' is empty, which would leave a button or a message with nothing on it. Take it out to use the English, or write the words.")
+            continue
+        want = sorted(_PLAYER_TEXT_PLACE.findall(PLAYER_TEXT[key]["text"]))
+        got = sorted(_PLAYER_TEXT_PLACE.findall(value))
+        if want != got:
+            add(ERROR, "project.json", key, "player-text-places", "A word of the player lost or changed a place the player fills in",
+                f"'{key}' must hold {', '.join(want) if want else 'no {places}'}, but holds {', '.join(got) if got else 'none'}.")
 
 
 def _banks(project, slides, order, add):
@@ -1958,6 +1983,11 @@ def format_text(findings):
 
 
 def main(argv):
+    # Scripts, alt text and names can be in any language, and a Windows pipe or console is not UTF-8 unless asked: what is printed (the JSON the editor
+    # and the publisher read, the progress and the messages) is made UTF-8 so a course in Japanese does not stop the tool.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     asset_root = None
     args = []
     it = iter(argv)

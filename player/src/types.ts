@@ -20,6 +20,8 @@ export interface Project {
   credits: boolean;
   /** Files and folders left out of the source/ copy of the project that a published package carries. See exclude.ts. */
   sourceExclude?: string[];
+  /** The player's own words in this course's language (added in 0.46.0): a phrase for some of the keys in tools/player-text.json. Any key left out keeps its English. */
+  playerText?: Record<string, string>;
   /** The cast: people a scenario can show and a learner can choose to be. Absent means none. */
   characters?: Character[];
   /**

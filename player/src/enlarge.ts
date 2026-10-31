@@ -7,17 +7,18 @@
 // screen reader's list of buttons is not a list of identical ones.
 
 import type { OSObject } from "./types.ts";
+import { t } from "./playertext.ts";
 
 /** What the Enlarge button is called to a screen reader. Its visible words, "Enlarge", are the start of it. */
 export function enlargeName(alt: string): string {
   const words = alt.trim();
-  return words === "" ? "Enlarge picture" : `Enlarge picture: ${words}`;
+  return words === "" ? t("enlarge.openUnnamed") : t("enlarge.openNamed", { words });
 }
 
 /** What the pop-up is called to a screen reader. */
 export function enlargedName(alt: string): string {
   const words = alt.trim();
-  return words === "" ? "Enlarged picture" : `Enlarged picture: ${words}`;
+  return words === "" ? t("enlarge.dialogUnnamed") : t("enlarge.dialogNamed", { words });
 }
 
 function make(doc: Document, tag: string, cls: string, text = ""): HTMLElement {
@@ -37,16 +38,16 @@ export function buildEnlargeablePicture(doc: Document, img: HTMLImageElement, ob
   const box = make(doc, "div", "os-image os-image-box");
   img.className = "os-image-in";
 
-  const open = make(doc, "button", "os-enlarge", "Enlarge") as HTMLButtonElement;
+  const open = make(doc, "button", "os-enlarge", t("enlarge.open")) as HTMLButtonElement;
   open.type = "button";
   open.setAttribute("aria-haspopup", "dialog");
   open.setAttribute("aria-label", enlargeName(alt));
 
   const dialog = make(doc, "dialog", "os-enlarge-dialog") as HTMLDialogElement;
   dialog.setAttribute("aria-label", enlargedName(alt));
-  const size = make(doc, "button", "os-nav-btn", "Actual size") as HTMLButtonElement;
+  const size = make(doc, "button", "os-nav-btn", t("enlarge.actualSize")) as HTMLButtonElement;
   size.type = "button";
-  const close = make(doc, "button", "os-nav-btn", "Close") as HTMLButtonElement;
+  const close = make(doc, "button", "os-nav-btn", t("common.close")) as HTMLButtonElement;
   close.type = "button";
   const bar = make(doc, "div", "os-enlarge-bar");
   bar.append(size, close);
@@ -60,12 +61,12 @@ export function buildEnlargeablePicture(doc: Document, img: HTMLImageElement, ob
   let actual = false;
   const show = (): void => {
     dialog.classList.toggle("os-enlarge-actual", actual);
-    size.textContent = actual ? "Fit to window" : "Actual size";
+    size.textContent = actual ? t("enlarge.fit") : t("enlarge.actualSize");
     // At its own size a picture can be bigger than the window. The scrolling part has to be reachable by the keyboard, and say what it is.
     if (actual) {
       view.tabIndex = 0;
       view.setAttribute("role", "region");
-      view.setAttribute("aria-label", "The picture at its own size. Use the arrow keys to move around it.");
+      view.setAttribute("aria-label", t("enlarge.viewHelp"));
     } else {
       view.removeAttribute("tabindex");
       view.removeAttribute("role");

@@ -8,6 +8,7 @@
 // runtime's, and are the same for every kind.
 
 import { attachDrag, insertIndexFor, reorder } from "./dragging.ts";
+import { t } from "./playertext.ts";
 import { decodeBlanks, decodePairs, encodeBlanks, encodePairs, matchOptions, splitBlanks, stableShuffle } from "./grading.ts";
 import type { ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, OSObject, QuizContent, SequencingQuiz, ShortAnswerQuiz } from "./types.ts";
 
@@ -58,7 +59,7 @@ function buildChoice(doc: Document, obj: OSObject, q: ChoiceQuiz, ctx: QuestionC
   const group = make(doc, "div", "os-quiz-group", { role: multi ? "group" : "radiogroup", "aria-label": obj.accessibility.altText });
   if (multi) {
     const hint = make(doc, "p", "os-q-hint", { id: uid(obj, "hint") });
-    hint.textContent = "Choose every answer that is right.";
+    hint.textContent = t("quiz.hintMulti");
     group.setAttribute("aria-describedby", hint.id);
     group.appendChild(hint);
   }
@@ -92,7 +93,7 @@ function buildTyped(doc: Document, obj: OSObject, q: ShortAnswerQuiz | NumericQu
   const group = make(doc, "div", "os-q-typed", { role: "group", "aria-label": obj.accessibility.altText });
   const id = uid(obj, "answer");
   const label = make(doc, "label", "os-q-label", { for: id });
-  label.textContent = q.questionType === "numeric" ? "Your answer (a number)" : "Your answer";
+  label.textContent = q.questionType === "numeric" ? t("quiz.yourAnswerNumber") : t("quiz.yourAnswer");
   // A number is typed as text, because the browser's own number box refuses a comma and says things in its own words.
   const box = input(doc, "text", "os-q-input", { id, autocomplete: "off", spellcheck: "false", autocapitalize: "off", ...(q.questionType === "numeric" ? { inputmode: "decimal" } : {}) });
   group.append(label, box);
@@ -126,14 +127,14 @@ function buildBlanks(doc: Document, obj: OSObject, q: FillBlanksQuiz, ctx: Quest
       sentence.appendChild(doc.createTextNode(`{${part.id}}`));
       continue;
     }
-    const name = `Blank ${hit.n} of ${q.blanks.length}`;
+    const name = t("quiz.blankName", { n: hit.n, total: q.blanks.length });
     let field: HTMLInputElement | HTMLSelectElement;
     if (typed) {
       const longest = Math.max(0, ...hit.blank.answers.map((a) => a.length));
       field = input(doc, "text", "os-q-blank", { "aria-label": name, size: String(Math.min(30, Math.max(6, longest + 2))), autocomplete: "off", spellcheck: "false", autocapitalize: "off" });
     } else {
       const select = make(doc, "select", "os-q-blank", { "aria-label": name }) as HTMLSelectElement;
-      select.appendChild(Object.assign(make(doc, "option"), { value: "", textContent: "Choose a word" }));
+      select.appendChild(Object.assign(make(doc, "option"), { value: "", textContent: t("quiz.chooseWord") }));
       for (const w of words) select.appendChild(Object.assign(make(doc, "option"), { value: w, textContent: w }));
       field = select;
     }
@@ -145,11 +146,11 @@ function buildBlanks(doc: Document, obj: OSObject, q: FillBlanksQuiz, ctx: Quest
     // The words to drag. They only repeat what the lists in the blanks offer, so they are hidden from assistive technology.
     const bank = make(doc, "div", "os-q-bank", { "aria-hidden": "true" });
     const title = make(doc, "span", "os-q-bank-label");
-    title.textContent = "Word bank:";
+    title.textContent = t("quiz.wordBank");
     bank.appendChild(title);
     for (const w of words) bank.appendChild(Object.assign(make(doc, "span", "os-chip", { "data-word": w }), { textContent: w }));
     const hint = make(doc, "p", "os-q-hint");
-    hint.textContent = "Drag a word onto a blank, or choose the word from the list in the blank.";
+    hint.textContent = t("quiz.dragWordHint");
     group.append(bank, hint);
   }
   const values = (): string[] => q.blanks.map((b) => fields.get(b.id)?.value ?? "");
@@ -195,7 +196,7 @@ function buildBlanks(doc: Document, obj: OSObject, q: FillBlanksQuiz, ctx: Quest
 function buildMatching(doc: Document, obj: OSObject, q: MatchingQuiz, ctx: QuestionContext): Parts {
   const group = make(doc, "div", "os-q-matching", { role: "group", "aria-label": obj.accessibility.altText });
   const hint = make(doc, "p", "os-q-hint");
-  hint.textContent = "Choose the match for each item.";
+  hint.textContent = t("quiz.matchHint");
   group.appendChild(hint);
   const options = stableShuffle(matchOptions(q), obj.id);
   const selects = new Map<string, HTMLSelectElement>();
@@ -204,7 +205,7 @@ function buildMatching(doc: Document, obj: OSObject, q: MatchingQuiz, ctx: Quest
     const premise = make(doc, "span", "os-q-premise", { id: uid(obj, `item-${pair.id}`) });
     premise.textContent = pair.premise;
     const select = make(doc, "select", "os-q-match", { "aria-labelledby": premise.id, "data-pair": pair.id }) as HTMLSelectElement;
-    select.appendChild(Object.assign(make(doc, "option"), { value: "", textContent: "Choose a match" }));
+    select.appendChild(Object.assign(make(doc, "option"), { value: "", textContent: t("quiz.chooseMatch") }));
     for (const o of options) select.appendChild(Object.assign(make(doc, "option"), { value: o.id, textContent: o.text }));
     selects.set(pair.id, select);
     row.append(premise, select);
@@ -214,7 +215,7 @@ function buildMatching(doc: Document, obj: OSObject, q: MatchingQuiz, ctx: Quest
     const bank = make(doc, "div", "os-q-bank", { "aria-hidden": "true" });
     for (const o of options) bank.appendChild(Object.assign(make(doc, "span", "os-chip", { "data-option": o.id }), { textContent: o.text }));
     const dragHint = make(doc, "p", "os-q-hint");
-    dragHint.textContent = "You can also drag a match onto its item.";
+    dragHint.textContent = t("quiz.dragMatchHint");
     group.append(bank, dragHint);
   }
   const chosen = (): Record<string, string> => Object.fromEntries([...selects].map(([id, s]) => [id, s.value]));
@@ -260,7 +261,7 @@ function buildMatching(doc: Document, obj: OSObject, q: MatchingQuiz, ctx: Quest
 function buildSequence(doc: Document, obj: OSObject, q: SequencingQuiz, ctx: QuestionContext): Parts {
   const group = make(doc, "div", "os-q-sequencing", { role: "group", "aria-label": obj.accessibility.altText });
   const hint = make(doc, "p", "os-q-hint");
-  hint.textContent = "Put the items in the right order. Use Move up and Move down.";
+  hint.textContent = t("quiz.orderHint");
   const list = make(doc, "ol", "os-q-sequence");
   group.append(hint, list);
   const text = (id: string): string => q.items.find((i) => i.id === id)?.text ?? "";
@@ -272,10 +273,10 @@ function buildSequence(doc: Document, obj: OSObject, q: SequencingQuiz, ctx: Que
       const li = make(doc, "li", "os-q-seq-item", { "data-item": id });
       const words = make(doc, "span", "os-q-seq-text");
       words.textContent = text(id);
-      const up = make(doc, "button", "os-q-move", { type: "button", "aria-label": `Move up: ${text(id)}`, "data-move": `${id}:-1` });
-      up.textContent = "Move up";
-      const down = make(doc, "button", "os-q-move", { type: "button", "aria-label": `Move down: ${text(id)}`, "data-move": `${id}:1` });
-      down.textContent = "Move down";
+      const up = make(doc, "button", "os-q-move", { type: "button", "aria-label": t("quiz.moveUpNamed", { item: text(id) }), "data-move": `${id}:-1` });
+      up.textContent = t("quiz.moveUp");
+      const down = make(doc, "button", "os-q-move", { type: "button", "aria-label": t("quiz.moveDownNamed", { item: text(id) }), "data-move": `${id}:1` });
+      down.textContent = t("quiz.moveDown");
       if (locked || i === 0) up.setAttribute("aria-disabled", "true");
       if (locked || i === order.length - 1) down.setAttribute("aria-disabled", "true");
       if (!ctx.editing) {
@@ -312,7 +313,7 @@ function buildSequence(doc: Document, obj: OSObject, q: SequencingQuiz, ctx: Que
     [order[at], order[to]] = [order[to]!, order[at]!];
     draw();
     list.querySelector<HTMLElement>(`[data-move="${id}:${by}"]`)?.focus();
-    ctx.announce?.(`${text(id)} is now number ${to + 1} of ${order.length}.`);
+    ctx.announce?.(t("quiz.nowNumber", { item: text(id), n: to + 1, total: order.length }));
   };
   // Dragging an item gives the place it was dropped at; the order is changed here, in one place, whichever way it was asked for.
   list.addEventListener("os-reorder", (e) => {
@@ -321,7 +322,7 @@ function buildSequence(doc: Document, obj: OSObject, q: SequencingQuiz, ctx: Que
     if (locked || next.join() === order.join()) return;
     order = next;
     draw();
-    ctx.announce?.(`${text(id)} is now number ${order.indexOf(id) + 1} of ${order.length}.`);
+    ctx.announce?.(t("quiz.nowNumber", { item: text(id), n: order.indexOf(id) + 1, total: order.length }));
   });
   draw();
   return {
@@ -352,7 +353,7 @@ function buildHotspot(doc: Document, obj: OSObject, q: HotspotQuiz, ctx: Questio
 
   const fieldset = make(doc, "fieldset", "os-q-areas");
   const legend = make(doc, "legend");
-  legend.textContent = "Choose an area of the picture";
+  legend.textContent = t("quiz.chooseArea");
   const list = make(doc, "div", "os-q-area-list");
   fieldset.append(legend, list);
   const radios: HTMLInputElement[] = [];

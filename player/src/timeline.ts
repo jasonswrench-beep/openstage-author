@@ -26,6 +26,7 @@
 // timers on the slide off too.
 
 import type { TimerInfo, TimerState } from "./timer.ts";
+import { t } from "./playertext.ts";
 import type { Timing } from "./types.ts";
 
 /** Does this timing change anything about how the object is shown? The starting timing means always there. */
@@ -41,9 +42,9 @@ export function itemSentence(names: string[], gone: string[], pressed: number, t
   const ends = (t: string) => /[.!?…]["”’')\]]*$/.test(t);
   const list = (parts: string[]) => parts.reduce((all, part) => (all === "" ? part : `${all}${ends(all) ? " " : ", "}${part}`), "");
   const stop = (t: string) => (ends(t) ? t : `${t}.`);
-  const lead = `Item ${pressed} of ${total}`;
-  const shown = names.length > 0 ? `${lead} is showing: ${stop(list(names))}` : gone.length > 0 ? `${lead}.` : `${lead} is showing.`;
-  return `${shown}${gone.length > 0 ? ` ${list(gone)} went away.` : ""}${pressed >= total ? " That was the last." : ""}`;
+  const lead = t("item.lead", { n: pressed, total });
+  const shown = names.length > 0 ? t("item.showingNames", { lead, names: stop(list(names)) }) : gone.length > 0 ? t("item.leadOnly", { lead }) : t("item.showing", { lead });
+  return `${shown}${gone.length > 0 ? ` ${t("item.wentAway", { names: list(gone) })}` : ""}${pressed >= total ? ` ${t("item.last")}` : ""}`;
 }
 
 /** What the timeline needs to know about an object. */

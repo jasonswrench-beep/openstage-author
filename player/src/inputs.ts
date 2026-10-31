@@ -4,6 +4,7 @@
 // that triggers can read. The renderer calls buildInput for an object of type "input".
 
 import type { Character, InputContent, InputInteraction, OSObject, Primitive } from "./types.ts";
+import { t } from "./playertext.ts";
 
 export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial"] as const;
 export type InputKind = (typeof INPUT_KINDS)[number];
@@ -303,7 +304,7 @@ export function buildInput(doc: Document, obj: OSObject, hooks: InputHooks): HTM
     if (c.kind === "dropdown") {
       const none = make(doc, "option") as HTMLOptionElement;
       none.value = "";
-      none.textContent = "Choose an option";
+      none.textContent = t("inputs.chooseOption");
       select.appendChild(none);
     } else {
       select.size = Math.min(Math.max(options.length, 2), 6);
@@ -364,7 +365,7 @@ export function buildInput(doc: Document, obj: OSObject, hooks: InputHooks): HTM
       const label = make(doc, "label", "os-scale-point");
       const radio = make(doc, "input", "", { type: "radio", name: id(row.id), value: String(i) }) as HTMLInputElement;
       // The ends are named for the word they are closest to, so a screen reader user knows which way is which.
-      radio.setAttribute("aria-label", i === 1 ? `1 of ${n}, closest to ${row.label}` : i === n ? `${n} of ${n}, closest to ${row.right ?? ""}` : `${i} of ${n}`);
+      radio.setAttribute("aria-label", i === 1 ? t("input.scaleEnd", { n: 1, total: n, word: row.label }) : i === n ? t("input.scaleEnd", { n, total: n, word: row.right ?? "" }) : t("input.scalePoint", { n: i, total: n }));
       radio.checked = current === i;
       radio.addEventListener("change", () => { if (radio.checked) emit({ rowId: row.id, variable: row.variable, value: i, response: String(i), type: "likert" }); });
       inert(radio);
