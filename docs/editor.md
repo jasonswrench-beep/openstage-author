@@ -319,7 +319,7 @@ the editor cannot edit is left as it is. The pure parts (reading and writing Web
 
 **Questions, inputs and surveys.** "Question, input or survey..." in the Add menu opens one picker with
 three groups: Quiz questions (multiple choice, true or false), Inputs that save a choice (checkboxes,
-radio buttons, drop-down, list) and Surveys (Likert scale, semantic differential). An input is added with
+radio buttons, drop-down, list, slider, dial) and Surveys (Likert scale, semantic differential). An input is added with
 its own new variables, one for each part that saves something, so it works straight away and the whole
 addition is one undo step. In the Properties panel an input has its prompt (the question the learner
 sees, also the name a screen reader gives it; the alt text starts as the same words and follows the
@@ -331,7 +331,10 @@ checkbox, statement or pair of words also deletes the variable it saved to, as p
 editor says so ("Deleted number 2 and its variable statement2"). The variable stays if anything else still uses it:
 a rule that reads it, or another input that saves to it. The options of radio buttons, a drop-down or a list share
 one variable, so deleting an option never deletes that variable. A Likert
-scale takes its labels one to a line, and a semantic differential has 3 to 9 points. A rule can read
+scale takes its labels one to a line, and a semantic differential has 3 to 9 points. A slider or dial has one
+variable and a scale: the lowest value, the highest and the step (a number that would leave it unusable, such as a
+highest value below the lowest, is refused and the editor says why), the unit after the number, what each end means,
+and whether the number shows. The canvas draws them but they do not move there; Preview does. A rule can read
 these variables to change what the course does (see Rules above); the values are also saved, shown again
 when the learner returns, and can be sent to the LMS.
 

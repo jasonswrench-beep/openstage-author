@@ -8,6 +8,7 @@ then runs the semantic rules. Exits 1 if there are errors, 0 otherwise.
 The same function (validate_project) is meant to power the command line and, later,
 the editor's problem list. Never write a second implementation.
 """
+import decimal
 import html as htmllib
 from html.parser import HTMLParser
 import json
@@ -35,7 +36,7 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 41, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 42, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -45,7 +46,7 @@ ITEM_LIMITS = {
 }
 # The type of variable each kind of input writes. Keep in step with INPUT_VARIABLE_TYPE in player/src/inputs.ts.
 INPUT_VARIABLE_TYPE = {"checkbox": "boolean", "radio": "string", "dropdown": "string", "list": "string",
-                       "likert": "number", "semantic": "number", "character": "string"}
+                       "likert": "number", "semantic": "number", "character": "string", "slider": "number", "dial": "number"}
 INTERACTIVE = ("button", "hotspot", "quizQuestion", "interaction", "scrollingText", "input", "embed", "certificate", "download", "scenario", "timer")
 # In a scenario, a line spoken by this word is spoken by the learner's own character, not by someone in the cast.
 YOU = "you"
@@ -1024,7 +1025,7 @@ def _input(rel, obj, variables, add, cast=None):
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
         add(ERROR, rel, oid, "input-duplicate-id", "Input parts must have different ids", f"More than one part has the id '{dup}'.")
 
-    refs = [c["variable"]] if kind in ("radio", "dropdown", "list", "character") else [p["variable"] for p in parts]
+    refs = [c["variable"]] if kind in ("radio", "dropdown", "list", "character", "slider", "dial") else [p["variable"] for p in parts]
     want = INPUT_VARIABLE_TYPE[kind]
     for ref in refs:
         if ref not in variables:
@@ -1049,6 +1050,20 @@ def _input(rel, obj, variables, add, cast=None):
             if not row.get("right", "").strip():
                 add(ERROR, rel, oid, "input-semantic-pole", "Both ends of a scale row need a word",
                     f"The row '{row['label']}' has no word for its right-hand end.")
+    if kind in ("slider", "dial"):
+        lowest, highest, step = c["min"], c["max"], c["step"]
+        if not lowest < highest:
+            add(ERROR, rel, oid, "input-slider-range", "The highest value of a slider or dial must be above the lowest",
+                f"The lowest is {lowest} and the highest is {highest}, so there is nothing to choose between.")
+        else:
+            # The value is kept as a number with no more than 3 decimals, so what an LMS is told is exact, and there must not be so many steps that the keys cannot get anywhere.
+            decimals = max(0, -decimal.Decimal(str(step)).normalize().as_tuple().exponent)
+            if decimals > 3:
+                add(ERROR, rel, oid, "input-slider-step", "The step of a slider or dial has too many decimals",
+                    f"The step is {step}. Use a step with no more than 3 decimals, such as 0.001.")
+            elif (highest - lowest) / step > 10000:
+                add(ERROR, rel, oid, "input-slider-step", "A slider or dial has too many steps",
+                    f"From {lowest} to {highest} in steps of {step} is more than 10000 steps. Use a larger step.")
 
 
 _YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")

@@ -266,6 +266,33 @@ html, body { margin: 0; background: #f3f3f3; }
 .os-semantic-left { text-align: right; }
 @media (forced-colors: active) { .os-input-select { border-color: ButtonText; } }
 
+/* Slider and dial. Both are one native range control. The thumb is 28 pixels, past the 24 pixel minimum for a target (WCAG 2.5.8). */
+.os-slider-row { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
+.os-slider-end { flex: 0 0 auto; max-width: 22%; font-weight: 600; }
+.os-slider-range { flex: 1 1 auto; min-width: 0; height: 36px; margin: 0; background: transparent; accent-color: var(--os-accent-strong, #1d3f8f); }
+.os-slider-range::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--os-muted, #4a4f57); }
+.os-slider-range::-moz-range-track { height: 8px; border-radius: 4px; background: var(--os-muted, #4a4f57); }
+.os-slider-range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -10px; border-radius: 50%; border: 3px solid var(--os-bg, #fff); background: var(--os-accent-strong, #1d3f8f); box-shadow: 0 0 0 2px var(--os-accent-strong, #1d3f8f); }
+.os-slider-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--os-bg, #fff); background: var(--os-accent-strong, #1d3f8f); box-shadow: 0 0 0 2px var(--os-accent-strong, #1d3f8f); }
+.os-slider-range:focus-visible, .os-dial-range:focus-visible + .os-dial-face { outline: 3px solid var(--os-focus, #0b3fb3); outline-offset: 4px; }
+.os-slider-value { display: block; padding-top: 4px; font-size: 1.1em; font-weight: 600; font-variant-numeric: tabular-nums; }
+.os-dial { position: relative; display: flex; justify-content: center; padding-top: 6px; }
+.os-dial-range { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.os-dial-face { width: min(180px, 100%); height: auto; touch-action: none; cursor: pointer; border-radius: 8px; }
+.os-dial-track, .os-dial-fill { fill: none; stroke-width: 9; stroke-linecap: round; }
+.os-dial-track { stroke: var(--os-muted, #4a4f57); opacity: 0.45; }
+.os-dial-fill { stroke: var(--os-accent-strong, #1d3f8f); }
+.os-dial-pointer { stroke: var(--os-text, #1a1a1a); stroke-width: 5; stroke-linecap: round; }
+.os-dial-hub { fill: var(--os-text, #1a1a1a); }
+.os-slider-ends { display: flex; justify-content: space-between; gap: 12px; }
+.os-input-dial .os-slider-value { text-align: center; }
+@media (forced-colors: active) {
+  .os-slider-range::-webkit-slider-thumb { background: Highlight; box-shadow: 0 0 0 2px ButtonText; }
+  .os-slider-range::-moz-range-thumb { background: Highlight; }
+  .os-dial-track { stroke: GrayText; opacity: 1; } .os-dial-fill { stroke: Highlight; } .os-dial-pointer { stroke: CanvasText; } .os-dial-hub { fill: CanvasText; }
+  .os-slider-range:focus-visible, .os-dial-range:focus-visible + .os-dial-face { outline: 3px solid Highlight; }
+}
+
 /* ---- a choice of character: picture cards, each one radio button */
 .os-cards { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 6px; }
 .os-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; box-sizing: border-box; width: 150px; padding: 12px 10px 10px; text-align: center; border: 2px solid var(--os-muted, #4a4f57); border-radius: 10px; background: var(--os-surface, #f4f5f7); cursor: pointer; }

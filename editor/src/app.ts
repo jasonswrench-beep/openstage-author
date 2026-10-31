@@ -4408,6 +4408,35 @@ ${errorText(err)}`);
           this.small("Characters...", "Open the cast: add people, pictures and voices", () => void this.openCast())));
       return out;
     }
+    if (c.kind === "slider" || c.kind === "dial") {
+      // A number the model refuses (it would leave the scale unusable) goes back to what the model holds, even while the box has focus.
+      const scale = (field: "min" | "max" | "step", label: string, value: number | undefined) => {
+        const box = this.field(`in-${field}`, label, value ?? "", (v) => {
+          const msg = v.trim() === "" || !Number.isFinite(Number(v)) ? "Type a number." : m.setSliderScale(o.id, field, Number(v));
+          if (msg) this.announce(msg);
+          box.querySelector("input")!.value = String((o.content as unknown as InputContent)[field] ?? "");
+        }, { number: true });
+        return box;
+      };
+      const words = (field: "unit" | "startLabel" | "endLabel", label: string, value: string | undefined) =>
+        this.field(`in-${field}`, label, value ?? "", (v) => { const msg = m.setSliderText(o.id, field, v); if (msg) this.announce(msg); });
+      const show = h("input", { id: "p-in-showvalue", type: "checkbox", ...(c.showValue !== false ? { checked: true } : {}) });
+      show.dataset["key"] = "prop:in-showvalue";
+      show.addEventListener("change", () => { const msg = m.setSliderShowValue(o.id, show.checked); if (msg) this.announce(msg); });
+      out.push(
+        h("fieldset", {}, h("legend", { text: "Saved value" }), ...this.variableField(m, o, "in-main", "Value", null, c.variable),
+          h("p", { class: "note", text: "The variable holds the number the learner has set, and follows it as they move the control, so a rule can react at once. It starts at the variable's own starting value, shown at the nearest point on the scale." })),
+        h("fieldset", {}, h("legend", { text: "Scale" }),
+          scale("min", "Lowest value", c.min), scale("max", "Highest value", c.max), scale("step", "Step between values", c.step),
+          h("p", { class: "note", text: "The step can have up to 3 decimals, and the scale up to 10000 steps. The keys move one step; Page Up and Page Down move ten; Home and End go to the ends." })),
+        h("fieldset", {}, h("legend", { text: "Words" }),
+          words("unit", "Unit after the number (such as % or days)", c.unit),
+          words("startLabel", "What the lowest end means", c.startLabel),
+          words("endLabel", "What the highest end means", c.endLabel),
+          h("div", { class: "field check" }, show, h("label", { for: "p-in-showvalue", text: "Show the number beside the control" })),
+          h("p", { class: "note", text: "A screen reader says the number, the unit, and at either end what that end means, such as \"0 points, Not at all\"." })));
+      return out;
+    }
     const parts = c.kind === "checkbox" ? c.items! : c.kind === "likert" || c.kind === "semantic" ? c.rows! : c.options!;
     const noun = c.kind === "checkbox" ? "Checkbox" : c.kind === "likert" ? "Statement" : c.kind === "semantic" ? "Pair of words" : "Option";
     const min = c.kind === "checkbox" || c.kind === "likert" || c.kind === "semantic" ? 1 : 2;
@@ -4458,6 +4487,8 @@ ${errorText(err)}`);
     set("in-prompt", c.prompt);
     set("in-scale", (c.scale ?? []).join("\n"));
     set("in-points", String(c.points ?? 7));
+    for (const field of ["min", "max", "step"] as const) set(`in-${field}`, String(c[field] ?? ""));
+    for (const field of ["unit", "startLabel", "endLabel"] as const) set(`in-${field}`, c[field] ?? "");
     if (c.variable) { set("in-main-var", c.variable); set("in-main-varname", varName(c.variable)); }
     const parts = (c.kind === "checkbox" ? c.items : c.kind === "likert" || c.kind === "semantic" ? c.rows : c.options) ?? [];
     for (const p of parts) {

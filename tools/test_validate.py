@@ -3162,7 +3162,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.41.0")
+        self.assertEqual(project["schemaVersion"], "0.42.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3412,6 +3412,53 @@ class TimingByParagraph(unittest.TestCase):
             found = [f for f in p.run() if f.rule == "timing-after-advance"]
             self.assertEqual(len(found), 1)
             self.assertIn("Paragraph 2", found[0].message)
+
+
+class SliderAndDial(unittest.TestCase):
+    """The slider and dial kinds of input (added in 0.42.0): a number between a lowest and a highest value."""
+
+    SLIDER = {"kind": "slider", "prompt": "How confident are you?", "report": False, "variable": "var-rate", "min": 0, "max": 10, "step": 0.5}
+
+    def run_with(self, content, variables=None):
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d["variables"].extend(variables or [{"id": "var-rate", "name": "rate", "type": "number", "initial": 0}]))
+
+            def add_input(slide):
+                obj = copy.deepcopy(slide["baseLayer"]["objects"][0])
+                obj.update(id="obj-0950", type="input", name="Input", content=content, triggers=[])
+                obj["accessibility"] = {"altText": content["prompt"], "role": "group", "tabOrder": 95, "decorative": False}
+                slide["baseLayer"]["objects"].append(obj)
+            p.edit("slides/slide-001.json", add_input)
+            return p.run()
+
+    def test_a_good_slider_and_a_good_dial_have_no_problems(self):
+        for kind in ("slider", "dial"):
+            found = self.run_with({**self.SLIDER, "kind": kind, "unit": "points", "startLabel": "Not at all", "endLabel": "Completely", "showValue": True})
+            self.assertEqual([f for f in found if f.rule.startswith("input-")], [], kind)
+            self.assertEqual([f for f in found if f.severity == "error"], [], kind)
+
+    def test_a_slider_needs_its_range_step_and_variable(self):
+        for missing in ("min", "max", "step", "variable"):
+            content = dict(self.SLIDER)
+            del content[missing]
+            self.assertTrue(rules(self.run_with(content), severity="error"), f"{missing} is required")
+
+    def test_the_highest_value_must_be_above_the_lowest(self):
+        for lo, hi in ((5, 5), (10, 0)):
+            found = self.run_with({**self.SLIDER, "min": lo, "max": hi})
+            self.assertEqual(len(rules(found, "input-slider-range", severity="error")), 1, (lo, hi))
+
+    def test_the_step_has_at_most_three_decimals_and_not_too_many_steps(self):
+        self.assertEqual(len(rules(self.run_with({**self.SLIDER, "step": 0.0001}), "input-slider-step", severity="error")), 1)
+        self.assertEqual(len(rules(self.run_with({**self.SLIDER, "min": 0, "max": 100000, "step": 1}), "input-slider-step", severity="error")), 1)
+        self.assertEqual(rules(self.run_with({**self.SLIDER, "step": 0.001, "max": 5}), "input-slider-step"), [], "3 decimals and 5000 steps are fine")
+        self.assertEqual(rules(self.run_with({**self.SLIDER, "step": 25, "max": 100}), "input-slider-step"), [])
+        self.assertTrue(rules(self.run_with({**self.SLIDER, "step": 0}), severity="error"), "a step of nothing is refused by the schema")
+
+    def test_it_saves_to_a_number_variable_that_exists(self):
+        text = [{"id": "var-rate", "name": "rate", "type": "string", "initial": ""}]
+        self.assertEqual(len(rules(self.run_with(self.SLIDER, text), "input-variable-type", severity="error")), 1)
+        self.assertEqual(len(rules(self.run_with({**self.SLIDER, "variable": "var-nothing"}), "input-unknown-variable", severity="error")), 1)
 
 
 if __name__ == "__main__":

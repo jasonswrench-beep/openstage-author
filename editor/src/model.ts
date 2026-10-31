@@ -9,7 +9,7 @@ import { referencesVariable, renameReferences } from "./values.ts";
 import { importSlides, peopleProblem, type SetRead } from "./slidesets.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { PartTiming, Bank, CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
-import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
+import { INPUT_VARIABLE_TYPE, stepDecimals } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.41.0";
+export const FORMAT_VERSION = "0.42.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3407,6 +3407,47 @@ export class Model {
     hit.c.points = points;
     this.emit({ kind: "content", objectId });
     return `${points} points between the words`;
+  }
+
+  private sliderOf(objectId: string): { obj: OSObject; c: InputContent } | null {
+    const hit = this.inputOf(objectId);
+    return hit && (hit.c.kind === "slider" || hit.c.kind === "dial") ? hit : null;
+  }
+
+  /** The lowest value, the highest and the step of a slider or dial. A number that would leave it unusable is refused, and the reason is what comes back. */
+  setSliderScale(objectId: string, field: "min" | "max" | "step", value: number): string | null {
+    const hit = this.sliderOf(objectId);
+    if (!hit || !Number.isFinite(value)) return null;
+    const c = hit.c;
+    if (value === c[field]) return null;
+    const next = { min: c.min ?? 0, max: c.max ?? 100, step: c.step ?? 1, [field]: value };
+    if (!(next.max > next.min)) return "The highest value has to be above the lowest.";
+    if (!(next.step > 0)) return "The step has to be more than 0.";
+    if (stepDecimals(next.step) > 3) return "The step can have at most 3 decimals.";
+    if ((next.max - next.min) / next.step > 10000) return "That is more than 10000 steps. Use a larger step.";
+    this.record(`slider:${objectId}:${field}`);
+    c[field] = value;
+    this.emit({ kind: "content", objectId });
+    return `${field === "min" ? "Lowest value" : field === "max" ? "Highest value" : "Step"} ${value}`;
+  }
+
+  /** The unit after the number, and what the two ends mean. Empty text takes them away. */
+  setSliderText(objectId: string, field: "unit" | "startLabel" | "endLabel", text: string): string | null {
+    const hit = this.sliderOf(objectId);
+    if (!hit || (hit.c[field] ?? "") === text) return null;
+    this.record(`slider:${objectId}:${field}`);
+    if (text === "") delete hit.c[field]; else hit.c[field] = text;
+    this.emit({ kind: "content", objectId });
+    return "Updated";
+  }
+
+  setSliderShowValue(objectId: string, show: boolean): string | null {
+    const hit = this.sliderOf(objectId);
+    if (!hit || (hit.c.showValue !== false) === show) return null;
+    this.record("");
+    hit.c.showValue = show;
+    this.emit({ kind: "content", objectId });
+    return show ? "The number is shown" : "The number is not shown";
   }
 
   // ---- tables and scrolling text

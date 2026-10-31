@@ -44,7 +44,7 @@ test("each input is added with its own variables of the right type, a prompt, al
     assert.ok(c.prompt.trim() !== "");
     assert.equal(o.accessibility.altText, c.prompt, "alt text starts as the prompt");
     assert.ok((o.accessibility.tabOrder ?? 0) >= 1);
-    const used = c.kind === "radio" || c.kind === "dropdown" || c.kind === "list" ? [c.variable!] : parts(c).map((p) => (p as { variable: string }).variable);
+    const used = c.kind === "radio" || c.kind === "dropdown" || c.kind === "list" || c.kind === "slider" || c.kind === "dial" ? [c.variable!] : parts(c).map((p) => (p as { variable: string }).variable);
     assert.equal(new Set(used).size, used.length, `${choice.id}: no two parts share a variable`);
     assert.equal(m.variables.length - before, used.length, `${choice.id}: one new variable for each`);
     for (const id of used) assert.equal(m.variables.find((v) => v.id === id)!.type, INPUT_VARIABLE_TYPE[choice.id]);
@@ -317,4 +317,71 @@ test("the schema refuses an input without the parts its kind needs", opts, () =>
   m.addInput("radio");
   assert.ok(rules(validate(m, (c) => { delete c.options; })).length > 0);
   assert.ok(rules(validate(m, (c) => { c.prompt = ""; })).length > 0);
+});
+
+// ---- slider and dial (added in 0.42.0)
+
+test("a new slider or dial starts as a working 0 to 100 scale with its own number variable", () => {
+  for (const id of ["slider", "dial"] as const) {
+    const m = fresh();
+    m.addInput(id);
+    const c = content(m);
+    assert.deepEqual([c.min, c.max, c.step, c.showValue], [0, 100, 1, true]);
+    assert.equal(m.variables.find((v) => v.id === c.variable)!.type, "number");
+    assert.ok(c.prompt.trim() && c.startLabel && c.endLabel, "a prompt, and a word for each end to start from");
+  }
+});
+
+test("the scale is changed one number at a time, and a number that would break it is refused with the reason", () => {
+  const m = fresh();
+  const o = m.addInput("slider")!;
+  assert.equal(m.setSliderScale(o.id, "max", 10), "Highest value 10");
+  assert.equal(m.setSliderScale(o.id, "step", 0.5), "Step 0.5");
+  assert.deepEqual([content(m).min, content(m).max, content(m).step], [0, 10, 0.5]);
+  assert.equal(m.setSliderScale(o.id, "max", 10), null, "no change, no undo step");
+  assert.match(m.setSliderScale(o.id, "min", 10)!, /highest value has to be above/);
+  assert.match(m.setSliderScale(o.id, "max", -1)!, /highest value has to be above/);
+  assert.match(m.setSliderScale(o.id, "step", 0)!, /more than 0/);
+  assert.match(m.setSliderScale(o.id, "step", -2)!, /more than 0/);
+  assert.match(m.setSliderScale(o.id, "step", 0.0001)!, /at most 3 decimals/);
+  assert.match(m.setSliderScale(o.id, "max", 100000)!, /10000 steps/);
+  assert.equal(m.setSliderScale(o.id, "min", Number.NaN), null);
+  assert.deepEqual([content(m).min, content(m).max, content(m).step], [0, 10, 0.5], "a refused number changes nothing");
+});
+
+test("the words and whether the number shows are changed, and empty words are taken away", () => {
+  const m = fresh();
+  const o = m.addInput("dial")!;
+  m.setSliderText(o.id, "unit", "%");
+  m.setSliderText(o.id, "startLabel", "None");
+  assert.deepEqual([content(m).unit, content(m).startLabel], ["%", "None"]);
+  assert.equal(m.setSliderText(o.id, "unit", "%"), null);
+  m.setSliderText(o.id, "unit", "");
+  assert.ok(!("unit" in content(m)), "empty words are not kept");
+  assert.equal(m.setSliderShowValue(o.id, false), "The number is not shown");
+  assert.equal(content(m).showValue, false);
+  assert.equal(m.setSliderShowValue(o.id, false), null);
+});
+
+test("these changes only apply to a slider or a dial, and each is one undo step", () => {
+  const m = fresh();
+  const radio = m.addInput("radio")!;
+  assert.equal(m.setSliderScale(radio.id, "max", 5), null);
+  assert.equal(m.setSliderText(radio.id, "unit", "x"), null);
+  assert.equal(m.setSliderShowValue(radio.id, false), null);
+  const s = m.addInput("slider")!;
+  m.setSliderScale(s.id, "max", 50);
+  m.undo();
+  assert.equal(content(m).max, 100);
+});
+
+test("a slider can be pointed at a different number variable, but not at text", () => {
+  const m = fresh();
+  const s = m.addInput("slider")!;
+  const other = m.addVariable("number", "other").id;
+  const text = m.addVariable("string", "words").id;
+  assert.match(m.setInputVariable(s.id, null, other)!, /^Saves to/);
+  assert.equal(content(m).variable, other);
+  assert.match(m.setInputVariable(s.id, null, text)!, /saves a number/);
+  assert.equal(content(m).variable, other);
 });

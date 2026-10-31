@@ -377,6 +377,8 @@ Going back, or to the next slide, never warns. The fix is to choose the last sli
 | An option's saved value is empty (`input-empty-value`) | An option's saved value cannot be empty |
 | Two parts share an id (`input-duplicate-id`) | Input parts must have different ids |
 | A semantic differential row has no right-hand word (`input-semantic-pole`) | Both ends of a scale row need a word |
+| A slider or dial's highest value is not above its lowest (`input-slider-range`) | The highest value of a slider or dial must be above the lowest |
+| A slider or dial's step has more than 3 decimals, or the scale has more than 10000 steps (`input-slider-step`) | The step of a slider or dial has too many decimals, or A slider or dial has too many steps |
 
 A missing `prompt`, or missing parts for the kind, is a schema error, and an input with a tab order of 0
 is `not-keyboard-reachable`.

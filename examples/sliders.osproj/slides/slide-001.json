@@ -1,0 +1,267 @@
+{
+  "id": "slide-001",
+  "name": "Sliders and dials",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 72,
+          "width": 1120,
+          "height": 96,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>Sliders and dials</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 44,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Sliders and dials",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "simulation": null,
+        "provenance": null
+      },
+      {
+        "id": "obj-0002",
+        "type": "text",
+        "name": "Body",
+        "geometry": {
+          "x": 80,
+          "y": 190,
+          "width": 1120,
+          "height": 70,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "html": "<p>Move either control. The numbers below follow it as it moves, and a rule could act on them.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#333333"
+        },
+        "accessibility": {
+          "altText": "Move either control. The numbers below follow it as it moves, and a rule could act on them.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "simulation": null,
+        "provenance": null
+      },
+      {
+        "id": "obj-0010",
+        "type": "input",
+        "name": "Confidence slider",
+        "geometry": {
+          "x": 80,
+          "y": 290,
+          "width": 640,
+          "height": 170,
+          "rotation": 0,
+          "z": 23
+        },
+        "content": {
+          "kind": "slider",
+          "prompt": "How confident are you?",
+          "report": false,
+          "variable": "var-confidence",
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "unit": "%",
+          "startLabel": "Not at all",
+          "endLabel": "Completely",
+          "showValue": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "How confident are you?",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "simulation": null,
+        "provenance": null
+      },
+      {
+        "id": "obj-0011",
+        "type": "input",
+        "name": "Temperature dial",
+        "geometry": {
+          "x": 780,
+          "y": 260,
+          "width": 420,
+          "height": 330,
+          "rotation": 0,
+          "z": 24
+        },
+        "content": {
+          "kind": "dial",
+          "prompt": "Set the room temperature",
+          "report": false,
+          "variable": "var-temperature",
+          "min": 10,
+          "max": 30,
+          "step": 0.5,
+          "unit": "degrees",
+          "startLabel": "Cold",
+          "endLabel": "Hot",
+          "showValue": true
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20
+        },
+        "accessibility": {
+          "altText": "Set the room temperature",
+          "role": "group",
+          "tabOrder": 4,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "simulation": null,
+        "provenance": null
+      },
+      {
+        "id": "obj-0012",
+        "type": "text",
+        "name": "Values",
+        "geometry": {
+          "x": 80,
+          "y": 500,
+          "width": 1120,
+          "height": 70,
+          "rotation": 0,
+          "z": 40
+        },
+        "content": {
+          "html": "<p>Confidence: {{confidence}}%. Room temperature: {{temperature}} degrees.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#333333"
+        },
+        "accessibility": {
+          "altText": "The values you have set",
+          "role": "status",
+          "tabOrder": 5,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "simulation": null,
+        "provenance": null
+      }
+    ]
+  },
+  "layers": []
+}

@@ -6,7 +6,7 @@ import type { Draws } from "./bank.ts";
 import { grade, isAnswered, keepAnswer, type Graded } from "./grading.ts";
 import type { Move } from "./scenario.ts";
 import type {
-  Condition, CoursePackage, EventName, OSObject, Primitive, QuizContent, ScenarioContent, Slide, Trigger,
+  Condition, CoursePackage, EventName, InputInteraction, OSObject, Primitive, QuizContent, ScenarioContent, Slide, Trigger,
 } from "./types.ts";
 
 /** What the runtime asks the display layer to do. */
@@ -37,7 +37,7 @@ export type RuntimeEvent =
   | { type: "state" }
   | { type: "scenario"; objectId: string; path: string }
   | { type: "quiz"; objectId: string; answer: string; graded: Graded }
-  | { type: "input"; objectId: string; rowId: string; interaction: "choice" | "likert" | "true-false"; response: string };
+  | { type: "input"; objectId: string; rowId: string; interaction: InputInteraction; response: string };
 
 /** Everything needed to put a learner back exactly where they were. */
 export interface Snapshot {
@@ -271,12 +271,13 @@ export class Runtime {
   /**
    * A learner changes an input. The chosen value goes into the input's variable, which can fire
    * triggers, and if the input is set to report, the answer is also sent on as an interaction.
+   * `live` is a change that is still going on, such as a slider being dragged: the variable follows it, but nothing is reported until it stops.
    */
-  setInput(objectId: string, rowId: string, variable: string, value: Primitive, interaction: "choice" | "likert" | "true-false", response: string): void {
+  setInput(objectId: string, rowId: string, variable: string, value: Primitive, interaction: InputInteraction, response: string, live = false): void {
     const obj = this.current && Runtime.objectsOf(this.current).find((o) => o.id === objectId);
     if (!obj || obj.type !== "input") return;
     this.setVariable(variable, value);
-    if ((obj.content as { report?: boolean }).report) this.emit({ type: "input", objectId, rowId, interaction, response });
+    if (!live && (obj.content as { report?: boolean }).report) this.emit({ type: "input", objectId, rowId, interaction, response });
   }
 
   /**

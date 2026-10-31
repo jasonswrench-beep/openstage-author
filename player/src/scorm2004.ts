@@ -11,7 +11,7 @@
 
 import type { Runtime, Snapshot } from "./runtime.ts";
 import type { Graded } from "./grading.ts";
-import type { QuizContent } from "./types.ts";
+import type { InputInteraction, QuizContent } from "./types.ts";
 import { decodeSuspend, encodeSuspend, evaluate, findNamedApi, type Progress } from "./scorm.ts";
 import { formatGraded, formatInput, scorm2004Type } from "./interaction-format.ts";
 
@@ -170,7 +170,7 @@ export class Scorm2004Tracker {
   }
 
   /** One interaction per part of an input, rewritten if the learner changes their answer, so the LMS holds the final one. */
-  private recordInput(objectId: string, rowId: string, type: "choice" | "likert" | "true-false", response: string): void {
+  private recordInput(objectId: string, rowId: string, type: InputInteraction, response: string): void {
     if (this.readOnly || response === "") return;
     const key = rowId === objectId ? objectId : `${objectId}.${rowId}`;
     const f = formatInput(type, response);

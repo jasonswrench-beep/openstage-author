@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "0.42.0",
+  "meta": {
+    "title": "Sliders and dials",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-10",
+    "modified": "2026-10-10"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [
+    {
+      "id": "var-confidence",
+      "name": "confidence",
+      "type": "number",
+      "initial": 50
+    },
+    {
+      "id": "var-temperature",
+      "name": "temperature",
+      "type": "number",
+      "initial": 20
+    }
+  ],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "sources": [],
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001"
+      ]
+    }
+  ]
+}

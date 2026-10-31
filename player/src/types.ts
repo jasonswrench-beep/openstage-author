@@ -344,13 +344,27 @@ export interface CertificateContent {
   showDate: boolean;
 }
 
+/** What an input is called when it is reported to an LMS or LRS. */
+export type InputInteraction = "choice" | "likert" | "true-false" | "numeric";
+
 export interface InputContent {
-  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic" | "character";
+  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic" | "character" | "slider" | "dial";
   prompt: string;
   /** Whether the answers are sent to the LMS as interactions. */
   report: boolean;
-  /** radio, dropdown, list and character: the variable that receives the chosen option's value (for character, the person's id). */
+  /** radio, dropdown, list and character: the variable that receives the chosen option's value (for character, the person's id). slider and dial: the number variable that holds the value. */
   variable?: string;
+  /** slider and dial (added in 0.42.0): the lowest value, the highest, and the step between values. */
+  min?: number;
+  max?: number;
+  step?: number;
+  /** slider and dial: a word or sign after the number, such as "%" or "days". */
+  unit?: string;
+  /** slider and dial: what the two ends mean, such as "None" and "A lot". */
+  startLabel?: string;
+  endLabel?: string;
+  /** slider and dial: whether the number is shown beside the control. Absent means it is. */
+  showValue?: boolean;
   /** character: the people from the cast the learner can choose between. */
   characters?: string[];
   options?: { id: string; label: string; value: string }[];

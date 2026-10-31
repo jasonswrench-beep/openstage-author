@@ -4,7 +4,7 @@
 // Nothing here knows about a page or an LMS, so all of it is tested directly.
 
 import type { Graded } from "./grading.ts";
-import type { QuizContent } from "./types.ts";
+import type { InputInteraction, QuizContent } from "./types.ts";
 
 export type InteractionKind = "choice" | "fill-in" | "numeric" | "matching" | "sequencing" | "true-false" | "likert" | "other";
 
@@ -66,7 +66,7 @@ export function formatGraded(q: QuizContent, g: Graded): FormattedInteraction {
 }
 
 /** An input (a checkbox, a radio group, a drop-down, a rating) that the author chose to report. */
-export function formatInput(type: "choice" | "likert" | "true-false", response: string): { kind: InteractionKind; response: string } {
+export function formatInput(type: InputInteraction, response: string): { kind: InteractionKind; response: string } {
   // The course sends 1 or 0 for a ticked or unticked box; both standards want the words.
   if (type === "true-false") return { kind: "true-false", response: response === "1" ? "true" : response === "0" ? "false" : response };
   return { kind: type, response };

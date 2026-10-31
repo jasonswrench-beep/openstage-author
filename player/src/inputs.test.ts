@@ -2,9 +2,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FakeLms } from "./fake-lms.ts";
-import { INPUT_KINDS, INPUT_VARIABLE_TYPE } from "./inputs.ts";
+import { FakeLms2004 } from "./fake-lms-2004.ts";
+import { INPUT_KINDS, INPUT_VARIABLE_TYPE, sliderShown, sliderSpoken, snapToStep, stepDecimals } from "./inputs.ts";
 import type { RuntimeEvent } from "./runtime.ts";
 import { Tracker } from "./scorm.ts";
+import { Scorm2004Tracker } from "./scorm2004.ts";
 import { examplePackage, newRuntime } from "./test-helpers.ts";
 import type { CoursePackage, InputContent, OSObject } from "./types.ts";
 
@@ -103,4 +105,85 @@ test("an input that does not report writes nothing to the LMS", () => {
   rt.setInput("obj-0900", "row-1", "var-rate", 2, "likert", "2");
   assert.equal(lms.data["cmi.interactions.0.id"], undefined);
   assert.equal(rt.variables.get("var-rate"), 2);
+});
+
+// ---- slider and dial (added in 0.42.0)
+
+const slider = (report: boolean, extra: Partial<InputContent> = {}): InputContent => ({
+  kind: "slider", prompt: "How confident are you?", report, variable: "var-rate", min: 0, max: 10, step: 0.5,
+  unit: "points", startLabel: "Not at all", endLabel: "Completely", ...extra,
+});
+
+test("sliders and dials save a number", () => {
+  assert.equal(INPUT_VARIABLE_TYPE.slider, "number");
+  assert.equal(INPUT_VARIABLE_TYPE.dial, "number");
+});
+
+test("a value snaps to the scale: between the ends, a whole number of steps, and no decimal dust", () => {
+  assert.equal(snapToStep(7.3, 0, 10, 0.5), 7.5);
+  assert.equal(snapToStep(-4, 0, 10, 0.5), 0);
+  assert.equal(snapToStep(99, 0, 10, 0.5), 10);
+  assert.equal(snapToStep(0.1 + 0.2, 0, 1, 0.1), 0.3, "0.30000000000000004 is not what the learner chose");
+  assert.equal(snapToStep(3.7, 1, 10, 3), 4, "steps count from the lowest value");
+  assert.equal(snapToStep(10, 1, 10, 4), 9, "the last step that fits, when the top is not a whole number of steps away");
+  assert.equal(snapToStep(5, 5, 5, 1), 5, "a scale with no room gives its only value");
+  assert.equal(stepDecimals(0.25), 2);
+  assert.equal(stepDecimals(5), 0);
+  assert.equal(stepDecimals(1e-7), 7);
+});
+
+test("a value is shown with its unit, and said with what an end means", () => {
+  const c = slider(false);
+  assert.equal(sliderShown(c, 7.5), "7.5 points", "a word gets a space");
+  assert.equal(sliderShown(slider(false, { unit: "%", step: 1 }), 40), "40%", "a sign does not");
+  assert.equal(sliderShown(slider(false, { unit: "", step: 1 }), 4), "4");
+  assert.equal(sliderShown(slider(false, { step: 1 }), 4), "4 points");
+  assert.equal(sliderSpoken(c, 0), "0.0 points, Not at all");
+  assert.equal(sliderSpoken(c, 10), "10.0 points, Completely");
+  assert.equal(sliderSpoken(c, 5), "5.0 points");
+  assert.equal(sliderSpoken(slider(false, { startLabel: "  " }), 0), "0.0 points", "an empty label says nothing");
+});
+
+test("a slider being dragged moves the variable, and is reported only when the learner stops", () => {
+  const { rt } = newRuntime(packageWith(slider(true)));
+  const events: RuntimeEvent[] = [];
+  rt.onEvent((e) => events.push(e));
+  rt.goTo("slide-001");
+  rt.setInput("obj-0900", "obj-0900", "var-rate", 2, "numeric", "2.0", true);
+  rt.setInput("obj-0900", "obj-0900", "var-rate", 6.5, "numeric", "6.5", true);
+  assert.equal(rt.variables.get("var-rate"), 6.5, "a rule that reads the variable sees it move as it is dragged");
+  assert.equal(events.filter((e) => e.type === "input").length, 0, "nothing is reported yet");
+  rt.setInput("obj-0900", "obj-0900", "var-rate", 6.5, "numeric", "6.5");
+  assert.equal(events.filter((e) => e.type === "input").length, 1);
+});
+
+test("a reported slider is a numeric interaction in SCORM 1.2", () => {
+  const { lms, rt } = launch(slider(true));
+  rt.setInput("obj-0900", "obj-0900", "var-rate", 7.5, "numeric", "7.5", true);
+  rt.setInput("obj-0900", "obj-0900", "var-rate", 7.5, "numeric", "7.5");
+  assert.equal(lms.data["cmi.interactions.0.id"], "obj-0900");
+  assert.equal(lms.data["cmi.interactions.0.type"], "numeric");
+  assert.equal(lms.data["cmi.interactions.0.student_response"], "7.5");
+  assert.equal(lms.data["cmi.interactions.1.id"], undefined, "one interaction, not one for each step of the drag");
+});
+
+test("a reported slider is a numeric interaction in SCORM 2004, and the strict LMS accepts it", () => {
+  const lms = new FakeLms2004();
+  lms.relaunch();
+  const { rt } = newRuntime(packageWith(slider(true)));
+  const warnings: string[] = [];
+  const realWarn = console.warn;
+  console.warn = (...a: unknown[]) => { warnings.push(a.join(" ")); };
+  try {
+    new Scorm2004Tracker(lms, rt).begin();
+    rt.goTo("slide-001");
+    rt.setInput("obj-0900", "obj-0900", "var-rate", 7.5, "numeric", "7.5");
+    rt.setInput("obj-0900", "obj-0900", "var-rate", 9, "numeric", "9.0");
+  } finally {
+    console.warn = realWarn;
+  }
+  assert.equal(lms.data["cmi.interactions.0.type"], "numeric");
+  assert.equal(lms.data["cmi.interactions.0.learner_response"], "9.0", "the last answer replaces the first");
+  assert.equal(lms.data["cmi.interactions.1.id"], undefined);
+  assert.deepEqual(warnings, []);
 });

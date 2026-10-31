@@ -3,9 +3,9 @@
 // reader behaviour is the browser's own, and each writes what the learner chose into a variable
 // that triggers can read. The renderer calls buildInput for an object of type "input".
 
-import type { Character, InputContent, OSObject, Primitive } from "./types.ts";
+import type { Character, InputContent, InputInteraction, OSObject, Primitive } from "./types.ts";
 
-export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character"] as const;
+export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial"] as const;
 export type InputKind = (typeof INPUT_KINDS)[number];
 
 /** What an input tells the course when the learner changes it. */
@@ -14,9 +14,11 @@ export interface InputChange {
   rowId: string;
   variable: string;
   value: Primitive;
-  /** What to tell the LMS if the input reports: a letter for a choice, a number for a scale, 1 or 0 for a checkbox. */
+  /** What to tell the LMS if the input reports: a letter for a choice, a number for a scale or a slider, 1 or 0 for a checkbox. */
   response: string;
-  type: "choice" | "likert" | "true-false";
+  type: InputInteraction;
+  /** A change that is still going on, such as a slider being dragged: the variable follows it, but it is not reported until the learner stops. */
+  live?: boolean;
 }
 
 export interface InputHooks {
@@ -31,9 +33,89 @@ export interface InputHooks {
 /** The variable type each kind of input writes. The validator and the editor use the same table. */
 export const INPUT_VARIABLE_TYPE: Record<InputKind, "boolean" | "string" | "number"> = {
   checkbox: "boolean", radio: "string", dropdown: "string", list: "string", likert: "number", semantic: "number", character: "string",
+  slider: "number", dial: "number",
 };
 
 const letter = (i: number) => String.fromCharCode(97 + i);
+
+// ---- the scale of a slider or a dial
+
+/** How many decimals a step has: 0.25 has two, 5 has none. */
+export function stepDecimals(n: number): number {
+  const text = String(n);
+  const exponent = /e-(\d+)$/i.exec(text);
+  if (exponent) return Number(exponent[1]);
+  return text.split(".")[1]?.length ?? 0;
+}
+
+/** The value on the scale nearest to `raw`: inside min and max, a whole number of steps from min, and without the dust that adding decimals leaves (0.1 + 0.2). */
+export function snapToStep(raw: number, min: number, max: number, step: number): number {
+  if (!(step > 0) || !(max > min)) return min;
+  const clamped = Math.min(max, Math.max(min, raw));
+  const lastStep = Math.floor((max - min) / step + 1e-9);
+  const steps = Math.min(lastStep, Math.round((clamped - min) / step));
+  return Number((min + steps * step).toFixed(Math.max(stepDecimals(step), stepDecimals(min))));
+}
+
+/** The unit after a number: "%" goes straight after it, a word gets a space ("5 days"). */
+const unitOf = (c: InputContent): string => {
+  const unit = (c.unit ?? "").trim();
+  return unit === "" ? "" : /^[\p{L}]/u.test(unit) ? ` ${unit}` : unit;
+};
+
+/** A value as the learner sees it, with its unit. */
+export function sliderShown(c: InputContent, value: number): string {
+  return `${value.toFixed(Math.max(stepDecimals(c.step ?? 1), stepDecimals(c.min ?? 0)))}${unitOf(c)}`;
+}
+
+/** A value as a screen reader says it: the number and unit, and at either end what that end means. */
+export function sliderSpoken(c: InputContent, value: number): string {
+  const min = c.min ?? 0;
+  const max = c.max ?? 100;
+  const end = value === min ? c.startLabel : value === max ? c.endLabel : undefined;
+  return end && end.trim() !== "" ? `${sliderShown(c, value)}, ${end.trim()}` : sliderShown(c, value);
+}
+
+const SVG = "http://www.w3.org/2000/svg";
+/** A dial sweeps three quarters of a circle, from lower left, over the top, to lower right. Degrees are clockwise from straight up. */
+const SWEEP = 135;
+
+/** The picture of a dial: a track, the part of it that is filled, and a pointer. It is only a picture; the range control beside it is what the keyboard and a screen reader use. */
+function dialFace(doc: Document): { svg: SVGSVGElement; show(fraction: number): void; angleOf(x: number, y: number): number } {
+  const svg = doc.createElementNS(SVG, "svg") as SVGSVGElement;
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("class", "os-dial-face");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const R = 46;
+  const at = (deg: number): string => `${(60 + R * Math.sin((deg * Math.PI) / 180)).toFixed(2)} ${(60 - R * Math.cos((deg * Math.PI) / 180)).toFixed(2)}`;
+  const arc = (from: number, to: number): string => (to - from < 0.01 ? "" : `M ${at(from)} A ${R} ${R} 0 ${to - from > 180 ? 1 : 0} 1 ${at(to)}`);
+  const part = (name: string, tag: string, attrs: Record<string, string>): SVGElement => {
+    const e = doc.createElementNS(SVG, tag) as SVGElement;
+    e.setAttribute("class", name);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    svg.appendChild(e);
+    return e;
+  };
+  part("os-dial-track", "path", { d: arc(-SWEEP, SWEEP) });
+  const fill = part("os-dial-fill", "path", { d: "" });
+  const pointer = part("os-dial-pointer", "line", { x1: "60", y1: "60", x2: "60", y2: String(60 - R + 8) });
+  part("os-dial-hub", "circle", { cx: "60", cy: "60", r: "6" });
+  return {
+    svg,
+    show(fraction: number) {
+      const deg = -SWEEP + fraction * 2 * SWEEP;
+      fill.setAttribute("d", arc(-SWEEP, deg));
+      pointer.setAttribute("transform", `rotate(${deg.toFixed(2)} 60 60)`);
+    },
+    /** Which way a point on the page lies from the middle of the dial, kept to the sweep: a point in the gap at the bottom goes to the nearer end. */
+    angleOf(x: number, y: number) {
+      const box = svg.getBoundingClientRect();
+      const deg = (Math.atan2(x - (box.left + box.width / 2), -(y - (box.top + box.height / 2))) * 180) / Math.PI;
+      return Math.max(-SWEEP, Math.min(SWEEP, deg));
+    },
+  };
+}
 
 function make(doc: Document, tag: string, cls = "", attrs: Record<string, string> = {}): HTMLElement {
   const e = doc.createElement(tag);
@@ -80,6 +162,94 @@ export function buildInput(doc: Document, obj: OSObject, hooks: InputHooks): HTM
       label.append(radio, doc.createTextNode(` ${opt.label}`));
       root.appendChild(label);
     });
+    return root;
+  }
+
+  if (c.kind === "slider" || c.kind === "dial") {
+    // Both are one native range control, so the arrow keys, Home, End, Page Up and Page Down work and a screen reader says "slider, 40 percent".
+    // A dial draws a picture of it that a pointer can drag or click (a single click sets the value, so nothing needs dragging).
+    const min = c.min ?? 0;
+    const max = c.max ?? 100;
+    const step = c.step ?? 1;
+    legend.id = id("legend");
+    const stored = hooks.editing ? undefined : hooks.value?.(c.variable ?? "");
+    let value = snapToStep(typeof stored === "number" ? stored : min, min, max, step);
+    // The last value told to the LMS in this visit to the slide. Nothing has been yet, so any value the learner settles on is told once, even the one it started at.
+    let reported = NaN;
+    const range = make(doc, "input", c.kind === "dial" ? "os-dial-range" : "os-slider-range", {
+      type: "range", id: id("range"), min: String(min), max: String(max), step: String(step), "aria-labelledby": id("legend"),
+    }) as HTMLInputElement;
+    const shown = make(doc, "output", "os-slider-value", { for: id("range"), "aria-live": "off" });
+    const face = c.kind === "dial" ? dialFace(doc) : null;
+    const draw = () => {
+      range.value = String(value);
+      range.setAttribute("aria-valuetext", sliderSpoken(c, value));
+      shown.textContent = sliderShown(c, value);
+      face?.show((value - min) / (max - min));
+    };
+    // `live` is a drag or a key still going on. The variable follows it; the LMS hears only the value the learner stops at.
+    const decimals = Math.max(stepDecimals(step), stepDecimals(min));
+    let moved = false;
+    const apply = (next: number, live: boolean) => {
+      value = next;
+      if (live) moved = true;
+      draw();
+      // What is told to the LMS is the plain number, with no unit.
+      const change: InputChange = { rowId: obj.id, variable: c.variable!, value: next, response: next.toFixed(decimals), type: "numeric" };
+      if (live) {
+        emit({ ...change, live: true });
+      } else if (next !== reported) {
+        reported = next;
+        emit(change);
+      }
+    };
+    // The variable follows every step. What is reported is the value the learner stops at: a mouse or finger on the slider reports when it
+    // lets go, and the keys report when they have paused for a moment or the learner leaves the control, so holding an arrow key is not a
+    // hundred answers.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pointerDown = false;
+    // Only a value the learner has moved is reported: tabbing through a control, or a blur with nothing changed, reports nothing.
+    const commit = () => { clearTimeout(timer); if (moved) { moved = false; apply(value, false); } };
+    const soon = () => { clearTimeout(timer); if (!pointerDown) timer = setTimeout(commit, 400); };
+    range.addEventListener("input", () => { apply(snapToStep(Number(range.value), min, max, step), true); soon(); });
+    range.addEventListener("change", soon);
+    range.addEventListener("blur", commit);
+    range.addEventListener("pointerdown", () => { pointerDown = true; clearTimeout(timer); });
+    const release = () => { if (pointerDown) { pointerDown = false; commit(); } };
+    range.addEventListener("pointerup", release);
+    range.addEventListener("pointercancel", release);
+    inert(range);
+    draw();
+
+    const ends = make(doc, "div", "os-slider-ends");
+    const start = make(doc, "span", "os-slider-end");
+    start.textContent = c.startLabel ?? "";
+    const end = make(doc, "span", "os-slider-end");
+    end.textContent = c.endLabel ?? "";
+    if (face) {
+      const dial = make(doc, "div", "os-dial");
+      dial.append(range, face.svg);
+      let dragging = false;
+      const move = (e: PointerEvent) => apply(snapToStep(min + ((face.angleOf(e.clientX, e.clientY) + SWEEP) / (2 * SWEEP)) * (max - min), min, max, step), true);
+      face.svg.addEventListener("pointerdown", (e) => {
+        if (hooks.editing) return;
+        dragging = true;
+        // Keeping hold of the pointer lets a drag go outside the picture. A pointer that cannot be held still works while it is over the dial.
+        try { face.svg.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
+        move(e);
+      });
+      face.svg.addEventListener("pointermove", (e) => { if (dragging) move(e); });
+      const stop = () => { if (dragging) { dragging = false; commit(); } };
+      face.svg.addEventListener("pointerup", stop);
+      face.svg.addEventListener("pointercancel", stop);
+      ends.append(start, end);
+      root.append(dial, ends);
+    } else {
+      const row = make(doc, "div", "os-slider-row");
+      row.append(start, range, end);
+      root.appendChild(row);
+    }
+    if (c.showValue !== false) root.appendChild(shown);
     return root;
   }
 

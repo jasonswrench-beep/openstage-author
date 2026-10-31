@@ -461,9 +461,16 @@
       "additionalProperties": false,
       "required": ["kind", "prompt", "report"],
       "properties": {
-        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character"] },
+        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial"] },
         "prompt": { "type": "string", "minLength": 1 },
         "report": { "type": "boolean" },
+        "min": { "$comment": "For kinds slider and dial (added in 0.42.0): the lowest value. The variable is a number.", "type": "number" },
+        "max": { "$comment": "For kinds slider and dial: the highest value.", "type": "number" },
+        "step": { "$comment": "For kinds slider and dial: the distance between values. More than 0, with no more than 3 decimals.", "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "$comment": "For kinds slider and dial: a word or sign after the number, such as % or days.", "type": "string" },
+        "startLabel": { "$comment": "For kinds slider and dial: what the lowest end means.", "type": "string" },
+        "endLabel": { "$comment": "For kinds slider and dial: what the highest end means.", "type": "string" },
+        "showValue": { "$comment": "For kinds slider and dial: whether the number is shown beside the control. Absent means it is.", "type": "boolean" },
         "variable": { "$ref": "project.schema.json#/$defs/id" },
         "characters": {
           "$comment": "For kind character: which people from the project's cast the learner can choose between. The variable then holds the id of the one chosen.",
@@ -526,7 +533,8 @@
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "character" } } }, "then": { "required": ["variable", "characters"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "checkbox" } } }, "then": { "required": ["items"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "likert" } } }, "then": { "required": ["scale", "rows"] } },
-        { "if": { "required": ["kind"], "properties": { "kind": { "const": "semantic" } } }, "then": { "required": ["points", "rows"] } }
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "semantic" } } }, "then": { "required": ["points", "rows"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "enum": ["slider", "dial"] } } }, "then": { "required": ["variable", "min", "max", "step"] } }
       ]
     },
     "scenarioLine": {

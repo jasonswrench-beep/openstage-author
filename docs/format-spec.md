@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.41.0",
+  "schemaVersion": "0.42.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -557,6 +557,8 @@ screen reader behaviour is the browser's own.
 | `likert` | `scale` (2 to 9 labels, lowest first), `rows` (1 to 20, each `id`, `label` = the statement, `variable`) | the number of the label chosen, from 1, in one **number** variable per row, 0 until answered | a row of radio buttons for each statement |
 | `semantic` | `points` (3 to 9), `rows` (each `id`, `label` = left word, `right` = right word, `variable`) | the point chosen, from 1 at the left word, in one **number** variable per row | a row of radio buttons between two words |
 | `character` | `variable`, `characters` (2 to 8 ids from the project's cast) | the chosen person's **id** in one **string** variable, empty until chosen | a group of picture cards, one per person, each a radio button |
+| `slider` | `variable`, `min`, `max`, `step`; optional `unit`, `startLabel`, `endLabel`, `showValue` | the number the learner has set, in one **number** variable | one range control with the number beside it |
+| `dial` | as `slider` | as `slider` | the same range control, drawn as a round dial that a pointer can turn |
 
 `prompt` is required. It is the visible name of the group (a `<legend>`, or the label of a select), so
 a screen reader announces it with the controls. If `altText` says something different it is added as a
@@ -567,7 +569,7 @@ A part's variable must exist in `project.json` and have the type in the table, a
 input may share a variable, or they would overwrite each other. Option values must be different and
 cannot be empty, because an empty value means "nothing chosen". The validator checks all of this
 (`input-unknown-variable`, `input-variable-type`, `input-shared-variable`, `input-duplicate-value`,
-`input-empty-value`, `input-duplicate-id`, `input-semantic-pole`).
+`input-empty-value`, `input-duplicate-id`, `input-semantic-pole`, `input-slider-range`, `input-slider-step`).
 
 **Choosing a character.** The `character` kind lets a learner pick who they will be, from people in the project's cast (`characters`, in `project.json`). Each
 person is a card with their picture (if they have one), name and role, and the cards are one radio group, so the arrow keys move between them and a screen reader
@@ -579,7 +581,7 @@ chosen person's id is saved in the variable, so a trigger can branch on it (`equ
 When `report` is true the answers are also written to the LMS as SCORM 1.2 interactions, one for each
 part, with no correct response and no score: a checkbox as `true-false` (response `1` or `0`), a radio,
 drop-down or list as `choice` (the letter of the option, `a` for the first), and a scale row as
-`likert` (the number of the point). The interaction's id is the object's id, or
+`likert` (the number of the point), and a slider or dial as `numeric` (the number, with no unit; see Sliders and dials). The interaction's id is the object's id, or
 `<object id>.<row id>` for a part. Changing an answer rewrites that interaction rather than adding another,
 so the LMS holds the final answer. An input does not affect the score.
 
@@ -589,6 +591,26 @@ condition on the trigger; the editor has no trigger editor yet.
 
 An input paints itself in the theme's colours (text on `background`, controls in `accentStrong`), so
 only `fontFamily` and `fontSize` are read from its `style`.
+
+**Sliders and dials** (added in 0.42.0). The `slider` and `dial` kinds let a learner set a number between a lowest and a highest value. Both are one native range
+control, so the arrow keys move one step, Page Up and Page Down move ten, Home and End go to the ends, and a screen reader says "slider" with the number. A dial draws a
+round picture of the same control that a pointer can click or drag (a single click sets the value, so nothing needs dragging); the range control stays in the page for the
+keyboard and screen readers, and the dial shows a focus ring when it has focus. The content:
+
+| Field | What it is |
+| --- | --- |
+| `variable` | the **number** variable that holds the value (required) |
+| `min`, `max`, `step` | the lowest value, the highest, and the distance between values (required). `max` is above `min`; `step` is more than 0 with no more than 3 decimals; the scale has no more than 10000 steps. A value is always a whole number of steps from `min`. If `max` is not a whole number of steps above `min`, the last value is the last step that fits. |
+| `unit` | optional: a word or sign after the number. A sign such as `%` goes straight after it ("40%"), a word gets a space ("5 days"). |
+| `startLabel`, `endLabel` | optional: what the lowest and the highest end mean, such as "Not at all" and "Completely". They are shown at the ends, and a screen reader says them with the number at that end ("0 points, Not at all"). |
+| `showValue` | optional: whether the number is shown beside the control. Absent means it is. A screen reader is told the number either way. |
+
+The variable follows the control as it moves, so a rule on `variableChange`, or a value in a text, reacts while the learner is still turning it. The control starts
+at the variable's own value, shown at the nearest point on the scale (the variable itself is not changed until the learner moves the control). With `report`, the LMS is told
+one `numeric` answer: the value the learner stops at, not every step on the way. A mouse or finger reports when it lets go; the keys report when they have paused for a moment
+or the learner leaves the control. Settling on the same value twice in a row reports it once. A control that is not moved, such as one tabbed through, reports nothing.
+The thumb and the dial's pointer area are at least 28 pixels. The validator checks the range and the step (`input-slider-range`, `input-slider-step`) and, like any
+input, that the variable exists and is a number. It does not check conditions that read a slider's variable against the scale.
 
 ### Scenarios
 
@@ -1612,6 +1634,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.41.0 | 0.42.0 | Adds two kinds of input, `slider` and `dial`: a number the learner sets between a lowest and a highest value, saved in a number variable (`min`, `max`, `step`, and optionally `unit`, `startLabel`, `endLabel`, `showValue`). Nothing in an older course changes. |
 | 0.40.0 | 0.41.0 | Adds the optional `paragraphs` of a text object's `timing`: a timing for each paragraph or list item, so a text can come in or go away one paragraph at a time (how a PowerPoint text that builds by paragraph comes across). Nothing in an older course changes. |
 | 0.39.0 | 0.40.0 | Adds four wipe effects, `wipeLeft`, `wipeRight`, `wipeTop` and `wipeBottom`, to the effects an object's `animation` or a slide's `transition` can use (how a Wipe in PowerPoint comes across). Nothing in an older course changes. |
 | 0.38.0 | 0.39.0 | Adds the optional `animation` and `notes` of the `base` of a slide's import provenance: what the import gave each animated shape's `timing` and `animation`, and the words of the speaker notes it made the narration of one object, so a changed deck's animation and notes can be compared with what the author has done since. Nothing in an older course changes: a slide without them is compared as if they were not recorded (see below). |

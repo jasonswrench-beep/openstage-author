@@ -154,7 +154,7 @@ export class Player implements Host {
       onActivate: (obj, via) => this.runtime.fire(obj.id, via),
       onQuizSubmit: (obj, choice, via) => this.runtime.submitQuiz(obj.id, choice, via),
       quizStatus: (id) => this.runtime.quiz.get(id),
-      onInput: (obj, c) => this.runtime.setInput(obj.id, c.rowId, c.variable, c.value, c.type, c.response),
+      onInput: (obj, c) => this.runtime.setInput(obj.id, c.rowId, c.variable, c.value, c.type, c.response, c.live === true),
       variableValue: (id) => this.runtime.variables.get(id),
       variables: () => pkg.project.variables,
       results: () => courseResults(this.runtime),

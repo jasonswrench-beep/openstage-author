@@ -18,7 +18,7 @@
 
 import type { Runtime, Snapshot } from "./runtime.ts";
 import type { Graded } from "./grading.ts";
-import type { Project, QuizContent } from "./types.ts";
+import type { InputInteraction, Project, QuizContent } from "./types.ts";
 import { decodeSuspend, encodeSuspend, evaluate } from "./scorm.ts";
 import { formatGraded, formatInput, type InteractionKind } from "./interaction-format.ts";
 import { sessionTime2004 as duration } from "./scorm2004.ts";
@@ -245,7 +245,7 @@ export class XapiTracker {
     this.add("answered", this.question(objectId, f.kind, f.patterns), result, true);
   }
 
-  private noteInput(objectId: string, rowId: string, type: "choice" | "likert" | "true-false", response: string): void {
+  private noteInput(objectId: string, rowId: string, type: InputInteraction, response: string): void {
     if (response === "") return;
     const key = rowId === objectId ? objectId : `${objectId}.${rowId}`;
     const f = formatInput(type, response);
