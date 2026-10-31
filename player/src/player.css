@@ -210,6 +210,22 @@ html, body { margin: 0; background: #f3f3f3; }
 /* Keyboard focus follows the shape's outline, since an ordinary outline would be a box round the whole picture. */
 .os-ix-piece:focus-visible { outline: none; box-shadow: none; filter: drop-shadow(3px 0 0 #0b3fb3) drop-shadow(-3px 0 0 #0b3fb3) drop-shadow(0 3px 0 #0b3fb3) drop-shadow(0 -3px 0 #0b3fb3) drop-shadow(1px 1px 0 #0b3fb3) drop-shadow(-1px -1px 0 #0b3fb3); }
 .os-ix-withdiagram > .os-ix-panels { flex: 1 1 auto; min-width: 0; }
+/* ---- labeled graphic (0.44.0): a picture with numbered markers laid over it. Each marker is a tab, so a panel shows the text of the one chosen.
+   A marker is 36 pixels across, so it stays past the 24 pixel minimum for a target (WCAG 2.5.8) when the stage is scaled down, and the chosen one is bigger and inverted, so it
+   does not rest on colour alone. */
+.os-ix-withgraphic { flex-direction: row; align-items: flex-start; gap: 20px; }
+.os-ix-graphic { position: relative; flex: 0 1 62%; min-width: 0; }
+.os-ix-picture { display: block; width: 100%; height: auto; border-radius: 6px; }
+.os-ix-nopicture { margin: 0; padding: 48px 12px; text-align: center; border: 2px dashed var(--os-muted, #4a4f57); border-radius: 6px; }
+.os-ix-tablist.os-ix-markers { position: absolute; inset: 0; display: block; pointer-events: none; }
+.os-ix-tab.os-ix-marker { position: absolute; transform: translate(-50%, -50%); width: 36px; height: 36px; min-width: 36px; padding: 0; box-sizing: border-box; border-radius: 50%; border: 3px solid #fff; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 700; font-size: 16px; line-height: 1; pointer-events: auto; background: var(--os-accent-strong, #0b3fb3); color: var(--os-on-accent-strong, #fff); box-shadow: 0 0 0 2px var(--os-accent-strong, #0b3fb3); }
+.os-ix-tab.os-ix-marker[aria-selected="true"] { width: 44px; height: 44px; min-width: 44px; background: #fff; color: var(--os-accent-strong, #0b3fb3); border-color: var(--os-accent-strong, #0b3fb3); box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--os-accent-strong, #0b3fb3); z-index: 1; }
+.os-ix-tab.os-ix-marker:focus-visible { outline: 3px solid var(--os-focus, #0b3fb3); outline-offset: 6px; }
+.os-ix-withgraphic > .os-ix-panels { flex: 1 1 auto; min-width: 0; }
+.os-ix-labeledGraphic .os-ix-panel { border-radius: 8px; border: 2px solid var(--os-accent-strong, #0b3fb3); }
+.os-stage.os-reflow .os-ix-withgraphic { flex-direction: column; }
+.os-stage.os-reflow .os-ix-withgraphic > .os-ix-graphic { flex-basis: auto; width: 100%; }
+@media (forced-colors: active) { .os-ix-tab.os-ix-marker { border-color: ButtonText; background: ButtonFace; color: ButtonText; box-shadow: none; } .os-ix-tab.os-ix-marker[aria-selected="true"] { background: Highlight; color: HighlightText; border-color: ButtonText; } .os-ix-tab.os-ix-marker:focus-visible { outline: 3px solid Highlight; } }
 
 .os-ix-processCircle .os-ix-piece { inset: auto; left: var(--os-lx); top: var(--os-ly); transform: translate(-50%, -50%); width: 26%; padding: 8px 10px; box-sizing: border-box; pointer-events: auto; filter: none; border-radius: 12px;
   background: var(--os-accent-strong, #0b3fb3); color: var(--os-on-accent-strong, #fff); border: 3px solid var(--os-accent-strong, #0b3fb3); }

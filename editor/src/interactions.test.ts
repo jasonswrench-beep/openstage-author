@@ -189,11 +189,20 @@ function validateEdited(m: Model, edit: (content: InteractionContent) => void): 
 
 const opts = { skip: !process.env["OPENSTAGE_PYTHON"] };
 
-test("every interaction passes the real validator", opts, () => {
+test("every interaction passes the real validator, and a new labeled graphic asks only for its picture", opts, () => {
   const m = fresh();
-  for (const choice of INTERACTIONS) m.addInteraction(choice.id);
-  const errors = validateFiles(m.allFiles()).filter((f) => f.severity === "error");
-  assert.deepEqual(errors, [], JSON.stringify(errors));
+  for (const choice of INTERACTIONS.filter((c) => c.kind !== "labeledGraphic")) m.addInteraction(choice.id);
+  const errors = () => validateFiles(m.allFiles()).filter((f) => f.severity === "error");
+  assert.deepEqual(errors(), [], JSON.stringify(errors()));
+
+  // A labeled graphic starts with no picture, because the author chooses it, and the validator says so until they do.
+  const g = m.addInteraction("labeledGraphic:horizontal")!;
+  const asking = errors();
+  assert.ok(asking.length > 0 && asking.every((f) => /graphic/i.test(JSON.stringify(f))), `only about its picture: ${JSON.stringify(asking)}`);
+  m.setGraphic(g.id, "assets/images/a.png");
+  m.setGraphicAlt(g.id, "A diagram of the model");
+  // The picture is chosen and described. The file itself is not in this scratch project, which is the one thing left to complain about.
+  assert.deepEqual(errors().map((f) => f.rule), ["asset-missing"]);
 });
 
 test("the validator flags a picture with no alt text, and a decorative one that has some", opts, () => {

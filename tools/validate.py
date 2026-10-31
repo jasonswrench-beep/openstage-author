@@ -36,13 +36,13 @@ from narration_key import narration_hash  # noqa: E402,F401  (also used by narra
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 43, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 44, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
     "clickReveal": (1, 12), "flipCards": (1, 12), "tabs": (1, 12), "accordion": (1, 20), "carousel": (1, 20),
     "steps": (1, 12), "timeline": (2, 12), "processCircle": (3, 8), "glossary": (1, 50),
-    "pyramidStack": (3, 7), "pyramidMatrix": (3, 6), "circleMatrix": (3, 8),
+    "pyramidStack": (3, 7), "pyramidMatrix": (3, 6), "circleMatrix": (3, 8), "labeledGraphic": (1, 12),
 }
 # The type of variable each kind of input writes. Keep in step with INPUT_VARIABLE_TYPE in player/src/inputs.ts.
 INPUT_VARIABLE_TYPE = {"checkbox": "boolean", "radio": "string", "dropdown": "string", "list": "string",
@@ -984,6 +984,30 @@ def _interaction(rel, obj, add):
         elif not image["decorative"] and not image["alt"].strip():
             add(ERROR, rel, obj["id"], "interaction-image-alt", "Interaction image needs alt text, or must be marked decorative",
                 f"The image on item '{item['title']}' has no alt text.")
+    if obj["content"]["kind"] == "labeledGraphic":
+        _labeled_graphic(rel, obj, items, add)
+
+
+def _labeled_graphic(rel, obj, items, add):
+    """A picture with numbered markers (added in 0.44.0). The picture is the thing being described, so it cannot be decorative; each marker needs a place; and two markers on top of each other cannot both be pressed."""
+    oid = obj["id"]
+    graphic = obj["content"].get("graphic")
+    if graphic is not None and not graphic["alt"].strip():
+        add(ERROR, rel, oid, "labeledgraphic-alt", "The picture of a labeled graphic needs alt text",
+            "A screen reader cannot see the picture. Say what it shows as a whole, and let each marker's text say what is at that point.")
+    placed = []
+    for item in items:
+        x, y = item.get("x"), item.get("y")
+        if x is None or y is None:
+            add(ERROR, rel, oid, "labeledgraphic-position", "A marker needs a place on the picture",
+                f"The item '{item['title']}' has no x and y. Place it in Properties.")
+        else:
+            placed.append((item["title"], x, y))
+    for i, (first, ax, ay) in enumerate(placed):
+        for second, bx, by in placed[i + 1:]:
+            if abs(ax - bx) < 5 and abs(ay - by) < 5:
+                add(WARNING, rel, oid, "labeledgraphic-overlap", "Two markers are almost on top of each other",
+                    f"'{first}' and '{second}' are within 5 percent of each other, so one may be hard to press. Move one.")
 
 
 def _table(rel, obj, add):
@@ -1889,6 +1913,8 @@ def _assets(project_dir, rel, obj, add):  # project_dir here is the asset root
         refs.append(obj["content"].get("captions"))
     if obj["type"] == "interaction":
         refs += [i["image"]["src"] for i in obj["content"]["items"] if i["image"]]
+        if obj["content"].get("graphic"):
+            refs.append(obj["content"]["graphic"]["src"])
     if obj["type"] == "quizQuestion" and obj["content"]["questionType"] == "hotspot":
         refs.append(obj["content"]["image"]["src"])
     for ref in filter(None, refs):

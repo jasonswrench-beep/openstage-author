@@ -475,3 +475,10 @@ button.small:hover { background: #e3e6eb; }
 .text-dialog .te-details { margin: 10px 0; }
 .text-dialog .te-details summary { cursor: pointer; padding: 4px 0; }
 .text-dialog .te-html { width: 100%; font-family: Consolas, "Courier New", monospace; font-size: 14px; box-sizing: border-box; }
+
+/* Placing the markers of a labeled graphic: the picture, with a button for each marker. The chosen marker is larger and inverted, so it is not told by colour alone. */
+.ix-place { position: relative; display: block; max-width: 100%; margin: 6px 0; border: 1px solid #5b6472; background: #fff; cursor: crosshair; }
+.ix-place-img { display: block; width: 100%; height: auto; }
+.ix-place-marker { position: absolute; transform: translate(-50%, -50%); width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 3px solid #fff; background: #0b3fb3; color: #fff; font: 700 14px/1 system-ui, sans-serif; box-shadow: 0 0 0 2px #0b3fb3; cursor: pointer; }
+.ix-place-marker[aria-pressed="true"] { width: 36px; height: 36px; background: #fff; color: #0b3fb3; border-color: #0b3fb3; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #0b3fb3; z-index: 1; }
+.ix-place-marker:focus-visible { outline: 3px solid #f0a800; outline-offset: 5px; }

@@ -13,7 +13,7 @@ import { INPUT_VARIABLE_TYPE, stepDecimals } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
-import { isPictureBox, box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newTimer, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
+import { isPictureBox, box, BUBBLE_LOOK, BUBBLE_TEXT_COLOR, buildLayoutSlide, buildQuiz, defaultMarker, emptyLayer, emptySlide, interactionById, inputById, layOut, newDownload, newEmbed, newTimer, newInput, newMedia, newInteraction, newInteractionItem, newObject, newScenario, newIcon, newNavigationButton, navigationButtonById, slugOf, SLIDE_LAYOUTS, textRole, toneOf, type Alloc, type NewKind, type QuizType } from "./factory.ts";
 import { colorRef, contrastOf } from "./colors.ts";
 import { ANNOUNCE_MAX, canHaveLooks, editableLook, isReadyLook, looksOf as looksInfoOf, lookLabel, lookNameProblem, type LookField, type LookInfo } from "./looks.ts";
 import type { DeckSource, ObjectState } from "../../player/src/types.ts";
@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.43.0";
+export const FORMAT_VERSION = "0.44.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3625,11 +3625,51 @@ export class Model {
     if (count < min || count > max) return `That kind needs ${min} to ${max} items and this one has ${count}. ${count > max ? "Delete some" : "Add some"} first.`;
     this.record("");
     hit.c.kind = kind;
+    // A labeled graphic needs a picture to sit on and a place for each marker. Changing away from one keeps them, in case the author changes back.
+    if (kind === "labeledGraphic") {
+      hit.c.graphic ??= { src: "", alt: "" };
+      hit.c.items.forEach((item, i) => { if (item.x === undefined || item.y === undefined) Object.assign(item, defaultMarker(i)); });
+    }
     // Only some kinds have these options; the rest keep a sensible value so the file stays complete.
     if (kind !== "clickReveal" && kind !== "flipCards" && kind !== "tabs") hit.c.orientation = kind === "accordion" ? "vertical" : "horizontal";
     hit.c.allowMultiple = kind === "clickReveal";
     this.emit({ kind: "structure", objectId });
     return `Changed to ${kind}`;
+  }
+
+  /** The picture a labeled graphic's markers sit on. Its alt text is kept when the picture is changed. */
+  setGraphic(objectId: string, src: string): string | null {
+    const hit = this.interactionOf(objectId);
+    if (!hit || hit.c.kind !== "labeledGraphic" || src === "" || hit.c.graphic?.src === src) return null;
+    this.record("");
+    hit.c.graphic = { src, alt: hit.c.graphic?.alt ?? "" };
+    this.emit({ kind: "structure", objectId });
+    return "Picture chosen. Say what it shows in the alt text.";
+  }
+
+  setGraphicAlt(objectId: string, alt: string): string | null {
+    const hit = this.interactionOf(objectId);
+    if (!hit || hit.c.kind !== "labeledGraphic" || !hit.c.graphic || hit.c.graphic.alt === alt) return null;
+    this.record(`graphic-alt:${objectId}`);
+    hit.c.graphic.alt = alt;
+    this.emit({ kind: "content", objectId });
+    return "Alt text updated";
+  }
+
+  /** Move an item's marker on the picture. Places are percentages of the picture, kept to the picture and to a tenth of a percent. */
+  setItemPosition(objectId: string, itemId: string, x: number, y: number): string | null {
+    const found = this.itemOf(objectId, itemId);
+    if (!found || found.hit.c.kind !== "labeledGraphic" || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const tidy = (v: number) => Math.round(Math.min(100, Math.max(0, v)) * 10) / 10;
+    const nx = tidy(x);
+    const ny = tidy(y);
+    if (found.item.x === nx && found.item.y === ny) return null;
+    this.record(`marker:${objectId}:${itemId}`);
+    found.item.x = nx;
+    found.item.y = ny;
+    this.emit({ kind: "content", objectId });
+    const number = found.hit.c.items.findIndex((i) => i.id === itemId) + 1;
+    return `Marker ${number} is ${nx} percent across and ${ny} percent down`;
   }
 
   setInteractionOrientation(objectId: string, orientation: "horizontal" | "vertical"): string | null {

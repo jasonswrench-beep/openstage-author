@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.44.0",
+  "meta": {
+    "title": "Labeled graphic",
+    "author": "",
+    "language": "en-US",
+    "created": "2026-10-10",
+    "modified": "2026-10-10"
+  },
+  "stage": {
+    "width": 1280,
+    "height": 720
+  },
+  "variables": [],
+  "theme": {
+    "ref": "theme.json"
+  },
+  "sources": [],
+  "credits": true,
+  "completion": {
+    "slides": "all"
+  },
+  "scenes": [
+    {
+      "id": "scene-main",
+      "name": "Main",
+      "slides": [
+        "slide-001"
+      ]
+    }
+  ]
+}

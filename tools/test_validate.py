@@ -3162,7 +3162,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.43.0")
+        self.assertEqual(project["schemaVersion"], "0.44.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3495,6 +3495,68 @@ class EnlargeablePicture(unittest.TestCase):
 
     def test_enlargeable_must_be_true_or_false(self):
         self.assertTrue(rules(self.run_with("yes"), severity="error"), "the schema refuses text")
+
+
+class LabeledGraphic(unittest.TestCase):
+    """The labeledGraphic kind of interaction (added in 0.44.0): a picture with a numbered marker for each item."""
+
+    def items(self, n=3):
+        return [{"id": f"item-{i}", "title": f"Part {i}", "body": "<p>Text</p>", "image": None, "narration": None, "x": 7 * i + 5, "y": 10 + 6 * i} for i in range(1, n + 1)]
+
+    def run_with(self, graphic=None, items=None, make_file=True):
+        with MutatedProject() as p:
+            if make_file:
+                pic = p.root / "assets" / "images" / "diagram.png"
+                pic.parent.mkdir(parents=True, exist_ok=True)
+                pic.write_bytes(bytes([0x89]) + b"PNG")
+            content = {"kind": "labeledGraphic", "orientation": "horizontal", "allowMultiple": False, "items": items if items is not None else self.items()}
+            if graphic != "none":
+                content["graphic"] = graphic or {"src": "assets/images/diagram.png", "alt": "A diagram of the model with three parts"}
+
+            def add(slide):
+                obj = copy.deepcopy(slide["baseLayer"]["objects"][0])
+                obj.update(id="obj-0970", type="interaction", name="Diagram", content=content, triggers=[], narration=None)
+                obj["accessibility"] = {"altText": "The parts of the model", "role": "group", "tabOrder": 97, "decorative": False}
+                slide["baseLayer"]["objects"].append(obj)
+            p.edit("slides/slide-001.json", add)
+            return p.run()
+
+    def test_a_good_labeled_graphic_has_no_problems(self):
+        found = self.run_with()
+        self.assertEqual([f for f in found if f.rule.startswith("labeledgraphic") or f.severity == "error"], [])
+
+    def test_it_needs_its_picture(self):
+        self.assertTrue(rules(self.run_with(graphic="none"), severity="error"), "the schema asks for a graphic")
+
+    def test_the_picture_needs_alt_text(self):
+        found = self.run_with(graphic={"src": "assets/images/diagram.png", "alt": "  "})
+        self.assertEqual(len(rules(found, "labeledgraphic-alt", severity="error")), 1)
+
+    def test_the_picture_file_must_exist(self):
+        found = self.run_with(make_file=False)
+        self.assertEqual(len(rules(found, "asset-missing", severity="error")), 1)
+
+    def test_every_marker_needs_a_place_on_the_picture(self):
+        items = self.items()
+        del items[1]["x"]
+        found = self.run_with(items=items)
+        self.assertEqual(len(rules(found, "labeledgraphic-position", severity="error")), 1)
+
+    def test_a_place_outside_the_picture_is_refused(self):
+        items = self.items()
+        items[0]["x"] = 120
+        self.assertTrue(rules(self.run_with(items=items), severity="error"), "the schema keeps a marker on the picture")
+
+    def test_two_markers_almost_on_top_of_each_other_are_a_warning(self):
+        items = self.items()
+        items[1]["x"], items[1]["y"] = items[0]["x"] + 2, items[0]["y"] + 2
+        found = self.run_with(items=items)
+        self.assertEqual(len(rules(found, "labeledgraphic-overlap", severity="warning")), 1)
+        self.assertEqual(rules(self.run_with(), "labeledgraphic-overlap"), [], "markers well apart are fine")
+
+    def test_it_has_one_to_twelve_markers(self):
+        self.assertEqual(len(rules(self.run_with(items=self.items(13)), "interaction-item-count", severity="error")), 1)
+        self.assertEqual(rules(self.run_with(items=self.items(12)), "interaction-item-count"), [])
 
 
 if __name__ == "__main__":

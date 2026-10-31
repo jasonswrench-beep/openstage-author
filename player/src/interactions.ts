@@ -11,7 +11,7 @@ import type { InteractionContent, InteractionItem, OSObject } from "./types.ts";
 
 export const INTERACTION_KINDS = [
   "clickReveal", "flipCards", "tabs", "accordion", "carousel", "steps",
-  "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix",
+  "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix", "labeledGraphic",
 ] as const;
 export type InteractionKind = (typeof INTERACTION_KINDS)[number];
 
@@ -21,6 +21,7 @@ export const ITEM_LIMITS: Record<InteractionKind, { min: number; max: number }> 
   accordion: { min: 1, max: 20 }, carousel: { min: 1, max: 20 }, steps: { min: 1, max: 12 },
   timeline: { min: 2, max: 12 }, processCircle: { min: 3, max: 8 }, glossary: { min: 1, max: 50 },
   pyramidStack: { min: 3, max: 7 }, pyramidMatrix: { min: 3, max: 6 }, circleMatrix: { min: 3, max: 8 },
+  labeledGraphic: { min: 1, max: 12 },
 };
 
 type Attrs = Record<string, string>;
@@ -91,7 +92,7 @@ export function buildInteraction(doc: Document, obj: OSObject, editing: boolean,
     case "clickReveal": buildDisclosures(ctx, false); break;
     case "accordion": buildDisclosures(ctx, true); break;
     case "flipCards": buildFlipCards(ctx); break;
-    case "tabs": case "timeline": case "processCircle": case "pyramidStack": case "pyramidMatrix": case "circleMatrix":
+    case "tabs": case "timeline": case "processCircle": case "pyramidStack": case "pyramidMatrix": case "circleMatrix": case "labeledGraphic":
       buildSelector(ctx, c.kind);
       break;
     case "glossary": buildGlossary(ctx); break;
@@ -217,7 +218,7 @@ function buildFlipCards(ctx: Ctx): void {
 // the drawing differs. So they share one builder and the WAI-ARIA tabs pattern, and the drawing is
 // made with CSS around real buttons.
 
-type SelectorKind = "tabs" | "timeline" | "processCircle" | "pyramidStack" | "pyramidMatrix" | "circleMatrix";
+type SelectorKind = "tabs" | "timeline" | "processCircle" | "pyramidStack" | "pyramidMatrix" | "circleMatrix" | "labeledGraphic";
 
 /** The drawn kinds put the tabs in a picture next to the panel. */
 const DIAGRAMS = new Set<SelectorKind>(["processCircle", "pyramidStack", "pyramidMatrix", "circleMatrix"]);
@@ -320,13 +321,30 @@ function ringArrows(doc: Document, n: number): SVGElement {
   return svg;
 }
 
+/**
+ * Where marker `i` of `n` sits on a labeled graphic, as percentages of the picture (to the middle of the marker). A marker with
+ * no place, or one outside the picture, goes in a row along the bottom, so it can still be found and used.
+ */
+export function markerAt(item: InteractionItem, i: number, n: number): { x: number; y: number } {
+  const inside = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100;
+  if (inside(item.x) && inside(item.y)) return { x: item.x, y: item.y };
+  return { x: ((i + 0.5) / n) * 100, y: 92 };
+}
+
+/** What a marker is called to a screen reader: its number, which is all it shows, then its title. */
+export function markerName(i: number, title: string): string {
+  return `${i + 1}. ${title}`;
+}
+
 function buildSelector(ctx: Ctx, kind: SelectorKind): void {
   const { doc, c, root } = ctx;
   const diagram = DIAGRAMS.has(kind);
+  // A labeled graphic is a picture with its tabs laid over it as numbered markers.
+  const spatial = kind === "labeledGraphic";
   const vertical = kind === "tabs" && c.orientation === "vertical";
   const n = c.items.length;
 
-  const tablist = make(doc, "div", diagram ? "os-ix-tablist os-ix-diagram" : "os-ix-tablist", { role: "tablist", "aria-label": ctx.obj.accessibility.altText });
+  const tablist = make(doc, "div", spatial ? "os-ix-tablist os-ix-markers" : diagram ? "os-ix-tablist os-ix-diagram" : "os-ix-tablist", { role: "tablist", "aria-label": ctx.obj.accessibility.altText });
   if (kind === "tabs") tablist.setAttribute("aria-orientation", c.orientation);
   else if (kind === "timeline") tablist.setAttribute("aria-orientation", "horizontal");
   const panels = make(doc, "div", "os-ix-panels");
@@ -355,6 +373,14 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
       }
     } else if (kind === "timeline") {
       tab.appendChild(make(doc, "span", "os-ix-dot", { "aria-hidden": "true" }));
+    } else if (spatial) {
+      // The marker shows only its number. The title is in its name (and in the panel when it is chosen).
+      const at = markerAt(item, i, n);
+      tab.classList.add("os-ix-marker");
+      tab.style.left = `${at.x}%`;
+      tab.style.top = `${at.y}%`;
+      tab.setAttribute("aria-label", markerName(i, item.title));
+      label.textContent = String(i + 1);
     }
     tab.appendChild(label);
     const panel = make(doc, "div", "os-ix-panel", { role: "tabpanel", id: ctx.id(item, "p"), "aria-labelledby": ctx.id(item, "b"), tabindex: "0" });
@@ -371,7 +397,25 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
   });
 
   if (diagram) root.classList.add("os-ix-withdiagram");
-  root.append(tablist, panels);
+  if (spatial) {
+    // Reading order is the picture (and what it shows), then the markers, then the text of the one chosen.
+    const frame = make(doc, "div", "os-ix-graphic");
+    if (c.graphic && c.graphic.src !== "") {
+      const pic = make(doc, "img", "os-ix-picture") as HTMLImageElement;
+      pic.src = c.graphic.src;
+      pic.alt = c.graphic.alt;
+      frame.appendChild(pic);
+    } else {
+      const none = make(doc, "p", "os-ix-nopicture");
+      none.textContent = "No picture chosen yet.";
+      frame.appendChild(none);
+    }
+    frame.appendChild(tablist);
+    root.classList.add("os-ix-withgraphic");
+    root.append(frame, panels);
+  } else {
+    root.append(tablist, panels);
+  }
 
   // Choosing a tab speaks its item, but only when the learner activates it (a click, or Enter or Space). Arrow keys
   // move through the tabs without speaking, so a screen reader can read each name undisturbed; the Listen button is there.
@@ -392,8 +436,8 @@ function buildSelector(ctx: Ctx, kind: SelectorKind): void {
     if (at === -1) return;
     // A row of tabs uses Left and Right, a column uses Up and Down. A drawing has no single direction,
     // so either pair moves to the next or previous one.
-    const forward = vertical ? ["ArrowDown"] : diagram ? ["ArrowRight", "ArrowDown"] : ["ArrowRight"];
-    const backward = vertical ? ["ArrowUp"] : diagram ? ["ArrowLeft", "ArrowUp"] : ["ArrowLeft"];
+    const forward = vertical ? ["ArrowDown"] : diagram || spatial ? ["ArrowRight", "ArrowDown"] : ["ArrowRight"];
+    const backward = vertical ? ["ArrowUp"] : diagram || spatial ? ["ArrowLeft", "ArrowUp"] : ["ArrowLeft"];
     const to = forward.includes(e.key) ? (at + 1) % n : backward.includes(e.key) ? (at - 1 + n) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
     if (to < 0) return;
     e.preventDefault();

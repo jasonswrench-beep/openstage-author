@@ -1,0 +1,207 @@
+{
+  "id": "slide-001",
+  "name": "The model of communication",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0001",
+        "type": "text",
+        "name": "Heading",
+        "geometry": {
+          "x": 80,
+          "y": 72,
+          "width": 1120,
+          "height": 96,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h1>The model of communication</h1>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 44,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "The model of communication",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0002",
+        "type": "text",
+        "name": "Body",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1120,
+          "height": 50,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "html": "<p>Select a numbered marker to read about that part of the model.</p>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 22,
+          "color": "#333333"
+        },
+        "accessibility": {
+          "altText": "Select a numbered marker to read about that part of the model.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0010",
+        "type": "interaction",
+        "name": "Model of communication",
+        "geometry": {
+          "x": 80,
+          "y": 230,
+          "width": 1120,
+          "height": 440,
+          "rotation": 0,
+          "z": 30
+        },
+        "content": {
+          "kind": "labeledGraphic",
+          "orientation": "horizontal",
+          "allowMultiple": false,
+          "graphic": {
+            "src": "assets/images/communication-model.svg",
+            "alt": "A diagram of the model of communication: a sender, a message, a channel and a receiver in a row, joined by arrows, with noise shown as a bar underneath them all."
+          },
+          "items": [
+            {
+              "id": "item-1",
+              "title": "The sender",
+              "body": "<p>The person who has something to say. They choose the words, and the way to say them.</p>",
+              "image": null,
+              "narration": null,
+              "x": 12.5,
+              "y": 30
+            },
+            {
+              "id": "item-2",
+              "title": "The message",
+              "body": "<p>What is meant, put into words, tone and gesture. It is not always what is received.</p>",
+              "image": null,
+              "narration": null,
+              "x": 37.5,
+              "y": 30
+            },
+            {
+              "id": "item-3",
+              "title": "The channel",
+              "body": "<p>How the message travels: in person, by email, on a call, in a document.</p>",
+              "image": null,
+              "narration": null,
+              "x": 62.5,
+              "y": 30
+            },
+            {
+              "id": "item-4",
+              "title": "The receiver",
+              "body": "<p>The person who takes the message in and makes their own meaning of it.</p>",
+              "image": null,
+              "narration": null,
+              "x": 87.5,
+              "y": 30
+            },
+            {
+              "id": "item-5",
+              "title": "Noise",
+              "body": "<p>Anything that gets in the way: a loud room, a different language, being distracted, a long day.</p>",
+              "image": null,
+              "narration": null,
+              "x": 92,
+              "y": 72
+            }
+          ]
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18
+        },
+        "accessibility": {
+          "altText": "The parts of the model of communication",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": []
+}

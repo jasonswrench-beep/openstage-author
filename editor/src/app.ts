@@ -12,6 +12,7 @@
 
 import type { CertificateContent, ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, SequencingQuiz, ShortAnswerQuiz, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable, ScenarioContent, ScenarioLine, IconContent } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
+import { markerAt } from "../../player/src/interactions.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
 import { Canvas } from "./canvas.ts";
 import { SHAPE_KINDS } from "../../player/src/stage.ts";
@@ -1929,6 +1930,11 @@ ${errorText(err)}`);
           return;
         }
         const made = m.addInteraction(pickedInteraction);
+        if (made && (made.content as unknown as InteractionContent).kind === "labeledGraphic") {
+          this.announce(`Added ${made.name} with three markers. Choose the picture they sit on.`);
+          await this.chooseGraphic(made.id);
+          return;
+        }
         if (made) this.announce(`Added ${made.name} with three items. Write each item's title and text in the Properties panel, and give the group a name that says what it is about.`);
         return;
       }
@@ -3936,6 +3942,7 @@ ${errorText(err)}`);
       { value: "tabs", label: "Tabs" }, { value: "steps", label: "Step process" }, { value: "carousel", label: "Content carousel" },
       { value: "glossary", label: "Glossary" }, { value: "timeline", label: "Timeline" }, { value: "processCircle", label: "Process circle" },
       { value: "pyramidStack", label: "Pyramid stack" }, { value: "pyramidMatrix", label: "Pyramid matrix" }, { value: "circleMatrix", label: "Circle matrix" },
+      { value: "labeledGraphic", label: "Labeled graphic" },
     ];
     const behaviour: HTMLElement[] = [
       this.selectField("ix-kind", "Kind", kinds, c.kind, (v) => { const msg = m.setInteractionKind(o.id, v as InteractionContent["kind"]); if (msg) this.announce(msg); this.fillInteraction(o); }),
@@ -3961,6 +3968,16 @@ ${errorText(err)}`);
           ? h("p", { class: "note", text: "This item's text has formatting the editor cannot edit yet, so it is left as it is." })
           : this.field(`ix-${item.id}-body`, "Text (a blank line starts a new paragraph)", body, (v) => { const msg = m.setItemBody(o.id, item.id, v); if (msg) this.announce(msg); }, { area: true, rows: 4 }),
       ];
+      if (c.kind === "labeledGraphic") {
+        // Where the marker sits, as two numbers: the way to place it without a mouse, and a check on what the picture above shows.
+        const at = (axis: "x" | "y", label: string) => this.field(`ix-${item.id}-${axis}`, label, item[axis] ?? "", (v) => {
+          const n = Number(v);
+          const msg = v.trim() === "" || !Number.isFinite(n) ? "Type a number from 0 to 100." : m.setItemPosition(o.id, item.id, axis === "x" ? n : item.x ?? 0, axis === "y" ? n : item.y ?? 0);
+          if (msg) this.announce(msg);
+          this.fillInteraction(o);
+        }, { number: true });
+        parts.push(at("x", "Marker: percent across from the left"), at("y", "Marker: percent down from the top"));
+      }
       if (item.image) {
         const dec = h("input", { id: `p-ix-${item.id}-dec`, type: "checkbox", ...(item.image.decorative ? { checked: true } : {}) });
         dec.dataset["key"] = `prop:ix-${item.id}-dec`;
@@ -4003,6 +4020,7 @@ ${errorText(err)}`);
     });
     return [
       h("fieldset", {}, h("legend", { text: "Behaviour" }), ...behaviour),
+      ...(c.kind === "labeledGraphic" ? this.graphicFields(m, o) : []),
       h("fieldset", {}, h("legend", { text: "Items" }),
         h("p", { class: "note", text: "Each item can say its own words when the learner opens it, and a Listen button in the item plays them again. Text that has no audio is a barrier for some learners, so give every item narration." }),
         h("div", { class: "btn-row" }, add, narrateAll),
@@ -4657,6 +4675,91 @@ ${errorText(err)}`);
     }
   }
 
+  /** The picture a labeled graphic sits on, what it shows, and where each marker goes on it. */
+  private graphicFields(m: Model, o: OSObject): HTMLElement[] {
+    const c = o.content as unknown as InteractionContent;
+    const g = c.graphic ?? { src: "", alt: "" };
+    return [
+      h("fieldset", {}, h("legend", { text: "Picture" }),
+        h("p", { class: "note", text: `The picture is ${g.src === "" ? "not chosen yet" : g.src.split("/").pop()}.` }),
+        this.field("ix-graphic-alt", "What the picture shows (required)", g.alt, (v) => { const msg = m.setGraphicAlt(o.id, v); if (msg) this.announce(msg); }, { area: true, rows: 3, describedBy: "ix-graphic-note" }),
+        h("div", { class: "btn-row" }, this.small(g.src === "" ? "Choose picture..." : "Choose another picture...", "Pick a picture from your computer for the markers to sit on", () => void this.chooseGraphic(o.id))),
+        h("p", { id: "ix-graphic-note", class: "note", text: "This is read to a screen reader, which cannot see the picture. Say what it shows as a whole; each marker's own text says what is at that point." })),
+      h("fieldset", {}, h("legend", { text: "Place the markers" }),
+        h("p", { class: "note", text: "Choose a marker, then click the picture to move it there. With a marker chosen, the arrow keys move it one percent (five with Shift). Each item below also has its place as two numbers, which is the way to do it without a mouse." }),
+        this.placementPreview(m, o)),
+    ];
+  }
+
+  /** The picture with a button for each marker. Clicking the picture moves the chosen marker; the arrow keys nudge it. */
+  private placementPreview(m: Model, o: OSObject): HTMLElement {
+    const items = () => (o.content as unknown as InteractionContent).items;
+    const frame = h("div", { class: "ix-place" });
+    const pic = h("img", { class: "ix-place-img", alt: "" });
+    const src = (o.content as unknown as InteractionContent).graphic?.src ?? "";
+    if (src !== "") void backend.assetUrl(m.dir, src).then((url) => { pic.src = url; }).catch(() => undefined);
+    frame.appendChild(pic);
+    let active = items()[0]?.id ?? "";
+    for (const [i, item] of items().entries()) {
+      const b = h("button", { type: "button", class: "ix-place-marker" });
+      b.dataset["item"] = item.id;
+      b.textContent = String(i + 1);
+      b.addEventListener("click", (e) => { e.stopPropagation(); active = item.id; this.refreshPlacement(o, active); });
+      b.addEventListener("keydown", (e) => {
+        const step = e.shiftKey ? 5 : 1;
+        const move: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+        const d = move[e.key];
+        const now = items().find((x) => x.id === item.id);
+        if (!d || !now) return;
+        e.preventDefault();
+        active = item.id;
+        m.setItemPosition(o.id, item.id, (now.x ?? 0) + d[0], (now.y ?? 0) + d[1]);
+        this.refreshPlacement(o, active);
+        this.fillInteraction(o);
+      });
+      frame.appendChild(b);
+    }
+    frame.addEventListener("click", (e) => {
+      const r = pic.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0 || !active) return;
+      const msg = m.setItemPosition(o.id, active, ((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100);
+      if (msg) this.announce(msg);
+      this.refreshPlacement(o, active);
+      this.fillInteraction(o);
+    });
+    this.refreshPlacement(o, active, frame);
+    return frame;
+  }
+
+  /** Put each marker in the preview where the model says, say where it is to a screen reader, and show which one is chosen. */
+  private refreshPlacement(o: OSObject, active: string, within: ParentNode = this.propsBody): void {
+    const c = o.content as unknown as InteractionContent;
+    c.items.forEach((item, i) => {
+      const b = within.querySelector<HTMLElement>(`.ix-place-marker[data-item="${item.id}"]`);
+      if (!b) return;
+      const at = markerAt(item, i, c.items.length);
+      b.style.left = `${at.x}%`;
+      b.style.top = `${at.y}%`;
+      b.setAttribute("aria-pressed", String(item.id === active));
+      b.setAttribute("aria-label", `Marker ${i + 1}, ${item.title}, ${at.x} percent across and ${at.y} percent down. Press an arrow key to move it.`);
+    });
+  }
+
+  /** Pick a picture from the computer for a labeled graphic's markers to sit on. */
+  private async chooseGraphic(objectId: string): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    try {
+      const picked = await backend.pickImage();
+      if (!picked) return;
+      const msg = m.setGraphic(objectId, await backend.importImage(m.dir, picked));
+      if (msg) this.announce(msg);
+      document.getElementById("p-ix-graphic-alt")?.focus();
+    } catch (err) {
+      this.announce(`Could not use that picture. ${errorText(err)}`);
+    }
+  }
+
   private fillInteraction(o: OSObject): void {
     const c = o.content as unknown as InteractionContent;
     const set = (id: string, v: string) => {
@@ -4665,6 +4768,12 @@ ${errorText(err)}`);
     };
     set("ix-kind", c.kind);
     set("ix-orientation", c.orientation);
+    if (c.kind === "labeledGraphic") {
+      set("ix-graphic-alt", c.graphic?.alt ?? "");
+      for (const item of c.items) { set(`ix-${item.id}-x`, String(item.x ?? "")); set(`ix-${item.id}-y`, String(item.y ?? "")); }
+      const chosen = this.propsBody.querySelector<HTMLElement>('.ix-place-marker[aria-pressed="true"]')?.dataset["item"] ?? c.items[0]?.id ?? "";
+      this.refreshPlacement(o, chosen);
+    }
     for (const item of c.items) {
       set(`ix-${item.id}-title`, item.title);
       set(`ix-${item.id}-body`, parseBody(item.body) ?? "");

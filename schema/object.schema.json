@@ -681,9 +681,16 @@
       "additionalProperties": false,
       "required": ["kind", "orientation", "allowMultiple", "items"],
       "properties": {
-        "kind": { "enum": ["clickReveal", "flipCards", "tabs", "accordion", "carousel", "steps", "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix"] },
+        "kind": { "enum": ["clickReveal", "flipCards", "tabs", "accordion", "carousel", "steps", "timeline", "processCircle", "glossary", "pyramidStack", "pyramidMatrix", "circleMatrix", "labeledGraphic"] },
         "orientation": { "enum": ["horizontal", "vertical"] },
         "allowMultiple": { "type": "boolean" },
+        "graphic": {
+          "$comment": "For kind labeledGraphic (added in 0.44.0): the picture the markers sit on. alt says what the whole picture shows and is checked by the validator.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["src", "alt"],
+          "properties": { "src": { "$ref": "#/$defs/assetPath" }, "alt": { "type": "string" } }
+        },
         "items": {
           "type": "array",
           "minItems": 1,
@@ -696,6 +703,8 @@
               "id": { "$ref": "project.schema.json#/$defs/id" },
               "title": { "type": "string", "minLength": 1 },
               "body": { "type": "string" },
+              "x": { "$comment": "For kind labeledGraphic: where this item's marker sits, as a percentage of the picture's width, to the middle of the marker.", "type": "number", "minimum": 0, "maximum": 100 },
+              "y": { "$comment": "For kind labeledGraphic: where this item's marker sits, as a percentage of the picture's height.", "type": "number", "minimum": 0, "maximum": 100 },
               "narration": {
                 "$comment": "What the learner hears when this item is opened. Same shape as an object's narration.",
                 "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
@@ -718,7 +727,10 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "labeledGraphic" } } }, "then": { "required": ["graphic"] } }
+      ]
     },
 
     "contentQuiz": {

@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.43.0",
+  "schemaVersion": "0.44.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -784,6 +784,7 @@ It needs no triggers.
 | `timeline` | Events as dots along a line; selecting one shows its text. | The tabs pattern, arrow keys Left and Right |
 | `processCircle` | Steps round a circle with arrows between them; selecting one shows its text. | The tabs pattern; any arrow key moves to the next or previous step |
 | `pyramidStack`, `pyramidMatrix`, `circleMatrix` | A pyramid of layers, a pyramid divided into sections, or a circle divided into segments. Each piece is a button; selecting one shows its text beside the drawing. | As above |
+| `labeledGraphic` | A picture with a numbered marker on each part of it; selecting a marker shows that item's text beside the picture (below it, in one column). See Labeled graphic. | The tabs pattern; any arrow key moves to the next or previous marker, Home and End go to the first and last |
 
 Timelines, process circles, pyramids and circle matrices are all the tabs pattern underneath: a tablist
 whose pieces are drawn as shapes, with one panel shown at a time. A screen reader announces them as
@@ -794,8 +795,22 @@ keyboard focus ring follows its outline.
 Each kind accepts only so many items, because a drawing has only so many places for them: `clickReveal`
 `flipCards` `tabs` `steps` 1 to 12; `accordion` and `carousel` 1 to 20; `glossary` 1 to 50;
 `timeline` 2 to 12; `processCircle` 3 to 8; `pyramidStack` 3 to 7; `pyramidMatrix` 3 to 6;
-`circleMatrix` 3 to 8. The validator reports a count outside the range (`interaction-item-count`).
+`circleMatrix` 3 to 8; `labeledGraphic` 1 to 12. The validator reports a count outside the range (`interaction-item-count`).
 `pyramidMatrix` lays its items out in rows of 1, then 2, then 1, 2 or 3 pieces.
+
+**Labeled graphic** (added in 0.44.0). The `labeledGraphic` kind shows one picture with a numbered marker on each part of it. The content has, besides the usual `items`:
+
+| Field | What it is |
+| --- | --- |
+| `graphic` | required: `src` (a file under `assets/`) and `alt`, what the picture shows as a whole |
+| each item's `x` and `y` | where its marker sits, as percentages of the picture's width and height (0 to 100), to the middle of the marker. An item with no place, or one off the picture, is drawn in a row along the bottom so it can still be reached |
+
+Underneath it is the tabs pattern, as for a timeline: a tablist whose tabs are the markers, with the text of the one chosen in a panel. In reading order a screen reader meets the picture
+and its `alt` first, then the markers, then the panel. A marker shows only its number, and is named by it and the item's title ("3. The channel", which begins with the visible number). The chosen
+marker is larger and inverted, so it is not told by colour alone. A marker is 36 pixels across, and 44 when chosen. The picture is the thing being described, so it cannot be decorative: the validator
+asks for its alt text (`labeledgraphic-alt`), a place for every marker (`labeledgraphic-position`), and warns when two markers are within 5 percent of each other (`labeledgraphic-overlap`). Each item
+has its own narration and Listen button as in any interaction, and its own picture if the author wants one. The picture's file must exist (`asset-missing`). The editor adds one with three markers and asks for
+the picture straight away; the picture's alt text and the markers' places are set in Properties, where a marker is moved by clicking the picture or with the arrow keys, or by typing its two numbers.
 
 An interaction sits on the theme's `background` colour (a rounded panel that is invisible on a normal
 slide), so its text keeps the contrast the theme guarantees even on a slide with a dark background.
@@ -1643,6 +1658,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.43.0 | 0.44.0 | Adds the `labeledGraphic` kind of interaction: a picture (`content.graphic`, with its alt text) with a numbered marker for each item, placed by the item's `x` and `y` as percentages of the picture. Nothing in an older course changes. |
 | 0.42.0 | 0.43.0 | Adds the optional `enlargeable` of a picture (an image object's content): true gives the picture an Enlarge button that opens it as big as the window allows. Nothing in an older course changes. |
 | 0.41.0 | 0.42.0 | Adds two kinds of input, `slider` and `dial`: a number the learner sets between a lowest and a highest value, saved in a number variable (`min`, `max`, `step`, and optionally `unit`, `startLabel`, `endLabel`, `showValue`). Nothing in an older course changes. |
 | 0.40.0 | 0.41.0 | Adds the optional `paragraphs` of a text object's `timing`: a timing for each paragraph or list item, so a text can come in or go away one paragraph at a time (how a PowerPoint text that builds by paragraph comes across). Nothing in an older course changes. |

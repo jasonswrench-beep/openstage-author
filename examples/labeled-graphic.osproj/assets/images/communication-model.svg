@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <rect width="1200" height="675" fill="#f4f5f7"/>
+  <defs><marker id="a" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#1d2530"/></marker></defs>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" text-anchor="middle" fill="#ffffff">
+    <rect x="40" y="215" width="220" height="150" rx="14" fill="#0b3fb3"/><text x="150" y="300">Sender</text>
+    <rect x="340" y="215" width="220" height="150" rx="14" fill="#1d6b3f"/><text x="450" y="300">Message</text>
+    <rect x="640" y="215" width="220" height="150" rx="14" fill="#8a4b00"/><text x="750" y="300">Channel</text>
+    <rect x="940" y="215" width="220" height="150" rx="14" fill="#6a1b9a"/><text x="1050" y="300">Receiver</text>
+  </g>
+  <g stroke="#1d2530" stroke-width="6" marker-end="url(#a)" fill="none">
+    <line x1="262" y1="290" x2="336" y2="290"/><line x1="562" y1="290" x2="636" y2="290"/><line x1="862" y1="290" x2="936" y2="290"/>
+  </g>
+  <rect x="40" y="520" width="1120" height="70" rx="14" fill="#5b6472"/>
+  <text x="600" y="566" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" text-anchor="middle" fill="#ffffff">Noise</text>
+</svg>

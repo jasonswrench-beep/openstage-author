@@ -706,6 +706,7 @@ export const INTERACTIONS: InteractionChoice[] = [
   { id: "pyramidStack:horizontal", kind: "pyramidStack", orientation: "horizontal", group: "Diagrams", label: "Pyramid stack", description: "A pyramid of layers. Select a layer to read about it.", size: { w: 960, h: 440 } },
   { id: "pyramidMatrix:horizontal", kind: "pyramidMatrix", orientation: "horizontal", group: "Diagrams", label: "Pyramid matrix", description: "A pyramid divided into labelled sections.", size: { w: 960, h: 440 } },
   { id: "circleMatrix:horizontal", kind: "circleMatrix", orientation: "horizontal", group: "Diagrams", label: "Circle matrix", description: "A circle divided into labelled segments.", size: { w: 960, h: 440 } },
+  { id: "labeledGraphic:horizontal", kind: "labeledGraphic", orientation: "horizontal", group: "Diagrams", label: "Labeled graphic", description: "A picture with numbered markers. Select a marker to read about that part of the picture.", size: { w: 1100, h: 520 } },
 ];
 
 /** How many items a new interaction starts with. The rest start with three. */
@@ -715,12 +716,20 @@ export function interactionById(id: string): InteractionChoice | undefined {
   return INTERACTIONS.find((i) => i.id === id);
 }
 
+/** Where the `index`th marker of a labeled graphic starts, as percentages of the picture: spread so that up to twelve are not on top of one another. */
+export function defaultMarker(index: number): { x: number; y: number } {
+  return { x: 12 + ((index * 23) % 76), y: 14 + ((index * 31) % 72) };
+}
+
 /** A new item. It starts with a title and a line telling the author to write, both of which they replace. */
 export function newInteractionItem(ids: string[], kind: InteractionKind = "tabs"): InteractionItem {
   let n = 1;
   while (ids.includes(`item-${n}`)) n++;
   const word = kind === "glossary" ? "Term" : "Item";
-  return { id: `item-${n}`, title: `${word} ${ids.length + 1}`, body: kind === "glossary" ? "<p>Write the definition.</p>" : "<p>Write the text for this item.</p>", image: null, narration: null };
+  const item: InteractionItem = { id: `item-${n}`, title: `${word} ${ids.length + 1}`, body: kind === "glossary" ? "<p>Write the definition.</p>" : "<p>Write the text for this item.</p>", image: null, narration: null };
+  // A marker starts somewhere on the picture, spread so they do not sit on one another. The author moves it.
+  if (kind === "labeledGraphic") Object.assign(item, defaultMarker(ids.length));
+  return item;
 }
 
 export function newInteraction(choice: InteractionChoice, p: Placement): OSObject {
@@ -733,7 +742,8 @@ export function newInteraction(choice: InteractionChoice, p: Placement): OSObjec
   const at = stagger(p, Math.round((1280 - choice.size.w) / 2), 190);
   return {
     ...box(p.id, at.x, at.y, choice.size.w, choice.size.h, p.z), type: "interaction", name: choice.label,
-    content: { kind: choice.kind, orientation: choice.orientation, allowMultiple: choice.kind === "clickReveal", items } satisfies InteractionContent as unknown as Record<string, unknown>,
+    // A labeled graphic starts with no picture; the author chooses it, and the validator asks until they do.
+    content: { kind: choice.kind, orientation: choice.orientation, allowMultiple: choice.kind === "clickReveal", items, ...(choice.kind === "labeledGraphic" ? { graphic: { src: "", alt: "" } } : {}) } satisfies InteractionContent as unknown as Record<string, unknown>,
     style: { fontFamily: "theme:font.body", fontSize: 18 },
     // The name a screen reader gives the group. The author should make it say what the group is about.
     accessibility: { altText: choice.label, role: "group", tabOrder: p.tabOrder, decorative: false },

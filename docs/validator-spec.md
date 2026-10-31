@@ -378,6 +378,9 @@ Going back, or to the next slide, never warns. The fix is to choose the last sli
 | Two parts share an id (`input-duplicate-id`) | Input parts must have different ids |
 | A semantic differential row has no right-hand word (`input-semantic-pole`) | Both ends of a scale row need a word |
 | A slider or dial's highest value is not above its lowest (`input-slider-range`) | The highest value of a slider or dial must be above the lowest |
+| A labeled graphic's picture has no alt text (`labeledgraphic-alt`) | The picture of a labeled graphic needs alt text |
+| A labeled graphic's item has no place on the picture (`labeledgraphic-position`) | A marker needs a place on the picture |
+| Two markers of a labeled graphic are within 5 percent of each other, warning (`labeledgraphic-overlap`) | Two markers are almost on top of each other |
 | A picture with an Enlarge button is marked decorative (`image-enlarge-decorative`) | A decorative picture cannot have an Enlarge button |
 | A slider or dial's step has more than 3 decimals, or the scale has more than 10000 steps (`input-slider-step`) | The step of a slider or dial has too many decimals, or A slider or dial has too many steps |
 

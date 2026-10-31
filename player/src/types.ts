@@ -463,13 +463,18 @@ export interface InteractionItem {
   image: { src: string; alt: string; decorative: boolean } | null;
   /** What the learner hears when the item is opened. Its audio is found under itemNarrationKey. */
   narration: unknown;
+  /** labeledGraphic (added in 0.44.0): where the item's marker sits on the picture, as a percentage of the picture's width and height (0 to 100), measured to the middle of the marker. */
+  x?: number;
+  y?: number;
 }
 
 export interface InteractionContent {
-  kind: "clickReveal" | "flipCards" | "tabs" | "accordion" | "carousel" | "steps" | "timeline" | "processCircle" | "glossary" | "pyramidStack" | "pyramidMatrix" | "circleMatrix";
+  kind: "clickReveal" | "flipCards" | "tabs" | "accordion" | "carousel" | "steps" | "timeline" | "processCircle" | "glossary" | "pyramidStack" | "pyramidMatrix" | "circleMatrix" | "labeledGraphic";
   orientation: "horizontal" | "vertical";
   allowMultiple: boolean;
   items: InteractionItem[];
+  /** labeledGraphic (added in 0.44.0): the picture the markers sit on. Its alt text says what the whole picture shows. */
+  graphic?: { src: string; alt: string };
 }
 
 /**
