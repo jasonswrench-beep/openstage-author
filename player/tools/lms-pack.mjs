@@ -20,6 +20,7 @@ const files = [
   ...["lms-test-lesson", "question-types"].flatMap((name) => ["scorm12", "scorm2004", "xapi"].map((kind) => [path.join(dist, `${name}-${kind}.zip`), `${name}-${kind}.zip`])),
   [path.join(lesson, "LMS-START-HERE.md"), "LMS-START-HERE.md"],
   [path.join(lesson, "BRIGHTSPACE-STEPS.md"), "BRIGHTSPACE-STEPS.md"],
+  [path.join(lesson, "SCORM-CLOUD-STEPS.md"), "SCORM-CLOUD-STEPS.md"],
   [path.join(lesson, "LMS-TEST-PLAN.md"), "LMS-TEST-PLAN.md"],
   [path.join(lesson, "LMS-RESULTS.md"), "LMS-RESULTS.md"],
   [path.join(types, "TEST-PLAN.md"), "QUESTION-TYPES-TEST-PLAN.md"],

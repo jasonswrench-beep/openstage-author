@@ -130,7 +130,7 @@ The first run in Brightspace was recorded on video (2026-10-12) and is not in th
 
 ## Summary
 
-Which LMSs have passed tests 1 to 4: **Brightspace, as reported by Jason on 2026-11-01: "All three worked in Brightspace"** (read as the SCORM 1.2, SCORM 2004 and xAPI packages of the lesson). He gave no status words, scores or screenshots, so the Brightspace tables above are still blank. It is not recorded which of tests 1 to 4 were run, whether resume landed on Question 3, or whether Brightspace showed any xAPI statements. Moodle, Canvas and SCORM Cloud have not been run.
+Which LMSs have passed tests 1 to 4: **Brightspace, as reported by Jason on 2026-11-01: "All three worked in Brightspace"** (read as the SCORM 1.2, SCORM 2004 and xAPI packages of the lesson). He then said he has **instructor access only** (no student account, and he cannot make a test student), so the run was done as the instructor. D2L's own "Preview your course" page says Role Switch creates no learner activity and that Impersonate should not be used to check reporting or completion data, so this shows that the packages launch and play in Brightspace's frame, **not what Brightspace recorded** (status, score, resume). He gave no status words, scores or screenshots, so the Brightspace tables above are still blank and the four required tests are not yet passed in any real LMS. It is not recorded which of tests 1 to 4 were run, whether resume landed on Question 3, or whether Brightspace showed any xAPI statements. Moodle, Canvas and SCORM Cloud have not been run.
 
 Faults found and where they were fixed: ______
 

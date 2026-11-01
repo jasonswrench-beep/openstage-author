@@ -16,9 +16,9 @@ It costs nothing. It needs about 90 minutes in all, and you can stop after any r
 ## What you need
 
 * **Brightspace**, with a course where you can add content, and a **test student** account you can log in as. Preview and Impersonate may
-  record nothing, so they are not a stand-in. Nothing to buy. **Read `BRIGHTSPACE-STEPS.md` first:** the menu paths, the settings to pick
+  record nothing, so they are not a stand-in. With instructor access only, Brightspace cannot show what it records: use SCORM Cloud (`SCORM-CLOUD-STEPS.md`) for that. Nothing to buy. **Read `BRIGHTSPACE-STEPS.md` first:** the menu paths, the settings to pick
   when adding a package, why each fresh attempt needs its own copy of the zip, and where to read the result.
-* **Optional: SCORM Cloud** (Rustici), for a second opinion and for xAPI. It has a **free Trial plan with no time limit**, limited to 10
+* **SCORM Cloud** (Rustici), the route if you have instructor access only, and the way to see xAPI statements (`SCORM-CLOUD-STEPS.md`). It has a **free Trial plan with no time limit**, limited to 10
   registrations at a time (one third-party listing also says 3 courses and 5 GB; I could not confirm that on Rustici's own page). A paid
   plan exists (about $40 a month on listings), and **you never need it for this test**. Signing up is your sign-in, not mine.
 * The files, in the `dist\lms-test-pack` folder of the project (double-click `PUBLISH LMS TEST LESSON.bat` to rebuild it). Nothing is uploaded anywhere until you do it.
