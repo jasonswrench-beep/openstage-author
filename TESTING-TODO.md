@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Hiding windows, and picking a window by clicking it (2026-11-01)
+
+Built and checked as far as I could without your screen: Rust tests (438 and one test that makes real windows of its own), the pretend recorder in the browser (56 checks in all for the Recorder app), and two real recordings of a small part of the screen holding only windows I made. What follows is what only you can say.
+
+- [ ] **Hide a window, for real.** In the Recorder, type a word from the title of a window you use (for example the name of a password manager or your mail) in **Hide windows with these words**, record a part of your screen with that window in it, and play the video. Expect a plain dark grey box where the window is, all the time it is there. Then move it, resize it, close it and open it again while recording, and tell me how many pictures it shows before it is covered (I expect none when moved, and a few at most when it opens).
+- [ ] **The edges.** The box is the window's visible frame; Windows' shadow round some windows can show as a thin strip. Tell me if that bothers you.
+- [ ] **A hidden window with other windows in front of it.** The whole box is covered anyway. Check you are happy with that, because it can hide a window you meant to show.
+- [ ] **Pick a window by clicking it.** On the Record screen choose One window, press **Pick a window by clicking it**, and click a window. The Recorder should go to the taskbar, come back, and have that window chosen, and the window you clicked should not have reacted (no button pressed, no text field focused). Try Escape, and a click on the desktop and the taskbar. Only you can say whether this feels right with a mouse and with a screen reader.
+- [ ] **Do not use the mouse** while `cargo test -p openstage-capture-windows --lib -- --ignored` runs: its tests watch the mouse buttons for a moment and one clicks a window of its own (I ran them while you were using the computer; one of your clicks may not have registered, and I am sorry for that).
+
 ## Zooms suggested from clicks, and noting the mouse (2026-11-01)
 
 Built and tested with the pretend recorder (12 + 5 unit tests, 6 browser checks). Never tried on a recording of your own screen.
