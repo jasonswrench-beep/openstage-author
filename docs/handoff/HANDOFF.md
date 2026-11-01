@@ -151,6 +151,8 @@ real phone.
 
 ## The screen recorder (OpenStage Capture): waiting
 
+**Out of date (noted 2026-11-01).** The recorder was imported: its programs are in `capture/`, `capture-edit/` and `capture-timeline/` of this repository, `ROADMAP.md` says this repository is the live copy (decided 2026-10-15) and the old `claude-test` repository is not used for new work, and the editor's recorder and recording-editor dialogs are built. What follows is how things stood when this handoff was written; the six conditions were the rules for the import.
+
 A separate Windows-first Rust program, written elsewhere, lives on the branch `claude/screen-recording-software-brief-ivhxqp` of Jason's
 repository `jasonswrench-beep/claude-test`. It is **cloud only** (not on Jason's PC). The editor's side of the connection (`stream.rs`,
 `recorder.ts`) is in this repository; check `ROADMAP.md` Phase 4 for what remains, because I did not re-read those files for this handoff.
