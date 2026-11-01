@@ -14,7 +14,8 @@ export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as c
 
 /** A description of a tool's arguments: the part of JSON Schema that is used here. */
 export interface Schema {
-  type: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  /** "scalar" is a value that may be text, a number or true or false (a variable's value). */
+  type: "object" | "string" | "number" | "integer" | "boolean" | "array" | "scalar";
   description?: string;
   enum?: readonly (string | number)[];
   minimum?: number;
@@ -35,10 +36,11 @@ export interface Schema {
 /** The schema as a client expects to read it: standard JSON Schema, with "or null" and "or a number" written as lists of types. */
 export function toJsonSchema(s: Schema): Record<string, unknown> {
   const { nullable, orNumber, properties, items, type, ...rest } = s;
-  const types = [type, ...(orNumber ? ["number"] : []), ...(nullable ? ["null"] : [])];
+  const own: string[] = type === "scalar" ? ["string", "number", "boolean"] : [type];
+  const types = [...own, ...(orNumber ? ["number"] : []), ...(nullable ? ["null"] : [])];
   return {
     ...rest,
-    type: types.length === 1 ? type : types,
+    type: types.length === 1 ? types[0] : types,
     ...(properties ? { properties: Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, toJsonSchema(v)])) } : {}),
     ...(items ? { items: toJsonSchema(items) } : {}),
   };
@@ -111,6 +113,8 @@ export function problemWith(schema: Schema, value: unknown, where: string): stri
     }
     case "boolean":
       return typeof value === "boolean" ? null : `${where} must be true or false.`;
+    case "scalar":
+      return typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) ? null : `${where} must be text, a number, or true or false.`;
     case "array": {
       if (!Array.isArray(value)) return `${where} must be a list.`;
       if (schema.maxItems !== undefined && value.length > schema.maxItems) return `${where} can have at most ${schema.maxItems} items.`;

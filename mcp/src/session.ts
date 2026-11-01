@@ -4,7 +4,7 @@
 import path from "node:path";
 import { Model } from "../../editor/src/model.ts";
 import { newProjectFiles } from "../../editor/src/template.ts";
-import type { Layer, OSObject, Slide } from "../../player/src/types.ts";
+import type { Layer, OSObject, Slide, Variable } from "../../player/src/types.ts";
 import { Jail, createProjectFolder, readProject, writeProjectFiles } from "./files.ts";
 import { ToolError } from "./protocol.ts";
 
@@ -74,6 +74,52 @@ export class Session {
     writeProjectFiles(dir, files, removed);
     model.markSaved(files);
     return { written: files.length, removed: removed.length };
+  }
+
+  /**
+   * Make several changes as one. If any of them cannot be made, everything done so far is undone and the problem is passed on, so a tool that
+   * takes several steps never leaves a half-made thing behind. Nothing is saved until the tool has finished.
+   */
+  attempt<T>(change: () => T): T {
+    const { model } = this.require();
+    const before = JSON.stringify(model.allFiles());
+    try {
+      return change();
+    } catch (e) {
+      for (let i = 0; i < 300 && model.canUndo && JSON.stringify(model.allFiles()) !== before; i++) model.undo();
+      throw e;
+    }
+  }
+
+  /** A variable by its id or its name. */
+  variable(which: string): Variable {
+    const { model } = this.require();
+    const found = model.variables.find((v) => v.id === which) ?? model.variables.find((v) => v.name.toLowerCase() === which.trim().toLowerCase());
+    if (!found) {
+      const names = model.variables.map((v) => v.name);
+      throw new ToolError(`There is no variable "${which}". ${names.length > 0 ? `The variables are: ${names.join(", ")}.` : "The course has no variables yet; add_variable makes one."}`);
+    }
+    return found;
+  }
+
+  /** Make a slide and one of its layers (named by id or by name) the one the model is working on. Without a layer, the slide's base layer. */
+  focusLayer(slide: string | number, layer?: string): { slide: Slide; layer: Layer } {
+    const { model } = this.require();
+    const found = this.focusSlide(slide).slide;
+    // Selecting a slide that is already the one being worked on leaves its layer as it was, so the layer is always chosen outright.
+    if (layer === undefined) {
+      model.selectLayer(found.baseLayer.id);
+      return { slide: found, layer: found.baseLayer };
+    }
+    const all = [found.baseLayer, ...found.layers];
+    const wanted = layer.trim().toLowerCase();
+    const named = all.filter((l) => l.name.toLowerCase() === wanted);
+    const hit = all.find((l) => l.id === layer) ?? (named.length === 1 ? named[0] : undefined);
+    if (!hit) {
+      throw new ToolError(named.length > 1 ? `More than one layer is called "${layer}" on ${found.name}. Use its id.` : `There is no layer "${layer}" on ${found.name}. Its layers are: ${all.map((l) => `${l.name} (${l.id})`).join(", ")}.`);
+    }
+    model.selectLayer(hit.id);
+    return { slide: found, layer: hit };
   }
 
   /** A slide by its number (counting from 1), its id or its name. */

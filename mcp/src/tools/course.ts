@@ -230,6 +230,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
       "Put a new object on a slide: text, a button, a shape, a table, a scrolling text box, a results box or a certificate. Give text for the ones that have words. For a picture use add_picture; for questions use add_questions.",
       {
         slide: slideRef("The slide's number, id or name."),
+        layer: text("The layer to put it on, by name or id (add_layer makes one). The slide's base layer if left out.", { maxLength: 120 }),
         kind: text(`What to add: ${ADDABLE.join(", ")}.`, { enum: ADDABLE }),
         text: text("The words: a text's words, a button's label, a scrolling text's words.", { maxLength: 20000 }),
         block: text(`For a text: ${TEXT_BLOCKS.join(", ")}. p is a paragraph; h1 to h6 are headings, whose sizes follow their level. p if left out.`, { enum: TEXT_BLOCKS }),
@@ -249,7 +250,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
         const kind = a["kind"] as (typeof ADDABLE)[number];
         const words = a["text"] as string | undefined;
         if (words !== undefined && TEXTLESS.has(kind)) throw new ToolError(`A ${kind} has no words to set here. Leave text out.`);
-        s.focusSlide(a["slide"] as string);
+        s.focusLayer(a["slide"] as string, a["layer"] as string | undefined);
         const object = model.addObject(kind, a["shape"] !== undefined ? { shape: a["shape"] as string } : {});
         if (!object) throw new ToolError("The object could not be added.");
         const id = object.id;
@@ -265,8 +266,9 @@ export function courseTools(s: Session, e: Environment): Tool[] {
         const alt = typeof a["altText"] === "string" ? a["altText"] : words !== undefined && kind !== "button" ? firstLine(words) : undefined;
         if (a["decorative"] === true) model.setAccessibility(id, { decorative: true, altText: "" });
         else if (alt !== undefined) model.setAccessibility(id, { altText: alt });
-        const now = model.slides.find((x) => x.baseLayer.objects.some((o) => o.id === id))!;
-        return { text: `Added ${kind} ${id} to slide ${model.slides.indexOf(now) + 1}.${saved()}`, data: objectSummary(now.baseLayer.objects.find((o) => o.id === id)!, now.baseLayer.name) };
+        const now = model.slides.find((x) => [x.baseLayer, ...x.layers].some((l) => l.objects.some((o) => o.id === id)))!;
+        const on = [now.baseLayer, ...now.layers].find((l) => l.objects.some((o) => o.id === id))!;
+        return { text: `Added ${kind} ${id} to ${on === now.baseLayer ? "" : `the layer ${on.name} of `}slide ${model.slides.indexOf(now) + 1}.${saved()}`, data: objectSummary(on.objects.find((o) => o.id === id)!, on.name) };
       },
     ),
 
@@ -376,6 +378,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
       "Put a picture on a slide. The picture file must be inside the folder you may use (PNG, JPEG, GIF, WebP or SVG, up to 25 MB); it is copied into the project. A picture needs alt text that says what it shows, or decorative: true if it only decorates.",
       {
         slide: slideRef("The slide's number, id or name."),
+        layer: text("The layer to put it on, by name or id. The slide's base layer if left out.", { maxLength: 120 }),
         file: text("The picture's path inside the folder, such as pictures/map.png.", { minLength: 1, maxLength: 400 }),
         altText: text("What the picture shows, for someone who cannot see it.", { maxLength: 500 }),
         decorative: flag("True if the picture only decorates. Then give no alt text."),
@@ -391,7 +394,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
         const { model, dir } = s.require();
         if (a["decorative"] === true && typeof a["altText"] === "string" && a["altText"] !== "") throw new ToolError("A decorative picture has no alt text. Either give alt text or say decorative: true, not both.");
         const source = s.jail.resolve(a["file"] as string);
-        s.focusSlide(a["slide"] as string);
+        s.focusLayer(a["slide"] as string, a["layer"] as string | undefined);
         const pic = importPicture(dir, source);
         const object = model.addObject("image", { imageSrc: pic.src, size: { w: pic.width, h: pic.height } });
         if (!object) throw new ToolError("The picture could not be added.");
@@ -410,11 +413,12 @@ export function courseTools(s: Session, e: Environment): Tool[] {
         if (typeof a["name"] === "string" && a["name"].trim() !== "") model.setName(object.id, a["name"].trim());
         if (a["decorative"] === true) model.setAccessibility(object.id, { decorative: true, altText: "" });
         else if (typeof a["altText"] === "string") model.setAccessibility(object.id, { altText: a["altText"] });
-        const slide = model.slides.find((x) => x.baseLayer.objects.some((o) => o.id === object.id))!;
+        const slide = model.slides.find((x) => [x.baseLayer, ...x.layers].some((l) => l.objects.some((o) => o.id === object.id)))!;
+        const on = [slide.baseLayer, ...slide.layers].find((l) => l.objects.some((o) => o.id === object.id))!;
         const missing = a["decorative"] !== true && (typeof a["altText"] !== "string" || a["altText"].trim() === "");
         return {
-          text: `Added picture ${object.id} (${pic.src}, ${pic.width} by ${pic.height}) to slide ${model.slides.indexOf(slide) + 1}.${missing ? " It has no alt text yet: use set_object to say what it shows, or mark it decorative." : ""}${saved()}`,
-          data: objectSummary(slide.baseLayer.objects.find((o) => o.id === object.id)!, slide.baseLayer.name),
+          text: `Added picture ${object.id} (${pic.src}, ${pic.width} by ${pic.height}) to ${on === slide.baseLayer ? "" : `the layer ${on.name} of `}slide ${model.slides.indexOf(slide) + 1}.${missing ? " It has no alt text yet: use set_object to say what it shows, or mark it decorative." : ""}${saved()}`,
+          data: objectSummary(on.objects.find((o) => o.id === object.id)!, on.name),
         };
       },
     ),

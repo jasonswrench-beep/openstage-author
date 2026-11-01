@@ -105,7 +105,8 @@ export function outputTools(s: Session, e: Environment): Tool[] {
       const r = await run(pythonOf(e), [tools("review_doc.py"), dir, out, "--json"], e);
       const answer = lastJson<Said & { slides?: number; errors?: number; warnings?: number }>(r.stdout);
       if (!answer?.ok) throw refusal("The Word document could not be made", r, answer);
-      return { text: `Made the Word document for ${answer.slides ?? 0} slides.`, data: { file: out } };
+      const slides = answer.slides ?? 0;
+      return { text: `Made the Word document for ${slides} ${slides === 1 ? "slide" : "slides"}.`, data: { file: out } };
     }),
 
     tool(

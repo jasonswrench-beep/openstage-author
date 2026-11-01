@@ -22,7 +22,7 @@ if not defined OPENSTAGE_PYTHON (
 
 echo Testing the MCP server...
 echo.
-node --test test/protocol.test.ts test/files.test.ts test/settings.test.ts test/tools.test.ts test/server.test.ts
+node --test test/protocol.test.ts test/files.test.ts test/settings.test.ts test/helpers.test.ts test/scenario.test.ts test/tools.test.ts test/logic.test.ts test/interact.test.ts test/server.test.ts
 set RESULT=%ERRORLEVEL%
 echo.
 if %RESULT%==0 (

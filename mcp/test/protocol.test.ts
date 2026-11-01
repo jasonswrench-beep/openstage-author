@@ -172,6 +172,13 @@ test("serving reads lines, answers one call at a time in the order they came, an
   assert.ok(written.every((w) => w.endsWith("\n") && w.indexOf("\n") === w.length - 1), "each answer is exactly one line");
 });
 
+test("a value that may be text, a number or true or false is checked, and described to clients as those three", () => {
+  const scalar: Schema = { type: "scalar" };
+  for (const ok of ["text", "", 0, 3.5, -1, true, false]) assert.equal(problemWith(scalar, ok, "value"), null, String(ok));
+  for (const bad of [null, [], {}, Number.NaN, undefined]) assert.equal(problemWith(scalar, bad, "value"), "value must be text, a number, or true or false.", String(bad));
+  assert.deepEqual(toJsonSchema({ type: "scalar", description: "d" }), { description: "d", type: ["string", "number", "boolean"] });
+});
+
 test("toJsonSchema leaves ordinary schemas as they are", () => {
   const s: Schema = { type: "object", required: ["a"], properties: { a: { type: "array", items: { type: "string" }, maxItems: 3 } } };
   assert.deepEqual(toJsonSchema(s), { required: ["a"], type: "object", properties: { a: { type: "array", items: { type: "string" }, maxItems: 3 } } });

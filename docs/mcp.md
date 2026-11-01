@@ -44,7 +44,11 @@ that cannot be done says why in plain words and changes nothing. Slides are name
 | Projects | `list_projects`, `create_project` (a new project with a title slide), `open_project` |
 | Reading | `get_course` (title, language, slides, variables), `get_slide` (every object with its id, words, place, alt text, timing and narration), `list_layouts`, `list_voices`, `get_narration` (every narration, its voice, and whether its audio is made) |
 | Slides | `add_slide` (from a layout), `rename_slide`, `move_slide`, `duplicate_slide`, `delete_slide` (needs `confirm: true`), `set_slide` (moving on by itself, hiding Back and Next, background) |
-| Objects | `add_object` (text, button, shape, table, scrolling text, results, certificate), `set_text` (with paragraph or heading level), `set_list`, `set_object` (name, alt text, decorative, place and size), `delete_object` (needs `confirm: true`), `add_picture` (copies a picture from the folder into the project), `set_table_cell` |
+| Objects | `add_object` (text, button, shape, table, scrolling text, results, certificate; on a layer if asked), `set_text` (with paragraph or heading level), `set_list`, `set_object` (name, alt text, decorative, place and size), `delete_object` (needs `confirm: true`), `add_picture` (copies a picture from the folder into the project), `set_table_cell` |
+| Interactions | `add_interaction` (click and reveal, accordion, flip cards, tabs, steps, carousel, glossary, timeline, process circle, pyramids, circle matrix, labeled graphic: give each item its title and words), `set_item`, `add_item`, `delete_item` (needs `confirm: true`), `set_interaction` (orientation, several open, guided, name), `narrate_items` |
+| Scenarios and cast | `add_scenario` (a whole branching scenario from a description: situations, lines, choices that lead to other situations, what choices change, meters), `get_cast`, `add_character`, `set_character`, `delete_character` (needs `confirm: true`) |
+| Variables, layers and rules | `add_variable`, `set_variable`, `delete_variable` (needs `confirm: true`), `add_layer`, `rename_layer`, `delete_layer` (needs `confirm: true`), `get_rules`, `add_rule` (when an object is pressed, a slide starts and so on: go to a slide, show or hide a layer, set or add to a variable, play media, change a look, only if variables have values), `delete_rule` |
+| Theme | `list_themes`, `set_theme` |
 | Narration | `set_narration` (the words, voice, language and speed), `make_audio` (with the installed narration voice) |
 | Timing | `set_timing` (appear after a delay, with its narration, or at a press of Show next item; how long it stays), `set_animation` (the effect as it arrives or leaves) |
 | Questions | `add_questions` (multiple choice, multiple response, true or false and short answer, a slide for each, with feedback and points) |
@@ -53,6 +57,16 @@ that cannot be done says why in plain words and changes nothing. Slides are name
 
 Everything made goes inside the folder: published courses in `Published courses`, translation files in `Translations`, and a translated course as
 a new project beside the others.
+
+Choices the tools make for you, which you can reverse in the editor afterwards:
+
+- A scenario's lines are **spoken** unless `spoken: false`, in their person's voice if they have one, so a learner who cannot read the screen can
+  follow. Interaction items are **not** given narration unless `narrate: true` (or `narrate_items`), because the words of a tab are often read in
+  place; the answer says which.
+- A text's alt text follows its first words, as the layouts do, unless one was written.
+- A rule on a button is always both a mouse click and a key press, as the editor writes it. A rule that comes out different from what was asked
+  (a value of the wrong kind, a condition that does not suit the variable) is taken back whole, and the reason is said.
+- A scenario with a situation no choice can reach is refused, because the checker would name it as a dead page.
 
 ## Safety, because nobody is watching
 
@@ -78,8 +92,10 @@ tools' descriptions and used the tools.
 
 ## What it does not do yet
 
-- It cannot make or edit **rules** (what a button does), **variables**, **scenarios**, **interactions** such as tabs and flip cards, **layers**,
-  **themes** or **the cast**. They are in the editor. Questions, text, pictures, tables, narration and timing are covered.
+- It cannot yet change **a theme's own colours and fonts** (it chooses among the built-in themes), give an **interaction's item a picture**, edit a
+  scenario part by part afterwards (it builds one whole, and an assistant can delete it and make it again), set **looks** (a button's hover and
+  pressed states), **groups**, **locks**, an input's **survey** questions, **question banks**, or **audio descriptions** of a video. They are in the
+  editor. Slides, text, pictures, tables, interactions, scenarios, the cast, variables, layers, rules, questions, narration and timing are covered.
 - It cannot **see** a slide, only read its facts. A way to look at a slide as a picture would need the video maker's browser step; it is not built.
 - It works on **one project at a time** per connection, and it needs the narration voice installed, and Node, for `make_audio`.
 - It has not been connected to Claude Desktop or Claude Code by a person (`TESTING-TODO.md`).

@@ -6,7 +6,7 @@
   "description": "OpenStage Author as an MCP server: an AI assistant builds, checks and publishes accessible courses. No window; the editor's own model does the work.",
   "scripts": {
     "typecheck": "node ../player/node_modules/typescript/bin/tsc --noEmit",
-    "test": "node --test test/protocol.test.ts test/files.test.ts test/settings.test.ts test/tools.test.ts test/server.test.ts",
+    "test": "node --test test/protocol.test.ts test/files.test.ts test/settings.test.ts test/helpers.test.ts test/scenario.test.ts test/tools.test.ts test/logic.test.ts test/interact.test.ts test/server.test.ts",
     "build": "node build.mjs"
   }
 }

@@ -2,6 +2,7 @@
 // that what it reads can be used to ask for the next change. Nothing here changes anything.
 
 import { isTimed } from "../../player/src/timeline.ts";
+import { readRules } from "../../editor/src/content.ts";
 import { keyOf, type Narration } from "../../editor/src/narration.ts";
 import type { Model } from "../../editor/src/model.ts";
 import type { OSObject, Slide } from "../../player/src/types.ts";
@@ -85,9 +86,13 @@ export function objectSummary(o: OSObject, layer: string): Record<string, unknow
       ...(Array.isArray(c["answers"]) ? { accepted: c["answers"] } : {}),
     };
   }
+  if (o.type === "scenario") {
+    const nodes = Array.isArray(c["nodes"]) ? (c["nodes"] as { title?: string; choices?: unknown[] }[]) : [];
+    out["scenario"] = { situations: nodes.map((n, i) => ({ number: i + 1, title: n.title ?? "", choices: Array.isArray(n.choices) ? n.choices.length : 0 })) };
+  }
   if (o.type === "interaction") {
-    const items = Array.isArray(c["items"]) ? (c["items"] as { title?: string }[]) : [];
-    out["interaction"] = { kind: str(c["kind"]), items: items.map((i) => i.title ?? "") };
+    const items = Array.isArray(c["items"]) ? (c["items"] as { id?: string; title?: string }[]) : [];
+    out["interaction"] = { kind: str(c["kind"]), items: items.map((i) => ({ id: i.id ?? "", title: i.title ?? "" })) };
   }
   if (o.type === "table") {
     const rows = Array.isArray(c["rows"]) ? (c["rows"] as unknown[]) : [];
@@ -99,6 +104,7 @@ export function objectSummary(o: OSObject, layer: string): Record<string, unknow
   if (o.animation.enter.effect !== "none" || o.animation.exit.effect !== "none") out["animation"] = { enter: o.animation.enter.effect, exit: o.animation.exit.effect };
   const narration = o.narration as Narration | null;
   if (narration) out["narration"] = clip(narration.script, 160);
+  if (o.triggers.length > 0) out["rules"] = readRules(o.triggers).length;
   if (o.locked) out["locked"] = true;
   return out;
 }

@@ -12,6 +12,8 @@ export const text = (description: string, more: Partial<Schema> = {}): Schema =>
 export const whole = (description: string, more: Partial<Schema> = {}): Schema => ({ type: "integer", description, ...more });
 export const number = (description: string, more: Partial<Schema> = {}): Schema => ({ type: "number", description, ...more });
 export const flag = (description: string): Schema => ({ type: "boolean", description });
+/** A value that may be text, a number, or true or false: what a variable holds. */
+export const scalar = (description: string, more: Partial<Schema> = {}): Schema => ({ type: "scalar", description, ...more });
 export const list = (description: string, items: Schema, more: Partial<Schema> = {}): Schema => ({ type: "array", description, items, ...more });
 export const record = (description: string, properties: Props, required: readonly string[] = []): Schema => ({ type: "object", description, properties, required });
 
@@ -67,7 +69,10 @@ export interface RunResult {
 /** Run a program to its end and keep what it said. A program that cannot be started is a sentence, not a crash. */
 export function run(program: string, args: string[], e: Environment, cwd?: string): Promise<RunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(program, args, { cwd, env: e.env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    // The program's other tools find Python by OPENSTAGE_PYTHON. An assistant starts this server with only its own settings, so on a computer that has
+    // no Python of its own on the path the Python that came with the program is named here, for the publisher and the rest.
+    const env = { ...e.env, OPENSTAGE_PYTHON: pythonOf(e) };
+    const child = spawn(program, args, { cwd, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on("data", (b: Buffer) => out.push(b));
