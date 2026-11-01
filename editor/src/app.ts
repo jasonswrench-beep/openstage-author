@@ -679,7 +679,7 @@ export class App {
     await openRecorder({
       backend, controller: this.recorder, dir: m?.dir ?? null, settings: this.recorderSettings,
       keepSettings: (s) => { this.recorderSettings = s; },
-      editRecording: async (name, newestTake) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, newestTake: newestTake === true, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
+      editRecording: async (name, newestTake) => { if (m) await openRecordingEditor({ backend, dir: m.dir, name, newestTake: newestTake === true, placeVideo: (src, facts) => this.putVideoOnSlide(m, src, facts), placeSound: (src) => this.putSoundOnSlide(m, src), placePicture: (src) => this.putPictureOnSlide(m, src), writeCaptions: () => this.openCaptionsDialog(), describeScreen: (extras) => this.describeScreenOfVideo(m, extras) }); },
       makeSteps: async (name) => {
         if (!m) return;
         const said = await openSteps({
@@ -700,6 +700,21 @@ export class App {
     if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the video again.";
     if (facts) this.madeVideos.set(src, facts);
     return `The video ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a description in the Alt text field and captions. Write the captions with the button below, or find them in the Properties panel. Both are listed in the Problems panel.`;
+  }
+
+  /** Put a sound file made from a recording, already copied into the course, on the slide the author is on. It starts with no name and no transcript: the author writes them. */
+  private putSoundOnSlide(m: Model, src: string): string {
+    const o = m.addMedia("audio", src);
+    if (!o) return "There is no slide to put it on. Close this window, choose a slide, and make the sound file again.";
+    return `The sound ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs a name in the Alt text field, and captions or a transcript of what is said in it. Close this window and select the sound to write them.`;
+  }
+
+  /** Put a picture made from a recording, already copied into the course, on the slide the author is on. It starts with no description: the author writes it. */
+  private async putPictureOnSlide(m: Model, src: string): Promise<string> {
+    const size = await this.measure(m.dir, src);
+    const o = m.addObject("image", { imageSrc: src, size });
+    if (!o) return "There is no slide to put it on. Close this window, choose a slide, and save the picture again.";
+    return `The picture ${src.split("/").pop() ?? ""} is on the slide. Before the course is ready it needs alt text: describe what it shows in the Alt text field, or mark it decorative. Close this window and select the picture to do that.`;
   }
 
   /** Put what a recording shows on its screen into the selected video's audio description, each with a voice. Says what to do about a missing speech engine. */

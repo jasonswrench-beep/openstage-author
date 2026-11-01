@@ -17,7 +17,7 @@ import type { LogEvent } from "./steps.ts";
 import { EditSession } from "../../capture-timeline/src/session.ts";
 import type { Backend } from "./backend.ts";
 import { runOneShot } from "./capturecontroller.ts";
-import { applyExportLine, exportPlan, initialExport, summariseExport, type ExportPlan, type ExportState } from "./captureexport.ts";
+import { applyExportLine, exportPlan, initialExport, summariseExport, type ExportKind, type ExportPlan, type ExportState } from "./captureexport.ts";
 import { extrasFromEdit, type Extra } from "./captions.ts";
 import { chooseMedia, measureInBrowser } from "./mediapick.ts";
 import { recordingFolder } from "./recordingfolder.ts";
@@ -49,6 +49,10 @@ export interface EditRecordingOptions {
    * the editor needs to write the video's transcript: what is on the screen that the voice does not say, and how long the video is.
    */
   placeVideo: (assetPath: string, facts: { extras: Extra[]; lengthMs: number }) => string;
+  /** Put a sound file that is already in the course's assets on the slide the author is on, as an audio clip. Returns what to tell them. */
+  placeSound: (assetPath: string) => string;
+  /** Put a picture that is already in the course's assets on the slide the author is on. Returns what to tell them. */
+  placePicture: (assetPath: string) => Promise<string>;
   /** Open the captions dialog for the video that was just put on the slide. */
   writeCaptions: () => Promise<string>;
   /** Add what the recording shows on its screen to the video that was just put on the slide, as audio descriptions with a voice. Returns what to tell them. */
@@ -82,7 +86,10 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const host = h("div", { class: "re-host" });
     // ---- making a video from the edit
     const make = h("button", { type: "button", text: "Make a video from this edit" });
+    const makeSound = h("button", { type: "button", text: "Make a sound file (WAV) from this edit" });
+    const makePicture = h("button", { type: "button", text: "Save the picture shown in the preview (PNG)" });
     const reduce = h("input", { type: "checkbox", id: "re-reduce" });
+    const pointer = h("input", { type: "checkbox", id: "re-pointer" });
     const cancelVideo = h("button", { type: "button", text: "Cancel the video", hidden: true });
     const progress = h("progress", { id: "re-progress", max: "100", value: "0", hidden: true, "aria-labelledby": "re-export-say" });
     const exportSay = h("p", { id: "re-export-say", role: "status" });
@@ -92,15 +99,17 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     const captionsBtn = h("button", { type: "button", text: "Write captions for the video", hidden: true });
     const describeBtn = h("button", { type: "button", text: "Describe what is on the screen", hidden: true });
     const madeRow = h("div", { class: "dialog-actions", hidden: true }, place, captionsBtn, describeBtn, reveal);
+    const exportTitle = h("h3", { id: "re-export-title", text: "The video" });
     const exportBox = h("section", { "aria-labelledby": "re-export-title", hidden: true },
-      h("h3", { id: "re-export-title", text: "The video" }), progress, exportSay, exportNotes, madeRow);
+      exportTitle, progress, exportSay, exportNotes, madeRow);
     // ---- the balance of the voice and the computer's sound: its boxes are made when the recording is open (soundbalance.ts)
     const balanceHost = h("div");
     dialog.append(
       heading,
       h("p", { class: "note", text: "Your changes are saved as a list of what to keep and what to add. The recording itself, its picture and its sound, is never changed. Press F6 to move between the preview, the timeline and the clip list." }),
-      h("div", { class: "dialog-actions" }, save, make, cancelVideo, close),
+      h("div", { class: "dialog-actions" }, save, make, makeSound, makePicture, cancelVideo, close),
       h("p", {}, reduce, " ", h("label", { for: "re-reduce", text: "Use cuts instead of animated zooms in the video (kinder to anyone bothered by movement)" })),
+      h("p", {}, pointer, " ", h("label", { for: "re-pointer", text: "Show where the mouse pointer is in the video and in pictures (a soft yellow ring, and a red ring where a button was pressed). Only a recording made with the mouse noted can show it." })),
       balanceHost, state, exportBox, host,
     );
     document.body.appendChild(dialog);
@@ -147,6 +156,9 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     let exporting = false;
     let plan: ExportPlan | null = null;
     let made = false;
+    /** What is being made, or was last made: a video, only the sound, or one picture. */
+    let kind: ExportKind = "video";
+    const thingOf = (k: ExportKind): "video" | "sound file" | "picture" => (k === "video" ? "video" : k === "sound" ? "sound file" : "picture");
     /** What the edit knew when the video was made (the edit may be changed after), for the video's transcript. */
     let facts: { extras: Extra[]; lengthMs: number } = { extras: [], lengthMs: 0 };
 
@@ -154,33 +166,54 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       exportNotes.replaceChildren(...state.notes.map((n) => h("li", {}, h("strong", { class: n.ok ? "rc-pass" : "rc-problem", text: n.ok ? "Note. " : "Problem. " }), h("span", { text: n.text }))));
     }
 
-    /** Make the video from the saved edit. The edit is saved first when it has changes, or when `edit.json` is not the edit on the screen (a new edit that was never saved, or that replaces an older one), because the recorder reads `edit.json`. */
-    async function makeVideo(): Promise<void> {
-      if (session === undefined || exporting) return;
+    /**
+     * Make the video, or only the sound as a WAV file, or one picture as a PNG, from the saved edit. The edit is saved first when it has changes, or when `edit.json` is
+     * not the edit on the screen (a new edit that was never saved, or that replaces an older one), because the recorder reads `edit.json`.
+     */
+    async function makeFile(what: ExportKind): Promise<void> {
+      if (session === undefined) return;
+      if (exporting) {
+        exportBox.hidden = false;
+        exportSay.textContent = `A ${thingOf(kind)} is already being made. Wait until it is finished, or cancel it.`;
+        return;
+      }
+      const thing = thingOf(what);
       if (session.dirty || !onDisk) {
         await saveEdit();
-        if (session.dirty || !onDisk) { exportBox.hidden = false; exportSay.textContent = "The edit could not be saved, so no video was made."; return; }
+        if (session.dirty || !onDisk) { exportBox.hidden = false; exportSay.textContent = `The edit could not be saved, so no ${thing} was made.`; return; }
       }
-      if (!VIDEO_MAKER_DRAWS_TRANSITIONS && session.model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined))) {
+      if (what !== "sound" && !VIDEO_MAKER_DRAWS_TRANSITIONS && session.model.tracks.some((t) => t.clips.some((c) => c.transitionIn !== undefined || c.transitionOut !== undefined))) {
         exportBox.hidden = false;
-        exportSay.textContent = "No video was made. This edit has a transition, and the program that makes the video cannot draw transitions yet. Take the transitions off, or wait for the next update of the recorder. Nothing in the edit was changed.";
+        exportSay.textContent = `No ${thing} was made. This edit has a transition, and the program that makes the video cannot draw transitions yet. Take the transitions off, or wait for the next update of the recorder. Nothing in the edit was changed.`;
         return;
       }
       exporting = true;
       made = false;
+      kind = what;
       captionsBtn.hidden = true;
       describeBtn.hidden = true;
       facts = { extras: extrasFromEdit(session.model), lengthMs: modelLengthMs(session.model) };
-      plan = exportPlan(opts.dir, opts.name, { reduceMotion: reduce.checked });
+      plan = exportPlan(opts.dir, opts.name, { reduceMotion: reduce.checked, highlightCursor: pointer.checked, audioOnly: what === "sound", ...(what === "picture" ? { frameMs: session.playheadMs } : {}) });
       let state = initialExport();
+      exportTitle.textContent = what === "video" ? "The video" : what === "sound" ? "The sound file" : "The picture";
+      exportNotes.setAttribute("aria-label", `What the recorder said about the ${thing}`);
+      place.textContent = `Put the ${thing} on the current slide`;
+      reveal.textContent = `Show the ${thing} in its folder`;
+      cancelVideo.textContent = `Cancel the ${thing}`;
       exportBox.hidden = false;
       madeRow.hidden = true;
       exportNotes.replaceChildren();
-      progress.hidden = false;
+      // A picture is made in a moment and says nothing about progress, so there is no bar to show.
+      progress.hidden = what === "picture";
       progress.value = 0;
-      make.setAttribute("aria-disabled", "true");
+      for (const button of [make, makeSound, makePicture]) button.setAttribute("aria-disabled", "true");
       cancelVideo.hidden = false;
-      exportSay.textContent = "Making the video. This can take a while for a long recording. You can keep editing, but the video is made from the edit as it was saved.";
+      exportSay.textContent =
+        what === "video"
+          ? "Making the video. This can take a while for a long recording. You can keep editing, but the video is made from the edit as it was saved."
+          : what === "sound"
+            ? "Making the sound file. You can keep editing, but the sound file is made from the edit as it was saved."
+            : `Saving the picture at ${((plan.frameMs ?? 0) / 1000).toFixed(1)} seconds. You can keep editing, but the picture is made from the edit as it was saved.`;
       const job = await runOneShot(b, plan.args, (line) => {
         const u = applyExportLine(state, line);
         state = u.state;
@@ -189,10 +222,10 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
         drawNotes(state);
       }, EXPORT_LIMIT_MS);
       exporting = false;
-      make.removeAttribute("aria-disabled");
+      for (const button of [make, makeSound, makePicture]) button.removeAttribute("aria-disabled");
       cancelVideo.hidden = true;
       progress.hidden = true;
-      const summary = summariseExport(state, job.exit);
+      const summary = summariseExport(state, job.exit, what);
       exportSay.textContent = job.problem === "" ? summary.sentence : `${summary.sentence} ${job.problem}`;
       drawNotes(state);
       made = state.made && job.exit?.code === 0;
@@ -200,20 +233,27 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
       if (made) place.focus();
     }
 
-    /** Copy the video into the course, then put it on the slide. */
+    /** Copy the file into the course, then put it on the slide: a video, a sound clip or a picture. */
     async function putOnSlide(): Promise<void> {
       if (plan === null || !made) return;
+      const thing = thingOf(kind);
       try {
-        exportSay.textContent = opts.placeVideo(await b.importAsset(opts.dir, plan.out, "video"), facts);
-        captionsBtn.hidden = false;
-        describeBtn.hidden = facts.extras.length === 0;
+        if (kind === "sound") {
+          exportSay.textContent = opts.placeSound(await b.importAsset(opts.dir, plan.out, "audio"));
+        } else if (kind === "picture") {
+          exportSay.textContent = await opts.placePicture(await b.importAsset(opts.dir, plan.out, "image"));
+        } else {
+          exportSay.textContent = opts.placeVideo(await b.importAsset(opts.dir, plan.out, "video"), facts);
+          captionsBtn.hidden = false;
+          describeBtn.hidden = facts.extras.length === 0;
+        }
       } catch (err) {
-        exportSay.textContent = `The video could not be put in the course. ${err instanceof Error ? err.message : String(err)}`;
+        exportSay.textContent = `The ${thing} could not be put in the course. ${err instanceof Error ? err.message : String(err)}`;
       }
     }
 
     async function finish(): Promise<void> {
-      if (exporting && !(await b.confirm("The video is still being made. Stop it and close?"))) return;
+      if (exporting && !(await b.confirm(`The ${thingOf(kind)} is still being made. Stop it and close?`))) return;
       if (exporting) await b.streamStop().catch(() => false);
       if (session?.dirty === true && !(await b.confirm("You have changes to this edit that are not saved. Close and lose them?"))) return;
       editor?.destroy();
@@ -224,8 +264,10 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
     }
 
     save.addEventListener("click", () => void saveEdit());
-    make.addEventListener("click", () => { if (make.getAttribute("aria-disabled") !== "true") void makeVideo(); });
-    cancelVideo.addEventListener("click", () => { exportSay.textContent = "Cancelling the video."; void b.streamStop().catch(() => false); });
+    make.addEventListener("click", () => { if (make.getAttribute("aria-disabled") !== "true") void makeFile("video"); });
+    makeSound.addEventListener("click", () => { if (makeSound.getAttribute("aria-disabled") !== "true") void makeFile("sound"); });
+    makePicture.addEventListener("click", () => { if (makePicture.getAttribute("aria-disabled") !== "true") void makeFile("picture"); });
+    cancelVideo.addEventListener("click", () => { exportSay.textContent = `Cancelling the ${thingOf(kind)}.`; void b.streamStop().catch(() => false); });
     place.addEventListener("click", () => void putOnSlide());
     describeBtn.addEventListener("click", () => { exportSay.textContent = opts.describeScreen(facts.extras); });
     captionsBtn.addEventListener("click", () => void opts.writeCaptions().then((said) => { if (said !== "") exportSay.textContent = said; captionsBtn.focus(); }));
@@ -269,6 +311,8 @@ export function openRecordingEditor(opts: EditRecordingOptions): Promise<void> {
         state.textContent = result.message;
         save.hidden = true;
         make.hidden = true;
+        makeSound.hidden = true;
+        makePicture.hidden = true;
         close.focus();
         return;
       }

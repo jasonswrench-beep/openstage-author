@@ -121,3 +121,46 @@ test("progress is kept within 0 to 100, and what is not understood changes nothi
     assert.deepEqual(applyExportLine(before, l), { state: before, say: [] }, l);
   }
 });
+
+test("a sound file is a WAV in the same exports folder, asked for with --audio-only, and zooms and the pointer have nothing to say about it", () => {
+  const p = exportPlan("D:\\Courses\\Safety", "Week 3 demo.capture", { audioOnly: true, reduceMotion: true, highlightCursor: true });
+  assert.equal(p.out, "D:\\Courses\\Safety\\captures\\Week 3 demo.capture\\exports\\Week 3 demo.wav");
+  assert.ok(p.out.endsWith(".wav"), "the recorder needs the name to end in .wav");
+  assert.equal(p.audioOnly, true);
+  assert.equal(p.frameMs, null);
+  assert.ok(p.args.includes("--audio-only"));
+  for (const flag of ["--reduce-motion", "--highlight-cursor", "--frame"]) assert.ok(!p.args.includes(flag), `${flag} is not asked for a sound file`);
+  assert.deepEqual(p.args.slice(0, 5), exportPlan("D:\\Courses\\Safety", "Week 3 demo.capture").args.slice(0, 3).concat(["--out", p.out]).slice(0, 5));
+});
+
+test("a picture is a PNG named for its moment, asked for with --frame, and follows the choices about motion and the pointer", () => {
+  const p = exportPlan("D:/c", "Demo.capture", { frameMs: 20_000, reduceMotion: true, highlightCursor: true });
+  assert.equal(p.out, "D:/c/captures/Demo.capture/exports/Demo at 20.0 seconds.png");
+  assert.equal(p.frameMs, 20_000);
+  assert.equal(p.audioOnly, false);
+  assert.equal(p.args[p.args.indexOf("--frame") + 1], "20000");
+  assert.ok(p.args.includes("--reduce-motion") && p.args.includes("--highlight-cursor"));
+  assert.equal(exportPlan("D:/c", "Demo.capture", { frameMs: 1234.6 }).args[exportPlan("D:/c", "Demo.capture", { frameMs: 1234.6 }).args.indexOf("--frame") + 1], "1235", "whole milliseconds");
+  assert.equal(exportPlan("D:/c", "Demo.capture", { frameMs: -50 }).frameMs, 0, "never before the start");
+  assert.notEqual(exportPlan("D:/c", "Demo.capture", { frameMs: 1000 }).out, exportPlan("D:/c", "Demo.capture", { frameMs: 2000 }).out, "pictures from different moments do not replace one another");
+  assert.equal(exportPlan("D:/c", "Demo.capture", { audioOnly: true, frameMs: 1000 }).frameMs, null, "a sound has no moment");
+});
+
+test("the pointer is asked for in a video only when the author chooses it", () => {
+  assert.ok(!exportPlan("D:/c", "Demo.capture").args.includes("--highlight-cursor"));
+  assert.ok(!exportPlan("D:/c", "Demo.capture", { highlightCursor: false }).args.includes("--highlight-cursor"));
+  assert.ok(exportPlan("D:/c", "Demo.capture", { highlightCursor: true }).args.includes("--highlight-cursor"));
+});
+
+test("how it went is said about the sound file or the picture, not the video", () => {
+  const made = play([
+    line({ event: "check", check: "edit", ok: true, message: "Exporting the edit in edit.json, 12.0 seconds long." }),
+    line({ event: "check", check: "export", ok: true, message: "Exported the picture at 1.0 seconds as a PNG (1920 by 1080 pixels): x.png" }),
+  ]).state;
+  assert.match(summariseExport(made, exit(), "picture").sentence, /^The picture was made\. Exported the picture at 1\.0 seconds/);
+  assert.match(summariseExport(made, exit(), "sound").sentence, /^The sound file was made\./);
+  assert.match(summariseExport(made, exit()).sentence, /^The video was made\./, "a video is still the default");
+  assert.match(summariseExport(initialExport(), null, "sound").sentence, /^The sound file could not be made\./);
+  assert.match(summariseExport(initialExport(), exit({ code: 2 }), "picture").sentence, /^Making a picture works on Windows only\./);
+  assert.match(summariseExport(initialExport(), exit({ killed: true, code: null }), "sound").sentence, /^Making the sound file did not finish, so there is no sound file\./);
+});

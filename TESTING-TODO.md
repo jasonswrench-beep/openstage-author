@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Sound, picture and pointer buttons in this program's recording editor (2026-11-01)
+
+Type-checked and covered by unit tests of the options and the words (4 new tests, the editor's whole suite passes), but the dialog itself has no browser check: nobody has seen these buttons on a screen, so everything below is untried.
+
+- [ ] **Open a recording for editing** (Record > the recording > Edit). Check there are now three buttons beside Save the edit: **Make a video from this edit**, **Make a sound file (WAV) from this edit**, **Save the picture shown in the preview (PNG)**, and a box about the mouse pointer under the motion box.
+- [ ] **Make a sound file.** It should be made, say so ("The sound file was made."), and offer **Put the sound file on the current slide**. Put it on a slide: expect an audio clip that asks for a name and captions or a transcript. Listen to it (I have not).
+- [ ] **Save a picture.** Move the playhead to a moment, press the button, and **Put the picture on the current slide**: expect an image that asks for alt text. Open the PNG too (it is uncompressed, about 2.8 MB).
+- [ ] **The pointer box.** With a recording whose mouse was noted, tick it and make a video and a picture: a soft yellow ring should follow the pointer, a red ring at each click.
+- [ ] **While one is being made, the others are refused in words** (you can keep editing). Cancel names what is being made.
+
 ## Hiding windows, and picking a window by clicking it (2026-11-01)
 
 Built and checked as far as I could without your screen: Rust tests (438 and one test that makes real windows of its own), the pretend recorder in the browser (56 checks in all for the Recorder app), and two real recordings of a small part of the screen holding only windows I made. What follows is what only you can say.

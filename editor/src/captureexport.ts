@@ -12,12 +12,25 @@ export interface ExportPlan {
   out: string;
   /** The options the recorder is started with. */
   args: string[];
+  /** Only the sound is made, as a WAV file, not a video. */
+  audioOnly: boolean;
+  /** Only the picture at this moment (milliseconds from the start) is made, as a PNG file, not a video; null for a video. */
+  frameMs: number | null;
 }
 
 export interface ExportOptions {
   /** Cuts instead of animated zooms, for a viewer who is bothered by movement (WCAG 2.3.3). */
   reduceMotion?: boolean;
+  /** Make only the sound, as a WAV file (`exports/<recording>.wav`), instead of a video. */
+  audioOnly?: boolean;
+  /** Show where the mouse pointer is (a soft yellow ring, and a red ring where a button was pressed), for a recording that noted the mouse. A sound file has no picture. */
+  highlightCursor?: boolean;
+  /** Make only the picture the video has at this moment, in milliseconds from its start, as a PNG file (`exports/<recording> at <seconds> seconds.png`). */
+  frameMs?: number;
 }
+
+/** What is being made: a video, only the sound, or one picture. */
+export type ExportKind = "video" | "sound" | "picture";
 
 /** The options for exporting a recording of the course. The separator follows the one the course's folder already uses. */
 export function exportPlan(dir: string, name: string, options: ExportOptions = {}): ExportPlan {
@@ -25,10 +38,22 @@ export function exportPlan(dir: string, name: string, options: ExportOptions = {
   const base = dir.replace(/[\\/]+$/, "");
   const folder = `${base}${sep}captures${sep}${name}`;
   const stem = name.replace(/\.capture$/i, "") || "recording";
-  const out = `${folder}${sep}exports${sep}${stem}.mp4`;
+  const audioOnly = options.audioOnly === true;
+  const frameMs = !audioOnly && options.frameMs !== undefined ? Math.max(0, Math.round(options.frameMs)) : null;
+  const extension = audioOnly ? "wav" : frameMs !== null ? "png" : "mp4";
+  // A picture is named for its moment, so pictures from different moments sit side by side instead of replacing one another.
+  const fileName = frameMs !== null ? `${stem} at ${(frameMs / 1000).toFixed(1)} seconds` : stem;
+  const out = `${folder}${sep}exports${sep}${fileName}.${extension}`;
   const args = ["render", "--project", folder, "--out", out, "--assets", `${base}${sep}assets`];
-  if (options.reduceMotion === true) args.push("--reduce-motion");
-  return { out, args };
+  // Zooms are pictures, so "cuts instead of animated zooms" has nothing to say about a sound file.
+  if (audioOnly) args.push("--audio-only");
+  else {
+    if (frameMs !== null) args.push("--frame", String(frameMs));
+    // A picture in the middle of a zoom is drawn as the video draws it, so it follows the same choice about motion.
+    if (options.reduceMotion === true) args.push("--reduce-motion");
+    if (options.highlightCursor === true) args.push("--highlight-cursor");
+  }
+  return { out, args, audioOnly, frameMs };
 }
 
 export interface ExportNote {
@@ -108,15 +133,16 @@ export interface ExportSummary {
 }
 
 /** How it went, in one sentence. A video the recorder made but could not read back is never called good. */
-export function summariseExport(s: ExportState, exit: StreamExit | null): ExportSummary {
-  if (exit === null) return { ok: false, sentence: `The video could not be made.${s.problem === "" ? "" : ` ${s.problem}`}` };
-  if (exit.code === 2 && s.notes.length === 0) return { ok: false, sentence: "Making a video works on Windows only." };
-  if (exit.killed || exit.code === null) return { ok: false, sentence: "Making the video did not finish, so there is no video." };
+export function summariseExport(s: ExportState, exit: StreamExit | null, kind: ExportKind = "video"): ExportSummary {
+  const thing = kind === "video" ? "video" : kind === "sound" ? "sound file" : "picture";
+  if (exit === null) return { ok: false, sentence: `The ${thing} could not be made.${s.problem === "" ? "" : ` ${s.problem}`}` };
+  if (exit.code === 2 && s.notes.length === 0) return { ok: false, sentence: `Making a ${thing} works on Windows only.` };
+  if (exit.killed || exit.code === null) return { ok: false, sentence: `Making the ${thing} did not finish, so there is no ${thing}.` };
   const failed = s.notes.filter((n) => !n.ok);
   if (exit.code === 0 && s.made) {
     const unread = failed.length > 0 ? ` ${failed.length === 1 ? "One check found a problem" : `${failed.length} checks found a problem`}, so look at the list before using it.` : "";
-    return { ok: failed.length === 0, sentence: `The video was made. ${s.madeMessage}${unread}`.trim() };
+    return { ok: failed.length === 0, sentence: `The ${thing} was made. ${s.madeMessage}${unread}`.trim() };
   }
   const why = s.problem !== "" ? s.problem : failed[0]?.text ?? "";
-  return { ok: false, sentence: `The video could not be made.${why === "" ? "" : ` ${why}`}` };
+  return { ok: false, sentence: `The ${thing} could not be made.${why === "" ? "" : ` ${why}`}` };
 }
