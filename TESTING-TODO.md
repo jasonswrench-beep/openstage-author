@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Lower third with a logo (2026-11-01)
+
+Built and tested by the suites (capture-edit 229, capture-timeline 157, the timeline's browser check 77, and the Recorder's copy: app 117 and 41). Nobody has used the button in the real editor with the real file chooser, or looked at the finished video.
+
+- [ ] **Try the button.** In the recording editor (a recording with some time on it), put the playhead where the name should show, press **Lower third with logo** (in the bar of buttons beside the picture, after Zoom and Draw a zoom, with the file buttons) and choose a logo. Expect: two new rows, "Lower third" (the words "Name or caption", white on black) and your logo at the left end of the band; the logo's box for alt text opens first; both last 3 seconds (less near the end). Type the name, give the logo alt text (or mark it decorative), make a video, and look at it.
+- [ ] **Look at the logo's shape and place.** It is a square box about 5 percent in from the left and 78 to 92 percent of the way down, and the picture is fitted inside it (not stretched, so a wide logo has empty space above and below). These are constants in `capture-edit/src/callouts.ts` (`LOGO_PLACE`, `LOWER_THIRD_BESIDE_LOGO`); say if you want the logo bigger, on the right, or a different length (3 seconds, the same as every callout).
+- [ ] **A zoom during the lower third.** The logo is an imported picture with a place of its own, and those move with the screen in a zoom, while the words stay where they are. So a lower third is best put where no zoom is going on. If you want pictures with a place to stay still in a zoom, say so; it is a change in the video maker and the preview, not in the edit format.
+- [ ] **Undo.** One Undo takes away both rows; then Redo brings both back.
+- Not in the Recorder yet: it has no file chooser, so the button is not shown there (the code is the same in both).
+
 ## Sound-only export, single picture and pointer highlight (2026-11-01)
 
 Built and tested by the suites (exporter 425, render crate 85, command line 18) and tried by me on the real project the MP4 publish makes from the LMS example: a WAV of 284.1 seconds in 3 seconds (peak 62 percent, no clipping), and a 1280 by 720 PNG at 20 seconds that I looked at. Nobody has listened to a WAV or opened a PNG in a viewer, and the pointer has never been drawn from a real recording. The choices I made for you, each easy to change:
