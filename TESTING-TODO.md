@@ -2,6 +2,17 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Zooms suggested from clicks, and noting the mouse (2026-11-01)
+
+Built and tested with the pretend recorder (12 + 5 unit tests, 6 browser checks). Never tried on a recording of your own screen.
+
+- [ ] **Record with the mouse noted.** In the Recorder, tick **Note where the mouse goes and where I click** (under The mouse), record for a minute while you click around a few things (a button, a menu, then somewhere else), and stop. Then open **Edit the recording I just made** and press **Suggest zooms from my clicks**. Expect a short list, one line per stretch of clicking, with when, how long and where. Add one and look at the preview: does the zoom land on what you clicked, and does it feel too close, too far, too long or too short? The numbers are constants at the top of `capture-edit/src/suggest.ts`.
+- [ ] **A whole screen.** The picture's size is read from the video; if it says it could not be read, tell me, because that is the one part I could only guess at.
+- [ ] **A part of a screen** (the Part of a screen choice): the zooms should be centred on where you clicked inside that part, not shifted by where the part starts.
+- [ ] **The wording.** Each suggestion is a sentence; read a few aloud with a screen reader if you can, and say if they are too long.
+- [ ] **Privacy.** The notes include the title of the window in front and the name of what you click. Read the words beside the box and tell me if they are clear enough.
+- Not built: the same button in this program's own recording editor; asking for step text; letting you change the numbers.
+
 ## Quick record in OpenStage Recorder (2026-11-01)
 
 Built and tested with the pretend recorder (11 unit tests, 7 browser checks, 5 Rust tests), and the shell compiles. Never run on Windows: nothing here has recorded your screen, shown an icon, or touched your clipboard. A real recording is screen and (by default) your voice and the computer's sound, so I have not started one.
