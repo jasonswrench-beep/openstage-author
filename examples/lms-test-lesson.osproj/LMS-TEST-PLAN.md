@@ -1,8 +1,12 @@
 # Brightspace test plan: "Choosing the Right Channel at Work"
 
-Package to upload: `dist\lms-test-lesson-scorm12.zip` (SCORM 1.2, 14.5 MB, most of it voice). Parts of this plan were run once in a real Brightspace
-(what was found is in `LMS-RESULTS.md`), and the rest has not been run. Everything under "What the stand-in LMS showed" is
-from the project's own pretend LMS (`TEST WITH STAND-IN LMS.bat`), which is the point of the test: to find out where a real LMS differs.
+**Start with `LMS-START-HERE.md`**: it gives the order of the rounds, what a correct LMS shows, and what to send back. This page is the detailed list of tests.
+
+Packages to upload are in `dist\lms-test-pack\` (rebuilt 2026-11-01 from commit `4f197bf`): `lms-test-lesson-scorm12.zip` (SCORM 1.2, 14.6 MB, most of it
+voice), `lms-test-lesson-scorm2004.zip` (SCORM 2004 4th edition) and `lms-test-lesson-xapi.zip`, all the same lesson; and the same three for the question-types course.
+`LMS-RESULTS.md` has no results from a real LMS yet (Test 8 below notes that the video loaded and played in a first run). Everything under "What the stand-in LMS showed" is
+from the project's own pretend LMS (`TEST WITH STAND-IN LMS.bat`) and pretend LRS, which is the point of the test: to find out where a real LMS differs.
+`player\tools\lms-rehearsal.mjs` plays tests 1 to 4 through those pretend systems automatically on all three standards (see "The rehearsal" below).
 
 ## What is in the lesson
 
@@ -280,6 +284,21 @@ change nothing about them.)
 
 The certificate was also taken through a headless Edge: the page, then the print view, then a PDF. The print view shows only
 the certificate in black on white, and the PDF is one landscape page. That is Edge, not Brightspace's frame.
+
+## The rehearsal: what a correct LMS holds for tests 1 to 4 (2026-11-01)
+
+`node player/tools/lms-rehearsal.mjs` (needs Playwright; see the file's top) answers the lesson as a learner in a real browser, muted, through the pretend LMS
+and LRS. All 12 runs passed, and it was repeated six times in all. If your LMS shows something else for these, the difference is the LMS's (or its settings), until shown otherwise.
+
+| Test | SCORM 1.2 | SCORM 2004 | xAPI (the pretend LRS) |
+| --- | --- | --- | --- |
+| 1 Launch | entry `ab-initio`, status `incomplete` | entry `ab-initio` | an `initialized` statement |
+| 2 Failing attempt | `failed`, score 60 | completion `completed`, success `failed`, raw 60, scaled 0.6 | a `failed` statement, scaled 0.6 (raw 60 of 0 to 100), success false, completion true |
+| 3 Pass at the edge | `passed`, score 80 | `completed` and `passed`, raw 80, scaled 0.8 | a `passed` statement, scaled 0.8 |
+| 4 Resume | opens on Question 3, entry `resume`; finally `passed`, 100 | the same; scaled 1 | a `suspended` statement when the lesson is left, then `initialized` and `resumed`; finally `passed`, scaled 1 |
+
+In xAPI a run sends about 24 `experienced` statements (one per slide seen), an `answered` for each answer (the two survey answers count too) and one `completed`, then `passed` or `failed`.
+SCORM 2004 and xAPI keep "finished" and "passed" apart, so test 2 is *completed and failed* there; SCORM 1.2 has only one status and says *failed*.
 
 ## What to send back
 

@@ -1,7 +1,7 @@
 @echo off
-REM Double-click to rebuild the Brightspace test lesson (examples\lms-test-lesson.osproj) as a SCORM 1.2 package.
-REM The package is dist\lms-test-lesson-scorm12.zip. Upload that to your LMS. Read
-REM examples\lms-test-lesson.osproj\LMS-TEST-PLAN.md for what to try and what to look for.
+REM Double-click to rebuild everything for the real LMS test, in one folder: dist\lms-test-pack
+REM It holds the Brightspace test lesson (examples\lms-test-lesson.osproj) and the question-types course as SCORM 1.2, SCORM 2004 and xAPI packages (six zips),
+REM with LMS-START-HERE.md, the test plans and the results sheet. Open LMS-START-HERE.md first.
 REM Narration audio is made with Kokoro if it can be found, and audio already made is reused.
 
 setlocal
@@ -42,16 +42,26 @@ if not exist node_modules (
   echo.
 )
 
-echo === Publishing the test lesson ===
+echo === Publishing the test lesson (SCORM 1.2, SCORM 2004, xAPI) ===
 echo Making narration audio can take a few minutes the first time.
-node publish.ts ..\examples\lms-test-lesson.osproj ..\dist\lms-test-lesson
+node publish.ts ..\examples\lms-test-lesson.osproj ..\dist\lms-test-lesson --targets=scorm12,scorm2004,xapi
+if errorlevel 1 goto :failed
+
+echo.
+echo === Publishing the question-types course (SCORM 1.2, SCORM 2004, xAPI) ===
+node publish.ts ..\examples\question-types.osproj ..\dist\question-types --targets=scorm12,scorm2004,xapi
+if errorlevel 1 goto :failed
+
+echo.
+echo === Putting the test pack together ===
+node tools\lms-pack.mjs
 if errorlevel 1 goto :failed
 popd
 
 echo.
-echo Done. The SCORM 1.2 package is dist\lms-test-lesson-scorm12.zip
-echo Opening the dist folder.
-start "" explorer "%~dp0dist"
+echo Done. Everything for the LMS test is in dist\lms-test-pack. Start with LMS-START-HERE.md.
+echo Opening the folder.
+start "" explorer "%~dp0dist\lms-test-pack"
 echo.
 pause
 exit /b 0

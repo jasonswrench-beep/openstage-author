@@ -92,8 +92,8 @@ through. The whole story, and the command line, is in `docs/translation.md`.
 `examples/lms-test-lesson.osproj` is a full 24 slide sample lesson made for this: narration (including a voice for every
 item inside its flip cards, tabs, steps, accordion and glossary), interactions, surveys, a five question graded quiz, a slide that adapts to the learner's answers, an embedded YouTube video, a results page, a
 printable certificate, two files to download and a slide whose steps appear as they are spoken. Double-click `PUBLISH LMS TEST LESSON.bat`
-(or press Publish in the editor) to make `dist/lms-test-lesson-scorm12.zip`, upload it to your LMS as a SCORM package, and
-follow `examples/lms-test-lesson.osproj/LMS-TEST-PLAN.md`, which has the answer key, the steps, and what each test should show.
+(or press Publish in the editor) to make the test pack, `dist/lms-test-pack`: the lesson and a question-types course as SCORM 1.2, SCORM 2004 and xAPI packages. Open
+`LMS-START-HERE.md` in it first. It gives the order to try them in; `LMS-TEST-PLAN.md` has the answer key, the steps, and what each test should show.
 
 ## The name, and one thing to change
 

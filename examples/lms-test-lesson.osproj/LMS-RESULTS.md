@@ -2,8 +2,8 @@
 
 Every result cell below is empty on purpose. Nothing here has been tested in a real LMS yet. The only checking so far was against a stand-in LMS on this computer, which is not the same thing. Please fill in what the LMS actually shows, in its own words.
 
-Package tested: `dist\lms-test-lesson-scorm12.zip`, built from commit ______ on ______.
-Plan: `LMS-TEST-PLAN.md` (the numbered tests below are the ones in it). Use a **test student**, not instructor preview: most LMSs record nothing in preview.
+Packages tested: from `dist\lms-test-pack\`, built from commit `4f197bf` on 2026-11-01 (SCORM 1.2, SCORM 2004 and xAPI of the lesson, and the same three of the question-types course).
+Start with `LMS-START-HERE.md`. Plan: `LMS-TEST-PLAN.md` (the numbered tests below are the ones in it). Use a **test student**, not instructor preview: most LMSs record nothing in preview.
 
 How to record a result: write **passed**, **failed** or **not run**. In the next column write exactly what the LMS showed, in its words, for the status and the score. Put anything that looked wrong, and screenshots, in the last column. A failure is a result, and it is the point of the exercise.
 
@@ -36,6 +36,47 @@ LMS version: ______   Date: ______   Tester: ______
 | 10 Downloads | | | |
 | 11 and 12 Timing and animation | | | |
 | 13 A narrow window | | | |
+
+## Brightspace, SCORM 2004 (`lms-test-lesson-scorm2004.zip`)
+
+LMS version: ______   Date: ______   Tester: ______
+
+| Test | Result (passed / failed / not run) | What the LMS showed (completion words, success words, score) | Problems, screenshots |
+| --- | --- | --- | --- |
+| 1 Launch and look | | | |
+| 2 Failing attempt (a correct LMS: completed, failed, 60) | | | |
+| 3 Passing at the edge (completed, passed, 80) | | | |
+| 4 Resume (Question 3, answers kept, completed, passed, 100) | | | |
+
+## xAPI (`lms-test-lesson-xapi.zip`), in Brightspace or in SCORM Cloud
+
+Where: ______   Version: ______   Date: ______   Tester: ______
+
+| Test | Result (passed / failed / not run) | What it showed (does it open at all? are statements recorded? where can you see them?) | Problems, screenshots |
+| --- | --- | --- | --- |
+| 1 Opens | | | |
+| 3 Passing at the edge (a correct LRS holds `passed`, scaled 0.8) | | | |
+| 4 Resume (a `suspended` statement, then `resumed`, opens on Question 3) | | | |
+
+## SCORM Cloud (optional second opinion, free Trial plan)
+
+Version: ______   Date: ______   Tester: ______
+
+| Package | Test | Result | What it showed | Problems |
+| --- | --- | --- | --- | --- |
+| SCORM 1.2 | 2, 3, 4 | | | |
+| SCORM 2004 | 2, 3, 4 | | | |
+| xAPI | 3, 4 | | | |
+
+## What the pretend LMS and LRS held (2026-11-01, `player\tools\lms-rehearsal.mjs`, 12 of 12 passed)
+
+This is the answer key for the tables above. It is also in `LMS-TEST-PLAN.md` ("The rehearsal").
+
+| Test | SCORM 1.2 | SCORM 2004 | xAPI |
+| --- | --- | --- | --- |
+| 2 Failing | failed, 60 | completed, failed, 60 (0.6) | `failed`, scaled 0.6 |
+| 3 Edge | passed, 80 | completed, passed, 80 (0.8) | `passed`, scaled 0.8 |
+| 4 Resume | Question 3, entry `resume`, passed, 100 | the same, 1 | `suspended`, `resumed`, passed, scaled 1 |
 
 ## Moodle
 

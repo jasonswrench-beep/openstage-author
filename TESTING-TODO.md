@@ -149,5 +149,5 @@ Tried in a browser with a real mouse, a real keyboard and the stand-in page (the
 
 ## Earlier, not yet checked by a person
 
-- [ ] A real LMS test of the SCORM 1.2, SCORM 2004 and xAPI packages (a SCORM Cloud trial is the quickest route; `examples/lms-test-lesson.osproj` is made for it).
+- [ ] A real LMS test of the SCORM 1.2, SCORM 2004 and xAPI packages. **Everything is ready (2026-11-01): open `dist/lms-test-pack/LMS-START-HERE.md`** (rebuild the folder with `PUBLISH LMS TEST LESSON.bat`). Brightspace first; a SCORM Cloud free Trial is the free second opinion and the way to see xAPI statements. `player/tools/lms-rehearsal.mjs` is the answer key played through the pretend LMS and LRS.
 - [ ] NVDA or VoiceOver on the sliders and dials, the enlarge button and its dialog, the labeled graphic (markers as tabs) and the guided Previous and Next step buttons with their "Step 2 of 5" line.
