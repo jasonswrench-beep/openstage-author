@@ -320,6 +320,7 @@ button.small:hover { background: #e3e6eb; }
 /* ---- Publish dialog */
 .publish-dialog .field input[readonly] { background: #f1f3f6; }
 .publish-dialog .btn-row { margin: 4px 0 8px; }
+.publish-dialog .field.check { grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
 
 /* ---- Translate dialog */
 .translate-dialog .field.check { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }

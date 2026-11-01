@@ -69,7 +69,9 @@ Open a project in the editor (`OPEN EDITOR.bat`). **Preview** shows the course i
 if you have not saved. **Publish** saves, checks the project for problems, and makes three zips to upload
 (SCORM 1.2 and SCORM 2004 for an LMS, and xAPI for a learning record store; use the one your system asks for), with the same
 course as web files beside them, and a Word copy of the course (`-review.docx`) for colleagues and accessibility
-reviewers: the slide text, alt text, narration scripts, quiz answers and the problems the checker found.
+reviewers: the slide text, alt text, narration scripts, quiz answers and the problems the checker found. Tick **Also make a video
+(MP4)** in the Publish dialog and it makes an MP4 of the course too, with captions in a file beside it (Windows, with Edge or Chrome; see
+`docs/video.md`).
 Both need Node.js installed, and Publish needs Python.
 `PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
 without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and

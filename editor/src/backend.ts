@@ -96,7 +96,8 @@ export interface Backend {
    */
   preview(dir: string, files: FileText[]): Promise<PublishResult>;
   /** Publish the saved project: the course as web files and a SCORM 1.2 zip, both inside `folder`. */
-  publish(dir: string, folder: string): Promise<PublishResult>;
+  /** Make the packages, and with `video` an MP4 of the course too (Windows only; it takes minutes). */
+  publish(dir: string, folder: string, options?: { video?: boolean }): Promise<PublishResult>;
   /** Stop the preview or publish that is running. Returns whether there was one. */
   cancelJob(): Promise<boolean>;
   /** Open a page that OpenStage Author made in the author's own browser. */
@@ -349,8 +350,8 @@ const tauriBackend: Backend = {
   async preview(dir, files) {
     return parsePublishResult(await invoke<string>("preview_project", { dir, files }));
   },
-  async publish(dir, folder) {
-    return parsePublishResult(await invoke<string>("publish_project", { dir, folder }));
+  async publish(dir, folder, options) {
+    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true }));
   },
   cancelJob: () => invoke<boolean>("cancel_job"),
   openInBrowser: (path) => invoke<void>("open_in_browser", { path }),

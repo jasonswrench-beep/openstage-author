@@ -676,6 +676,16 @@ The same course always gives the same file, byte for byte. Pictures are named, n
 `--targets=review` asks the command line for just that, and a publish that cannot make it still makes the packages and says so.
 Not built: pictures inside the document, and reading reviewers' comments back into the project.
 
+**The video.** The Publish dialog has a box, **Also make a video (MP4) of the course, with captions**, which is not ticked unless you tick it.
+Ticked, the publish also writes `<name>.mp4` and `<name>.vtt` beside the packages: each slide as it opens, in order, with its narration, the
+things that arrive and go on their own at the moments the player would bring them, effects as pictures a tenth of a second apart, and
+captions from the narration scripts in a file beside the video. It needs Windows, Microsoft Edge or Google Chrome, and the OpenStage recorder
+(its video maker does the encoding, with Windows' own H.264 and AAC; no FFmpeg). When it finishes the dialog names the video and its
+captions, says what a video cannot do for this course (questions are shown as they open, a video on a slide shows its first picture, layers
+are left out) and names any slide with words that nothing reads aloud; "Show the video" opens its folder. If it cannot be made, the packages
+still are and the dialog says why. On the command line it is `--targets=mp4` with `--video-size`, `--video-silent` and `--video-no-motion`.
+The whole story is in `docs/video.md`.
+
 **Translate.** The Translate button opens a dialog for translating the course into another language. Type a language tag (`fr-FR`,
 `es-MX`, `de`; a list of common ones is offered) and choose **Make the translation file...**: the project is saved, you say where to
 put the file, and it is written as XLIFF 1.2, which OmegaT, Weblate and most other translation tools read. When the translated file

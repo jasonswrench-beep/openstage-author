@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Finding } from "./backend.ts";
-import { defaultPublishFolder, failureText, fileName, narrationLine, parentFolder, parsePublishResult, problemCounts, problemLine, publishSummary, type PublishResult } from "./publishing.ts";
+import { defaultPublishFolder, failureText, fileName, lengthWords, narrationLine, parentFolder, parsePublishResult, problemCounts, problemLine, publishSummary, type PublishResult } from "./publishing.ts";
 
 const finding = (severity: "error" | "warning", message = "m", object_id = "obj-0001", detail = ""): Finding => ({ severity, file: "slides/slide-001.json", object_id, rule: "r", message, detail });
 
@@ -88,6 +88,37 @@ test("a publish that made the Word copy says what is in it, and one that did not
     assert.ok(!publishSummary({ ok: true, slides: 2, zip: `${dir}intro-scorm12.zip`, review, findings: [] }).some((l) => l.includes("Word")));
   }
   assert.equal(parsePublishResult('{"ok":true,"review":"C:\\\\out\\\\x-review.docx","findings":[]}').review, "C:\\out\\x-review.docx");
+});
+
+test("a length of time is said the way a person says it", () => {
+  assert.equal(lengthWords(0), "0 seconds");
+  assert.equal(lengthWords(1), "1 second");
+  assert.equal(lengthWords(45.4), "45 seconds");
+  assert.equal(lengthWords(60), "1 minute");
+  assert.equal(lengthWords(284.1), "4 minutes 44 seconds");
+  assert.equal(lengthWords(3601), "60 minutes 1 second");
+});
+
+test("a publish that made a video names it and its captions, and says what a video cannot do", () => {
+  const dir = "C:\\Courses\\Published courses\\";
+  const lines = publishSummary({
+    ok: true, slides: 2, zip: `${dir}intro-scorm12.zip`, findings: [],
+    video: { file: `${dir}intro.mp4`, captions: `${dir}intro.vtt`, seconds: 284.1, slides: 2, pictures: 9, notes: ["Slide 2: a question or other activity is shown as it is when the slide opens. A video cannot be answered."] },
+  });
+  assert.deepEqual(lines.slice(2), [
+    "A video of the course is intro.mp4, 4 minutes 44 seconds long. Its captions are in intro.vtt. Keep the two files in one folder and most video players will show them.",
+    "Slide 2: a question or other activity is shown as it is when the slide opens. A video cannot be answered.",
+  ]);
+  const silent = publishSummary({ ok: true, slides: 1, zip: `${dir}a-scorm12.zip`, findings: [], video: { file: `${dir}a.mp4`, captions: null, seconds: 5, slides: 1, pictures: 1, notes: [] } });
+  assert.equal(silent[2], "A video of the course is a.mp4, 5 seconds long.");
+  assert.equal(silent.length, 3);
+});
+
+test("a video that could not be made is said, with the reason, and the rest is still reported as published", () => {
+  const lines = publishSummary({ ok: true, slides: 2, zip: "/c/a-scorm12.zip", findings: [], video: null, videoError: "A browser to take the pictures with was not found." });
+  assert.ok(lines.includes("The video could not be made: A browser to take the pictures with was not found. The rest was published."));
+  assert.ok(!publishSummary({ ok: true, slides: 2, zip: "/c/a-scorm12.zip", findings: [], video: null }).some((l) => l.includes("video")), "a publish that did not ask for one says nothing of video");
+  assert.equal(parsePublishResult('{"ok":true,"video":{"file":"C:\\\\o\\\\x.mp4","captions":null,"seconds":3,"slides":1,"pictures":1,"notes":[]},"findings":[]}').video?.file, "C:\\o\\x.mp4");
 });
 
 test("a problem is described by where it is, then what is wrong", () => {

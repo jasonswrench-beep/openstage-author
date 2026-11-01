@@ -837,10 +837,22 @@ fn plain_path(p: PathBuf) -> PathBuf {
     }
 }
 
+/// What goes after the project and the folder on publish.ts's command line. A preview is quick and makes only the page. A publish makes the
+/// packages and the Word copy as it always has; with `video` it also names the MP4, which is made only when it is named.
+fn publish_flags(preview: bool, video: bool) -> Vec<&'static str> {
+    let mut flags = vec!["--json"];
+    if preview {
+        flags.push("--preview");
+    } else if video {
+        flags.push("--targets=scorm12,scorm2004,xapi,review,mp4");
+    }
+    flags
+}
+
 /// Run publish.ts on a project folder, writing to `out`, and return the one line of JSON it prints.
 /// The JSON says whether it worked (ok), and if not why (message, findings). A tool that cannot run at all is
 /// an Err with a message for the author.
-fn run_publish_tool(project: &Path, out: &Path, preview: bool) -> Result<String, String> {
+fn run_publish_tool(project: &Path, out: &Path, preview: bool, video: bool) -> Result<String, String> {
     let _slot = JobSlot::take()?;
     let script = find_repo_file("player/publish.ts").ok_or("Could not find player/publish.ts.")?;
     let player = script.parent().ok_or("Could not find the player folder.")?;
@@ -849,14 +861,17 @@ fn run_publish_tool(project: &Path, out: &Path, preview: bool) -> Result<String,
     }
     let node = std::env::var("OPENSTAGE_NODE").unwrap_or_else(|_| "node".into());
     let mut cmd = Command::new(node);
-    cmd.current_dir(player).arg(&script).arg(project).arg(out).arg("--json");
+    cmd.current_dir(player).arg(&script).arg(project).arg(out).args(publish_flags(preview, video));
+    // A video is made with the recorder's exporter, so the tool is told where it is (if it cannot be found the tool says so and the rest is still published).
+    if video && !preview {
+        if let Ok(recorder) = capture_program() {
+            cmd.env("OPENSTAGE_CAPTURE", recorder);
+        }
+    }
     // Publishing makes missing narration audio with the speech engine, so it is told which one (the editor's own, if the author has not named another).
     if let Some((python, _)) = managed_engine() {
         cmd.env("OPENSTAGE_KOKORO_PYTHON", python);
         apply_engine_env(&mut cmd);
-    }
-    if preview {
-        cmd.arg("--preview");
     }
     let output = match run_job(cmd) {
         Ok(o) => o,
@@ -940,9 +955,9 @@ fn publish_target(project: &Path, folder: &Path) -> Result<PathBuf, String> {
 }
 
 /// Publish the project as it is on disk. The page saves first.
-fn publish_blocking(project: &Path, folder: &Path) -> Result<String, String> {
+fn publish_blocking(project: &Path, folder: &Path, video: bool) -> Result<String, String> {
     let out = publish_target(project, folder)?;
-    run_publish_tool(&plain_path(project.canonicalize().map_err(|e| e.to_string())?), &out, false)
+    run_publish_tool(&plain_path(project.canonicalize().map_err(|e| e.to_string())?), &out, false, video)
 }
 
 /// Put a file in `dst`: a hard link when the two are on the same drive (instant, and no copy of a big video),
@@ -1009,7 +1024,7 @@ fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
     let root = std::env::temp_dir().join("openstage-author-preview");
     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     let (project, out) = prepare_preview(dir, files, &root)?;
-    let result = run_publish_tool(&project, &out, true);
+    let result = run_publish_tool(&project, &out, true, false);
     // A preview that did not come out leaves nothing behind. (One that did is kept, because a browser is showing it.)
     if !matches!(&result, Ok(json) if json.starts_with(r#"{"ok":true"#)) {
         if let Some(home) = project.parent() {
@@ -2057,8 +2072,8 @@ async fn preview_project(dir: String, files: Vec<FileText>) -> Result<String, St
 
 /// Publish the saved project: a folder of web files and a SCORM 1.2 zip, written beside each other in `folder`.
 #[tauri::command]
-async fn publish_project(dir: String, folder: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || publish_blocking(Path::new(&dir), Path::new(&folder)))
+async fn publish_project(dir: String, folder: String, video: Option<bool>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || publish_blocking(Path::new(&dir), Path::new(&folder), video.unwrap_or(false)))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -5216,5 +5231,14 @@ Colour,100,MC,Why?,x
         assert!(copy_pack_picture_at(&root, &pack, "ann/head.png", "x").is_err(), "not a project");
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_publishing_tool_is_told_about_the_video_only_in_a_real_publish_that_asked_for_one() {
+        assert_eq!(publish_flags(false, false), vec!["--json"]);
+        assert_eq!(publish_flags(false, true), vec!["--json", "--targets=scorm12,scorm2004,xapi,review,mp4"]);
+        // A preview is a quick look at the page: it never makes a video, whatever was asked.
+        assert_eq!(publish_flags(true, true), vec!["--json", "--preview"]);
+        assert_eq!(publish_flags(true, false), vec!["--json", "--preview"]);
     }
 }

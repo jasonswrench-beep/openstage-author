@@ -1,9 +1,10 @@
 // Publishes a project folder as a folder of static web files and as packages for an LMS or an LRS: SCORM 1.2,
 // SCORM 2004 (4th edition) and xAPI. The three packages hold the same course files; they differ only in the file that
 // describes them (imsmanifest.xml, or tincan.xml). The course finds out at run time which one it is running under.
-// Beside them goes a Word copy of the course for colleagues and accessibility reviewers (tools/review_doc.py).
+// Beside them goes a Word copy of the course for colleagues and accessibility reviewers (tools/review_doc.py), and, when it is asked
+// for, an MP4 of the course with captions (src/video.ts; docs/video.md).
 //
-//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review]
+//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4]
 //
 // Runs the validator first and refuses to publish if it reports errors.
 //
@@ -14,7 +15,11 @@
 //   --targets  Which packages to make, as a comma-separated list. All three if left out, and the Word review
 //              document too. Each zip carries the project source as well, so a project with a lot of video may
 //              want only the one it needs. "review" is the Word document, which is not a package: it is made
-//              only when it is named or when --targets is left out.
+//              only when it is named or when --targets is left out. "mp4" is a video of the course, with its captions beside it
+//              (OUT_DIR.mp4 and OUT_DIR.vtt). It takes minutes and needs Windows and Edge or Chrome, so it is made only when it is named.
+//   --video-size=WxH       The video's size in pixels (both even), if not the stage's own. A wide stage is made at most 1920 wide.
+//   --video-silent=SECONDS How long a slide with nothing narrated and nothing timed is shown. 5 if left out.
+//   --video-no-motion      Every effect and every change of slide is a cut, for people who cannot have motion.
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -29,6 +34,7 @@ import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src
 import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
 import { setPlayerText, t } from "./src/playertext.ts";
+import { makeVideo, type VideoResult } from "./src/video.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -37,24 +43,42 @@ const TARGETS = ["scorm12", "scorm2004", "xapi"] as const;
 type Target = (typeof TARGETS)[number];
 /** The Word copy for reviewers. Named in --targets like a package, but it has no zip and no manifest. */
 const REVIEW = "review";
+/** The video of the course. Named in --targets like a package, but it is made only when it is named. */
+const MP4 = "mp4";
 
 const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion]";
 if (!projectArg || !outArg) {
   console.error(usage);
   process.exit(2);
 }
 const targetsFlag = flags.find((a) => a.startsWith("--targets="));
 const asked: string[] = targetsFlag ? targetsFlag.slice("--targets=".length).split(",").map((t) => t.trim()).filter(Boolean) : [...TARGETS, REVIEW];
-if (asked.length === 0 || asked.some((t) => t !== REVIEW && !(TARGETS as readonly string[]).includes(t))) {
-  console.error(`${usage}\nThe targets can be ${[...TARGETS, REVIEW].join(", ")}.`);
+if (asked.length === 0 || asked.some((t) => t !== REVIEW && t !== MP4 && !(TARGETS as readonly string[]).includes(t))) {
+  console.error(`${usage}\nThe targets can be ${[...TARGETS, REVIEW, MP4].join(", ")}.`);
   process.exit(2);
 }
-const targets = asked.filter((t): t is Target => t !== REVIEW);
+const targets = asked.filter((t): t is Target => t !== REVIEW && t !== MP4);
 const wantReview = asked.includes(REVIEW);
+const wantVideo = asked.includes(MP4);
+// How the video is made, if it is asked for.
+const sizeFlag = flags.find((a) => a.startsWith("--video-size="));
+const sizeMatch = sizeFlag ? /^(\d+)x(\d+)$/.exec(sizeFlag.slice("--video-size=".length)) : null;
+if (sizeFlag && (!sizeMatch || [sizeMatch[1], sizeMatch[2]].some((n) => Number(n) < 64 || Number(n) > 7680 || Number(n) % 2 !== 0))) {
+  console.error(`${usage}\n--video-size needs a width and a height, both even and between 64 and 7680, such as 1280x720.`);
+  process.exit(2);
+}
+const videoSize = sizeMatch ? { width: Number(sizeMatch[1]), height: Number(sizeMatch[2]) } : undefined;
+const silentFlag = flags.find((a) => a.startsWith("--video-silent="));
+const silentSeconds = silentFlag ? Number(silentFlag.slice("--video-silent=".length)) : undefined;
+if (silentFlag && !(silentSeconds !== undefined && silentSeconds >= 1 && silentSeconds <= 600)) {
+  console.error(`${usage}\n--video-silent needs a number of seconds from 1 to 600.`);
+  process.exit(2);
+}
+const videoMotion = !flags.includes("--video-no-motion");
 const projectDir = path.resolve(projectArg);
 const outDir = path.resolve(outArg);
 
@@ -250,6 +274,10 @@ const graded = slides.some((sl) => [sl.baseLayer, ...sl.layers].some((l) => l.ob
 const zips: Partial<Record<Target, string>> = {};
 /** The Word review document, or null when it was not asked for or could not be made. */
 let reviewPath: string | null = null;
+/** The video, or null when it was not asked for or could not be made. */
+let video: VideoResult | null = null;
+/** Why the video could not be made, when it was asked for and could not be. */
+let videoError: string | null = null;
 
 if (!preview) {
   // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and the
@@ -305,6 +333,19 @@ if (!preview) {
     if (!reviewPath) console.error(`The Word review document could not be made${reason ? `: ${reason}` : "."} The packages were made.`);
   }
 
+  // The video, last, because it takes the longest and because its page files must not be in any package. It is a courtesy beside the packages too.
+  if (wantVideo) {
+    try {
+      video = await makeVideo({
+        pkg, outDir, indexHtml: readFileSync(path.join(outDir, "index.html"), "utf-8"), videoPath: `${outDir}.mp4`, captionsPath: `${outDir}.vtt`, root: repoRoot,
+        motion: videoMotion, ...(videoSize ? { size: videoSize } : {}), ...(silentSeconds !== undefined ? { silentMs: Math.round(silentSeconds * 1000) } : {}), say,
+      });
+    } catch (e) {
+      videoError = (e as Error).message;
+      console.error(`The video could not be made: ${videoError}${targets.length > 0 || wantReview ? " The other files were made." : ""}`);
+    }
+  }
+
   // 6. A stand-in LMS page for trying the course by hand. Not part of the package.
   await build({
     entryPoints: [path.join(here, "src", "harness.ts")],
@@ -322,7 +363,7 @@ const mainZip = preview ? null : (zips.scorm12 ?? zips[targets[0]!] ?? null);
 if (asJson) {
   console.log(JSON.stringify({
     ok: true, preview, slides: slides.length, outDir, indexHtml: path.join(outDir, "index.html"),
-    zip: mainZip, zips: preview ? {} : zips, review: preview ? null : reviewPath, graded, findings, narration: narrationSummary,
+    zip: mainZip, zips: preview ? {} : zips, review: preview ? null : reviewPath, video: preview ? null : video, videoError: preview ? null : videoError, graded, findings, narration: narrationSummary,
   }));
 } else {
   console.log(`\n${preview ? "Previewed" : "Published"} ${slides.length} slide(s) to ${outDir}`);
@@ -330,6 +371,10 @@ if (asJson) {
     const names: Record<Target, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 (4th edition)", xapi: "xAPI" };
     for (const t of targets) console.log(`${names[t]} package (${manifestId(project.meta.title)}${graded ? ", graded" : ""}): ${zips[t]}`);
     if (reviewPath) console.log(`Word review document: ${reviewPath}`);
+    if (video) {
+      console.log(`Video: ${video.file} (${video.seconds.toFixed(1)} seconds, ${video.slides} slide(s))${video.captions ? `, captions: ${video.captions}` : ""}`);
+      for (const note of video.notes) console.log(`  ${note}`);
+    }
     console.log(`Try it with a stand-in LMS: open _scorm-test.html from a local web server.`);
   }
 }

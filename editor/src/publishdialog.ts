@@ -55,8 +55,11 @@ export function openPublish(opts: PublishOptions): Promise<void> {
     const problems = h("ul", { class: "pb-problems", "aria-label": "Errors that stopped publishing" });
     const reveal = h("button", { type: "button", text: "Show the package in its folder" });
     const revealReview = h("button", { type: "button", text: "Show the Word review document" });
+    const revealVideo = h("button", { type: "button", text: "Show the video" });
     const view = h("button", { type: "button", text: "Open the course in my browser" });
-    const after = h("div", { class: "dialog-actions pb-after", hidden: true }, reveal, revealReview, view);
+    const after = h("div", { class: "dialog-actions pb-after", hidden: true }, reveal, revealReview, revealVideo, view);
+    const videoBox = h("input", { id: "pb-video", type: "checkbox", "aria-describedby": "pb-video-note" });
+    const videoNote = h("p", { id: "pb-video-note", class: "note", text: "The video shows each slide as it opens, in order, with its narration, the things that arrive on their own and captions in a file beside it. It cannot be answered or clicked, so a question is shown as it opens. It takes a few minutes, needs Windows with Microsoft Edge or Google Chrome, and is made with the OpenStage recorder's video tools." });
     const go = h("button", { type: "button", text: "Publish" });
     const closeBtn = h("button", { type: "button", text: "Close" });
 
@@ -69,6 +72,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
         if (running) b2.setAttribute("aria-disabled", "true");
         else b2.removeAttribute("aria-disabled");
       }
+      videoBox.disabled = running;
       closeBtn.textContent = running ? "Cancel publishing" : "Close";
     };
 
@@ -91,14 +95,16 @@ export function openPublish(opts: PublishOptions): Promise<void> {
           fail("Your project could not be saved, so nothing was published.");
           return;
         }
-        say("Publishing. If narration audio is being made for the first time this can take several minutes. You can cancel.");
-        const result = await b.publish(opts.dir, folder);
+        const video = videoBox.checked;
+        say(`Publishing. If narration audio is being made for the first time this can take several minutes${video ? ", and so does making the video" : ""}. You can cancel.`);
+        const result = await b.publish(opts.dir, folder, { video });
         last = result;
         say("");
         if (result.ok) {
           // One paragraph in the live region, so a screen reader reads all of it once.
           say(publishSummary(result).join(" "));
           revealReview.hidden = !result.review;
+          revealVideo.hidden = !result.video;
           after.hidden = false;
           await rememberFolder(b, folder);
         } else {
@@ -144,6 +150,9 @@ export function openPublish(opts: PublishOptions): Promise<void> {
     revealReview.addEventListener("click", () => {
       if (last?.review) void b.revealInFolder(last.review).catch((err) => fail(errorText(err)));
     });
+    revealVideo.addEventListener("click", () => {
+      if (last?.video) void b.revealInFolder(last.video.file).catch((err) => fail(errorText(err)));
+    });
     view.addEventListener("click", () => {
       if (last?.indexHtml) void b.openInBrowser(last.indexHtml).catch((err) => fail(errorText(err)));
     });
@@ -154,6 +163,8 @@ export function openPublish(opts: PublishOptions): Promise<void> {
       h("div", { class: "field" }, h("label", { for: "pb-folder", text: "Publish into this folder" }), folderBox),
       h("div", { class: "btn-row" }, choose),
       h("p", { class: "note", text: "A folder named after your project is made inside it, with the package beside that folder. Publishing again replaces them." }),
+      h("div", { class: "field check" }, videoBox, h("label", { for: "pb-video", text: "Also make a video (MP4) of the course, with captions" })),
+      videoNote,
       status, failure, problems, after,
       h("div", { class: "dialog-actions" }, go, closeBtn),
     );
