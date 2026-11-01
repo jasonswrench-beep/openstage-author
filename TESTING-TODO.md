@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Quick record in OpenStage Recorder (2026-11-01)
+
+Built and tested with the pretend recorder (11 unit tests, 7 browser checks, 5 Rust tests), and the shell compiles. Never run on Windows: nothing here has recorded your screen, shown an icon, or touched your clipboard. A real recording is screen and (by default) your voice and the computer's sound, so I have not started one.
+
+- [ ] **The button.** In the Recorder, read the sentence beside **Quick record**: it should say your screen, your voice, the computer's sound and the webcam as you have set them, and how to stop. Press the button, do something, press Ctrl+Shift+F11. Expect: a video made, the Record screen showing its path with **Copy the path** focused, and the path on your clipboard (paste it into Notepad). Open the MP4 and look at it and listen to it.
+- [ ] **The icon.** Look for the OpenStage Recorder icon in the notification area (it may be under the up arrow). Right-click it: Quick record, Stop recording, Show OpenStage Recorder, Quit. Choose **Quick record**: the window should go to the taskbar and not appear in the video; **Stop recording** should bring it back with the video and its path. Hover the icon: the tooltip should say what is happening. A left click on the icon should show the window.
+- [ ] **Quit while recording.** Choose Quit from the icon's menu during a quick recording. It should ask before it stops the recording, the same as closing the window.
+- [ ] **Screen reader and keyboard** on Quick record, the path box, Copy the path and Show the video (the browser checks prove only names, roles and focus).
+- Choices to change if you want: a key that starts Quick record from any program; closing the window to the icon instead of quitting; a window kept as the target; a quick profile of its own.
+
 ## Lower third with a logo (2026-11-01)
 
 Built and tested by the suites (capture-edit 229, capture-timeline 157, the timeline's browser check 77, and the Recorder's copy: app 117 and 41). Nobody has used the button in the real editor with the real file chooser, or looked at the finished video.
