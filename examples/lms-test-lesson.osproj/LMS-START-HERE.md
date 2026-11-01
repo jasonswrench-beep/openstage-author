@@ -15,8 +15,9 @@ It costs nothing. It needs about 90 minutes in all, and you can stop after any r
 
 ## What you need
 
-* **Brightspace**, with a course where you can add content, and a **test student** (or a way to view the course as a student; instructor
-  preview usually records nothing). Nothing to buy.
+* **Brightspace**, with a course where you can add content, and a **test student** account you can log in as. Preview and Impersonate may
+  record nothing, so they are not a stand-in. Nothing to buy. **Read `BRIGHTSPACE-STEPS.md` first:** the menu paths, the settings to pick
+  when adding a package, why each fresh attempt needs its own copy of the zip, and where to read the result.
 * **Optional: SCORM Cloud** (Rustici), for a second opinion and for xAPI. It has a **free Trial plan with no time limit**, limited to 10
   registrations at a time (one third-party listing also says 3 courses and 5 GB; I could not confirm that on Rustici's own page). A paid
   plan exists (about $40 a month on listings), and **you never need it for this test**. Signing up is your sign-in, not mine.
@@ -28,8 +29,8 @@ Write what you see in `LMS-RESULTS.md` as you go (the status words and the score
 learner's result and the instructor's report.
 
 **Round 1: SCORM 1.2 in Brightspace (about 30 minutes). The one that matters most.**
-Upload `lms-test-lesson-scorm12.zip`. Do tests 1 to 4 of `LMS-TEST-PLAN.md`. You need two fresh attempts for tests 2 and 3, and a third for test 4
-(a second test student is the easiest way).
+Upload `lms-test-lesson-scorm12.zip`. Do tests 1 to 4 of `LMS-TEST-PLAN.md`. You need a fresh attempt for each of tests 2, 3 and 4, and Brightspace cannot reset
+SCORM statistics, so upload the zip three times under different names (see `BRIGHTSPACE-STEPS.md`) or use three test students.
 What a correct LMS shows: test 2 **failed, 60**; test 3 **passed, 80**; test 4 opens on **Question 3** with answers 1 and 2 kept and locked, and ends
 **passed, 100**. If it differs, that is a finding.
 

@@ -22,7 +22,9 @@ SCORM 1.2 has one status, so a learner who finishes but fails is reported as fai
 
 ## Brightspace
 
-LMS version: ______   Date: ______   Tester: ______
+LMS version: ______   Date: ______   Tester: ______   Account used (real test student / Preview / Impersonate): ______
+
+Menu paths, settings to pick and where to read the result are in `BRIGHTSPACE-STEPS.md`.
 
 | Test | Result (passed / failed / not run) | What the LMS showed (status words, score) | Problems, screenshots |
 | --- | --- | --- | --- |
