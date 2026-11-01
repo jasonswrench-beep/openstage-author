@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## MCP access: an AI assistant using the program (2026-11-01)
+
+- [ ] Connect a real assistant. In the desktop app press **MCP access**, tick the box, choose a folder (a new empty one is best), Save, and copy the Claude Desktop block into `claude_desktop_config.json` (or run the Claude Code command). Restart the assistant, then ask it to make a short course with a few slides, a picture, a question and some narration, check it, and publish it. Look at what it made by opening the project in the editor (close the assistant's work first, or open a copy). The server has been tried with the official MCP client library and with a test client, but never with Claude itself.
+- [ ] Try the safety on purpose: with MCP access off, connect (it should say how to turn it on); turn it on, then off while the assistant is connected and ask for something (it should be stopped); ask it to open or write something outside the folder (it should refuse).
+- [ ] Read `OpenStage MCP log.txt` in the folder after a session. It should say what was done, in order, without the words written on the slides.
+- [ ] In the desktop app, check the MCP access dialog end to end: the native folder dialog, Save, Copy (paste somewhere to see the lines), Escape, and that focus returns to the MCP access button. It was tried in a web browser, not in the app. The lines name the program's Node, `mcp\openstage-mcp.mjs` and the settings file: after an installer build, check that those three paths exist on the installed computer (`BUILD INSTALLER.bat` now builds the server into the payload; that step has not been run).
+- [ ] With NVDA or Narrator on the dialog: the checkbox should be read with its label and the note about the folder, the two blocks of lines as text boxes with their labels, and the results of Save and Copy from the status line.
+- [ ] If a narration voice is installed, ask the assistant to make the audio (`make_audio`) and then publish; the voice needs the lines to include its settings, which the dialog adds only when the voice is installed.
+- [ ] Ask the assistant to make a course and then look at it for accessibility the way a person would (headings, reading order, alt text it wrote for pictures): the tools make what is asked for, and whether its words are good is for you to judge.
+
 ## MP4 video of a course (2026-10-31)
 
 - [ ] Watch a real video with the sound on. Publish `examples/lms-test-lesson.osproj` with **Also make a video (MP4)** ticked (or `node player/publish.ts examples/lms-test-lesson.osproj "C:\Temp\lms" --targets=mp4`) and play `lms.mp4` in an ordinary player (Media Player, VLC, Edge). Check that the voice fits the picture (the slide changes when its words change), that nothing is cut off at the start or end of a slide, and whether the pace of the slides is comfortable. The video has been checked as pictures, and by reading its length, size and sound track back, but nobody has listened to it.

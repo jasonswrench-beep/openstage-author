@@ -686,6 +686,13 @@ are left out) and names any slide with words that nothing reads aloud; "Show the
 still are and the dialog says why. On the command line it is `--targets=mp4` with `--video-size`, `--video-silent` and `--video-no-motion`.
 The whole story is in `docs/video.md`.
 
+**MCP access.** The toolbar's **MCP access** button opens a dialog that lets an AI assistant such as Claude use the program: build a course, check it
+and publish it, with nobody at the keyboard. It is off until you tick **Let an AI assistant use OpenStage Author** and choose **the folder it may
+use** (an assistant can open, make, change and publish courses only inside that folder), and press Save. The dialog gives the lines that connect
+Claude Desktop (a block for `claude_desktop_config.json`) and Claude Code (a command), each with a Copy button, naming the program's own Node, the
+server and the settings file. Turning it off stops a connected assistant at its next request. It needs no project open. The server is `mcp/`; the
+tools, the safety rules and what it does not do are in `docs/mcp.md`.
+
 **Translate.** The Translate button opens a dialog for translating the course into another language. Type a language tag (`fr-FR`,
 `es-MX`, `de`; a list of common ones is offered) and choose **Make the translation file...**: the project is saved, you say where to
 put the file, and it is written as XLIFF 1.2, which OmegaT, Weblate and most other translation tools read. When the translated file

@@ -18,6 +18,7 @@ import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState
 import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
 import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
+import { parseMcpInfo, type McpInfo } from "./mcpsettings.ts";
 import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
 import { parseSetMade, parseSetRead, type SetAnswer, type SetMade, type SetRead } from "./slidesets.ts";
 
@@ -108,6 +109,8 @@ export interface Backend {
   narrationEngine(): Promise<boolean>;
   /** The version, and where things are on this computer, for the About window. */
   aboutInfo(): Promise<AboutInfo>;
+  /** What an AI assistant needs to start OpenStage Author's MCP server: the Node, the script, the settings file, and what the narration voice needs. */
+  mcpInfo(): Promise<McpInfo>;
   /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
   examplesFolder(): Promise<string>;
   /** The character packs on this computer: the ones that came with the program and the ones the author added, and any folder that looks like a pack but cannot be used. */
@@ -359,6 +362,9 @@ const tauriBackend: Backend = {
   narrationEngine: () => invoke<boolean>("narration_engine"),
   async aboutInfo() {
     return parseAbout(await invoke<string>("about_info"));
+  },
+  async mcpInfo() {
+    return parseMcpInfo(await invoke<string>("mcp_info"));
   },
   examplesFolder: () => invoke<string>("examples_folder"),
   async packsList() {
@@ -613,6 +619,9 @@ const previewBackend: Backend = {
   },
   async aboutInfo() {
     return { ...UNKNOWN_ABOUT, version: "(the page shown in a web browser, not the desktop program)" };
+  },
+  async mcpInfo() {
+    return parseMcpInfo(JSON.stringify(await post<unknown>("/api/mcp-info", {})));
   },
   async examplesFolder() {
     return "";

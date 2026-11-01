@@ -66,6 +66,7 @@ import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type Sam
 import { parseSettings, type Settings } from "./stock.ts";
 import { openPublish } from "./publishdialog.ts";
 import { openTranslate } from "./translatedialog.ts";
+import { openMcp } from "./mcpdialog.ts";
 import { failureText, narrationLine } from "./publishing.ts";
 import { newProjectFiles } from "./template.ts";
 import { askTheme } from "./themepicker.ts";
@@ -201,6 +202,7 @@ export class App {
   private readonly previewBtn: HTMLButtonElement;
   private readonly publishBtn: HTMLButtonElement;
   private readonly translateBtn: HTMLButtonElement;
+  private readonly mcpBtn: HTMLButtonElement;
 
   private readonly slideList: HTMLElement;
   private readonly addSlideBtn: HTMLButtonElement;
@@ -286,8 +288,9 @@ export class App {
     this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
     this.publishBtn = this.tool("Publish", "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI (Ctrl+Shift+P)", () => void this.publish());
     this.translateBtn = this.tool("Translate", "Make a file for translating the course into another language, and bring the translation back", () => void this.translate());
+    this.mcpBtn = this.tool("MCP access", "Let an AI assistant such as Claude build, check and publish courses with this program, and get the lines that connect it", () => void this.mcpAccess());
     this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.translateBtn, this.aboutBtn);
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.translateBtn, this.mcpBtn, this.aboutBtn);
     const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
 
     // Slides
@@ -628,6 +631,18 @@ export class App {
       this.working = false;
       this.updateChrome();
       this.translateBtn.focus();
+    }
+  }
+
+  /** The MCP access dialog: whether an AI assistant may use the program, which folder it may use, and the lines that connect one. It needs no project open. */
+  async mcpAccess(): Promise<void> {
+    if (this.working) return;
+    try {
+      await openMcp({ backend, announce: (msg) => this.announce(msg) });
+    } finally {
+      // The dialog wrote its choices into the settings file, so what is held here is read again, or a later save of a key would write the old choices back.
+      this.settings = parseSettings(await backend.readSettings().catch(() => ""));
+      this.mcpBtn.focus();
     }
   }
 

@@ -48,6 +48,8 @@ PIP_PACKAGES = ["jsonschema==4.26.0", "pip==26.2.1"]  # jsonschema is what tools
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj"]
 TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
+# The file the MCP server is shipped as, beside the player. The editor looks for it by this name.
+MCP_SERVER = "openstage-mcp.mjs"
 TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenStage Author Trial"}
 
 
@@ -168,6 +170,16 @@ def stage():
         if not source.is_dir():
             fail(f"the player's package {'/'.join(package)} is not installed. Run npm install in the player folder.")
         copy_tree(source, player / "node_modules" / Path(*package))
+
+    # The MCP server, for AI assistants: one file made from the server and the editor code it uses, which runs with the Node that comes with the program.
+    # The editor finds it by this name (mcp_script in lib.rs) and shows the lines that connect an assistant to it.
+    say("  MCP server")
+    done = subprocess.run(["node", "build.mjs"], cwd=ROOT / "mcp")
+    built = ROOT / "mcp" / "dist" / MCP_SERVER
+    if done.returncode != 0 or not built.is_file():
+        fail("the MCP server did not build.")
+    (PAYLOAD / "mcp").mkdir()
+    shutil.copy2(built, PAYLOAD / "mcp" / MCP_SERVER)
 
     for name in ("LICENSE", "NOTICE"):
         shutil.copy2(ROOT / name, PAYLOAD / name)

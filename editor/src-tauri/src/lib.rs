@@ -2266,6 +2266,59 @@ fn about_info(app: tauri::AppHandle) -> Result<String, String> {
     serde_json::to_string(&info).map_err(|e| e.to_string())
 }
 
+/// What an AI assistant needs to start the MCP server (mcp/), for the MCP access dialog to show as lines to copy.
+#[derive(Serialize)]
+struct McpInfo {
+    /// The Node that runs it: the one that travels with an installed editor, or the author's own, or whatever `node` is on the PATH.
+    node: String,
+    /// The server's script: the single file built for the installer, or the source when run from the repository. Empty when there is none.
+    script: String,
+    /// The settings file the server reads each time an assistant connects.
+    settings: String,
+    /// What the narration voice needs to run, so the assistant can make audio. Empty when no voice is set up.
+    env: std::collections::BTreeMap<String, String>,
+    found: bool,
+    note: String,
+}
+
+/// Put the facts together. The Err-free pure part of `mcp_info`, so that it can be tested without a window.
+fn mcp_connection(node: Option<String>, script: Option<PathBuf>, settings: String, engine: Option<PathBuf>, engine_env: Vec<(String, String)>) -> McpInfo {
+    let mut env = std::collections::BTreeMap::new();
+    if let Some(python) = engine {
+        env.insert("OPENSTAGE_KOKORO_PYTHON".to_string(), python.to_string_lossy().into_owned());
+        for (name, value) in engine_env {
+            env.insert(name, value);
+        }
+    }
+    let found = script.is_some();
+    McpInfo {
+        node: node.unwrap_or_else(|| "node".into()),
+        script: script.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        settings,
+        env,
+        found,
+        note: if found { String::new() } else { "The program that lets an assistant use OpenStage Author (mcp/openstage-mcp.mjs) was not found beside the editor.".into() },
+    }
+}
+
+/// The server's script: the one built for the installer, or the source when this is run from the repository.
+fn mcp_script() -> Option<PathBuf> {
+    ["mcp/openstage-mcp.mjs", "mcp/dist/openstage-mcp.mjs", "mcp/server.ts"].iter().find_map(|rel| find_repo_file(rel))
+}
+
+#[tauri::command]
+fn mcp_info(app: tauri::AppHandle) -> Result<String, String> {
+    let engine_env = managed_engine().map(|(_, layout)| engine::environment(&layout, None)).unwrap_or_default();
+    let info = mcp_connection(
+        std::env::var("OPENSTAGE_NODE").ok(),
+        mcp_script(),
+        settings_file(&app).map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        engine_path(),
+        engine_env,
+    );
+    serde_json::to_string(&info).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn engine_status() -> Result<String, String> {
     let layout = engine_layout();
@@ -3379,7 +3432,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, mcp_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -5231,6 +5284,22 @@ Colour,100,MC,Why?,x
         assert!(copy_pack_picture_at(&root, &pack, "ann/head.png", "x").is_err(), "not a project");
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn the_connection_for_an_assistant_names_the_node_the_script_and_the_settings_and_what_the_voice_needs() {
+        let bare = mcp_connection(None, Some(PathBuf::from("C:/OpenStage/mcp/openstage-mcp.mjs")), "C:/Users/Jo/settings.json".into(), None, vec![("HF_HOME".into(), "x".into())]);
+        assert!(bare.found && bare.note.is_empty());
+        assert_eq!((bare.node.as_str(), bare.script.as_str(), bare.settings.as_str()), ("node", "C:/OpenStage/mcp/openstage-mcp.mjs", "C:/Users/Jo/settings.json"));
+        assert!(bare.env.is_empty(), "with no voice set up, the voice's settings are not passed on");
+        let voiced = mcp_connection(Some("C:/OpenStage/node/node.exe".into()), Some(PathBuf::from("s.mjs")), "set.json".into(), Some(PathBuf::from("C:/OpenStage/python/python.exe")), vec![("PYTHONUTF8".into(), "1".into())]);
+        assert_eq!(voiced.node, "C:/OpenStage/node/node.exe");
+        assert_eq!(voiced.env.get("OPENSTAGE_KOKORO_PYTHON").map(String::as_str), Some("C:/OpenStage/python/python.exe"));
+        assert_eq!(voiced.env.get("PYTHONUTF8").map(String::as_str), Some("1"));
+        let missing = mcp_connection(None, None, "set.json".into(), None, vec![]);
+        assert!(!missing.found && missing.script.is_empty() && missing.note.contains("was not found"));
+        let json = serde_json::to_string(&voiced).unwrap();
+        assert!(json.contains("\"found\":true") && json.contains("\"env\":{"));
     }
 
     #[test]

@@ -146,6 +146,10 @@ createServer(async (req, res) => {
       for (const f of files) writeFileSync(path.join(dir, f.path), f.text);
       return send(res, 200, {});
     }
+    if (url.pathname === "/api/mcp-info") {
+      // What the desktop program would say: the server runs from the source here, with the settings file of the stand-in.
+      return send(res, 200, { node: process.execPath, script: path.join(repo, "mcp", "server.ts"), settings: path.join(os.tmpdir(), "openstage-standin-settings.json"), env: {}, found: true, note: "" });
+    }
     if (url.pathname === "/api/migrate") {
       const { dir } = await body(req);
       const r = spawnSync(python, [path.join(repo, "tools", "migrate.py"), dir, "--json"], { encoding: "utf-8" });

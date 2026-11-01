@@ -9,6 +9,7 @@
 
 import type { CreditEntry } from "../../player/src/types.ts";
 import { emptyAi, parseAi, type AiSettings } from "./aiservices.ts";
+import { parseMcpSettings, type McpSettings } from "./mcpsettings.ts";
 
 export type MediaKind = "image" | "video" | "audio";
 export type Provider = "pixabay" | "unsplash" | "pexels" | "freesound";
@@ -305,6 +306,8 @@ export interface Settings {
   publishFolder?: string;
   /** Keys, permissions and plugins for the AI services (see aiservices.ts). */
   ai: AiSettings;
+  /** Whether an AI assistant may use the program through MCP, and the one folder it may use (see mcpsettings.ts). Absent means off. */
+  mcp?: McpSettings;
 }
 
 export const KEYED: Provider[] = ["pexels", "pixabay", "unsplash", "freesound"];
@@ -312,9 +315,10 @@ export const KEYED: Provider[] = ["pexels", "pixabay", "unsplash", "freesound"];
 export function parseSettings(raw: string): Settings {
   const out: Settings = { keys: { pixabay: "", unsplash: "", pexels: "", freesound: "" }, ai: emptyAi() };
   try {
-    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown; ai?: unknown };
+    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown; ai?: unknown; mcp?: unknown };
     for (const id of KEYED) out.keys[id] = text(data.keys?.[id]);
     out.ai = parseAi(data.ai);
+    if (data.mcp !== undefined) out.mcp = parseMcpSettings(data.mcp);
     if (text(data.publishFolder).trim() !== "") out.publishFolder = text(data.publishFolder);
   } catch {
     // no settings yet, or a damaged file: start empty

@@ -46,6 +46,17 @@ class Pieces(unittest.TestCase):
         self.assertTrue({"validate.py", "xliff.py", "narrate.py"} <= named, named)
         self.assertEqual(sorted(named - set(b.TOOLS)), [])
 
+    def test_the_mcp_server_is_built_into_the_payload_under_the_name_the_editor_looks_for(self):
+        # An assistant is connected to a single file beside the program. If the installer called it one thing and the editor looked for another, the MCP access
+        # dialog would say the program was not found on every installed copy and work from a checkout.
+        self.assertTrue((b.ROOT / "mcp" / "build.mjs").is_file())
+        self.assertTrue((b.ROOT / "mcp" / "server.ts").is_file())
+        self.assertEqual(b.MCP_SERVER, "openstage-mcp.mjs")
+        shell = (b.TAURI / "src" / "lib.rs").read_text(encoding="utf-8")
+        self.assertIn(f'"mcp/{b.MCP_SERVER}"', shell)
+        # Building it uses the player's esbuild, which goes in the same way.
+        self.assertIn(("esbuild",), b.PLAYER_PACKAGES)
+
     def test_the_tools_that_read_a_shared_file_have_it_with_them(self):
         # validate.py reads these when it starts, so without them the problem check does not even run.
         for name in ("download-types.json", "player-text.json", "theme-rules.json"):

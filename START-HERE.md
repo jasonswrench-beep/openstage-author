@@ -73,6 +73,9 @@ reviewers: the slide text, alt text, narration scripts, quiz answers and the pro
 (MP4)** in the Publish dialog and it makes an MP4 of the course too, with captions in a file beside it (Windows, with Edge or Chrome; see
 `docs/video.md`).
 Both need Node.js installed, and Publish needs Python.
+
+An AI assistant such as Claude can also build, check and publish courses with the program, with nobody at the keyboard: press **MCP access** in the
+editor, turn it on, choose the one folder it may use, and copy the lines it gives into your assistant (`docs/mcp.md`). It is off until you do. `TEST MCP SERVER.bat` tests it.
 `PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
 without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and
 `TEST WITH STAND-IN LRS.bat` (xAPI) open the published example against a pretend one. They are test aids, not the real thing.
