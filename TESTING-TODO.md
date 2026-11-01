@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Sound-only export, single picture and pointer highlight (2026-11-01)
+
+Built and tested by the suites (exporter 425, render crate 85, command line 18) and tried by me on the real project the MP4 publish makes from the LMS example: a WAV of 284.1 seconds in 3 seconds (peak 62 percent, no clipping), and a 1280 by 720 PNG at 20 seconds that I looked at. Nobody has listened to a WAV or opened a PNG in a viewer, and the pointer has never been drawn from a real recording. The choices I made for you, each easy to change:
+
+- [ ] **Listen to a sound file** made with `openstage-capture render --audio-only --out lesson.wav` (or the Recorder's "Make a sound file (WAV) from this edit") from a recording with your voice and the computer's sound: it should sound like the video's sound, balanced the way the editing screen's Sound balance says, and be as long as the video would be. A WAV is 16-bit, two channels, 48,000 a second, uncompressed (about 11 MB a minute). I chose WAV because it needs no encoder and opens everywhere; say if you want MP3 or M4A (M4A would use Windows' own AAC encoder as the video does).
+- [ ] **Open a picture** made with `--frame 20000 --out moment.png` (or "Save the picture shown in the preview (PNG)") in a picture viewer and an editor: it should match what the video shows at that moment, including a zoom in progress and any overlays. A PNG is uncompressed (about 2.8 MB at 1280 by 720); I chose that so it needs nothing to be installed. Say if you want smaller files.
+- [ ] **The pointer highlight** (`--highlight-cursor`, or the box in the Recorder's edit screen): record something with "note where the mouse goes" on, then make a video with the option. Check the soft yellow disc follows the pointer, the red ring opens at each click, it does not show where the pointer left the recorded region, a blur or blackout hides it, and with "cuts instead of animated zooms" ticked the ring does not open. It is off unless asked for, and a recording made without noting the mouse says so and is unchanged.
+- [ ] **Colours and size of the pointer**: yellow disc, orange ring, red press ring, 3 percent of the picture's height (at least 14 pixels). Look at them on your own screens (a white page and a dark one) and tell me if they are hard to see or too much. They are constants in `capture/crates/openstage-capture-render/src/cursor.rs`.
+- [ ] **Screen reader and keyboard** on the Recorder's three new buttons and the pointer box (the unit tests and browser checks only prove the names, roles and focus).
+
 ## Essay, choose a word and keyboard shortcut questions (2026-11-01)
 
 Tried in a browser with a real mouse, a real keyboard and the stand-in page (the essay's word count and "write at least 20 words" message, a wrong and a right word, Capture the keys with Ctrl+C and with Escape) and by the suites. Not tried with a screen reader, a phone, or a real LMS. The choices I made for you, each easy to change:
