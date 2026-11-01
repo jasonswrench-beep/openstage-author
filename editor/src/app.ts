@@ -11,7 +11,7 @@
 //  - Alt text and the other accessibility fields are never filled in on the author's behalf.
 
 import type { CertificateContent, ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable, ScenarioContent, ScenarioLine, IconContent } from "../../player/src/types.ts";
-import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
+import { INPUT_VARIABLE_TYPE, textLines, textMaxLength } from "../../player/src/inputs.ts";
 import { markerAt } from "../../player/src/interactions.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
 import { Canvas } from "./canvas.ts";
@@ -4531,6 +4531,26 @@ ${errorText(err)}`);
           h("p", { class: "note", text: "Two to eight people from the cast, shown as picture cards in the order of the cast. The picture's alt text is read once, so a learner who cannot see it still knows who they are choosing." }),
           ...(cast.length > 0 ? boxes : [h("p", { class: "note", text: "The cast is empty." })]),
           this.small("Characters...", "Open the cast: add people, pictures and voices", () => void this.openCast())));
+      return out;
+    }
+    if (c.kind === "text") {
+      // A number the model refuses goes back to what the model holds, even while the box has focus.
+      const sized = (field: "lines" | "maxLength", label: string, value: number) => {
+        const box = this.field(`in-${field}`, label, value, (v) => {
+          const msg = v.trim() === "" || !Number.isFinite(Number(v)) ? "Type a whole number." : m.setTextBox(o.id, field, Number(v));
+          if (msg) this.announce(msg);
+          box.querySelector("input")!.value = String(field === "lines" ? textLines(o.content as unknown as InputContent) : textMaxLength(o.content as unknown as InputContent));
+        }, { number: true });
+        return box;
+      };
+      out.push(
+        h("fieldset", {}, h("legend", { text: "Saved words" }), ...this.variableField(m, o, "in-main", "Words", null, c.variable),
+          h("p", { class: "note", text: "The variable holds what the learner typed, and is saved when they leave the box or press Enter in a single line. Text on a slide can show it, and a rule can read it. A learner who comes back finds their words as they left them." })),
+        h("fieldset", {}, h("legend", { text: "The box" }),
+          sized("lines", "Lines (1 for a single line, up to 10 for longer writing)", textLines(c)),
+          sized("maxLength", "Most characters (1 to 2000)", textMaxLength(c)),
+          this.field("in-hint", "Hint under the prompt (how the answer will be used, for example)", c.hint ?? "", (v) => { const msg = m.setTextHint(o.id, v); if (msg) this.announce(msg); }),
+          h("p", { class: "note", text: "A screen reader says the prompt, then the hint, then that this is an edit box. When answers go to the LMS, only the first 250 characters are sent." })));
       return out;
     }
     if (c.kind === "slider" || c.kind === "dial") {

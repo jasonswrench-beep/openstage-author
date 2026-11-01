@@ -403,7 +403,7 @@ SPECS = {
     "results": [_p("content.heading", "Heading"), _p("content.passMessage", "Pass message"), _p("content.failMessage", "Fail message")],
     "table": [_p("content.caption", "Caption"), _p("content.rows.[].[]", "Cell")],
     "input": [
-        _p("content.prompt", "Prompt"), _p("content.startLabel", "Start label"), _p("content.endLabel", "End label"), _p("content.unit", "Unit"),
+        _p("content.prompt", "Prompt"), _p("content.hint", "Hint"), _p("content.startLabel", "Start label"), _p("content.endLabel", "End label"), _p("content.unit", "Unit"),
         _p("content.options.[].label", "Choice"), _p("content.items.[].label", "Item"), _p("content.rows.[].label", "Statement"),
         _p("content.rows.[].right", "Opposite"), _p("content.scale.[]", "Scale point"),
     ],

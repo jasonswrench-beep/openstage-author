@@ -13,8 +13,9 @@ import {
   breakLongLines, buildTranscript, cuesFromScript, cueWarnings, DEFAULT_LIMITS, formatSrt, formatVtt, inOrder, newCueAfter, ordered, parseCaptions, parseClock, savingProblem,
   secondsField, trackWarnings, type Cue, type Extra, type Heard,
 } from "./captions.ts";
-import { cuesFromWords, placeByVoice, wordEnds } from "./recognition.ts";
+import { cuesFromWords, placeByVoice, wordEnds, type SoundMap } from "./recognition.ts";
 import { mountSpeechPanel, type Listened } from "./speechpanel.ts";
+import { placeByGaps, speechStretches } from "./voicegaps.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -343,11 +344,30 @@ export function openCaptions(opts: CaptionsOptions): Promise<string> {
       return true;
     }
 
+    /** The times of the captions set from where the voice pauses, with no speech model. They are estimates, and are marked as such until the author has checked them. */
+    async function applyGaps(found: { sound: SoundMap; lengthMs: number }): Promise<boolean> {
+      const placed = placeByGaps(cues, speechStretches(found.sound), found.lengthMs);
+      if (typeof placed === "string") {
+        speak(placed);
+        return false;
+      }
+      remember();
+      cues = placed.cues;
+      estimated = true;
+      heard = null;
+      draw();
+      const where = placed.boundaries === 0 ? "" : ` ${placed.atPauses} of the ${placed.boundaries} places where a caption begins ${placed.boundaries === 1 ? "is at a pause" : "are at a pause"} in the voice; ${placed.boundaries === 1 ? "it is" : "the others are"} in the middle of speech, where the voice does not pause, so ${placed.boundaries === 1 ? "its" : "their"} time is a guess.`;
+      speak(`Set the times of ${cues.length} ${cues.length === 1 ? "caption" : "captions"} by the quiet gaps in the voice. Your words were not changed.${where} The times are marked as estimates: play the ${opts.kind} and change any that are off.`);
+      (rowEls[0]?.start ?? addBtn).focus();
+      return true;
+    }
+
     const speechPanel = mountSpeechPanel({
       backend: b, dir: opts.dir, mediaPath: opts.mediaPath, kind: opts.kind, hint: opts.hint ?? "",
       haveCaptions: () => cues.some((c) => c.text.trim() !== ""),
       say: speak,
       onHeard: applyHeard,
+      onGaps: applyGaps,
     });
 
     // ---- a file

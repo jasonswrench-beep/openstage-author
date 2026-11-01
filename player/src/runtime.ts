@@ -277,7 +277,8 @@ export class Runtime {
     const obj = this.current && Runtime.objectsOf(this.current).find((o) => o.id === objectId);
     if (!obj || obj.type !== "input") return;
     this.setVariable(variable, value);
-    if (!live && (obj.content as { report?: boolean }).report) this.emit({ type: "input", objectId, rowId, interaction, response });
+    // A typed answer that was cleared is saved (the variable is empty again) but is not an answer to tell an LMS.
+    if (!live && (obj.content as { report?: boolean }).report && !(interaction === "fill-in" && response === "")) this.emit({ type: "input", objectId, rowId, interaction, response });
   }
 
   /**

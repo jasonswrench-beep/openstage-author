@@ -394,6 +394,7 @@ Going back, or to the next slide, never warns. The fix is to choose the last sli
 | A labeled graphic's item has no place on the picture (`labeledgraphic-position`) | A marker needs a place on the picture |
 | Two markers of a labeled graphic are within 5 percent of each other, warning (`labeledgraphic-overlap`) | Two markers are almost on top of each other |
 | A picture with an Enlarge button is marked decorative (`image-enlarge-decorative`) | A decorative picture cannot have an Enlarge button |
+| A text field reports to the LMS and takes more than 250 characters, warning (`input-text-report-long`) | A text field that is told to the LMS takes more than the LMS can keep |
 | A slider or dial's step has more than 3 decimals, or the scale has more than 10000 steps (`input-slider-step`) | The step of a slider or dial has too many decimals, or A slider or dial has too many steps |
 
 A missing `prompt`, or missing parts for the kind, is a schema error, and an input with a tab order of 0

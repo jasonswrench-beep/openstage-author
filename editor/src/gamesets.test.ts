@@ -44,8 +44,8 @@ function board(options: Record<string, number> = {}) {
 
 // ---- the set of games
 
-test("there is a Quiz board, a Prize ladder and an Escape room, named and described, and their picker values cannot clash with a layout or a lesson slide", () => {
-  assert.deepEqual(GAME_SETS.map((g) => g.id), ["quiz-board", "prize-ladder", "escape-room"]);
+test("there is a Quiz board, a Prize ladder, an Escape room and an Order challenge, named and described, and their picker values cannot clash with a layout or a lesson slide", () => {
+  assert.deepEqual(GAME_SETS.map((g) => g.id), ["quiz-board", "prize-ladder", "escape-room", "order-challenge"]);
   for (const g of GAME_SETS) {
     assert.ok(g.label && g.description, g.id);
     assert.equal(gameById(g.id), g);
@@ -1331,5 +1331,127 @@ test("the prize ladder and the escape room leave out Back and Next on every slid
       const ways = [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).flatMap((o) => o.triggers).filter((t) => t.action === "jumpToSlide");
       assert.ok(ways.length > 0, `${slide.name} has a button that goes somewhere`);
     }
+  }
+});
+
+// ---- the order challenge
+
+function orderGame(options: Record<string, number> = {}) {
+  const m = fresh();
+  const made = m.addGameSet("order-challenge", options)!;
+  const [intro, ...rest] = made.slides;
+  const results = rest.pop()!;
+  return { m, made, intro: intro!, rounds: rest, results };
+}
+
+/** The ids of a round's steps in the right order, and the same in a wrong order. */
+function stepsOf(slide: Slide): { right: string; wrong: string; ids: string[] } {
+  const q = quizOf(slide).content as unknown as { items: { id: string }[] };
+  const ids = q.items.map((i) => i.id);
+  return { right: ids.join(","), wrong: [...ids].reverse().join(","), ids };
+}
+
+function roundAndGoOn(p: Played, s: Slide, how: "right" | "wrong"): void {
+  const out = p.rt.submitQuiz(quizOf(s).id, stepsOf(s)[how], "click")!;
+  assert.equal(out.correct, how === "right");
+  const feedback = feedbackOf(s);
+  const shown = how === "right" ? feedback.correct : feedback.incorrect;
+  assert.ok(p.rt.visibleLayers.has(shown), "the feedback for that answer is showing");
+  p.rt.fire(nextIn(s.layers.find((l) => l.id === shown)!).id, "click");
+}
+
+test("an order challenge adds an opening slide, a round for each and a results slide, after the slide the author was on, as one undo step", () => {
+  const m = fresh();
+  const before = m.slides.length;
+  const made = m.addGameSet("order-challenge", { rounds: 4 })!;
+  assert.equal(made.slides.length, 6);
+  assert.equal(m.slides.length, before + 6);
+  assert.deepEqual(made.slides.map((s) => s.name), ["Order challenge", "Round 1", "Round 2", "Round 3", "Round 4", "Game results"]);
+  assert.equal(m.variables.length, 0, "it needs no variables");
+  assert.ok(made.notes.some((n) => /4 rounds, each worth 100 points/.test(n)));
+  m.undo();
+  assert.equal(m.slides.length, before, "one undo takes it all away");
+  const numbers = (o: Record<string, number>) => gameOptions(gameById("order-challenge")!, o)["rounds"];
+  assert.equal(numbers({ rounds: 2 }), 5, "too few is the usual five");
+  assert.equal(numbers({ rounds: 11 }), 5, "too many is the usual five");
+  assert.equal(numbers({ rounds: 10 }), 10);
+});
+
+test("each round is one sequencing question of four steps in the right order, one try, worth 100 points, whose feedback has the way on", () => {
+  const { rounds, results } = orderGame({ rounds: 3 });
+  rounds.forEach((s, i) => {
+    const q = quizOf(s).content as unknown as QuizContent & { questionType: string; items: { id: string; text: string }[]; scoring: { points: number; attemptsAllowed: number } };
+    assert.equal(q.questionType, "sequencing");
+    assert.deepEqual(q.items.map((x) => x.text), ["First step", "Second step", "Third step", "Fourth step"], "written in the right order, for the author to write over");
+    assert.deepEqual(q.scoring, { points: 100, attemptsAllowed: 1 });
+    const goes = [...s.layers].map((l) => nextIn(l));
+    assert.equal(goes.length, 2, "both feedbacks have a way on");
+    assert.deepEqual(goes.map((b) => b.name), [i === rounds.length - 1 ? "See my results" : "Next round", i === rounds.length - 1 ? "See my results" : "Next round"]);
+    assert.deepEqual(readActivation(goes[0]!.triggers.slice(0, 2)), { kind: "jump", slideId: i === rounds.length - 1 ? results.id : rounds[i + 1]!.id });
+    const where = s.baseLayer.objects.find((o) => o.name === "Where you are")!;
+    assert.match(String(where.content["html"]), new RegExp(`Round ${i + 1} of 3, worth 100 points\\. Points so far: \\{\\{\\$score\\}\\}`));
+    const wrong = s.layers[1]!.objects[0]!;
+    assert.doesNotMatch(String(wrong.content["html"]), /try again/i, "there is only one try");
+  });
+});
+
+test("Start goes to the first round, and a game's slides leave out Back and Next except the last", () => {
+  const { intro, rounds, made } = orderGame({ rounds: 3 });
+  const start = intro.baseLayer.objects.find((o) => o.name === "Start the game")!;
+  assert.deepEqual(readActivation(start.triggers.slice(0, 2)), { kind: "jump", slideId: rounds[0]!.id });
+  assert.deepEqual(made.slides.map((s) => s.hideNavigation === true), [true, true, true, true, false]);
+});
+
+test("reading order and tab order are right on every slide, and everything fits on it", () => {
+  const { made } = orderGame({ rounds: 10 });
+  for (const s of made.slides) {
+    for (const layer of [s.baseLayer, ...s.layers]) {
+      const tabs = layer.objects.map((o) => o.accessibility.tabOrder).filter((n): n is number => typeof n === "number" && n > 0);
+      assert.equal(new Set(tabs).size, tabs.length, `${s.name}: no two objects share a place in the tab order`);
+      for (const o of layer.objects) {
+        const g = o.geometry;
+        assert.ok(g.x >= 0 && g.y >= 0 && g.x + g.width <= 1280 && g.y + g.height <= 720, `${s.name}: ${o.name} is on the slide`);
+      }
+    }
+  }
+});
+
+test("the game plays to the end whatever the answers: every round gets finished, and the score is the rounds that were right", () => {
+  const { m, intro, rounds, results } = orderGame({ rounds: 4 });
+  const p = play(m);
+  p.rt.goTo("slide-001");
+  p.rt.goTo(intro.id);
+  p.rt.fire(intro.baseLayer.objects.find((o) => o.name === "Start the game")!.id, "click");
+  rounds.forEach((s, i) => {
+    assert.equal(p.rt.currentSlide!.id, s.id, `on round ${i + 1}`);
+    roundAndGoOn(p, s, i % 2 === 0 ? "right" : "wrong");
+  });
+  assert.equal(p.rt.currentSlide!.id, results.id);
+  assert.deepEqual(p.rt.assessment(), { quizzes: 4, locked: 4, totalPoints: 400, earnedPoints: 200 });
+  const progress = evaluate(p.rt);
+  assert.equal(progress.completed, true, "every slide seen and every round finished");
+  assert.equal(progress.scorePercent, 50);
+  assert.equal(lessonStatus(progress, "incomplete"), "failed", "the LMS is told how it went, not left waiting");
+});
+
+test("answering every round right passes, and the score shown is the points earned so far", () => {
+  const { m, intro, rounds } = orderGame({ rounds: 3 });
+  const p = play(m);
+  p.rt.goTo("slide-001");
+  p.rt.goTo(intro.id);
+  p.rt.fire(intro.baseLayer.objects.find((o) => o.name === "Start the game")!.id, "click");
+  roundAndGoOn(p, rounds[0]!, "right");
+  const shown = valueFor("$score", { variables: m.variables, valueOf: (id) => p.rt.variables.get(id), totals: () => totalsFromResults(courseResults(p.rt)) });
+  assert.equal(shown, "100", "the points so far are what the text on the next round shows");
+  roundAndGoOn(p, rounds[1]!, "right");
+  roundAndGoOn(p, rounds[2]!, "right");
+  assert.equal(lessonStatus(evaluate(p.rt), "incomplete"), "passed");
+});
+
+test("a project with an order challenge passes the real validator with no findings at all, for the fewest, the usual and the most rounds", { skip: !process.env["OPENSTAGE_PYTHON"] }, () => {
+  for (const rounds of [3, 5, 10]) {
+    const m = fresh();
+    m.addGameSet("order-challenge", { rounds });
+    assert.deepEqual(validate(m), [], `${rounds} rounds`);
   }
 });

@@ -319,7 +319,7 @@ the editor cannot edit is left as it is. The pure parts (reading and writing Web
 
 **Questions, inputs and surveys.** "Question, input or survey..." in the Add menu opens one picker with
 three groups: Quiz questions (multiple choice, true or false), Inputs that save a choice (checkboxes,
-radio buttons, drop-down, list, slider, dial) and Surveys (Likert scale, semantic differential). An input is added with
+radio buttons, drop-down, list, text field, slider, dial) and Surveys (Likert scale, semantic differential). An input is added with
 its own new variables, one for each part that saves something, so it works straight away and the whole
 addition is one undo step. In the Properties panel an input has its prompt (the question the learner
 sees, also the name a screen reader gives it; the alt text starts as the same words and follows the
@@ -334,7 +334,9 @@ one variable, so deleting an option never deletes that variable. A Likert
 scale takes its labels one to a line, and a semantic differential has 3 to 9 points. A slider or dial has one
 variable and a scale: the lowest value, the highest and the step (a number that would leave it unusable, such as a
 highest value below the lowest, is refused and the editor says why), the unit after the number, what each end means,
-and whether the number shows. The canvas draws them but they do not move there; Preview does. A rule can read
+and whether the number shows. A text field has one variable (a text one), the number of lines (1 to 10), the most characters (1 to 2000) and a hint
+under the prompt; a number outside those is refused and the editor says why, and when it sends the answers to the LMS a box that takes more than 250
+characters is warned about, because the LMS keeps only that much. The canvas draws them but they do not move there; Preview does. A rule can read
 these variables to change what the course does (see Rules above); the values are also saved, shown again
 when the learner returns, and can be sent to the LMS.
 
@@ -516,6 +518,8 @@ course incomplete for good. The ladder down the right of each question is a colu
 skips it; the same facts are in words: "Question 3 of 8, worth 300 points" at the top of each question, and the opening slide's text. The rung the learner is on is bold and in the strong colour, rungs still to come are grey boxes,
 and rungs already answered are faded text. The game adds no variables and changes no course setting, because every jump goes to the next slide. If you change the number of questions or their points, change the line at the top of
 each question and its rung to match. Reading order on a question is where the learner is, the question, then its answers; in the feedback, the words and then the way on. `examples/prize-ladder.osproj` is a finished ladder of eight questions.
+
+The fourth game is the **Order challenge** (3 to 10 rounds, one drop-down in the dialog): an opening slide, a round for each and a results slide. Each round is one question in which the learner puts four steps in the right order (they are written in the right order for you to write over, and shown to the learner in another), worth 100 points with one try; the right order is shown whichever way it goes, so nobody is knocked out and every round gets finished. It needs no variables.
 
 The third game is the **Escape room**: 2 to 5 rooms and 1 to 3 tries at each lock (two drop-downs in the dialog). It adds an opening slide, then a **room** and a **door** for each room, and a results slide. A room has three places
 to search, which are buttons (there are no pictures to put hotspots on; put a picture behind them and move them if you like), and **Go to the door**. A place opens its clue, one at a time, with a **Close** button, and is marked

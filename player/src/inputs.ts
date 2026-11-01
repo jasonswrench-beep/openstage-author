@@ -6,7 +6,7 @@
 import type { Character, InputContent, InputInteraction, OSObject, Primitive } from "./types.ts";
 import { t } from "./playertext.ts";
 
-export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial"] as const;
+export const INPUT_KINDS = ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial", "text"] as const;
 export type InputKind = (typeof INPUT_KINDS)[number];
 
 /** What an input tells the course when the learner changes it. */
@@ -34,8 +34,28 @@ export interface InputHooks {
 /** The variable type each kind of input writes. The validator and the editor use the same table. */
 export const INPUT_VARIABLE_TYPE: Record<InputKind, "boolean" | "string" | "number"> = {
   checkbox: "boolean", radio: "string", dropdown: "string", list: "string", likert: "number", semantic: "number", character: "string",
-  slider: "number", dial: "number",
+  slider: "number", dial: "number", text: "string",
 };
+
+/** The most characters a text field takes unless the author says otherwise, and the most they can say. */
+export const TEXT_DEFAULT_MAX = 200;
+export const TEXT_LIMIT = 2000;
+/** The most lines a text field shows. */
+export const TEXT_MAX_LINES = 10;
+/** What is told to an LMS of a typed answer: SCORM 1.2 and 2004 take 250 to 255 characters of a fill-in. */
+export const TEXT_REPORT_LIMIT = 250;
+
+/** The most characters a text field takes, from what the author set: a whole number from 1 to the limit, or the default. */
+export function textMaxLength(c: { maxLength?: number }): number {
+  const n = c.maxLength;
+  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= TEXT_LIMIT ? n : TEXT_DEFAULT_MAX;
+}
+
+/** How many lines a text field shows: a whole number from 1 to the most, or one. */
+export function textLines(c: { lines?: number }): number {
+  const n = c.lines;
+  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= TEXT_MAX_LINES ? n : 1;
+}
 
 const letter = (i: number) => String.fromCharCode(97 + i);
 
@@ -125,8 +145,48 @@ function make(doc: Document, tag: string, cls = "", attrs: Record<string, string
   return e;
 }
 
+/**
+ * A text field: one box the learner types into, named by its prompt. It is a label and a native text box (or a text area for more than a line), so a screen reader says
+ * the prompt, then "edit", and reads the hint after it. What was typed goes into the variable when the learner leaves the box or presses Enter in a single line, and
+ * is told to an LMS then (never on every key). A learner who comes back finds their words as they left them.
+ */
+function buildTextInput(doc: Document, obj: OSObject, c: InputContent, hooks: InputHooks): HTMLElement {
+  const root = make(doc, "div", "os-input os-input-text");
+  const id = (part: string) => `${obj.id}-${part}`;
+  const lines = textLines(c);
+  const label = make(doc, "label", "os-input-prompt", { for: id("box") });
+  label.textContent = c.prompt;
+  root.appendChild(label);
+  const hint = (c.hint ?? "").trim();
+  if (hint !== "") {
+    const p = make(doc, "p", "os-input-hint", { id: id("hint") });
+    p.textContent = hint;
+    root.appendChild(p);
+  }
+  const attrs: Record<string, string> = { id: id("box"), maxlength: String(textMaxLength(c)), autocomplete: "off" };
+  if (hint !== "") attrs["aria-describedby"] = id("hint");
+  // The prompt names the box. If the author wrote different alt text, it is a description of it.
+  const alt = obj.accessibility.altText.trim();
+  if (alt !== "" && alt !== c.prompt.trim() && !obj.accessibility.decorative) attrs["aria-description"] = alt;
+  const box = (lines > 1 ? make(doc, "textarea", "os-text-box", { ...attrs, rows: String(lines) }) : make(doc, "input", "os-text-box", { ...attrs, type: "text" })) as HTMLInputElement | HTMLTextAreaElement;
+  const stored = hooks.editing ? undefined : hooks.value?.(c.variable ?? "");
+  box.value = typeof stored === "string" ? stored : "";
+  // The editor draws the box but it does not respond and is not a tab stop.
+  if (hooks.editing) { box.tabIndex = -1; box.readOnly = true; box.style.pointerEvents = "none"; }
+  // The last words told to the variable, so leaving a box that has not changed says nothing.
+  let kept = box.value;
+  box.addEventListener("change", () => {
+    if (hooks.editing || box.value === kept) return;
+    kept = box.value;
+    hooks.onChange?.({ rowId: obj.id, variable: c.variable!, value: box.value, response: box.value.slice(0, TEXT_REPORT_LIMIT), type: "fill-in" });
+  });
+  root.appendChild(box);
+  return root;
+}
+
 export function buildInput(doc: Document, obj: OSObject, hooks: InputHooks): HTMLElement {
   const c = obj.content as unknown as InputContent;
+  if (c.kind === "text") return buildTextInput(doc, obj, c, hooks);
   const root = make(doc, "fieldset", `os-input os-input-${c.kind}`);
   const legend = make(doc, "legend", "os-input-prompt");
   legend.textContent = c.prompt;

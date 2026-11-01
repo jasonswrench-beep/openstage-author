@@ -369,10 +369,10 @@ export interface CertificateContent {
 }
 
 /** What an input is called when it is reported to an LMS or LRS. */
-export type InputInteraction = "choice" | "likert" | "true-false" | "numeric";
+export type InputInteraction = "choice" | "likert" | "true-false" | "numeric" | "fill-in";
 
 export interface InputContent {
-  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic" | "character" | "slider" | "dial";
+  kind: "checkbox" | "radio" | "dropdown" | "list" | "likert" | "semantic" | "character" | "slider" | "dial" | "text";
   prompt: string;
   /** Whether the answers are sent to the LMS as interactions. */
   report: boolean;
@@ -389,6 +389,14 @@ export interface InputContent {
   endLabel?: string;
   /** slider and dial: whether the number is shown beside the control. Absent means it is. */
   showValue?: boolean;
+  /**
+   * text (added in 0.48.0): a labelled box the learner types into. `lines` is how many lines it shows (1 is a single line; 2 to 10 is a box for longer
+   * writing), `maxLength` the most characters it takes (1 to 2000, absent means 200), and `hint` a sentence under the prompt that the box is described by.
+   * The words are saved in `variable`, a text variable, when the learner leaves the box or presses Enter in a single line.
+   */
+  lines?: number;
+  maxLength?: number;
+  hint?: string;
   /** character: the people from the cast the learner can choose between. */
   characters?: string[];
   options?: { id: string; label: string; value: string }[];

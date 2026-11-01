@@ -477,6 +477,107 @@ const prizeLadder: GameSet = {
   build: buildPrizeLadder,
 };
 
+// ---- the order challenge
+//
+// Rounds in which the learner puts steps or events in the right order (a sequencing question each), with a running score and a results slide. It is the
+// prize ladder's way of playing without the ladder: every round has one try, the right order is shown whichever way it goes, and nobody is knocked out,
+// so every round is finished and the course can be completed. A round's own steps are placeholders for the author to write over, as the ladder's
+// questions are; there is no table for it, because a table of steps in order is a different shape from a table of questions.
+
+export const MIN_ROUNDS = 3;
+export const MAX_ROUNDS = 10;
+/** Every round is worth the same: getting an order right is all or nothing, and no round is harder than another until the author says so. */
+export const ROUND_POINTS = 100;
+/** How many steps a new round starts with. The author can add up to 8 and take them down to 2 in the question's own properties. */
+export const ROUND_STEPS = 4;
+
+function orderPreview(): PreviewBlock[] {
+  const out: PreviewBlock[] = [{ kind: "button", rect: [80, 560, 240, 56] }];
+  for (let i = 0; i < ROUND_STEPS; i++) out.push({ kind: "accent", rect: [80, 340 + i * 48, 720, 40], fill: colorRef("surface") });
+  return out;
+}
+
+const orderLayout: SlideLayout = {
+  id: "game-order-challenge", group: "Games", label: "Order challenge", description: "", name: "Order challenge", tone: "dark", background: "theme:bg.dark",
+  slots: [
+    heading("Title", "Order challenge", [80, 24, 1120, 64], 40),
+    body("Instructions", "Put the steps in the right order, one round at a time.", [80, 110, 1120, 200], 24, "p", true),
+  ],
+  decorations: [],
+};
+
+function orderRound(ctx: GameContext, id: string, nextId: string, round: number, rounds: number): Slide {
+  const { alloc } = ctx;
+  const where = textBox(alloc, "Where you are", "p", `Round ${round} of ${rounds}, worth ${ROUND_POINTS} points. Points so far: {{$score}}`, [80, 24, 1120, 36], 22, "light", 1, 10, true);
+  const built = buildQuiz("sequence", alloc, { y: 70, z: 20, tab: 2, tone: "light" });
+  const [prompt, quiz] = built.objects as [OSObject, OSObject];
+  const steps = ["First step", "Second step", "Third step", "Fourth step"].slice(0, ROUND_STEPS);
+  // The steps are written in the right order; the learner is shown them in another (see the sequencing question).
+  quiz.content = { ...quiz.content, items: steps.map((text, i) => ({ id: `s${i + 1}`, text })), scoring: { points: ROUND_POINTS, attemptsAllowed: 1 } };
+  // Four steps need less room than the question's own box (made for eight), so the feedback and the way on fit below it. A round given more steps may need the box made taller.
+  quiz.geometry = { ...quiz.geometry, height: 340 };
+  const wrongText = "Not quite. Say what the right order is, and why.";
+  const wrong = built.layers[1]!.objects[0]!;
+  wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
+  wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
+  // After an answer the way on is in the feedback that appears, so it is there only when it can be used. It sits below the question, however many steps there are.
+  const last = round === rounds;
+  const feedbackY = Math.max(460, quiz.geometry.y + quiz.geometry.height + 12);
+  for (const layer of built.layers) {
+    layer.objects[0]!.geometry = { ...layer.objects[0]!.geometry, x: 80, y: feedbackY, width: 1120, height: 100 };
+    const next = button(alloc, last ? "See my results" : "Next round", last ? "See my results" : "Next round", [80, feedbackY + 120, 300, 56], 50, 2);
+    next.triggers = buildActivation({ kind: "jump", slideId: nextId });
+    layer.objects.push(next);
+  }
+  return slideWith(id, `Round ${round}`, [where, prompt, quiz], built.layers);
+}
+
+function buildOrderChallenge(ctx: GameContext, o: GameOptions): GameBuild {
+  const rounds = o["rounds"]!;
+  const { alloc } = ctx;
+  const introId = ctx.slideId();
+  const roundIds = Array.from({ length: rounds }, () => ctx.slideId());
+  const resultsId = ctx.slideId();
+  const intro = slideWith(introId, "Order challenge", [
+    textBox(alloc, "Title", "h1", "Order challenge", [80, 24, 1120, 64], 40, "dark", 1, 10),
+    textBox(alloc, "Instructions", "p",
+      `Put the steps in the right order. There are ${rounds} rounds, each worth ${ROUND_POINTS} points. Each round has one try, and the right order is shown whichever way it goes, so you always get to the end.`,
+      [80, 110, 1120, 200], 24, "dark", 2, 11, true),
+  ], [], "theme:bg.dark");
+  const start = button(alloc, "Start the game", "Start", [80, 560, 240, 56], 30, 3);
+  start.triggers = buildActivation({ kind: "jump", slideId: roundIds[0]! });
+  intro.baseLayer.objects.push(start);
+
+  const slides: Slide[] = [intro];
+  for (let round = 1; round <= rounds; round++) slides.push(orderRound(ctx, roundIds[round - 1]!, round === rounds ? resultsId : roundIds[round]!, round, rounds));
+  slides.push(resultsSlide(ctx, resultsId, null));
+  hideBackAndNext(slides);
+  return {
+    slides,
+    notes: [
+      `The challenge has ${rounds} rounds, each worth ${ROUND_POINTS} points. It needs no variables.`,
+      `Write over the opening words and, in each round, the question and the ${ROUND_STEPS} steps. The steps are listed in the right order; the learner is shown them in another. Each round can have from 2 to 8 steps, and its feedback is yours to write.`,
+      "Each round has one try and shows the right order whichever way it goes, so every round is finished and the course can be completed. The line at the top of each round says where the learner is, in words.",
+    ],
+  };
+}
+
+const orderChallenge: GameSet = {
+  id: "order-challenge",
+  label: "Order challenge",
+  description: "Rounds in which the learner puts steps or events in the right order, with a running score. Every round has one try, and the right order is shown whichever way it goes.",
+  layout: orderLayout,
+  extras: orderPreview(),
+  choices: [
+    { id: "rounds", label: "Rounds", help: `How many rounds, each with its own set of steps to put in order. Each is worth ${ROUND_POINTS} points.`, min: MIN_ROUNDS, max: MAX_ROUNDS, initial: 5 },
+  ],
+  summary(o) {
+    const n = o["rounds"]!;
+    return `This adds ${n + 2} slides: an opening slide, ${n} rounds and a results slide. It needs no variables.`;
+  },
+  build: buildOrderChallenge,
+};
+
 // ---- the escape room
 
 export const MIN_ROOMS = 2;
@@ -683,7 +784,7 @@ const escapeRoom: GameSet = {
   build: buildEscapeRoom,
 };
 
-export const GAME_SETS: GameSet[] = [quizBoard, prizeLadder, escapeRoom];
+export const GAME_SETS: GameSet[] = [quizBoard, prizeLadder, escapeRoom, orderChallenge];
 
 export function gameById(id: string): GameSet | undefined {
   return GAME_SETS.find((g) => g.id === id);

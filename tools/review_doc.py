@@ -541,6 +541,10 @@ class Writer:
             self.line("Scale", f"{c.get('min')} to {c.get('max')} in steps of {c.get('step')}{(' ' + unit) if unit else ''}")
             if c.get("startLabel") or c.get("endLabel"):
                 self.line("Ends", f"{c.get('startLabel', '')} to {c.get('endLabel', '')}")
+        elif kind == "text":
+            self.line("Box", f"{c.get('lines', 1)} line{'s' if c.get('lines', 1) != 1 else ''}, up to {c.get('maxLength', 200)} characters")
+            if str(c.get("hint", "")).strip():
+                self.line("Hint", c["hint"])
         elif kind == "character":
             self.line("Choose between", ", ".join(self.people.get(p, p) for p in c.get("characters", [])))
         self.line("Answers go to the LMS", "yes" if c.get("report") else "no")

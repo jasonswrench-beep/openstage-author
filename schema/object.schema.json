@@ -464,7 +464,7 @@
       "additionalProperties": false,
       "required": ["kind", "prompt", "report"],
       "properties": {
-        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial"] },
+        "kind": { "enum": ["checkbox", "radio", "dropdown", "list", "likert", "semantic", "character", "slider", "dial", "text"] },
         "prompt": { "type": "string", "minLength": 1 },
         "report": { "type": "boolean" },
         "min": { "$comment": "For kinds slider and dial (added in 0.42.0): the lowest value. The variable is a number.", "type": "number" },
@@ -474,6 +474,9 @@
         "startLabel": { "$comment": "For kinds slider and dial: what the lowest end means.", "type": "string" },
         "endLabel": { "$comment": "For kinds slider and dial: what the highest end means.", "type": "string" },
         "showValue": { "$comment": "For kinds slider and dial: whether the number is shown beside the control. Absent means it is.", "type": "boolean" },
+        "lines": { "$comment": "For kind text (added in 0.48.0): how many lines the box shows. 1 is a single line; 2 to 10 is a box for longer writing. Absent means 1.", "type": "integer", "minimum": 1, "maximum": 10 },
+        "maxLength": { "$comment": "For kind text: the most characters the box takes. Absent means 200.", "type": "integer", "minimum": 1, "maximum": 2000 },
+        "hint": { "$comment": "For kind text: a sentence under the prompt that the box is described by, such as how the answer will be used.", "type": "string" },
         "variable": { "$ref": "project.schema.json#/$defs/id" },
         "characters": {
           "$comment": "For kind character: which people from the project's cast the learner can choose between. The variable then holds the id of the one chosen.",
@@ -537,7 +540,8 @@
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "checkbox" } } }, "then": { "required": ["items"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "likert" } } }, "then": { "required": ["scale", "rows"] } },
         { "if": { "required": ["kind"], "properties": { "kind": { "const": "semantic" } } }, "then": { "required": ["points", "rows"] } },
-        { "if": { "required": ["kind"], "properties": { "kind": { "enum": ["slider", "dial"] } } }, "then": { "required": ["variable", "min", "max", "step"] } }
+        { "if": { "required": ["kind"], "properties": { "kind": { "enum": ["slider", "dial"] } } }, "then": { "required": ["variable", "min", "max", "step"] } },
+        { "if": { "required": ["kind"], "properties": { "kind": { "const": "text" } } }, "then": { "required": ["variable"] } }
       ]
     },
     "scenarioLine": {

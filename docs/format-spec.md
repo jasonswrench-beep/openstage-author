@@ -574,6 +574,7 @@ screen reader behaviour is the browser's own.
 | `character` | `variable`, `characters` (2 to 8 ids from the project's cast) | the chosen person's **id** in one **string** variable, empty until chosen | a group of picture cards, one per person, each a radio button |
 | `slider` | `variable`, `min`, `max`, `step`; optional `unit`, `startLabel`, `endLabel`, `showValue` | the number the learner has set, in one **number** variable | one range control with the number beside it |
 | `dial` | as `slider` | as `slider` | the same range control, drawn as a round dial that a pointer can turn |
+| `text` | `variable`; optional `lines`, `maxLength`, `hint` | what the learner typed, in one **string** variable, empty until they type | a label and a native text box (or a text area), see Text fields |
 
 `prompt` is required. It is the visible name of the group (a `<legend>`, or the label of a select), so
 a screen reader announces it with the controls. If `altText` says something different it is added as a
@@ -584,7 +585,7 @@ A part's variable must exist in `project.json` and have the type in the table, a
 input may share a variable, or they would overwrite each other. Option values must be different and
 cannot be empty, because an empty value means "nothing chosen". The validator checks all of this
 (`input-unknown-variable`, `input-variable-type`, `input-shared-variable`, `input-duplicate-value`,
-`input-empty-value`, `input-duplicate-id`, `input-semantic-pole`, `input-slider-range`, `input-slider-step`).
+`input-empty-value`, `input-duplicate-id`, `input-semantic-pole`, `input-slider-range`, `input-slider-step`, `input-text-report-long`).
 
 **Choosing a character.** The `character` kind lets a learner pick who they will be, from people in the project's cast (`characters`, in `project.json`). Each
 person is a card with their picture (if they have one), name and role, and the cards are one radio group, so the arrow keys move between them and a screen reader
@@ -626,6 +627,24 @@ one `numeric` answer: the value the learner stops at, not every step on the way.
 or the learner leaves the control. Settling on the same value twice in a row reports it once. A control that is not moved, such as one tabbed through, reports nothing.
 The thumb and the dial's pointer area are at least 28 pixels. The validator checks the range and the step (`input-slider-range`, `input-slider-step`) and, like any
 input, that the variable exists and is a number. It does not check conditions that read a slider's variable against the scale.
+
+**Text fields** (added in 0.48.0). The `text` kind is a labelled box the learner types into, for something that is not a quiz question: their name, a few words of
+their own, a reflection. It is the one input that is not a group: the `prompt` is the `<label>` of a native text box (an `<input type="text">`, or a `<textarea>` when
+`lines` is more than 1), so a screen reader says the prompt, "edit", and then the `hint`, which is set as the box's description. The content:
+
+| Field | What it is |
+| --- | --- |
+| `variable` | the **string** variable that holds the words (required). It is empty until the learner types. |
+| `lines` | optional: how many lines the box shows, a whole number from 1 to 10. Absent means 1, a single line. More than 1 is a text area that can be resized downwards. |
+| `maxLength` | optional: the most characters the box takes, a whole number from 1 to 2000. Absent means 200. |
+| `hint` | optional: a sentence under the prompt, such as how the answer will be used. It describes the box for a screen reader (`aria-describedby`). |
+
+What is typed is saved in the variable when the learner leaves the box, or presses Enter in a single line: not on every key, so a rule is not run for each letter, and
+a screen reader is not interrupted. A learner who returns to the slide finds their words as they left them, because variables are saved with the learner's progress.
+Text on a slide can show the variable, and a rule can read it. With `report`, the LMS is told one `fill-in` answer, the same one again (replaced, not added) each time
+it changes; only the first 250 characters are sent, because that is what SCORM 1.2 and 2004 keep of a short fill-in, so a field that reports and takes more than 250
+characters gets a warning (`input-text-report-long`). A cleared box is saved but is not an answer to tell. In the editor the box is drawn but does not respond and is
+not a tab stop. The validator checks the variable exists and is a string, and the schema checks the limits above.
 
 **Enlarging a picture** (added in 0.43.0). An `image` object's content may have `"enlargeable": true` (absent means false). The picture then has an **Enlarge**
 button in its corner. The button opens the picture in a pop-up as big as the window allows, with a button to see it at its own size (a picture bigger than the window
@@ -1705,6 +1724,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.47.0 | 0.48.0 | Adds one kind of input, `text`: a labelled box the learner types into (`lines`, `maxLength`, `hint`), saved in a string variable and, with `report`, told to the LMS as a `fill-in`. Nothing in an older course changes. |
 | 0.46.0 | 0.47.0 | Adds three kinds of quiz question: `essay` (`minWords`), `whichWord` (`passage`) and `shortcut` (`keys`). Nothing in an older course changes. |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |
 | 0.45.0 | 0.46.0 | Adds the optional `playerText` of a project: the player's own words (Next, Listen and the rest) in the course's language. Nothing in an older course changes. |

@@ -9,7 +9,7 @@ import { referencesVariable, renameReferences } from "./values.ts";
 import { importSlides, peopleProblem, type SetRead } from "./slidesets.ts";
 import { isThemeRef, themeRefKnown } from "../../player/src/theme.ts";
 import type { PartTiming, Bank, CaptureBase, CaptureProvenance, Character, CertificateContent, ChoiceQuiz, Condition, CreditEntry, DescriptionCue, Primitive, InputContent, InteractionContent, InteractionItem, Layer, OSObject, Project, QuizContent, ResultsContent, IconContent, ScenarioContent, ScenarioLine, Slide, Style, TableContent, Theme, Timing, Variable, Effect } from "../../player/src/types.ts";
-import { INPUT_VARIABLE_TYPE, stepDecimals } from "../../player/src/inputs.ts";
+import { INPUT_VARIABLE_TYPE, stepDecimals, TEXT_LIMIT, TEXT_MAX_LINES, textLines, textMaxLength } from "../../player/src/inputs.ts";
 import { cloneTheme, DEFAULT_THEME } from "./themes.ts";
 import { isExcluded } from "../../player/src/exclude.ts";
 import { BLOCK_SIZES, buildActivation, buildBody, defaultValueFor, eventsFor, operatorsFor, parseVideoAddress, readRules, writeRules, type Rule, type RuleAction, type RuleItem, isCourseAction, buildSimpleText, isFontValue, isHexColor, readActivation, type Activation, type SimpleText, type TextBlock } from "./content.ts";
@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.47.0";
+export const FORMAT_VERSION = "0.48.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -3448,6 +3448,37 @@ export class Model {
     hit.c.showValue = show;
     this.emit({ kind: "content", objectId });
     return show ? "The number is shown" : "The number is not shown";
+  }
+
+  private textOf(objectId: string): { obj: OSObject; c: InputContent } | null {
+    const hit = this.inputOf(objectId);
+    return hit && hit.c.kind === "text" ? hit : null;
+  }
+
+  /** How many lines a text field shows (1 to 10) and the most characters it takes (1 to 2000). A number outside that is refused, and the reason comes back. */
+  setTextBox(objectId: string, field: "lines" | "maxLength", value: number): string | null {
+    const hit = this.textOf(objectId);
+    if (!hit || !Number.isFinite(value)) return null;
+    const limit = field === "lines" ? TEXT_MAX_LINES : TEXT_LIMIT;
+    if (!Number.isInteger(value) || value < 1 || value > limit) {
+      return field === "lines" ? `A text field shows 1 to ${limit} lines.` : `A text field takes 1 to ${limit} characters.`;
+    }
+    const was = field === "lines" ? textLines(hit.c) : textMaxLength(hit.c);
+    if (was === value) return null;
+    this.record(`text:${objectId}:${field}`);
+    hit.c[field] = value;
+    this.emit({ kind: "content", objectId });
+    return field === "lines" ? (value === 1 ? "One line" : `${value} lines`) : `Up to ${value} characters`;
+  }
+
+  /** The sentence under a text field's prompt, which the box is described by. Empty text takes it away. */
+  setTextHint(objectId: string, text: string): string | null {
+    const hit = this.textOf(objectId);
+    if (!hit || (hit.c.hint ?? "") === text) return null;
+    this.record(`text:${objectId}:hint`);
+    if (text === "") delete hit.c.hint; else hit.c.hint = text;
+    this.emit({ kind: "content", objectId });
+    return text === "" ? "No hint" : "Updated";
   }
 
   /** Whether a learner can enlarge a picture (`enlargeable`, added in 0.43.0). Absent means they cannot, so turning it off removes the key. */

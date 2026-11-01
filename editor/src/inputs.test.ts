@@ -44,7 +44,7 @@ test("each input is added with its own variables of the right type, a prompt, al
     assert.ok(c.prompt.trim() !== "");
     assert.equal(o.accessibility.altText, c.prompt, "alt text starts as the prompt");
     assert.ok((o.accessibility.tabOrder ?? 0) >= 1);
-    const used = c.kind === "radio" || c.kind === "dropdown" || c.kind === "list" || c.kind === "slider" || c.kind === "dial" ? [c.variable!] : parts(c).map((p) => (p as { variable: string }).variable);
+    const used = c.kind === "radio" || c.kind === "dropdown" || c.kind === "list" || c.kind === "slider" || c.kind === "dial" || c.kind === "text" ? [c.variable!] : parts(c).map((p) => (p as { variable: string }).variable);
     assert.equal(new Set(used).size, used.length, `${choice.id}: no two parts share a variable`);
     assert.equal(m.variables.length - before, used.length, `${choice.id}: one new variable for each`);
     for (const id of used) assert.equal(m.variables.find((v) => v.id === id)!.type, INPUT_VARIABLE_TYPE[choice.id]);
@@ -384,4 +384,72 @@ test("a slider can be pointed at a different number variable, but not at text", 
   assert.equal(content(m).variable, other);
   assert.match(m.setInputVariable(s.id, null, text)!, /saves a number/);
   assert.equal(content(m).variable, other);
+});
+
+// ---- text field (added in 0.48.0)
+
+test("a new text field starts as a one-line box of up to 200 characters with its own text variable", () => {
+  const m = fresh();
+  m.addInput("text");
+  const c = content(m);
+  assert.deepEqual([c.kind, c.lines, c.maxLength, c.report], ["text", 1, 200, false]);
+  assert.equal(m.variables.find((v) => v.id === c.variable)!.type, "string");
+  assert.ok(c.prompt.trim() !== "", "a prompt to start from");
+  assert.equal(m.object!.accessibility.role, "group");
+});
+
+test("the box is changed one number at a time, and a number outside what is allowed is refused with the reason", () => {
+  const m = fresh();
+  const o = m.addInput("text")!;
+  assert.equal(m.setTextBox(o.id, "lines", 4), "4 lines");
+  assert.equal(m.setTextBox(o.id, "maxLength", 500), "Up to 500 characters");
+  assert.deepEqual([content(m).lines, content(m).maxLength], [4, 500]);
+  assert.equal(m.setTextBox(o.id, "lines", 4), null, "no change, no undo step");
+  assert.equal(m.setTextBox(o.id, "lines", 1), "One line");
+  assert.match(m.setTextBox(o.id, "lines", 0)!, /1 to 10 lines/);
+  assert.match(m.setTextBox(o.id, "lines", 11)!, /1 to 10 lines/);
+  assert.match(m.setTextBox(o.id, "lines", 2.5)!, /1 to 10 lines/);
+  assert.match(m.setTextBox(o.id, "maxLength", 0)!, /1 to 2000 characters/);
+  assert.match(m.setTextBox(o.id, "maxLength", 2001)!, /1 to 2000 characters/);
+  assert.equal(m.setTextBox(o.id, "maxLength", Number.NaN), null);
+  assert.deepEqual([content(m).lines, content(m).maxLength], [1, 500], "a refused number changes nothing");
+});
+
+test("the hint is changed and taken away with empty words, and these changes apply only to a text field, each as one undo step", () => {
+  const m = fresh();
+  const o = m.addInput("text")!;
+  assert.equal(m.setTextHint(o.id, "Your first name is enough."), "Updated");
+  assert.equal(content(m).hint, "Your first name is enough.");
+  assert.equal(m.setTextHint(o.id, "Your first name is enough."), null);
+  assert.equal(m.setTextHint(o.id, ""), "No hint");
+  assert.ok(!("hint" in content(m)), "empty words are not kept");
+  m.undo();
+  assert.ok(!content(m).hint, "the changes to the hint are one undo step, like typing in any box, so one undo takes them all back");
+  const radio = m.addInput("radio")!;
+  assert.equal(m.setTextBox(radio.id, "lines", 3), null);
+  assert.equal(m.setTextHint(radio.id, "x"), null);
+});
+
+test("a text field can be pointed at another text variable, but not at a number", () => {
+  const m = fresh();
+  const o = m.addInput("text")!;
+  const other = m.addVariable("string", "other").id;
+  const number = m.addVariable("number", "count").id;
+  assert.match(m.setInputVariable(o.id, null, other)!, /^Saves to/);
+  assert.equal(content(m).variable, other);
+  assert.match(m.setInputVariable(o.id, null, number)!, /saves a string/);
+  assert.equal(content(m).variable, other);
+});
+
+test("a text field passes the real validator, and one that reports more than 250 characters gets a warning", opts, () => {
+  const m = fresh();
+  const o = m.addInput("text")!;
+  m.setTextBox(o.id, "lines", 3);
+  m.setTextHint(o.id, "Used on the certificate.");
+  assert.deepEqual(rules(validate(m)), []);
+  assert.ok(!validate(m).some((f) => f.rule === "input-text-report-long"));
+  m.setInputReport(o.id, true);
+  m.setTextBox(o.id, "maxLength", 400);
+  assert.ok(validate(m).some((f) => f.rule === "input-text-report-long" && f.severity === "warning"), "the LMS keeps only 250 characters");
+  assert.deepEqual(rules(validate(m)), [], "but it is not an error");
 });

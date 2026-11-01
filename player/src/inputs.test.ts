@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FakeLms } from "./fake-lms.ts";
 import { FakeLms2004 } from "./fake-lms-2004.ts";
-import { INPUT_KINDS, INPUT_VARIABLE_TYPE, sliderShown, sliderSpoken, snapToStep, stepDecimals } from "./inputs.ts";
+import { INPUT_KINDS, INPUT_VARIABLE_TYPE, sliderShown, sliderSpoken, snapToStep, stepDecimals, textLines, textMaxLength, TEXT_DEFAULT_MAX, TEXT_LIMIT } from "./inputs.ts";
 import type { RuntimeEvent } from "./runtime.ts";
 import { Tracker } from "./scorm.ts";
 import { Scorm2004Tracker } from "./scorm2004.ts";
@@ -155,6 +155,72 @@ test("a slider being dragged moves the variable, and is reported only when the l
   assert.equal(events.filter((e) => e.type === "input").length, 0, "nothing is reported yet");
   rt.setInput("obj-0900", "obj-0900", "var-rate", 6.5, "numeric", "6.5");
   assert.equal(events.filter((e) => e.type === "input").length, 1);
+});
+
+// ---- text fields (0.48.0)
+
+const textField = (report: boolean, over: Partial<InputContent> = {}): InputContent => ({ kind: "text", prompt: "What is your name?", report, variable: "var-pick", ...over });
+
+test("a text field saves words into a text variable", () => {
+  assert.ok((INPUT_KINDS as readonly string[]).includes("text"));
+  assert.equal(INPUT_VARIABLE_TYPE.text, "string");
+  const { rt } = newRuntime(packageWith(textField(false)));
+  rt.goTo("slide-001");
+  rt.setInput("obj-0900", "obj-0900", "var-pick", "Ada Lovelace", "fill-in", "Ada Lovelace");
+  assert.equal(rt.variables.get("var-pick"), "Ada Lovelace");
+  rt.setInput("obj-0900", "obj-0900", "var-pick", "", "fill-in", "");
+  assert.equal(rt.variables.get("var-pick"), "", "a cleared box is saved too");
+});
+
+test("how big a text field is: a whole number of lines from 1 to 10 and of characters from 1 to 2000, or the usual", () => {
+  assert.equal(textMaxLength({}), TEXT_DEFAULT_MAX);
+  assert.equal(textMaxLength({ maxLength: 50 }), 50);
+  assert.equal(textMaxLength({ maxLength: TEXT_LIMIT }), TEXT_LIMIT);
+  for (const bad of [0, -1, 2.5, TEXT_LIMIT + 1, Number.NaN]) assert.equal(textMaxLength({ maxLength: bad }), TEXT_DEFAULT_MAX, String(bad));
+  assert.equal(textLines({}), 1);
+  assert.equal(textLines({ lines: 4 }), 4);
+  assert.equal(textLines({ lines: 10 }), 10);
+  for (const bad of [0, 11, 1.5, -2]) assert.equal(textLines({ lines: bad }), 1, String(bad));
+});
+
+test("a reported text field is a fill-in interaction in SCORM 1.2, cut to the 250 characters an LMS takes", () => {
+  const { lms, rt } = launch(textField(true));
+  rt.setInput("obj-0900", "obj-0900", "var-pick", "Ada", "fill-in", "Ada");
+  assert.equal(lms.data["cmi.interactions.0.id"], "obj-0900");
+  assert.equal(lms.data["cmi.interactions.0.type"], "fill-in");
+  assert.equal(lms.data["cmi.interactions.0.student_response"], "Ada");
+  rt.setInput("obj-0900", "obj-0900", "var-pick", "x".repeat(400), "fill-in", "x".repeat(250));
+  assert.equal(lms.data["cmi.interactions.0.student_response"], "x".repeat(250), "the answer is replaced, not added");
+  assert.equal(lms.data["cmi.interactions.1.id"], undefined);
+});
+
+test("a reported text field is a fill_in interaction in SCORM 2004, and the strict LMS accepts it", () => {
+  const lms = new FakeLms2004();
+  lms.relaunch();
+  const { rt } = newRuntime(packageWith(textField(true)));
+  const warnings: string[] = [];
+  const realWarn = console.warn;
+  console.warn = (...a: unknown[]) => { warnings.push(a.join(" ")); };
+  try {
+    new Scorm2004Tracker(lms, rt).begin();
+    rt.goTo("slide-001");
+    rt.setInput("obj-0900", "obj-0900", "var-pick", "Ada", "fill-in", "Ada");
+  } finally {
+    console.warn = realWarn;
+  }
+  assert.equal(lms.data["cmi.interactions.0.type"], "fill_in");
+  assert.equal(lms.data["cmi.interactions.0.learner_response"], "Ada");
+  assert.deepEqual(warnings, []);
+});
+
+test("a text field that does not report tells the LMS nothing, and a cleared one is not an answer to tell", () => {
+  const quiet = launch(textField(false));
+  quiet.rt.setInput("obj-0900", "obj-0900", "var-pick", "Ada", "fill-in", "Ada");
+  assert.equal(quiet.lms.data["cmi.interactions.0.id"], undefined);
+  const loud = launch(textField(true));
+  loud.rt.setInput("obj-0900", "obj-0900", "var-pick", "", "fill-in", "");
+  assert.equal(loud.lms.data["cmi.interactions.0.id"], undefined, "nothing to tell");
+  assert.equal(loud.rt.variables.get("var-pick"), "");
 });
 
 test("a reported slider is a numeric interaction in SCORM 1.2", () => {

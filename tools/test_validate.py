@@ -3243,7 +3243,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.47.0")
+        self.assertEqual(project["schemaVersion"], "0.48.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3540,6 +3540,54 @@ class SliderAndDial(unittest.TestCase):
         text = [{"id": "var-rate", "name": "rate", "type": "string", "initial": ""}]
         self.assertEqual(len(rules(self.run_with(self.SLIDER, text), "input-variable-type", severity="error")), 1)
         self.assertEqual(len(rules(self.run_with({**self.SLIDER, "variable": "var-nothing"}), "input-unknown-variable", severity="error")), 1)
+
+
+class TextField(unittest.TestCase):
+    """The text kind of input (added in 0.48.0): a labelled box the learner types into, saved in a text variable."""
+
+    TEXT = {"kind": "text", "prompt": "What is your name?", "report": False, "variable": "var-words"}
+    VARIABLES = [{"id": "var-words", "name": "words", "type": "string", "initial": ""}]
+
+    def run_with(self, content, variables=None):
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d["variables"].extend(self.VARIABLES if variables is None else variables))
+
+            def add_input(slide):
+                obj = copy.deepcopy(slide["baseLayer"]["objects"][0])
+                obj.update(id="obj-0950", type="input", name="Input", content=content, triggers=[])
+                obj["accessibility"] = {"altText": content["prompt"], "role": "group", "tabOrder": 95, "decorative": False}
+                slide["baseLayer"]["objects"].append(obj)
+            p.edit("slides/slide-001.json", add_input)
+            return p.run()
+
+    def test_a_good_text_field_has_no_problems_with_and_without_its_options(self):
+        for content in (self.TEXT, {**self.TEXT, "lines": 4, "maxLength": 500, "hint": "Used on your certificate."}, {**self.TEXT, "lines": 10, "maxLength": 2000}, {**self.TEXT, "maxLength": 1}):
+            found = self.run_with(content)
+            self.assertEqual([f for f in found if f.severity == "error"], [], content)
+            self.assertEqual([f for f in found if f.rule.startswith("input-")], [], content)
+
+    def test_it_needs_a_variable_and_a_prompt(self):
+        content = dict(self.TEXT)
+        del content["variable"]
+        self.assertTrue(rules(self.run_with(content), severity="error"), "the variable is required")
+        self.assertTrue(rules(self.run_with({**self.TEXT, "prompt": ""}), severity="error"), "a box with no name is refused")
+
+    def test_the_lines_and_the_characters_are_whole_numbers_within_their_limits(self):
+        for field, bad in (("lines", 0), ("lines", 11), ("lines", 2.5), ("maxLength", 0), ("maxLength", 2001), ("maxLength", 10.5)):
+            self.assertTrue(rules(self.run_with({**self.TEXT, field: bad}), severity="error"), f"{field} {bad} is refused by the schema")
+
+    def test_it_saves_to_a_text_variable_that_exists(self):
+        number = [{"id": "var-words", "name": "words", "type": "number", "initial": 0}]
+        self.assertEqual(len(rules(self.run_with(self.TEXT, number), "input-variable-type", severity="error")), 1)
+        self.assertEqual(len(rules(self.run_with({**self.TEXT, "variable": "var-nothing"}), "input-unknown-variable", severity="error")), 1)
+
+    def test_a_field_that_tells_the_lms_but_takes_more_than_250_characters_is_warned_about_not_refused(self):
+        long_one = self.run_with({**self.TEXT, "report": True, "maxLength": 400})
+        self.assertEqual(len(rules(long_one, "input-text-report-long", severity="warning")), 1)
+        self.assertEqual([f for f in long_one if f.severity == "error"], [])
+        self.assertEqual(rules(self.run_with({**self.TEXT, "report": True, "maxLength": 250}), "input-text-report-long"), [], "250 is exactly what the LMS keeps")
+        self.assertEqual(rules(self.run_with({**self.TEXT, "report": True}), "input-text-report-long"), [], "the usual 200 is fine")
+        self.assertEqual(rules(self.run_with({**self.TEXT, "report": False, "maxLength": 2000}), "input-text-report-long"), [], "nothing is told, so nothing is cut")
 
 
 class EnlargeablePicture(unittest.TestCase):

@@ -51,6 +51,8 @@ export interface SpeechPanelOptions {
   say: (...messages: string[]) => void;
   /** What was heard: `write` makes captions from it, `place` sets the times of the captions already there. Resolves with whether the captions changed (then the dialog has already moved focus). */
   onHeard: (heard: Listened, mode: "write" | "place") => Promise<boolean>;
+  /** The sound of the clip, for setting the times of the captions by where the voice pauses (no speech model). Resolves with whether the captions changed. */
+  onGaps: (found: { sound: SoundMap; lengthMs: number }) => Promise<boolean>;
 }
 
 export interface SpeechPanel {
@@ -77,6 +79,7 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
   const download = h("button", { type: "button", id: "sp-download", text: "Download the speech model..." });
   const listen = h("button", { type: "button", id: "sp-listen", text: "Listen and write the captions" });
   const place = h("button", { type: "button", id: "sp-place", text: "Set the times of my captions by the voice" });
+  const gaps = h("button", { type: "button", id: "sp-gaps", "aria-describedby": "sp-gaps-note", text: "Set the times of my captions by the quiet gaps in the voice" });
   const stop = h("button", { type: "button", id: "sp-stop", text: "Stop", hidden: true });
   const bar = h("progress", { id: "sp-progress", max: "100", "aria-label": "How far this has got", hidden: true });
   const barText = h("p", { id: "sp-progress-text", class: "note", hidden: true });
@@ -99,6 +102,8 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
     const canListen = ready && m?.installed === true && !busy;
     listen.disabled = !canListen;
     place.disabled = !canListen || !opts.haveCaptions();
+    // The gaps need no model, so they work whether or not the recogniser is there.
+    gaps.disabled = busy || !opts.haveCaptions();
     stop.hidden = !busy;
     bar.hidden = !busy;
     barText.hidden = !busy;
@@ -221,9 +226,30 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
     end(heard ? null : pressed);
   }
 
+  /** Set the times of the captions by where the voice pauses. Needs only the sound: no model, nothing downloaded. */
+  async function placeByTheGaps(): Promise<void> {
+    if (busy) return;
+    begin("Reading the sound...");
+    opts.say("Reading the sound to find where the voice pauses.");
+    let changed = false;
+    try {
+      const bytes = await b.mediaBytes(opts.dir, opts.mediaPath);
+      const samples = await decodeSpeech(bytes);
+      const lengthMs = Math.round(samples.length / 16);
+      const sound = soundMapOf(samples);
+      busy = false;
+      update();
+      changed = await opts.onGaps({ sound, lengthMs });
+    } catch (err) {
+      opts.say(`${errorText(err)} Nothing was changed.`);
+    }
+    end(changed ? null : gaps);
+  }
+
   download.addEventListener("click", () => void downloadModel());
   listen.addEventListener("click", () => void listenTo("write", listen));
   place.addEventListener("click", () => void listenTo("place", place));
+  gaps.addEventListener("click", () => void placeByTheGaps());
   stop.addEventListener("click", () => {
     opts.say("Stopping...");
     stopAsked = true; // between two parts of a long clip there is nothing running to cancel, so the loop looks at this
@@ -241,6 +267,8 @@ export function mountSpeechPanel(opts: SpeechPanelOptions): SpeechPanel {
     h("p", { id: "sp-hint-note", class: "note", text: "Names and terms from your course, so they are heard right (for example Brightspace, or a person's name). They stay on this computer. Change them if you like." }),
     h("div", { class: "btn-row" }, download, listen, place, stop),
     bar, barText,
+    h("div", { class: "btn-row" }, gaps),
+    h("p", { id: "sp-gaps-note", class: "note", text: "This one needs no model and downloads nothing. It finds where the voice pauses, and starts each of your captions at the pause nearest to where its share of the speech should begin. It never changes your words. The times are only estimates, so they are marked as unchecked until you have played the recording and put right any that are off." }),
   );
   update();
   void refresh();

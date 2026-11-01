@@ -828,6 +828,7 @@ export const INPUTS: InputChoice[] = [
   { id: "radio", group: "Inputs", label: "Radio buttons", description: "Choose one of several. The choice is saved in one variable.", size: { w: 560, h: 230 } },
   { id: "dropdown", group: "Inputs", label: "Drop-down", description: "Choose one from a menu that opens.", size: { w: 560, h: 150 } },
   { id: "list", group: "Inputs", label: "List", description: "Choose one from a list that is always showing.", size: { w: 560, h: 230 } },
+  { id: "text", group: "Inputs", label: "Text field", description: "A labelled box the learner types into, such as their name or a few words of their own. What they type is saved in a variable that text can show and rules can read.", size: { w: 760, h: 150 } },
   { id: "slider", group: "Inputs", label: "Slider", description: "Set a number between a lowest and a highest value. The number is saved in a variable that rules can read as it changes.", size: { w: 760, h: 190 } },
   { id: "dial", group: "Inputs", label: "Dial", description: "The same as a slider, drawn as a round dial that can be turned by pointing or clicking. The keyboard and screen readers get an ordinary slider.", size: { w: 420, h: 380 } },
   { id: "likert", group: "Surveys", label: "Likert scale", description: "Statements to rate from strongly disagree to strongly agree.", size: { w: 1000, h: 350 } },
@@ -861,6 +862,8 @@ export function newInput(choice: InputChoice, p: Placement, makeVar: (type: "boo
   } else if (kind === "radio" || kind === "dropdown" || kind === "list") {
     const n = kind === "list" ? 4 : 3;
     content = { kind, prompt: "Choose one", report: false, variable: makeVar("string", "choice"), options: ids(n, "opt-").map((id, i) => ({ id, label: `Option ${i + 1}`, value: `option-${i + 1}` })) };
+  } else if (kind === "text") {
+    content = { kind, prompt: "What is your name?", report: false, variable: makeVar("string", "answer"), lines: 1, maxLength: 200, hint: "" };
   } else if (kind === "slider" || kind === "dial") {
     content = {
       kind, prompt: kind === "slider" ? "How confident are you?" : "Turn the dial to your answer", report: false, variable: makeVar("number", kind),

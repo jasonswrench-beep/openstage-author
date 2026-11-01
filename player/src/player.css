@@ -270,6 +270,12 @@ html, body { margin: 0; background: #f3f3f3; }
 /* ---- inputs. Controls use the theme's accent, and sit on the theme's own background so text keeps its contrast. */
 .os-input { margin: 0; border: 0; padding: 10px 12px; min-width: 0; font-size: 18px; line-height: 1.4; color: var(--os-text, #1a1a1a); background: var(--os-bg, #fff); border-radius: 8px; overflow: auto; box-sizing: border-box; accent-color: var(--os-accent-strong, #0b3fb3); }
 .os-input-prompt { font-weight: 700; padding: 0 4px; }
+.os-input-text { display: flex; flex-direction: column; gap: 6px; }
+.os-input-text .os-input-prompt { display: block; padding: 0; }
+.os-input-hint { margin: 0; color: var(--os-muted, #4a4f57); font-size: 0.9em; }
+.os-text-box { box-sizing: border-box; width: 100%; max-width: 100%; padding: 8px 10px; font: inherit; color: inherit; background: var(--os-bg, #fff); border: 2px solid var(--os-muted, #4a4f57); border-radius: 4px; }
+.os-text-box:focus-visible { outline: 3px solid var(--os-focus, #0b3fb3); outline-offset: 2px; }
+textarea.os-text-box { resize: vertical; }
 .os-input-choice { display: flex; align-items: center; gap: 8px; padding: 6px 4px; cursor: pointer; }
 .os-input input[type="checkbox"], .os-input input[type="radio"] { width: 20px; height: 20px; margin: 0; }
 .os-input-select { font: inherit; padding: 8px 10px; margin-top: 6px; min-width: 60%; max-width: 100%; border: 2px solid var(--os-accent-strong, #0b3fb3); border-radius: 6px; background: var(--os-surface, #f4f5f7); color: var(--os-text, #1a1a1a); }

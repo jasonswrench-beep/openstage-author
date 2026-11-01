@@ -75,6 +75,8 @@ export function formatGraded(q: QuizContent, g: Graded): FormattedInteraction {
 export function formatInput(type: InputInteraction, response: string): { kind: InteractionKind; response: string } {
   // The course sends 1 or 0 for a ticked or unticked box; both standards want the words.
   if (type === "true-false") return { kind: "true-false", response: response === "1" ? "true" : response === "0" ? "false" : response };
+  // Words the learner typed: both standards take about 250 characters of a short fill-in.
+  if (type === "fill-in") return { kind: "fill-in", response: response.slice(0, 250) };
   return { kind: type, response };
 }
 

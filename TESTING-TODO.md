@@ -2,6 +2,33 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Captions timed by the quiet gaps in the voice (2026-11-01)
+
+Built and covered by 13 tests with sound made in the test (tones and silences). Never tried on a recording of a real voice, which is the whole point of it.
+
+- [ ] **Try it on a real recording.** Open the captions dialog for a video or audio clip of someone reading a script, make captions from the script, then press **Set the times of my captions by the quiet gaps in the voice**. It needs no model. Play the clip with the captions: does each caption start where its sentence does? The dialog says how many starts are at a pause; where a sentence runs into the next with no pause, the time is a guess, so check those first.
+- [ ] **A noisy recording** (a fan, a room): the gate sits 8 decibels over the quiet of the recording, so steady noise should not count as speech, but a recording with a lot of changing noise might. Tell me if pauses are missed or invented.
+- [ ] **The marks.** After it runs the captions should be marked as estimates (the Checked button), and a saved .vtt file should say so.
+
+## Order challenge, a fourth game (2026-11-01)
+
+Built and covered by 6 tests, including the real validator and a play-through to a pass and a fail. Not looked at on a screen.
+
+- [ ] **Add one.** Add slide > Games, ready-made > Order challenge. Look at an opening slide, a round and the results in the editor and in Preview. Check the four steps fit and the feedback and **Next round** sit below the question, without overlapping.
+- [ ] **Play it** in Preview: put a round in the wrong order, then the right order in the next. The feedback says where the right order is; the score at the top of the next round should be the points so far.
+- [ ] **Write your own steps** in a round (2 to 8 steps). With more than four, the question's box may need making taller.
+- [ ] **With a keyboard and a screen reader:** the Move up and Move down buttons of a sequencing question are the same as everywhere else; check the round reads in a sensible order.
+
+## Text field, a new kind of input (2026-11-01, format 0.48.0)
+
+Built and checked: the player's code in a real headless browser (6 checks: label, hint, text area, when it is told, 250 characters, coming back), the real validator (5 tests), the migration, the editor's model and tests, and the whole suites. Not tried: in the editor itself, with a screen reader, or in a real LMS.
+
+- [ ] **Add one.** In the editor choose Add > Question, input or survey > Text field. It should appear with a prompt, a variable of its own, and Properties for the saved words, the lines, the most characters and a hint. Change each and press Undo. A number outside the limits should be refused in words.
+- [ ] **Preview it.** Type in the box. Show the words in a text on the slide (the value of the variable), and make a rule that reacts to it. Leave the slide and come back: your words should be there.
+- [ ] **With a screen reader** (NVDA, Narrator): it should say the prompt, then "edit", then the hint. A box of several lines should say it is a multi-line edit.
+- [ ] **In an LMS**: turn on Send the answers to the LMS, type a short answer, and look in the LMS report for a fill-in; a long answer is cut at 250 characters.
+- Not built: scoring from steps (the other half of this roadmap item), a text field inside a scored question, and an example course using the new field.
+
 ## Sound, picture and pointer buttons in this program's recording editor (2026-11-01)
 
 Type-checked and covered by unit tests of the options and the words (4 new tests, the editor's whole suite passes), but the dialog itself has no browser check: nobody has seen these buttons on a screen, so everything below is untried.
