@@ -149,5 +149,5 @@ Tried in a browser with a real mouse, a real keyboard and the stand-in page (the
 
 ## Earlier, not yet checked by a person
 
-- [ ] A real LMS test of the SCORM 1.2, SCORM 2004 and xAPI packages. **Everything is ready (2026-11-01): open `dist/lms-test-pack/LMS-START-HERE.md`** (rebuild the folder with `PUBLISH LMS TEST LESSON.bat`). Brightspace first; a SCORM Cloud free Trial is the free second opinion and the way to see xAPI statements. `player/tools/lms-rehearsal.mjs` is the answer key played through the pretend LMS and LRS.
+- [ ] A real LMS test of the SCORM 1.2, SCORM 2004 and xAPI packages. **Jason reported on 2026-11-01 that all three worked in Brightspace** (no status words, scores or screenshots given; left open until the numbers, resume and xAPI statements are on record in `LMS-RESULTS.md`). Everything is ready (2026-11-01): open `dist/lms-test-pack/LMS-START-HERE.md` (rebuild the folder with `PUBLISH LMS TEST LESSON.bat`). Brightspace first; a SCORM Cloud free Trial is the free second opinion and the way to see xAPI statements. `player/tools/lms-rehearsal.mjs` is the answer key played through the pretend LMS and LRS.
 - [ ] NVDA or VoiceOver on the sliders and dials, the enlarge button and its dialog, the labeled graphic (markers as tabs) and the guided Previous and Next step buttons with their "Step 2 of 5" line.

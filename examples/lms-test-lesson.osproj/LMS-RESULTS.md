@@ -130,7 +130,7 @@ The first run in Brightspace was recorded on video (2026-10-12) and is not in th
 
 ## Summary
 
-Which LMSs have passed tests 1 to 4: ______
+Which LMSs have passed tests 1 to 4: **Brightspace, as reported by Jason on 2026-11-01: "All three worked in Brightspace"** (read as the SCORM 1.2, SCORM 2004 and xAPI packages of the lesson). He gave no status words, scores or screenshots, so the Brightspace tables above are still blank. It is not recorded which of tests 1 to 4 were run, whether resume landed on Question 3, or whether Brightspace showed any xAPI statements. Moodle, Canvas and SCORM Cloud have not been run.
 
 Faults found and where they were fixed: ______
 

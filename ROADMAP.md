@@ -149,7 +149,7 @@ The published course has to be right before the thing that authors it is worth b
 - [x] Test fixtures: one valid project, one broken fixture per rule
 - [x] Player that renders a project file to accessible HTML (slides, layers, triggers, quiz, narration with captions and transcript), and shows one column in reading order when the window is narrow or the page is zoomed in (WCAG 1.4.10 Reflow). Not yet tried on a real phone, or inside an LMS frame.
 - [x] SCORM 1.2 wrapper (checked against a strict stand-in LMS; not yet in a real one)
-- [ ] Tested in Moodle, Canvas and Brightspace, including resume
+- [ ] Tested in Moodle, Canvas and Brightspace, including resume (Brightspace: Jason reported on 2026-11-01 that SCORM 1.2, SCORM 2004 and xAPI all worked, with no numbers or screenshots, so resume and the scores are not on record; Moodle and Canvas not run)
 
 At the end of Phase 1 there is a working, accessible, publishable course and no editor
 at all. That is the intended order.
