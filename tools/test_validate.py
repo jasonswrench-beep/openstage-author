@@ -1031,6 +1031,9 @@ class QuestionKinds(unittest.TestCase):
         "hotspot": {"questionType": "hotspot", "image": {"src": "assets/images/map.png", "alt": "A map of the site"}, "regions": [
             {"id": "r1", "label": "North gate", "x": 0, "y": 0, "width": 40, "height": 40, "correct": False},
             {"id": "r2", "label": "South gate", "x": 0, "y": 50, "width": 40, "height": 40, "correct": True}]},
+        "essay": {"questionType": "essay", "minWords": 25},
+        "whichWord": {"questionType": "whichWord", "passage": "The dog [barked] loudly at the gate."},
+        "shortcut": {"questionType": "shortcut", "keys": ["Ctrl+Shift+S", "Cmd+Shift+S"]},
     }
 
     def run_with(self, content, edit=None):
@@ -1136,6 +1139,84 @@ class QuestionKinds(unittest.TestCase):
     def test_a_hotspot_picture_that_is_not_in_the_project(self):
         found = self.run_with(self.GOOD["hotspot"], lambda c: c["image"].__setitem__("src", "assets/images/missing.png"))
         self.assertTrue(rules(found, "asset-missing", "obj-0011", "error"))
+
+    def test_an_essay_has_a_minimum_of_words_the_schema_holds_to_a_sane_range(self):
+        for words in (0, 1, 1000):
+            self.assertEqual([f for f in self.run_with(self.GOOD["essay"], lambda c: c.__setitem__("minWords", words)) if f.severity == "error"], [], words)
+        for words in (-1, 1001, 2.5, "ten"):
+            found = self.run_with(self.GOOD["essay"], lambda c: c.__setitem__("minWords", words))
+            self.assertTrue([f for f in found if f.severity == "error"], words)
+
+    def test_an_essay_has_no_right_answer_to_check_and_nothing_else_belongs_to_it(self):
+        found = self.run_with(self.GOOD["essay"], lambda c: c.__setitem__("answers", ["x"]))
+        self.assertTrue([f for f in found if f.severity == "error"])
+        missing = self.run_with(self.GOOD["essay"], lambda c: c.pop("minWords"))
+        self.assertTrue([f for f in missing if f.severity == "error"])
+
+    def test_a_passage_with_no_right_word_or_no_words_at_all(self):
+        none = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "Nothing is marked here."))
+        self.assertTrue(rules(none, "quiz-correct-answer", "obj-0011", "error"))
+        empty = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", " ... -- "))
+        self.assertTrue(rules(empty, "quiz-passage-empty", "obj-0011", "error"))
+        self.assertEqual(rules(empty, "quiz-correct-answer"), [], "no words is the problem, not that none is marked")
+
+    def test_a_mark_that_is_empty_split_or_doubled(self):
+        cases = {"quiz-passage-empty-mark": "An [] empty [mark]", "quiz-passage-split-mark": "A mark across [two words] [here]", "quiz-passage-double-mark": "Marked [a][b] twice [here]"}
+        for rule, passage in cases.items():
+            found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", passage))
+            self.assertTrue(rules(found, rule, "obj-0011", "error"), rule)
+
+    def test_a_mark_with_one_bracket_missing_is_a_split_mark(self):
+        found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "The [dog barked loudly."))
+        self.assertTrue(rules(found, "quiz-passage-split-mark", "obj-0011", "error"))
+
+    def test_a_passage_of_too_many_words(self):
+        passage = " ".join(["word"] * 300) + " [one]"
+        found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", passage))
+        hit = rules(found, "quiz-passage-too-long", "obj-0011", "error")
+        self.assertTrue(hit)
+        self.assertIn("301", hit[0].detail)
+        fine = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", " ".join(["word"] * 299) + " [one]"))
+        self.assertEqual(rules(fine, "quiz-passage-too-long"), [])
+
+    def test_every_word_marked_right_tests_nothing(self):
+        found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "[Everything] [is] [right]"))
+        self.assertTrue(rules(found, "quiz-all-correct", "obj-0011", "warning"))
+
+    def test_a_right_word_that_comes_again_where_it_is_wrong_is_a_warning(self):
+        found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "The [cat] sat and the Cat ran."))
+        self.assertTrue(rules(found, "quiz-word-repeated", "obj-0011", "warning"))
+        self.assertEqual([f for f in found if f.severity == "error"], [])
+        twice = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "The [cat] sat and the [cat] ran."))
+        self.assertEqual(rules(twice, "quiz-word-repeated"), [], "both are right")
+
+    def test_a_passage_longer_than_the_schema_allows(self):
+        found = self.run_with(self.GOOD["whichWord"], lambda c: c.__setitem__("passage", "a " * 2600 + "[b]"))
+        self.assertTrue([f for f in found if f.severity == "error"])
+
+    def test_a_shortcut_that_cannot_be_read(self):
+        for key in ("Ctrl+", "Ctrl+Banana", "Ctrl", "Ctrl+S+D"):
+            found = self.run_with(self.GOOD["shortcut"], lambda c: c.__setitem__("keys", [key]))
+            self.assertTrue(rules(found, "quiz-shortcut-unreadable", "obj-0011", "error"), key)
+
+    def test_the_same_shortcut_written_twice_is_a_warning(self):
+        found = self.run_with(self.GOOD["shortcut"], lambda c: c.__setitem__("keys", ["Ctrl+S", "control + s"]))
+        hit = rules(found, "quiz-shortcut-duplicate", "obj-0011", "warning")
+        self.assertTrue(hit)
+        self.assertIn("Ctrl+S", hit[0].detail)
+        self.assertEqual(rules(self.run_with(self.GOOD["shortcut"]), "quiz-shortcut-duplicate"), [])
+
+    def test_a_shortcut_a_browser_keeps_for_itself_is_a_warning_not_an_error(self):
+        for key in ("Ctrl+W", "ctrl+shift+t", "Alt+F4"):
+            found = self.run_with(self.GOOD["shortcut"], lambda c: c.__setitem__("keys", [key]))
+            self.assertTrue(rules(found, "quiz-shortcut-reserved", "obj-0011", "warning"), key)
+            self.assertEqual([f for f in found if f.severity == "error"], [], key)
+        self.assertEqual(rules(self.run_with(self.GOOD["shortcut"]), "quiz-shortcut-reserved"), [])
+
+    def test_a_shortcut_question_needs_at_least_one_key_and_at_most_ten(self):
+        for keys in ([], ["F%d" % n for n in range(1, 12)]):
+            found = self.run_with(self.GOOD["shortcut"], lambda c: c.__setitem__("keys", keys))
+            self.assertTrue([f for f in found if f.severity == "error"], len(keys))
 
 
 class Interactions(unittest.TestCase):
@@ -3162,7 +3243,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.46.0")
+        self.assertEqual(project["schemaVersion"], "0.47.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()

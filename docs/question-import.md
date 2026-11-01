@@ -57,6 +57,6 @@ A `.csv` file, or a `.tsv` or `.txt` table. It works out the separator (commas, 
 
 ## Not built
 
-Questions of the other kinds (matching, putting things in order, filling blanks, a hotspot) cannot be written in a table and are made in the editor. Pictures for questions, a column for which feedback layer to use, and updating questions already in the course from a changed file are not built: a table adds new slides each time.
+Questions of the other kinds (matching, putting things in order, filling blanks, a hotspot, an essay, choosing a word of a passage, a keyboard shortcut) cannot be written in a table and are made in the editor. Pictures for questions, a column for which feedback layer to use, and updating questions already in the course from a changed file are not built: a table adds new slides each time.
 
 The code is `editor/src/questionimport.ts` (reading, with 19 tests), `Model.addQuestionSlides` (the slides, tested in `questionslides.test.ts`), `questiondialog.ts` and, in the Rust side of the editor, `question_file_read` and `question_template_write`.

@@ -33,7 +33,7 @@ export interface QuestionImportChoice {
   shuffleAnswers: boolean;
 }
 
-const TYPE_WORDS: Record<ImportedQuestion["type"], string> = { mc: "multiple choice", mr: "several right", tf: "true or false", short: "short answer" };
+const TYPE_WORDS: Record<ImportedQuestion["type"], string> = { mc: "multiple choice", mr: "several right", tf: "true or false", short: "short answer", essay: "essay", whichword: "choose a word", shortcut: "keyboard shortcut" };
 
 const stem = (path: string): string => (path.split(/[\\/]/).pop() ?? path).replace(/\.[^.]*$/, "");
 

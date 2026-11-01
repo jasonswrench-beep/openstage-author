@@ -31,6 +31,16 @@ class Catalog(unittest.TestCase):
                 self.assertTrue(entry["note"].strip(), "a translator is told where it is used")
                 self.assertEqual(set(entry), {"text", "note"})
 
+    def test_no_key_is_written_twice(self):
+        # json.load keeps the last of two equal keys without a word, and a bundler warns and does the same: the first would never be heard.
+        twice = []
+        def pairs(items):
+            names = [k for k, _ in items]
+            twice.extend(sorted({k for k in names if names.count(k) > 1}))
+            return dict(items)
+        json.loads((ROOT / "tools" / "player-text.json").read_text(encoding="utf-8"), object_pairs_hook=pairs)
+        self.assertEqual(twice, [])
+
     def test_places_are_plain_names_and_braces_are_balanced(self):
         for key, entry in CATALOG.items():
             with self.subTest(key):

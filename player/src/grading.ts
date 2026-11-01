@@ -8,6 +8,9 @@
 //   matching  "item:option" pairs, separated by commas, where the item and the option are the ids of the pair the option belongs to
 //   sequencing  the ids of the items in the learner's order, separated by commas
 //   hotspot  the id of the area chosen
+//   essay  what was written
+//   whichWord  the id of the word chosen (w1, w2 ... by its place in the passage, see passage.ts)
+//   shortcut  what was typed, or the keys pressed, written as shortcut.ts writes them
 //
 // How much of the points an answer earns is a fraction from 0 to 1. A question with one thing to get right (multiple choice, short answer,
 // numeric, a hotspot) gives all of it or none. A question with several parts gives a share for the parts that are right:
@@ -15,9 +18,12 @@
 //   fillBlanks  the blanks that are right over all the blanks
 //   matching  the items matched rightly over all the items
 //   sequencing  the items in their right place over all the items
+// An essay has no right answer to check against, so it is done or not: done once it has the fewest words the author asked for.
 
-import type { ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, SequencingQuiz, ShortAnswerQuiz } from "./types.ts";
-import { t } from "./playertext.ts";
+import type { ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz } from "./types.ts";
+import { readPassage } from "./passage.ts";
+import { t, tn } from "./playertext.ts";
+import { canonicalShortcut } from "./shortcut.ts";
 
 /** The kinds of interaction SCORM 1.2 knows, and so the ones an LMS can be told about. */
 export type ScormType = "choice" | "fill-in" | "numeric" | "matching" | "sequencing";
@@ -35,6 +41,9 @@ export interface Graded {
   /** Only for blanks: what is in each, and the first accepted answer of each. SCORM 2004 and xAPI have their own separator, so they need the parts, not the text joined with commas. */
   blankParts?: { response: string[]; pattern: string[] };
 }
+
+/** The words in some writing: runs of letters or numbers between spaces. A dash or a lone mark on its own is not a word. */
+export const countWords = (text: string): number => text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 
 /** SCORM 1.2 holds 255 characters of an answer. */
 const LIMIT = 255;
@@ -233,6 +242,27 @@ function gradeHotspot(q: HotspotQuiz, answer: string): Graded {
   });
 }
 
+/** An essay is done when it has the fewest words asked for, and at least one. It is not marked for what it says. */
+export const essayDone = (q: EssayQuiz, answer: string): boolean => countWords(answer) >= Math.max(1, q.minWords);
+
+function gradeEssay(q: EssayQuiz, answer: string): Graded {
+  // 1.2 has only a short fill-in to put it in; SCORM 2004 and xAPI are told it is a long one (see interaction-format.ts). No right answer to send.
+  return whole(essayDone(q, answer), { scormType: "fill-in", response: cut(answer.replace(/\s+/g, " ").trim()), patterns: [] });
+}
+
+function gradeWhichWord(q: WhichWordQuiz, answer: string): Graded {
+  const words = readPassage(q.passage).words;
+  const chosen = words.find((w) => w.id === answer);
+  const rightTexts = [...new Set(words.filter((w) => w.right).map((w) => w.text))];
+  return whole(chosen?.right === true, { scormType: "fill-in", response: cut(chosen?.text ?? ""), patterns: rightTexts.map(cut) });
+}
+
+function gradeShortcut(q: ShortcutQuiz, answer: string): Graded {
+  const accepted = q.keys.map((k) => canonicalShortcut(k) ?? k.trim());
+  const typed = canonicalShortcut(answer);
+  return whole(typed !== null && accepted.includes(typed), { scormType: "fill-in", response: cut(typed ?? answer.trim()), patterns: accepted.map(cut) });
+}
+
 /** How an answer to this question comes out. */
 export function grade(q: QuizContent, answer: string): Graded {
   switch (q.questionType) {
@@ -244,6 +274,9 @@ export function grade(q: QuizContent, answer: string): Graded {
     case "matching": return gradeMatching(q, answer);
     case "sequencing": return gradeSequence(q, answer);
     case "hotspot": return gradeHotspot(q, answer);
+    case "essay": return gradeEssay(q, answer);
+    case "whichWord": return gradeWhichWord(q, answer);
+    case "shortcut": return gradeShortcut(q, answer);
   }
 }
 
@@ -259,6 +292,9 @@ export function isAnswered(q: QuizContent, answer: string | null): boolean {
     case "fillBlanks": return decodeBlanks(answer, q.blanks.length).some((v) => v.trim() !== "");
     case "matching": return Object.keys(decodePairs(answer)).length > 0;
     case "sequencing": return true;
+    case "essay": return essayDone(q, answer);
+    case "whichWord":
+    case "shortcut": return answer.trim() !== "";
   }
 }
 
@@ -271,6 +307,9 @@ export function emptyMessage(q: QuizContent): string {
     case "fillBlanks": return q.mode === "typed" ? t("quiz.emptyBlanksTyped") : t("quiz.emptyBlanksChoose");
     case "matching": return t("quiz.emptyMatching");
     case "hotspot": return t("quiz.emptyArea");
+    case "whichWord": return t("quiz.emptyWord");
+    case "shortcut": return t("quiz.emptyShortcut");
+    case "essay": return q.minWords > 1 ? tn("quiz.emptyEssayWords", q.minWords) : t("quiz.emptyEssay");
     default: return t("quiz.emptyDefault");
   }
 }

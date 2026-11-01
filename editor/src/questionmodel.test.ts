@@ -49,9 +49,20 @@ test("every kind of question can be added, with a heading, two feedback layers a
   }
 });
 
-test("a true or false question and a hotspot get one attempt, the rest two", () => {
+test("a true or false question, a hotspot and an essay get one attempt, the rest two", () => {
   const attempts = (type: Parameters<Model["addQuiz"]>[0]) => (open().addQuiz(type, { imageSrc: "assets/images/m.png" })!.content as unknown as QuizContent).scoring.attemptsAllowed;
-  assert.deepEqual(["tf", "hotspot", "mc", "mr", "short", "numeric", "blanks", "matching", "sequence"].map((t) => attempts(t as never)), [1, 1, 2, 2, 2, 2, 2, 2, 2]);
+  assert.deepEqual(["tf", "hotspot", "essay", "mc", "mr", "short", "numeric", "blanks", "matching", "sequence", "whichword", "shortcut"].map((t) => attempts(t as never)), [1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+});
+
+test("an essay's feedback layers do not talk about a right or wrong answer, and the others keep the usual words", () => {
+  const words = (type: Parameters<Model["addQuiz"]>[0]) => {
+    const m = open();
+    const quiz = m.addQuiz(type)!;
+    const c = quiz.content as unknown as QuizContent;
+    return [c.feedback.correct, c.feedback.incorrect].map((id) => m.slide!.layers.find((l) => l.id === id)!.objects[0]!.accessibility.altText);
+  };
+  assert.deepEqual(words("essay"), ["Thank you. Your answer has been kept.", "Write a little more, then check your answer again."]);
+  assert.deepEqual(words("mc"), ["Correct. Explain why this answer is right.", "Not quite. Give a hint, then let the learner try again."]);
 });
 
 test("a hotspot question starts with the picture it was given and no description, which the author has to write", () => {
@@ -148,6 +159,11 @@ test("narration is written from what a question shows, and a learner who cannot 
   assert.equal(questionScript(hot, seed), "Choose an area of the picture. A map of the campus. The areas are: Left half. Right half.");
   hot.image.alt = "";
   assert.equal(questionScript(hot, seed), "Choose an area of the picture. The areas are: Left half. Right half.");
+
+  assert.equal(questionScript(startingQuestion("essay") as QuizContent, seed), "Write your answer. It needs at least 20 words.");
+  assert.equal(questionScript({ ...startingQuestion("essay"), minWords: 0 } as unknown as QuizContent, seed), "Write your answer.");
+  assert.equal(questionScript(startingQuestion("whichword") as QuizContent, seed), "Choose a word of this passage. Write your passage here and put the right word in square brackets.", "read without the marks, so it does not give the answer away");
+  assert.equal(questionScript(startingQuestion("shortcut") as QuizContent, seed), "Type a keyboard shortcut, or press the keys.");
 });
 
 test("narration can be written from a question in one step, and says so when it already says it", () => {

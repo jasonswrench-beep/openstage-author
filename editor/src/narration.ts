@@ -6,6 +6,7 @@
 
 import voiceList from "../../tools/kokoro-voices.json" with { type: "json" };
 import { matchOptions, splitBlanks, stableShuffle } from "../../player/src/grading.ts";
+import { shownPassage } from "../../player/src/passage.ts";
 import type { QuizContent } from "../../player/src/types.ts";
 import { DOWNLOAD_HELP, fileTypeLabel } from "../../player/src/downloads.ts";
 
@@ -330,6 +331,9 @@ export function questionScript(q: QuizContent, seed: string): string {
     case "matching": return `Match each item with its match. The items are: ${each(q.pairs.map((p) => p.premise))} The matches are: ${each(stableShuffle(matchOptions(q), seed).map((o) => o.text))}`;
     case "sequencing": return `Put these in the right order. They are: ${each(stableShuffle(q.items.map((i) => i.id), seed).map((id) => q.items.find((i) => i.id === id)!.text))}`;
     case "hotspot": return `Choose an area of the picture. ${q.image.alt.trim() === "" ? "" : `${stop(q.image.alt)} `}The areas are: ${each(q.regions.map((r) => r.label))}`;
+    case "essay": return q.minWords > 1 ? `Write your answer. It needs at least ${q.minWords} words.` : "Write your answer.";
+    case "whichWord": return `Choose a word of this passage. ${stop(shownPassage(q.passage))}`;
+    case "shortcut": return "Type a keyboard shortcut, or press the keys.";
   }
 }
 

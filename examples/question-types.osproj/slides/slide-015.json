@@ -1,0 +1,224 @@
+{
+  "id": "slide-015",
+  "name": "Choose a word",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0064",
+        "type": "text",
+        "name": "Prompt",
+        "geometry": {
+          "x": 80,
+          "y": 40,
+          "width": 1120,
+          "height": 100,
+          "rotation": 0,
+          "z": 10
+        },
+        "content": {
+          "html": "<h2>Choose the word that names the way a message travels.</h2>"
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 28,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Choose the word that names the way a message travels.",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      },
+      {
+        "id": "obj-0065",
+        "type": "quizQuestion",
+        "name": "Choose a word",
+        "geometry": {
+          "x": 80,
+          "y": 150,
+          "width": 1120,
+          "height": 280,
+          "rotation": 0,
+          "z": 20
+        },
+        "content": {
+          "questionType": "whichWord",
+          "passage": "A message travels from the sender along a [channel] to the receiver, who decodes it.",
+          "scoring": {
+            "points": 10,
+            "attemptsAllowed": 2
+          },
+          "feedback": {
+            "correct": "layer-correct",
+            "incorrect": "layer-retry"
+          }
+        },
+        "style": {
+          "fontFamily": "system-ui",
+          "fontSize": 20,
+          "color": "#141414"
+        },
+        "accessibility": {
+          "altText": "Choose a word of the passage",
+          "role": "group",
+          "tabOrder": 2,
+          "decorative": false
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-correct",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0066",
+          "type": "text",
+          "name": "Correct feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Right. The channel is the way the message travels.</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#0f5132"
+          },
+          "accessibility": {
+            "altText": "Right. The channel is the way the message travels.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    },
+    {
+      "id": "layer-retry",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0067",
+          "type": "text",
+          "name": "Incorrect feedback message",
+          "geometry": {
+            "x": 80,
+            "y": 660,
+            "width": 1120,
+            "height": 50,
+            "rotation": 0,
+            "z": 40
+          },
+          "content": {
+            "html": "<p>Not that word. Which word is the way the message gets from one person to the other?</p>"
+          },
+          "style": {
+            "fontFamily": "system-ui",
+            "fontSize": 20,
+            "color": "#842029"
+          },
+          "accessibility": {
+            "altText": "Not that word. Which word is the way the message gets from one person to the other?",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null
+        }
+      ]
+    }
+  ]
+}

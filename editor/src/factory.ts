@@ -246,10 +246,9 @@ export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: numb
     });
   };
   // Feedback shows over the slide, so on a dark slide it uses the light text colour instead of green and red.
-  feedback(correctLayer, "Correct. Explain why this answer is right.", colorRef(tone === "light" ? "good" : textRole(tone)));
-  feedback(wrongLayer, "Not quite. Give a hint, then let the learner try again.", colorRef(tone === "light" ? "bad" : textRole(tone)));
-
   const kind = quizKind(type)!;
+  feedback(correctLayer, kind.feedback?.correct ?? "Correct. Explain why this answer is right.", colorRef(tone === "light" ? "good" : textRole(tone)));
+  feedback(wrongLayer, kind.feedback?.incorrect ?? "Not quite. Give a hint, then let the learner try again.", colorRef(tone === "light" ? "bad" : textRole(tone)));
 
   const prompt: OSObject = {
     ...box(alloc.object(), 80, at.y, 1120, 90, at.z), type: "text", name: "Question",
@@ -261,7 +260,7 @@ export function buildQuiz(type: QuizType, alloc: Alloc, at: { y: number; z: numb
     ...box(alloc.object(), 80, at.y + 110, kind.size.w, kind.size.h, at.z + 10), type: "quizQuestion", name: kind.name,
     content: {
       ...startingQuestion(type, at.imageSrc),
-      scoring: { points: 10, attemptsAllowed: type === "tf" || type === "hotspot" ? 1 : 2 },
+      scoring: { points: 10, attemptsAllowed: kind.attempts ?? (type === "tf" || type === "hotspot" ? 1 : 2) },
       feedback: { correct: correctLayer.id, incorrect: wrongLayer.id },
     },
     style: { fontFamily: "theme:font.body", fontSize: 20, color: colorRef(textRole(tone)) },

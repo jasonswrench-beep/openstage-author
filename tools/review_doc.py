@@ -24,6 +24,7 @@ from html.parser import HTMLParser
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I mode drops the script folder
 import validate  # noqa: E402
+from quiztext import canonical_shortcut, read_passage  # noqa: E402
 
 # ---------------------------------------------------------------- text
 
@@ -319,6 +320,7 @@ LABELS = {
 QUESTION_TYPES = {
     "multipleChoice": "multiple choice", "multipleResponse": "multiple response", "shortAnswer": "short answer", "numeric": "number",
     "fillBlanks": "fill in the blanks", "matching": "matching", "sequencing": "sequencing", "hotspot": "choose an area of a picture",
+    "essay": "essay", "whichWord": "choose a word of a passage", "shortcut": "keyboard shortcut",
 }
 INTERACTION_KINDS = {
     "clickReveal": "click and reveal", "flipCards": "flip cards", "tabs": "tabs", "accordion": "accordion", "carousel": "content carousel", "steps": "step process",
@@ -599,6 +601,21 @@ class Writer:
             self.picture(c.get("image"), "Picture")
             for r in c.get("regions", []):
                 self.doc.para([(f"{r['label']}", ""), (right, "b") if r.get("correct") else ("", "")], style="Choice")
+        elif t == "essay":
+            minimum = c.get("minWords", 0)
+            self.line("Answer", "Written by the learner and not marked: it counts as answered" + (f" from {minimum} words." if minimum > 1 else " once something is written."))
+        elif t == "whichWord":
+            read = read_passage(c.get("passage", ""))
+            runs = []
+            for piece in read["pieces"]:
+                if piece[0] == "word" and read["words"][int(piece[2][1:]) - 1][1]:
+                    runs.append((piece[1], "b"))
+                else:
+                    runs.append(piece[1])
+            self.doc.para(runs, style="Choice")
+            self.note("The learner chooses one word. The right word is in bold.")
+        elif t == "shortcut":
+            self.line("Right shortcuts", "; ".join(canonical_shortcut(k) or k for k in c.get("keys", [])))
         fb = c.get("feedback", {})
         for key, words in (("correct", "after a right answer"), ("incorrect", "after a wrong answer")):
             if fb.get(key):

@@ -1,0 +1,18 @@
+{
+  "note": "Shared by the player's reading of a which-word passage (player/src/passage.ts) and the validator's (tools/validate.py). Each case is the passage as the author wrote it, the words a learner can choose (with which are right), and what is wrong with it.",
+  "cases": [
+    { "source": "The dog [barked] loudly.", "words": [["The", false], ["dog", false], ["barked", true], ["loudly", false]], "problems": [] },
+    { "source": "[Paris], France", "words": [["Paris", true], ["France", false]], "problems": [] },
+    { "source": "She said \"[yes]\", then left.", "words": [["She", false], ["said", false], ["yes", true], ["then", false], ["left", false]], "problems": [] },
+    { "source": "Two [right] answers: both [correct].", "words": [["Two", false], ["right", true], ["answers", false], ["both", false], ["correct", true]], "problems": [] },
+    { "source": "It's a well-known [fact].", "words": [["It's", false], ["a", false], ["well-known", false], ["fact", true]], "problems": [] },
+    { "source": "Wait - [now] - go.", "words": [["Wait", false], ["now", true], ["go", false]], "problems": [] },
+    { "source": "Un café [très] bon", "words": [["Un", false], ["café", false], ["très", true], ["bon", false]], "problems": [] },
+    { "source": "No marks at all here.", "words": [["No", false], ["marks", false], ["at", false], ["all", false], ["here", false]], "problems": ["none-marked"] },
+    { "source": "", "words": [], "problems": ["no-words"] },
+    { "source": "  ...  --  ", "words": [], "problems": ["no-words"] },
+    { "source": "An [] empty mark [word]", "words": [["An", false], ["empty", false], ["mark", false], ["word", true]], "problems": ["empty-mark"] },
+    { "source": "A mark across [two words] here", "words": [["A", false], ["mark", false], ["across", false], ["two", false], ["words", false], ["here", false]], "problems": ["split-mark", "none-marked"] },
+    { "source": "[a][b] twice in one", "words": [["ab", true], ["twice", false], ["in", false], ["one", false]], "problems": ["double-mark"] }
+  ]
+}

@@ -46,7 +46,7 @@ import * as S from "./scenarioedit.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.46.0";
+export const FORMAT_VERSION = "0.47.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -4301,8 +4301,9 @@ export class Model {
       const slide = buildLayoutSlide(blank, nextSlideId(), alloc);
       slide.name = `Question ${n + 1}`;
       const built = buildQuiz(q.type === "short" ? "short" : q.type, alloc, { tone: "light", y: 60, z: 10, tab: 1 });
-      const attempts = q.attempts ?? (q.type === "tf" ? 1 : 2);
-      fillQuiz(built, q, { points: q.points ?? 10, attempts, shuffleAnswers: opts.shuffleAnswers, right: "Correct.", wrong: attempts > 1 ? "Not quite. Try again." : "Not quite." });
+      const kind = quizKind(q.type);
+      const attempts = q.attempts ?? kind?.attempts ?? (q.type === "tf" ? 1 : 2);
+      fillQuiz(built, q, { points: q.points ?? 10, attempts, shuffleAnswers: opts.shuffleAnswers, right: kind?.feedback?.correct ?? "Correct.", wrong: kind?.feedback?.incorrect ?? (attempts > 1 ? "Not quite. Try again." : "Not quite.") });
       slide.baseLayer.objects.push(...built.objects);
       slide.layers.push(...built.layers);
       made.push(slide);

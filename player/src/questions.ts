@@ -8,9 +8,11 @@
 // runtime's, and are the same for every kind.
 
 import { attachDrag, insertIndexFor, reorder } from "./dragging.ts";
-import { t } from "./playertext.ts";
-import { decodeBlanks, decodePairs, encodeBlanks, encodePairs, matchOptions, splitBlanks, stableShuffle } from "./grading.ts";
-import type { ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, OSObject, QuizContent, SequencingQuiz, ShortAnswerQuiz } from "./types.ts";
+import { t, tn } from "./playertext.ts";
+import { countWords, decodeBlanks, decodePairs, encodeBlanks, encodePairs, matchOptions, splitBlanks, stableShuffle } from "./grading.ts";
+import { readPassage } from "./passage.ts";
+import { formatShortcut, isModifierKey, shortcutOf } from "./shortcut.ts";
+import type { ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, OSObject, QuizContent, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz } from "./types.ts";
 
 export interface QuestionContext {
   /** In the editor the question is drawn but nothing in it responds. */
@@ -404,6 +406,149 @@ function buildHotspot(doc: Document, obj: OSObject, q: HotspotQuiz, ctx: Questio
   };
 }
 
+// ---- an essay
+
+function buildEssay(doc: Document, obj: OSObject, q: EssayQuiz, ctx: QuestionContext): Parts {
+  const group = make(doc, "div", "os-q-typed os-q-essay", { role: "group", "aria-label": obj.accessibility.altText });
+  const id = uid(obj, "answer");
+  const label = make(doc, "label", "os-q-label", { for: id });
+  label.textContent = t("quiz.yourAnswer");
+  const box = make(doc, "textarea", "os-q-essay-input", { id, rows: "8", autocomplete: "off" }) as HTMLTextAreaElement;
+  // The count is plain text a screen reader reads when the box is focused. It is not a live region: announcing every word as it is typed would talk over the typing.
+  const count = make(doc, "p", "os-q-count", { id: uid(obj, "count") });
+  const describedBy = [count.id];
+  const parts: HTMLElement[] = [label];
+  if (q.minWords > 0) {
+    const need = make(doc, "p", "os-q-hint", { id: uid(obj, "need") });
+    need.textContent = tn("quiz.essayMinimum", q.minWords);
+    describedBy.unshift(need.id);
+    parts.push(need);
+  }
+  box.setAttribute("aria-describedby", describedBy.join(" "));
+  const update = (): void => { count.textContent = tn("quiz.wordCount", countWords(box.value)); };
+  update();
+  if (!ctx.editing) box.addEventListener("input", update);
+  group.append(...parts, box, count);
+  return {
+    group,
+    answer: () => (box.value.trim() === "" ? null : box.value),
+    setAnswer: (a) => { box.value = a; update(); },
+    // Read-only, not disabled: a locked answer can still be focused, read and moved through.
+    lock: () => { box.readOnly = true; },
+  };
+}
+
+// ---- which word
+
+function buildWhichWord(doc: Document, obj: OSObject, q: WhichWordQuiz, ctx: QuestionContext): Parts {
+  const group = make(doc, "div", "os-q-whichword", { role: "group", "aria-label": obj.accessibility.altText });
+  const read = readPassage(q.passage);
+  const text = make(doc, "p", "os-q-passage");
+  const spans = new Map<string, HTMLElement>();
+  for (const piece of read.pieces) {
+    if (piece.type === "text") {
+      text.appendChild(doc.createTextNode(piece.value));
+      continue;
+    }
+    // The words are for the mouse and touch, and a screen reader reads them as plain text. The list below is the way to answer with a keyboard or a screen reader.
+    const span = make(doc, "span", "os-q-word", { "data-word": piece.id });
+    span.textContent = piece.value;
+    if (ctx.editing && read.words.find((w) => w.id === piece.id)?.right) span.classList.add("is-right");
+    text.appendChild(span);
+    spans.set(piece.id, span);
+  }
+  const id = uid(obj, "word");
+  const label = make(doc, "label", "os-q-label", { for: id });
+  label.textContent = t("quiz.wordList");
+  const select = make(doc, "select", "os-q-select", { id }) as HTMLSelectElement;
+  select.appendChild(make(doc, "option", "", { value: "" }));
+  // A word that comes more than once is told apart by its place, so the list never has two options that sound the same.
+  const times = new Map<string, number>();
+  for (const w of read.words) times.set(w.text.toLowerCase(), (times.get(w.text.toLowerCase()) ?? 0) + 1);
+  read.words.forEach((w, i) => {
+    const option = make(doc, "option", "", { value: w.id });
+    option.textContent = (times.get(w.text.toLowerCase()) ?? 0) > 1 ? t("quiz.wordPlace", { word: w.text, n: i + 1 }) : w.text;
+    select.appendChild(option);
+  });
+  const show = (): void => spans.forEach((span, wordId) => span.classList.toggle("is-chosen", select.value === wordId));
+  if (!ctx.editing) {
+    select.addEventListener("change", show);
+    spans.forEach((span, wordId) => span.addEventListener("click", () => {
+      if (select.disabled) return;
+      select.value = wordId;
+      show();
+    }));
+  }
+  const choose = make(doc, "div", "os-q-choose");
+  choose.append(label, select);
+  group.append(text, choose);
+  return {
+    group,
+    answer: () => (select.value === "" ? null : select.value),
+    setAnswer: (a) => { select.value = spans.has(a) ? a : ""; show(); },
+    lock: () => {
+      select.disabled = true;
+      spans.forEach((span) => span.setAttribute("aria-disabled", "true"));
+    },
+  };
+}
+
+// ---- a keyboard shortcut
+
+function buildShortcut(doc: Document, obj: OSObject, _q: ShortcutQuiz, ctx: QuestionContext): Parts {
+  const group = make(doc, "div", "os-q-typed os-q-shortcut", { role: "group", "aria-label": obj.accessibility.altText });
+  const id = uid(obj, "answer");
+  const label = make(doc, "label", "os-q-label", { for: id });
+  label.textContent = t("quiz.yourShortcut");
+  const hint = make(doc, "p", "os-q-hint", { id: uid(obj, "hint") });
+  hint.textContent = t("quiz.shortcutHint");
+  const box = input(doc, "text", "os-q-input", { id, autocomplete: "off", spellcheck: "false", autocapitalize: "off", "aria-describedby": hint.id });
+  const capture = make(doc, "button", "os-q-capture", { type: "button" }) as HTMLButtonElement;
+  capture.textContent = t("quiz.captureKeys");
+  group.append(label, hint, box, capture);
+
+  // While capturing, the next key pressed with the button focused is the answer, and then the button goes back to being a button. It cannot trap anyone:
+  // any one key ends it (Tab included, which is then the answer, not a way out), Escape alone stops it without an answer, and leaving the button stops it.
+  let capturing = false;
+  const stop = (message?: string): void => {
+    capturing = false;
+    capture.textContent = t("quiz.captureKeys");
+    capture.removeAttribute("aria-pressed");
+    if (message) ctx.announce?.(message);
+  };
+  if (!ctx.editing) {
+    capture.addEventListener("click", () => {
+      if (capturing) return stop(t("quiz.captureStopped"));
+      capturing = true;
+      capture.textContent = t("quiz.capturing");
+      capture.setAttribute("aria-pressed", "true");
+      ctx.announce?.(t("quiz.capturing"));
+    });
+    capture.addEventListener("blur", () => { if (capturing) stop(); });
+    capture.addEventListener("keydown", (e) => {
+      if (!capturing) return;
+      // Modifiers on their own are only the start of the shortcut. Any other key is the answer, so it does nothing else.
+      if (isModifierKey(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) return stop(t("quiz.captureStopped"));
+      const pressed = shortcutOf(e);
+      if (pressed === null) return stop(t("quiz.captureUnknown"));
+      box.value = formatShortcut(pressed);
+      stop(t("quiz.captured", { keys: box.value }));
+    });
+  }
+  return {
+    group,
+    answer: () => (box.value.trim() === "" ? null : box.value),
+    setAnswer: (a) => { box.value = a; },
+    lock: () => {
+      box.disabled = true;
+      capture.disabled = true;
+    },
+  };
+}
+
 // ---- the question
 
 /** Build the question for an object. The "Check answer" button is added by whoever puts it on the stage. */
@@ -420,6 +565,9 @@ export function buildQuestion(doc: Document, obj: OSObject, ctx: QuestionContext
     case "matching": parts = buildMatching(doc, obj, q, ctx); break;
     case "sequencing": parts = buildSequence(doc, obj, q, ctx); break;
     case "hotspot": parts = buildHotspot(doc, obj, q, ctx); break;
+    case "essay": parts = buildEssay(doc, obj, q, ctx); break;
+    case "whichWord": parts = buildWhichWord(doc, obj, q, ctx); break;
+    case "shortcut": parts = buildShortcut(doc, obj, q, ctx); break;
   }
   box.appendChild(parts.group);
   return { el: box, answer: parts.answer, setAnswer: parts.setAnswer, lock: parts.lock };

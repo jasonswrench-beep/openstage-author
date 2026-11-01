@@ -32,11 +32,12 @@ except ImportError as exc:  # pragma: no cover - depends on the machine
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I mode drops the script folder
 from narration_key import narration_hash  # noqa: E402,F401  (also used by narrate.py)
+from quiztext import BROWSER_KEEPS, MAX_PASSAGE_WORDS, canonical_shortcut, read_passage  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 46, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 47, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -960,6 +961,57 @@ def _quiz(rel, obj, add):
                 add(ERROR, rel, oid, "quiz-region-bounds", "An area runs off the picture", f"Area '{r['label'] or r['id']}' is not wholly inside the picture.")
         for dup in duplicates([_tidy(r["label"]).lower() for r in c["regions"]]):
             add(WARNING, rel, oid, "quiz-region-duplicate", "Two areas have the same label", f"'{dup}' labels more than one area, so the list cannot tell them apart.")
+    elif kind == "whichWord":
+        _which_word(rel, oid, c["passage"], add)
+    elif kind == "shortcut":
+        _shortcut(rel, oid, c["keys"], add)
+    # An essay has nothing to check: it has no right answer, and the schema holds its minimum number of words to 0 to 1000.
+
+
+def _which_word(rel, oid, passage, add):
+    """A passage in which the learner chooses a word. The right words are marked [like this]; the learner reads it without the marks."""
+    read = read_passage(passage)
+    problems = read["problems"]
+    if "no-words" in problems:
+        add(ERROR, rel, oid, "quiz-passage-empty", "The passage has no words", "A learner needs some words to choose from.")
+    if "none-marked" in problems:
+        add(ERROR, rel, oid, "quiz-correct-answer", "Quiz needs at least one correct word",
+            "No word in the passage is marked right. Put square brackets round the right word, like [this].")
+    if "empty-mark" in problems:
+        add(ERROR, rel, oid, "quiz-passage-empty-mark", "A mark has nothing in it", "The passage has [] with no word inside. Put the right word between the brackets.")
+    if "split-mark" in problems:
+        add(ERROR, rel, oid, "quiz-passage-split-mark", "A mark runs across more than one word",
+            "A learner chooses one word at a time, so a mark holds one word: [like] [this], not [like this]. A bracket with no partner is the same mistake.")
+    if "double-mark" in problems:
+        add(ERROR, rel, oid, "quiz-passage-double-mark", "A word is marked more than once", "Two marks sit in one word, such as [a][b]. Mark the word once.")
+    if "too-many-words" in problems:
+        add(ERROR, rel, oid, "quiz-passage-too-long", "The passage is too long",
+            f"A learner chooses from a list of the words, so a passage has at most {MAX_PASSAGE_WORDS} words; this one has {len(read['words'])}.")
+    words = read["words"]
+    if words and all(right for _, right in words):
+        add(WARNING, rel, oid, "quiz-all-correct", "Every word in the passage is marked right", "A learner could choose any word and be right, so the question tests nothing.")
+    for right_word in sorted({w.lower() for w, right in words if right}):
+        if any(not right and w.lower() == right_word for w, right in words):
+            add(WARNING, rel, oid, "quiz-word-repeated", "A right word comes again where it is wrong",
+                f"'{right_word}' is right in one place, but the passage has it again where it is wrong. The list tells them apart by place, but a learner reading the passage may not.")
+
+
+def _shortcut(rel, oid, keys, add):
+    """Keyboard shortcuts as an answer. Each must be one a learner could give, and a browser keeps a few for itself."""
+    seen = {}
+    for key in keys:
+        canonical = canonical_shortcut(key)
+        if canonical is None:
+            add(ERROR, rel, oid, "quiz-shortcut-unreadable", "A shortcut cannot be read",
+                f"'{key}' is not a keyboard shortcut. Write the modifiers (Ctrl, Alt, Shift, Meta) and then one key, like Ctrl+Shift+S.")
+            continue
+        if canonical in seen:
+            add(WARNING, rel, oid, "quiz-shortcut-duplicate", "A shortcut is listed twice", f"'{key}' and '{seen[canonical]}' are the same shortcut, {canonical}.")
+        else:
+            seen[canonical] = key
+        if canonical in BROWSER_KEEPS:
+            add(WARNING, rel, oid, "quiz-shortcut-reserved", "A browser keeps this shortcut for itself",
+                f"A learner cannot press {canonical} on a page, because the browser acts on it first. They can still type it.")
 
 
 def _interaction(rel, obj, add):

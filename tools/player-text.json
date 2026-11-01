@@ -593,6 +593,78 @@
       "text": "Choose an answer first.",
       "note": "Said when Check answer is pressed with no answer chosen"
     },
+    "quiz.emptyEssay": {
+      "text": "Write your answer first.",
+      "note": "Said when Check answer is pressed with nothing written in an essay question"
+    },
+    "quiz.emptyEssayWords.one": {
+      "text": "Write at least {n} word first.",
+      "note": "Said when Check answer is pressed with fewer words than an essay question asks for: exactly one word is asked for"
+    },
+    "quiz.emptyEssayWords.other": {
+      "text": "Write at least {n} words first.",
+      "note": "Said when Check answer is pressed with fewer words than an essay question asks for: any other number of words"
+    },
+    "quiz.emptyWord": {
+      "text": "Choose a word first.",
+      "note": "Said when Check answer is pressed with no word chosen in a passage"
+    },
+    "quiz.emptyShortcut": {
+      "text": "Type or capture a keyboard shortcut first.",
+      "note": "Said when Check answer is pressed with no keyboard shortcut given"
+    },
+    "quiz.wordList": {
+      "text": "Choose a word",
+      "note": "Label of the list of every word of a passage, to choose the answer from"
+    },
+    "quiz.wordPlace": {
+      "text": "{word} (word {n})",
+      "note": "A word of a passage that comes more than once, with its place in the passage so that it can be told apart in the list"
+    },
+    "quiz.wordCount.one": {
+      "text": "{n} word",
+      "note": "Under an essay answer: exactly one word has been written"
+    },
+    "quiz.wordCount.other": {
+      "text": "{n} words",
+      "note": "Under an essay answer: any other number of words has been written"
+    },
+    "quiz.essayMinimum.one": {
+      "text": "Write at least {n} word.",
+      "note": "Said under an essay question that asks for at least one word"
+    },
+    "quiz.essayMinimum.other": {
+      "text": "Write at least {n} words.",
+      "note": "Said under an essay question that asks for at least some number of words"
+    },
+    "quiz.yourShortcut": {
+      "text": "Your shortcut",
+      "note": "Label of the box where the learner types a keyboard shortcut"
+    },
+    "quiz.shortcutHint": {
+      "text": "Type it, such as Ctrl+Shift+S, or use the capture button and then press the keys. To answer Escape, type it.",
+      "note": "Hint under the box where the learner gives a keyboard shortcut"
+    },
+    "quiz.captureKeys": {
+      "text": "Capture the keys",
+      "note": "Button that listens for the next keys the learner presses and writes them as the shortcut"
+    },
+    "quiz.capturing": {
+      "text": "Press the keys now. Escape stops.",
+      "note": "On the capture button, and said aloud, while it is listening for keys"
+    },
+    "quiz.captureStopped": {
+      "text": "Capture stopped. Nothing was captured.",
+      "note": "Said when the capture button stops listening without any keys"
+    },
+    "quiz.captureUnknown": {
+      "text": "That key could not be read. Type the shortcut instead.",
+      "note": "Said when the capture button was pressed on a key it does not know"
+    },
+    "quiz.captured": {
+      "text": "Captured {keys}.",
+      "note": "Said when the capture button has written the keys the learner pressed as their shortcut"
+    },
     "results.none": {
       "text": "This course has no quiz questions.",
       "note": "Results box, for a course with no questions"

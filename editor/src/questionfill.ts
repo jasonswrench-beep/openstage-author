@@ -2,6 +2,7 @@
 // question itself with its answers, and the two layers of feedback. Used by Add questions from a spreadsheet and by the games that are filled from one.
 // Nothing here touches the project.
 
+import { readPassage } from "../../player/src/passage.ts";
 import type { Layer, OSObject } from "../../player/src/types.ts";
 import type { ImportedQuestion } from "./questionimport.ts";
 
@@ -17,6 +18,12 @@ export const plainWords = (text: string): string => text.replace(/\s+/g, " ").tr
 export function rightAnswerWords(q: ImportedQuestion): string {
   const said = q.correct.map((i) => q.answers[i]).filter((a): a is string => typeof a === "string");
   if (q.type === "short") return `An accepted answer is ${q.answers[0] ?? ""}.`;
+  if (q.type === "essay") return "";
+  if (q.type === "shortcut") return `The right shortcut is ${(q.keys ?? [])[0] ?? ""}.`;
+  if (q.type === "whichword") {
+    const right = readPassage(q.passage ?? "").words.filter((w) => w.right).map((w) => w.text);
+    return right.length === 1 ? `The right word is ${right[0]}.` : `The right words are ${right.join(", ")}.`;
+  }
   if (said.length === 0) return "";
   if (said.length === 1) return `The right answer is ${said[0]}.`;
   return `The right answers are ${said.slice(0, -1).join(", ")} and ${said[said.length - 1]}.`;
@@ -45,6 +52,9 @@ export function fillQuiz(built: { objects: OSObject[]; layers: Layer[] }, q: Imp
   const choices = q.answers.map((label, i) => ({ id: `c${i + 1}`, label, correct: q.correct.includes(i) }));
   const body: Record<string, unknown> =
     q.type === "short" ? { questionType: "shortAnswer", answers: q.answers, caseSensitive: false }
+    : q.type === "essay" ? { questionType: "essay", minWords: q.minWords ?? 20 }
+    : q.type === "whichword" ? { questionType: "whichWord", passage: q.passage ?? "" }
+    : q.type === "shortcut" ? { questionType: "shortcut", keys: q.keys ?? [] }
     : q.type === "mr" ? { questionType: "multipleResponse", choices }
     : { questionType: "multipleChoice", choices };
   if (o.shuffleAnswers && (q.type === "mc" || q.type === "mr")) body["shuffle"] = true;

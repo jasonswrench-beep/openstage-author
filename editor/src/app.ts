@@ -10,7 +10,7 @@
 //  - Changes are announced in a polite live region.
 //  - Alt text and the other accessibility fields are never filled in on the author's behalf.
 
-import type { CertificateContent, ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, SequencingQuiz, ShortAnswerQuiz, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable, ScenarioContent, ScenarioLine, IconContent } from "../../player/src/types.ts";
+import type { CertificateContent, ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz, Condition, DownloadContent, EmbedContent, InputContent, InteractionContent, OSObject, QuizContent, Primitive, ResultsContent, TableContent, Variable, ScenarioContent, ScenarioLine, IconContent } from "../../player/src/types.ts";
 import { INPUT_VARIABLE_TYPE } from "../../player/src/inputs.ts";
 import { markerAt } from "../../player/src/interactions.ts";
 import { backend, errorText, type Finding } from "./backend.ts";
@@ -40,6 +40,7 @@ import { GAME_PREFIX, GAME_SETS, gameById } from "./gamesets.ts";
 import { askGame } from "./gamedialog.ts";
 import { groupBox } from "./group.ts";
 import { ALIGNMENTS } from "./align.ts";
+import { readPassage } from "../../player/src/passage.ts";
 import { extraWordsOf, LIMITS, QUIZ_KINDS, quizKind, type QuestionEdit } from "./questionedit.ts";
 import { clockText, FORMAT_VERSION, Model, narratedName, type Change } from "./model.ts";
 import { askNewProject } from "./newproject.ts";
@@ -3762,6 +3763,9 @@ ${errorText(err)}`);
         case "matching": return this.matchingFields(q, edit);
         case "sequencing": return this.sequenceFields(q, edit);
         case "hotspot": return this.hotspotFields(m, o, q, edit);
+        case "essay": return this.essayFields(q, edit);
+        case "whichWord": return this.whichWordFields(q, edit);
+        case "shortcut": return this.shortcutFields(q, edit);
       }
     })();
 
@@ -3781,7 +3785,9 @@ ${errorText(err)}`);
         this.field("attempts", "Attempts allowed", q.scoring.attemptsAllowed, (v) => { const msg = m.setScoring(o.id, { attemptsAllowed: Number(v) }); if (msg) this.announce(msg); else { this.announce("Attempts must be a whole number from 1 to 10."); this.fillQuiz(o); } }, { number: true }),
         h("p", { class: "note", text: partial
           ? "A learner earns a share of the points for the parts that are right. The best of the attempts counts, so trying again never takes marks away. The question is finished when every part is right or the attempts are used up."
-          : "A right answer earns all the points and a wrong one none. The question is finished when it is right or the attempts are used up." })),
+          : q.questionType === "essay"
+            ? "An essay cannot be marked for you, so it earns all its points once it has enough words. A learner who writes too few is asked to write more, and that does not use up an attempt."
+            : "A right answer earns all the points and a wrong one none. The question is finished when it is right or the attempts are used up." })),
       h("fieldset", {}, h("legend", { text: "Feedback layers" }), ...feedback),
     ];
   }
@@ -3931,6 +3937,32 @@ ${errorText(err)}`);
         ...rows, add,
         h("div", { class: "field check" }, this.tick("checkbox", "drag", "Learners can also drag the items into order", q.drag, (on) => edit({ op: "drag", on })), h("label", { for: "p-drag", text: "Learners can also drag the items into order" })),
         h("p", { class: "note", text: "Dragging is an extra. The buttons are always there, which is how a keyboard and a screen reader answer." })),
+    ];
+  }
+
+  private essayFields(q: EssayQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    return [
+      h("fieldset", {}, h("legend", { text: "Written answer" }),
+        this.field("essay-min", "The fewest words that count as an answer, 0 for any answer", q.minWords, (v) => edit({ op: "minWords", words: Number(v) }), { number: true, describedBy: "essay-note" }),
+        h("p", { id: "essay-note", class: "note", text: "The learner writes in a box that shows how many words they have written. Nothing marks what they write: the question counts as answered once it has this many words. Their words go to the LMS as a long answer, for a person to read. The words are kept only for as long as the learner stays; a long answer cannot be saved with their place in the course." })),
+    ];
+  }
+
+  private whichWordFields(q: WhichWordQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    const read = readPassage(q.passage);
+    const right = read.words.filter((w) => w.right).map((w) => w.text);
+    return [
+      h("fieldset", {}, h("legend", { text: "Passage" }),
+        this.field("passage", "Passage, with each right word in [square brackets]", q.passage, (v) => edit({ op: "passage", text: v }), { area: true, rows: 6, describedBy: "passage-note" }),
+        h("p", { id: "passage-note", class: "note", text: `The learner reads the passage without the brackets and chooses one word, by clicking it or from a list of every word. Mark one word, or more than one if any of them is right. The passage has ${read.words.length} ${read.words.length === 1 ? "word" : "words"}; right: ${right.length === 0 ? "none yet" : right.join(", ")}.` })),
+    ];
+  }
+
+  private shortcutFields(q: ShortcutQuiz, edit: (e: QuestionEdit, key?: string) => void): HTMLElement[] {
+    return [
+      h("fieldset", {}, h("legend", { text: "Shortcuts that are right" }),
+        this.field("shortcut-keys", "Shortcuts that are right, one on each line", q.keys.join("\n"), (v) => edit({ op: "shortcutKeys", text: v }), { area: true, rows: 3, describedBy: "shortcut-note" }),
+        h("p", { id: "shortcut-note", class: "note", text: "Write each one as its keys joined by +, like Ctrl+Shift+S. Use Meta for the Windows key or the Command key of a Mac. A learner may type it any way (ctrl + shift + s, Control+Shift+S) or press the keys with the Capture the keys button. A browser keeps a few shortcuts for itself, such as Ctrl+W, so a learner can only type those." })),
     ];
   }
 

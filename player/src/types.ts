@@ -260,8 +260,30 @@ export interface HotspotQuiz extends QuizBase {
   regions: Region[];
 }
 
+/**
+ * A written answer of some length. No one can mark it for the author, so it is not marked: it counts as done, and earns its points, once it has at
+ * least `minWords` words. What the learner wrote goes to the LMS as a "long fill-in" for someone to read.
+ */
+export interface EssayQuiz extends QuizBase {
+  questionType: "essay";
+  /** The fewest words that count as an answer, 0 to 1000. 0 means any answer at all. */
+  minWords: number;
+}
+
+/** A passage to read, in which the learner chooses a word. The right word, or words, are marked [like this] in `passage`; see passage.ts. */
+export interface WhichWordQuiz extends QuizBase {
+  questionType: "whichWord";
+  passage: string;
+}
+
+/** A keyboard shortcut, typed or pressed. Right if it is any one of `keys`, each written in any way shortcut.ts reads. */
+export interface ShortcutQuiz extends QuizBase {
+  questionType: "shortcut";
+  keys: string[];
+}
+
 /** Any kind of question. Code that only needs the scoring and feedback can use this; code that needs more narrows it by `questionType`. */
-export type QuizContent = ChoiceQuiz | ShortAnswerQuiz | NumericQuiz | FillBlanksQuiz | MatchingQuiz | SequencingQuiz | HotspotQuiz;
+export type QuizContent = ChoiceQuiz | ShortAnswerQuiz | NumericQuiz | FillBlanksQuiz | MatchingQuiz | SequencingQuiz | HotspotQuiz | EssayQuiz | WhichWordQuiz | ShortcutQuiz;
 
 export type QuestionType = QuizContent["questionType"];
 

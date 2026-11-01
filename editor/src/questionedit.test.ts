@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { bankFor, applyEdit, extraWordsOf, lines, LIMITS, markersIn, QUIZ_KINDS, startingQuestion, type QuestionEdit, type QuizType } from "./questionedit.ts";
-import type { ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, SequencingQuiz, ShortAnswerQuiz } from "../../player/src/types.ts";
+import type { ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz } from "../../player/src/types.ts";
 
 const base = { scoring: { points: 10, attemptsAllowed: 2 }, feedback: { correct: "layer-1", incorrect: "layer-2" } };
 const make = <T extends QuizContent>(type: QuizType, imageSrc = "assets/images/map.png"): T => ({ ...JSON.parse(JSON.stringify(startingQuestion(type, imageSrc))), ...base }) as T;
@@ -244,6 +244,7 @@ test("an edit for another kind of question is refused", () => {
   const edits: [QuizType, QuestionEdit][] = [
     ["mc", { op: "shortAnswers", text: "x" }], ["short", { op: "choiceMode", multiple: true }], ["numeric", { op: "caseSensitive", on: true }],
     ["blanks", { op: "addPair" }], ["matching", { op: "addItem" }], ["sequence", { op: "addPair" }], ["hotspot", { op: "drag", on: true }],
+    ["essay", { op: "shortAnswers", text: "x" }], ["whichword", { op: "minWords", words: 5 }], ["shortcut", { op: "passage", text: "A [b]" }], ["mc", { op: "shortcutKeys", text: "F5" }],
   ];
   for (const [type, edit] of edits) {
     const q = make<QuizContent>(type);
@@ -251,4 +252,62 @@ test("an edit for another kind of question is refused", () => {
     assert.match(refused(run(q, edit))!, /does not belong to this kind of question/, `${type} ${edit.op}`);
     assert.equal(JSON.stringify(q), before);
   }
+});
+
+test("an essay starts needing 20 words, and the fewest words is a whole number from 0 to 1000", () => {
+  const q = make<EssayQuiz>("essay");
+  assert.equal(q.minWords, 20);
+  assert.match(ok(run(q, { op: "minWords", words: 50 })), /counts once it has 50 words/);
+  assert.equal(q.minWords, 50);
+  assert.match(ok(run(q, { op: "minWords", words: 1 })), /1 word\./);
+  assert.match(ok(run(q, { op: "minWords", words: 0 })), /Any answer counts/);
+  assert.equal(q.minWords, 0);
+  for (const bad of [-1, 1001, 2.5, Number.NaN]) {
+    assert.match(refused(run(q, { op: "minWords", words: bad }))!, /whole number from 0 to 1000/, String(bad));
+    assert.equal(q.minWords, 0, "a refused edit changes nothing");
+  }
+});
+
+test("a passage is refused until it can be a question, and says what to do", () => {
+  const q = make<WhichWordQuiz>("whichword");
+  assert.match(q.passage, /\[right\]/);
+  const before = q.passage;
+  const cases: [string, RegExp][] = [
+    ["", /needs some words/], ["  ... ", /needs some words/], ["No marks here.", /Put square brackets round the right word/],
+    ["An [] empty [mark]", /no word in it/], ["A mark across [two words] [here]", /holds one word/], ["The [dog barked loudly.", /holds one word/],
+    ["Marked [a][b] twice [here]", /marked twice/], [Array.from({ length: 301 }, () => "w").join(" ") + " [x]", /at most 300 words/], ["a ".repeat(2600) + "[b]", /at most 5000 characters/],
+  ];
+  for (const [text, why] of cases) {
+    assert.match(refused(run(q, { op: "passage", text }))!, why, JSON.stringify(text.slice(0, 30)));
+    assert.equal(q.passage, before, "a refused edit changes nothing");
+  }
+});
+
+test("a passage that can be a question is kept as written, and the message says what the right words are", () => {
+  const q = make<WhichWordQuiz>("whichword");
+  assert.equal(ok(run(q, { op: "passage", text: "  The dog [barked] loudly.\r\n" })), "The passage has 4 words. Right: barked.");
+  assert.equal(q.passage, "The dog [barked] loudly.", "trimmed, line ends tidied, nothing else touched");
+  assert.match(ok(run(q, { op: "passage", text: "Two [right] answers: both [correct]." })), /Right: right, correct\./);
+  assert.match(ok(run(q, { op: "passage", text: "The [cat] sat and the Cat ran." })), /cat comes again where it is wrong/);
+  assert.match(ok(run(q, { op: "passage", text: "[Everything] [is] [right]" })), /tests nothing/);
+});
+
+test("shortcuts are written the one way, repeats dropped, and one nobody could give is refused", () => {
+  const q = make<ShortcutQuiz>("shortcut");
+  assert.deepEqual(q.keys, ["Ctrl+S"]);
+  assert.match(ok(run(q, { op: "shortcutKeys", text: "ctrl + shift + s\nControl+Shift+S\n\nCmd+Shift+S" })), /2 shortcuts are right: Ctrl\+Shift\+S, Shift\+Meta\+S\./);
+  assert.deepEqual(q.keys, ["Ctrl+Shift+S", "Shift+Meta+S"]);
+  assert.match(ok(run(q, { op: "shortcutKeys", text: "F5" })), /^1 shortcut is right: F5\.$/);
+  const before = JSON.stringify(q);
+  assert.match(refused(run(q, { op: "shortcutKeys", text: "Ctrl+S\nCtrl+Banana" }))!, /"Ctrl\+Banana" is not a keyboard shortcut/);
+  assert.match(refused(run(q, { op: "shortcutKeys", text: " \n " }))!, /at least one shortcut/);
+  assert.match(refused(run(q, { op: "shortcutKeys", text: Array.from({ length: 11 }, (_, i) => `F${i + 1}`).join("\n") }))!, /at most 10/);
+  assert.equal(JSON.stringify(q), before, "a refused edit changes nothing");
+});
+
+test("a shortcut a browser keeps for itself is allowed, with a word about it", () => {
+  const q = make<ShortcutQuiz>("shortcut");
+  const said = ok(run(q, { op: "shortcutKeys", text: "ctrl+w\nCtrl+S" }));
+  assert.deepEqual(q.keys, ["Ctrl+W", "Ctrl+S"]);
+  assert.match(said, /A browser keeps Ctrl\+W for itself, so a learner cannot press it on a page\. They can still type it\./);
 });

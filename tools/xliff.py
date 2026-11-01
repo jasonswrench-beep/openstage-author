@@ -39,6 +39,7 @@ from collections import Counter
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I mode drops the script folder
 import validate  # noqa: E402
+from quiztext import read_passage  # noqa: E402
 
 PLAYER_TEXT = validate.PLAYER_TEXT   # tools/player-text.json: each of the player's own words with its English
 PLAYER_GROUP = "The player's own words"
@@ -417,6 +418,7 @@ SPECS = {
         _p("content.wordBank.[]", "Word bank"), _p("content.blanks.[].answers.[]", "Accepted answer for a blank"),
         _p("content.answers.[]", "Accepted answer"), _p("content.text", "Text with blanks"), _p("content.image.alt", "Picture description"),
         _p("content.regions.[].label", "Place on the picture"),
+        _p("content.passage", "Passage to choose a word from: keep the [square brackets] round the right word"),
     ],
     "scenario": [
         _p("content.meters.[].label", "Meter"), _p("content.reflection", "Reflection"),
@@ -602,7 +604,7 @@ NOT_WORDS = [
     "OBJ.content.variable", "OBJ.content.characters.*", "OBJ.content.finishedVariable", "OBJ.content.you", "OBJ.content.start",
     "OBJ.content.options.[].value", "OBJ.content.options.[].id", "OBJ.content.items.[].id", "OBJ.content.items.[].variable", "OBJ.content.items.[].image.src",
     "OBJ.content.rows.[].id", "OBJ.content.rows.[].variable", "OBJ.content.choices.[].id", "OBJ.content.blanks.[].id",
-    "OBJ.content.graphic.src", "OBJ.content.image.src", "OBJ.content.regions.[].id",
+    "OBJ.content.graphic.src", "OBJ.content.image.src", "OBJ.content.regions.[].id", "OBJ.content.keys.[]",
     "OBJ.content.meters.[].id", "OBJ.content.meters.[].variable",
     "OBJ.content.nodes.[].id", "OBJ.content.nodes.[].kind", "OBJ.content.nodes.[].choices.[].id", "OBJ.content.nodes.[].choices.[].next",
     "OBJ.content.nodes.[].choices.[].effects.*", "OBJ.content.nodes.[].choices.[].response.[].speaker", "OBJ.content.nodes.[].choices.[].response.[].pose",
@@ -669,8 +671,9 @@ _ACCENTS = dict(zip("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
                     "àƀçďéƒĝĥìĵķłḿñöþqŕšťüṿẃxýžÀßÇĎÉFĜĤÌĴĶĿṀÑÖÞQŔŠŤÜṼẂXÝŽ"))
 
 
-def pseudo(text):
-    """Accented and longer, the way a translation often is, with {placeholders} left alone."""
+def pseudo(text, marked=False):
+    """Accented and longer, the way a translation often is, with {placeholders} left alone. A passage with its right word in [square brackets] is not
+    wrapped in more brackets, which would be another mark."""
     out, last = [], 0
     for m in PLACEHOLDER.finditer(text):
         out.append("".join(_ACCENTS.get(ch, ch) for ch in text[last:m.start()]))
@@ -679,11 +682,31 @@ def pseudo(text):
     out.append("".join(_ACCENTS.get(ch, ch) for ch in text[last:]))
     body = "".join(out)
     words = len(text.split())
+    if marked:
+        return f"{body}{' ~' * max(1, words // 3)}"
     return f"[{body}{' ~' * max(1, words // 3)}]"
 
 
-def pseudo_items(items):
-    return [("t", pseudo(val), 0, 0) if kind == "t" and LETTER.search(val) else (kind, val, i, pr) for kind, val, i, pr in items]
+def pseudo_items(items, marked=False):
+    return [("t", pseudo(val, marked), 0, 0) if kind == "t" and LETTER.search(val) else (kind, val, i, pr) for kind, val, i, pr in items]
+
+
+def _is_passage(unit):
+    """The passage of a which-word question: its right word is marked with square brackets, which a translation has to keep."""
+    return unit.kind == "plain" and tuple(unit.pointer[-2:]) == ("content", "passage")
+
+
+_MARK = re.compile(r"\[[^\[\]]+\]")
+
+
+def _passage_problem(source, target):
+    """Why a translated passage cannot be put back, or None: it must have the same number of marks, each round one word."""
+    if len(_MARK.findall(source)) != len(_MARK.findall(target)):
+        return "the [square brackets] that mark the right word were lost or added"
+    new = [p for p in read_passage(target)["problems"] if p not in read_passage(source)["problems"]]
+    if new:
+        return "the right word is no longer one word in square brackets (" + ", ".join(new) + ")"
+    return None
 
 
 # ---------------------------------------------------------------- export
@@ -719,7 +742,7 @@ def export(project_dir, target_language, make_pseudo=False):
             out.append(f'        <trans-unit id="{xesc(u.id)}" xml:space="preserve" restype="x-{u.kind}">')
             out.append(f'          <source xml:lang="{xesc(source_language)}">{items_to_xml(source_items)}</source>')
             if make_pseudo:
-                target = pseudo_items(source_items)
+                target = pseudo_items(source_items, _is_passage(u))
                 out.append(f'          <target xml:lang="{xesc(target_language)}" state="needs-review-translation">{items_to_xml(target)}</target>')
             out.append(f'          <note from="developer">{xtext(u.note)}</note>')
             out.append('        </trans-unit>')
@@ -869,6 +892,8 @@ def import_xliff(project_dir, xliff, out_dir=None, language=None, into=None):
             report["rejected"].append({"id": u.id, "reason": "this is plain text, but the translation has tags in it"})
             continue
         problem = _markup_problem(strip_edges(source_items), target_items)
+        if not problem and _is_passage(u):
+            problem = _passage_problem(u.text, "".join(v for _, v, _, _ in target_items))
         if problem:
             report["rejected"].append({"id": u.id, "reason": problem})
             continue

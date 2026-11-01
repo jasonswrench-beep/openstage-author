@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.46.0",
+  "schemaVersion": "0.47.0",
   "meta": {
     "title": "Question types",
     "author": "",
@@ -36,6 +36,9 @@
         "slide-010",
         "slide-011",
         "slide-012",
+        "slide-014",
+        "slide-015",
+        "slide-016",
         "slide-013"
       ]
     }

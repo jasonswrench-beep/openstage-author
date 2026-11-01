@@ -22,7 +22,10 @@ parts that are right, the best attempt counts, and every question in this course
 | 10 Drag and drop | Drag each match onto its item | The match appears in the item's list. Check: right |
 | 11 Sequencing | Drag the grips (the dots at the left) to put the steps in order, or use Move up and Move down | The order changes, and each move is announced. Check: right when in order |
 | 12 Hotspot | Click the cafe on the picture, Check (wrong). Then choose "Library, top left" from the list under the picture, Check | The first is wrong, the second right |
-| 13 Your results | Look at the box | "partly correct" lines for any question you left partly right, and the score |
+| 13 Essay | Type a few words (fewer than 20) and Check. Then keep writing to 20 words or more and Check | With fewer than 20 it says "Write at least 20 words first" and no try is used. With 20 or more it is accepted (full points), and the box can still be read but not changed. The count under the box follows what you type, and it does not announce itself on every word |
+| 14 Choose a word | Click "sender" in the passage and Check (wrong). Then choose "channel" from the list under the passage and Check | The first is wrong, the second right. Choosing from the list marks the word in the passage |
+| 15 Keyboard shortcut | Type `ctrl + x` and Check (wrong). Then press Capture the keys, press Ctrl and C together, and Check | The first is wrong. Capture writes `Ctrl+C` in the box and the second is right (Cmd+C is accepted too) |
+| 16 Your results | Look at the box | "partly correct" lines for any question you left partly right, and the score |
 
 ## With the keyboard only (no mouse)
 
@@ -32,6 +35,9 @@ Every question must be answerable with Tab, Shift+Tab, the arrow keys, Space and
 2. Slides 8, 10 and 11 can be dragged, but you should not need to: use the drop-down in each blank or item (slides 8 and 10) and the Move up and Move down
    buttons (slide 11). **Expect:** nothing important is missing, and the words that can be dragged are not announced twice.
 3. Slide 12: the areas on the picture cannot be reached with Tab, on purpose. The list under the picture is the way. **Expect:** choosing from it works.
+4. Slide 14: the words of the passage cannot be reached with Tab, on purpose. The list under the passage is the way. **Expect:** choosing from it works.
+5. Slide 15: Tab to Capture the keys, press Enter, then press the keys. **Expect:** it writes them in the box and goes back to being a button. Escape on its own
+   stops it. Pressing Tab while it listens counts as the answer "Tab", and the next Tab moves on: it must never hold you.
 
 ## A screen reader (optional)
 

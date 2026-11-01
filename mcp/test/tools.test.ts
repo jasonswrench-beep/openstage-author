@@ -405,6 +405,75 @@ test("questions become slides: one each, with their right answers, feedback and 
   }
 });
 
+test("an essay, a choose-a-word and a shortcut question are made by the editor's own rules, with their own words and tries", async () => {
+  const w = await started();
+  try {
+    const r = await w.call("add_questions", {
+      questions: [
+        { type: "essay", question: "Why does the channel matter?", minWords: 30 },
+        { type: "word", question: "Which word is the route?", passage: "A message travels along a [channel] to the receiver." },
+        { type: "shortcut", question: "How do you save?", shortcuts: ["ctrl + s", "Cmd+S", "CTRL+S"], points: 4 },
+        { type: "essay", question: "Say anything." },
+      ],
+    });
+    assert.ok(r.ok, r.text);
+    assert.equal(r.data.length, 4);
+    const quizOf = async (slide: number) => (await w.call("get_slide", { slide })).data.layers[0].objects.find((o: any) => o.type === "quizQuestion");
+    const essay = await quizOf(2);
+    assert.deepEqual([essay.question.kind, essay.question.minWords], ["essay", 30]);
+    const word = await quizOf(3);
+    assert.deepEqual([word.question.kind, word.question.passage], ["whichWord", "A message travels along a [channel] to the receiver."]);
+    const keys = await quizOf(4);
+    assert.deepEqual([keys.question.kind, keys.question.shortcuts], ["shortcut", ["Ctrl+S", "Meta+S"]], "written the one way, repeats dropped");
+    assert.equal((await quizOf(5)).question.minWords, 20, "the editor's own starting number when none is given");
+    const saved = JSON.parse(readFileSync(path.join(w.folder, "Course.osproj", "slides", "slide-002.json"), "utf-8"));
+    const content = saved.baseLayer.objects.find((o: any) => o.type === "quizQuestion").content;
+    assert.deepEqual([content.scoring, content.minWords], [{ points: 10, attemptsAllowed: 1 }, 30], "an essay has one try");
+    assert.match(JSON.stringify(saved.layers), /Thank you\. Your answer has been kept\./, "its feedback does not talk about a right or wrong answer");
+    const kept = JSON.parse(readFileSync(path.join(w.folder, "Course.osproj", "slides", "slide-004.json"), "utf-8"));
+    assert.deepEqual(kept.baseLayer.objects.find((o: any) => o.type === "quizQuestion").content.scoring, { points: 4, attemptsAllowed: 2 });
+  } finally {
+    w.done();
+  }
+});
+
+test("the new kinds of question pass the check, and a browser-kept shortcut is a warning, not an error", { skip: !havePython }, async () => {
+  const w = await started();
+  try {
+    await w.call("add_questions", {
+      questions: [
+        { type: "essay", question: "Why does the channel matter?", minWords: 30 },
+        { type: "word", question: "Which word is the route?", passage: "A message travels along a [channel] to the receiver." },
+        { type: "shortcut", question: "How do you close a tab?", shortcuts: ["Ctrl+W"] },
+      ],
+    });
+    const result = await w.call("check_course");
+    assert.equal(result.data.errors, 0, JSON.stringify(result.data.findings, null, 1));
+    assert.ok(result.data.findings.some((f: any) => f.rule === "quiz-shortcut-reserved"), "the browser-kept shortcut is said");
+  } finally {
+    w.done();
+  }
+});
+
+test("a passage or a shortcut that cannot be a question is refused in the editor's words, by number, and nothing is added", async () => {
+  const w = await started();
+  try {
+    const bad = (questions: unknown[]) => w.call("add_questions", { questions });
+    assert.match((await bad([{ type: "word", question: "Q?", passage: "No marks here." }])).text, /Question 1: Put square brackets round the right word/);
+    assert.match((await bad([{ type: "word", question: "Q?" }])).text, /Question 1: The passage needs some words/);
+    assert.match((await bad([{ type: "word", question: "Q?", passage: "A mark across [two words] here" }])).text, /Question 1: A mark holds one word/);
+    assert.match((await bad([{ type: "shortcut", question: "Q?", shortcuts: ["Ctrl+Banana"] }])).text, /Question 1: "Ctrl\+Banana" is not a keyboard shortcut/);
+    assert.match((await bad([{ type: "shortcut", question: "Q?" }])).text, /Question 1: Write at least one shortcut that is right/);
+    assert.match((await bad([{ type: "mc", question: "Fine?", answers: ["a", "b"], correct: [1] }, { type: "word", question: "Q?", passage: "x" }])).text, /Question 2: Put square brackets/);
+    const tooMany = await bad([{ type: "essay", question: "Q?", minWords: 5000 }]);
+    assert.equal(tooMany.ok, false);
+    assert.match(tooMany.text, /minWords/);
+    assert.equal((await w.call("get_course")).data.slides.length, 1);
+  } finally {
+    w.done();
+  }
+});
+
 test("a question that does not make sense is refused by number, and nothing is added", async () => {
   const w = await started();
   try {
@@ -416,7 +485,7 @@ test("a question that does not make sense is refused by number, and nothing is a
     assert.match((await bad([{ type: "tf", question: "Q?", correct: [3] }])).text, /Question 1 is true or false/);
     assert.match((await bad([{ type: "short", question: "Q?" }])).text, /at least one accepted answer/);
     assert.match((await bad([{ type: "mc", question: "Fine?", answers: ["a", "b"], correct: [1] }, { type: "mc", question: " ", answers: ["a", "b"], correct: [1] }])).text, /Question 2 has no words/);
-    assert.match((await bad([{ type: "essay", question: "Q?" }])).text, /type must be one of: mc, mr, tf, short/);
+    assert.match((await bad([{ type: "hotspot", question: "Q?" }])).text, /type must be one of: mc, mr, tf, short, essay, word, shortcut/);
     assert.match((await bad([])).text, /at least 1 item/);
     assert.equal((await w.call("get_course")).data.slides.length, 1);
   } finally {

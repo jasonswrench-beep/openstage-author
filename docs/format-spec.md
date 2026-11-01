@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.46.0",
+  "schemaVersion": "0.47.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -978,12 +978,39 @@ the group of controls for a screen reader.
 | `matching` | `drag`, `pairs` (2 to 10, each `id`, `premise`, `match`), `extras` (0 to 5 matches that fit nothing) | Chooses a match for each item from a drop-down, or drags matches onto the items | A share: the items matched rightly over all the items |
 | `sequencing` | `drag`, `items` (2 to 10, each `id`, `text`, listed in the right order) | Puts the items in order with Move up and Move down, or drags them | A share: the items in their right place over all the items |
 | `hotspot` | `image` (`src`, `alt`), `regions` (2 to 12, each `id`, `label`, `x`, `y`, `width`, `height` in percent of the picture, `correct`) | Chooses an area of a picture, by clicking it or from a list of the areas by label | All or nothing; right if the area is one marked `correct` |
+| `essay` (0.47.0) | `minWords` (a whole number from 0 to 1000) | Writes an answer in a box that counts the words | All or nothing, but not marked for what it says: right once it has `minWords` words (and at least one) |
+| `whichWord` (0.47.0) | `passage` (up to 5000 characters and 300 words, with each right word in `[square brackets]`) | Chooses a word of the passage, by clicking it or from a list of every word | All or nothing; right if the word chosen is one that is marked |
+| `shortcut` (0.47.0) | `keys` (1 to 10 keyboard shortcuts, each written like `Ctrl+Shift+S`) | Types a keyboard shortcut, or presses the keys with a Capture the keys button | All or nothing; right if it is any one of `keys`, however it was written |
 
 **Answers.** A typed answer has its spaces tidied, and its capitals ignored unless `caseSensitive` is on. A typed number may use `1,234` for a thousand
 and more, or `1,5` for one and a half, and a sum a hair off (0.1 + 0.2 for 0.3) is accepted. In a drop-down or a dragged blank the word must be
 exactly a word of the `wordBank`, and the right word of each blank is the first of its `answers`; the bank holds every right word and may hold extras.
 Matches and extras must read differently, because a learner chooses among them. The sentence of a `fillBlanks` marks each blank `{1}`, `{2}` and so
 on, and every marker has a blank and every blank a marker.
+
+**Essay, choose a word and shortcut** (added in 0.47.0).
+
+- An **essay** cannot be marked for the author, so it counts as answered, and earns all its points, once the learner has written `minWords` words (at least
+  one, whatever `minWords` says). A word is a run of letters or numbers between spaces: a dash or a mark on its own is not one. A learner who has written too few is told
+  how many to write, and that is not an attempt. The box shows the number of words as plain text that a screen reader reads when the box is focused; it is not a live
+  region, so nothing is said as the learner types. A finished essay is read only, not disabled, so it can still be read. What was written goes to the LMS and is
+  read by a person there. It is cut to 255 characters, with its spaces tidied, because SCORM 1.2 holds no more; a long essay is not kept in the learner's place when they
+  leave (an answer of more than 200 characters is not kept), so it is not put back, though a question that is finished is still finished.
+- A **which-word** passage is read the same way by the player (`player/src/passage.ts`), the validator (`tools/quiztext.py`) and the editor, and all are tested against
+  `tools/passage-cases.json`. Words are runs of anything but spaces, with the punctuation round them taken off (`"[yes]",` is the word `yes`); a word is chosen
+  by its place (`w1`, `w2`, and so on), so a word that comes twice is two choices. More than one word may be marked, and any of them is right. The learner reads the passage
+  with no marks. The words are for the mouse and touch and read as plain text; the way to answer with a keyboard or a screen reader is a drop-down list of every word (a word
+  that comes more than once has its place in the list, `cat (word 5)`). The right words are never in the page as a class or an attribute. The validator refuses a passage with
+  no words (`quiz-passage-empty`), none marked (`quiz-correct-answer`), an empty mark (`quiz-passage-empty-mark`), a mark that runs across words or a bracket with no partner
+  (`quiz-passage-split-mark`), one word marked twice (`quiz-passage-double-mark`) or more than 300 words (`quiz-passage-too-long`), and warns when every word is marked
+  (`quiz-all-correct`) or a right word comes again where it is wrong (`quiz-word-repeated`).
+- A **shortcut** is compared as the keys it means. `ctrl + shift + s`, `Control+Shift+S` and `Shift+Ctrl+S` are the same (`player/src/shortcut.ts` and `tools/quiztext.py`, tested against
+  `tools/shortcut-cases.json`). The modifiers are `Ctrl`, `Alt`, `Shift` and `Meta` (also `Cmd`, `Command`, `Win`, `Option`), always written in that order, then one key: a letter, a digit,
+  a mark, `F1` to `F24`, or `Enter`, `Escape`, `Space`, `Tab`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right`. The editor writes `keys` in that one way. The
+  **Capture the keys** button listens for the next key pressed with it focused and writes it by the physical key (so `Shift+1` is `Shift+1`, whatever the keyboard writes on it). It cannot trap anyone:
+  any one key ends it (Tab included: that is then the answer, and the next Tab moves on), Escape on its own stops it with no answer (to answer Escape, type it), and leaving the button stops it.
+  The validator refuses a shortcut it cannot read (`quiz-shortcut-unreadable`) and warns about one written twice (`quiz-shortcut-duplicate`) or one a browser keeps for itself, such as `Ctrl+W` or
+  `Alt+F4`, which a learner cannot press on a page (`quiz-shortcut-reserved`; they can still type it).
 
 **Shuffled answers** (added in 0.33.0). A `multipleChoice` or `multipleResponse` question may have `"shuffle": true`. Each learner is then shown its answers in an order of their own, worked out from the number the player gives that
 learner when they begin and the question's id, so the same learner sees the same order each time they come back (and after they resume), and another learner sees another. Grading goes by each answer's `id`, so nothing else changes.
@@ -1011,7 +1038,8 @@ author's to change.
 **What the LMS is told.** Each submission is one interaction, of the SCORM type that fits: `choice` for multiple choice, multiple response and hotspot (the
 letters of the choices or areas, `a`, `b`, `c` in the order written), `fill-in` for short answer and fill in the blanks, `numeric` for a number (its range
 as `min#max`), `matching` (`1.a,2.b`, the item number and the letter of its match) and `sequencing` (the letters of the items in the learner's order). A
-long answer is cut to the 255 characters SCORM 1.2 allows.
+long answer is cut to the 255 characters SCORM 1.2 allows. An essay is a `fill-in` in SCORM 1.2 with no correct response, and a long fill-in (`long_fill_in` in SCORM 2004, `long-fill-in` in xAPI)
+there. A which-word question is a `fill-in` whose answer is the word chosen and whose patterns are the right words; a shortcut is a `fill-in` whose answer and patterns are written the one way (`Ctrl+Shift+S`).
 
 ## Timing
 
@@ -1604,6 +1632,8 @@ project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bund
   | Number | `numeric` | a number, and the pattern `1[:]5` for a range or `7` for an exact answer |
   | Short answer | `fill_in` | the text; the pattern begins `{case_matters=true}` when capitals matter |
   | Fill in the blanks | `fill_in` | each blank joined by `[,]`; the pattern begins `{case_matters=...}{order_matters=true}` (a word picked from a list is exact) |
+  | Choose a word, keyboard shortcut | `fill_in` | the word, or the shortcut written the one way; the patterns are each right word, or each right shortcut |
+  | Essay | `long_fill_in` | what was written, spaces tidied, up to 255 characters; no correct response |
 
   A number question answered with something that is not a number is sent as type `other`. A separator typed inside a learner's
   words (`[,]`, `[.]`, `[:]`) is changed to have a space in it, so it cannot be mistaken for one. An input the author chose to
@@ -1675,6 +1705,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.46.0 | 0.47.0 | Adds three kinds of quiz question: `essay` (`minWords`), `whichWord` (`passage`) and `shortcut` (`keys`). Nothing in an older course changes. |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |
 | 0.45.0 | 0.46.0 | Adds the optional `playerText` of a project: the player's own words (Next, Listen and the rest) in the course's language. Nothing in an older course changes. |
 | 0.43.0 | 0.44.0 | Adds the `labeledGraphic` kind of interaction: a picture (`content.graphic`, with its alt text) with a numbered marker for each item, placed by the item's `x` and `y` as percentages of the picture. Nothing in an older course changes. |

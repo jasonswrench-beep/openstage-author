@@ -552,15 +552,17 @@ the cast; its Properties panel lists the cast with a box for each person to offe
 you that a screen reader depends on, and the Narration dialog lists a scenario's spoken lines. The example `examples/scenario.osproj` is a small scenario with a
 cast of three, a choice of character, two meters and an ending that shows a layer.
 
-**Quiz questions.** "Question, input or survey..." in the Add menu opens a picker with twelve kinds of question in five groups: Choose
-(multiple choice, true or false, multiple response), Type an answer (short answer, number), Fill in the blanks (typed, from drop-downs, drag the
+**Quiz questions.** "Question, input or survey..." in the Add menu opens a picker with fifteen kinds of question in five groups: Choose
+(multiple choice, true or false, multiple response, choose a word), Type an answer (short answer, number, essay, keyboard shortcut), Fill in the blanks (typed, from drop-downs, drag the
 words), Match and order (matching, drag and drop, sequencing) and Pictures (hotspot). Each builds the question as a heading, the question itself, and
 two feedback layers (right, and wrong or partly right) that are already wired to it. A hotspot asks for its picture first. Select the question to edit
 what belongs to its kind, which is all in the Properties panel and all keyboard operable: answers with a radio button or check box for the right ones
 (and a box to switch between one right answer and several); the accepted answers of a short answer, one on each line; the right number and how far off
 may be accepted; the sentence of a fill in the blanks with an Insert a blank button, each blank's answers, and a word bank with extra words; items and
 their matches with Move earlier and Move later; the items of a sequence in the right order; a hotspot's picture, its description and its areas as
-percentages, with the canvas showing the areas as dashed boxes (solid for a right one). The placeholder text is yours to replace, and alt text is never filled
+percentages, with the canvas showing the areas as dashed boxes (solid for a right one); an essay's fewest words (it is not marked, and counts once it has that many; a new one starts at 20); the passage of a choose-a-word question with each
+right word in [square brackets], which is refused until it has words, a marked word and no stray bracket, and the canvas shows the right words in green; the shortcuts that are right, one on each line, which are written the one way as you leave the box (`ctrl + s` becomes `Ctrl+S`) and
+refused if they cannot be read. The placeholder text is yours to replace, and alt text is never filled
 in for you: a hotspot's picture description is required. **Points** and **Attempts allowed** are for every kind, and a question with several parts earns a
 share of its points for each part that is right (the best attempt counts); a question worth 0 points is practice. Dragging, where a question has it, is an
 extra over the drop-downs and buttons, which stay. **Write the narration from the question** in the Narration box writes what the question shows (what to do,

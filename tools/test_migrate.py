@@ -31,9 +31,9 @@ class Migration(unittest.TestCase):
 
     def test_the_update_gives_the_project_a_theme_and_slides_a_layout_and_background(self):
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.1.0", "0.47.0"))
         project = self.load("project.json")
-        self.assertEqual(project["schemaVersion"], "0.46.0")
+        self.assertEqual(project["schemaVersion"], "0.47.0")
         self.assertEqual(project["theme"], {"ref": "theme.json"})
         self.assertEqual(self.load("theme.json")["id"], "classic")
         for name in ("slide-001", "slide-002"):
@@ -128,9 +128,9 @@ class CompletionSetting(unittest.TestCase):
     def test_a_0_8_0_course_keeps_counting_every_slide(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.8.0", "0.47.0"))
         project = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.46.0")
+        self.assertEqual(project["schemaVersion"], "0.47.0")
         self.assertEqual(project["completion"], {"slides": "all"})
         keys = list(project)
         self.assertEqual(keys[keys.index("credits") + 1], "completion", "the new setting sits beside the credits switch")
@@ -168,9 +168,9 @@ class ResultsAndCertificates(unittest.TestCase):
         slide_before = (self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.9.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         self.assertEqual(json.loads((self.dir / "slides" / "slide-001.json").read_text(encoding="utf-8")),
@@ -212,7 +212,7 @@ class ItemNarration(unittest.TestCase):
     def test_a_0_10_0_course_is_refused_until_updated_then_every_item_has_a_null_narration(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.10.0", "0.47.0"))
         count = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -254,9 +254,9 @@ class FilesToDownload(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.11.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -292,7 +292,7 @@ class ObjectTiming(unittest.TestCase):
     def test_every_object_gets_the_starting_timing_after_its_triggers_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.12.0", "0.47.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -351,7 +351,7 @@ class ObjectAnimation(unittest.TestCase):
     def test_every_object_gets_no_effect_after_its_timing_and_nothing_else_changes(self):
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.13.0", "0.47.0"))
         objects = 0
         for name, was in self.before.items():
             now = json.loads((self.dir / "slides" / name).read_text(encoding="utf-8"))
@@ -403,9 +403,9 @@ class Scenarios(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.20.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.20.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         self.assertNotIn("characters", after, "no cast is invented")
@@ -435,9 +435,9 @@ class IconsAndNavigation(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.21.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.21.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -466,9 +466,9 @@ class MediaTiming(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.22.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.22.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -497,9 +497,9 @@ class Looks(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.23.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.23.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -529,9 +529,9 @@ class GeneratedMaterial(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.25.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.25.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -560,9 +560,9 @@ class ObjectLocking(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.14.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.14.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -602,9 +602,9 @@ class QuestionTypes(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.15.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.15.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -633,9 +633,9 @@ class ObjectGroups(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.16.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.16.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -674,9 +674,9 @@ class CaptureGroundwork(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.17.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.17.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -719,9 +719,9 @@ class AudioDescription(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.18.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.18.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -751,9 +751,9 @@ class ThemeLogo(unittest.TestCase):
         theme_before = (self.dir / "theme.json").read_bytes() if (self.dir / "theme.json").exists() else None
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.19.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.19.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -784,9 +784,9 @@ class DeckProvenance(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.24.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.24.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -815,9 +815,9 @@ class CaptureBaseAdded(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.26.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.26.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -846,9 +846,9 @@ class AltSuggestionAdded(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.27.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.27.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -877,9 +877,9 @@ class PosesAdded(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.28.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.28.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -908,9 +908,9 @@ class BubblesAdded(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.29.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.29.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -939,9 +939,9 @@ class Version30To31(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.30.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.30.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -970,9 +970,9 @@ class Version31To32(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.31.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.31.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1001,9 +1001,9 @@ class Version32To33(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.32.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.32.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1032,9 +1032,9 @@ class Version33To34(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.33.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.33.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1063,9 +1063,9 @@ class Version34To35(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.34.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.34.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1094,9 +1094,9 @@ class Version35To36(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.35.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.35.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1125,9 +1125,9 @@ class Version36To37(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.36.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.36.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1156,9 +1156,9 @@ class Version37To38(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.37.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.37.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1187,9 +1187,9 @@ class Version38To39(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.38.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.38.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1218,9 +1218,9 @@ class Version39To40(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.39.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.39.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1249,9 +1249,9 @@ class Version40To41(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.40.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.40.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1284,9 +1284,9 @@ class Version41To42(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.41.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.41.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1314,9 +1314,9 @@ class Version42To43(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.42.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.42.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1344,9 +1344,9 @@ class Version43To44(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.43.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.43.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1374,9 +1374,9 @@ class Version44To45(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.44.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.44.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():
@@ -1405,9 +1405,40 @@ class Version45To46(unittest.TestCase):
         slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
         self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
         report = migrate.migrate(self.dir)
-        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.45.0", "0.46.0"))
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.45.0", "0.47.0"))
         after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(after.pop("schemaVersion"), "0.46.0")
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
+        before.pop("schemaVersion")
+        self.assertEqual(after, before, "only the version changes")
+        for name, data in slides_before.items():
+            self.assertEqual(json.loads((self.dir / "slides" / name).read_text(encoding="utf-8")), json.loads(data), "slides are unchanged")
+        self.assertEqual(report["notes"], [], "nothing to tell the author")
+        self.assertEqual([f for f in validate.validate_project(self.dir) if f.severity == "error"], [])
+
+
+class Version46To47(unittest.TestCase):
+    """0.46.0 to 0.47.0: Adds three kinds of quiz question: essay, whichWord and shortcut. Nothing in an existing project has to change."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "scenario.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        project["schemaVersion"] = "0.46.0"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_0_46_0_course_is_updated_and_nothing_else_changes(self):
+        before = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        slides_before = {p.name: p.read_bytes() for p in (self.dir / "slides").glob("*.json")}
+        self.assertEqual([f.rule for f in validate.validate_project(self.dir)], ["needs-migration"])
+        report = migrate.migrate(self.dir)
+        self.assertEqual((report["status"], report["from"], report["to"]), ("updated", "0.46.0", "0.47.0"))
+        after = json.loads((self.dir / "project.json").read_text(encoding="utf-8"))
+        self.assertEqual(after.pop("schemaVersion"), "0.47.0")
         before.pop("schemaVersion")
         self.assertEqual(after, before, "only the version changes")
         for name, data in slides_before.items():

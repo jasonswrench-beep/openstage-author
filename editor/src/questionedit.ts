@@ -3,7 +3,9 @@
 // builds the command from what the author typed. No page and no project in here, so all of it is tested directly.
 
 import { stableShuffle } from "../../player/src/grading.ts";
-import type { Blank, ChoiceQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, Region, SequencingQuiz, ShortAnswerQuiz } from "../../player/src/types.ts";
+import { MAX_PASSAGE_WORDS, readPassage } from "../../player/src/passage.ts";
+import { BROWSER_KEEPS, canonicalShortcut } from "../../player/src/shortcut.ts";
+import type { Blank, ChoiceQuiz, EssayQuiz, FillBlanksQuiz, HotspotQuiz, MatchingQuiz, NumericQuiz, QuizContent, Region, SequencingQuiz, ShortAnswerQuiz, ShortcutQuiz, WhichWordQuiz } from "../../player/src/types.ts";
 
 /** A question without its scoring and feedback, whichever kind it is. */
 export type QuestionBody<T = QuizContent> = T extends QuizContent ? Omit<T, "scoring" | "feedback"> : never;
@@ -35,12 +37,15 @@ export type QuestionEdit =
   | { op: "deleteRegion"; id: string }
   | { op: "regionLabel"; id: string; label: string }
   | { op: "regionRect"; id: string; patch: Partial<Pick<Region, "x" | "y" | "width" | "height">> }
-  | { op: "regionCorrect"; id: string; correct: boolean };
+  | { op: "regionCorrect"; id: string; correct: boolean }
+  | { op: "minWords"; words: number }
+  | { op: "passage"; text: string }
+  | { op: "shortcutKeys"; text: string };
 
 /** A message for the author, or a refusal with the reason. A refused edit changes nothing. */
 export type EditResult = string | { refuse: string };
 
-export const LIMITS = { choices: 8, answers: 10, blanks: 10, pairs: 10, extras: 5, items: 10, regions: 12, bank: 30 } as const;
+export const LIMITS = { choices: 8, answers: 10, blanks: 10, pairs: 10, extras: 5, items: 10, regions: 12, bank: 30, keys: 10, minWords: 1000, passageChars: 5000 } as const;
 
 const refuse = (reason: string): EditResult => ({ refuse: reason });
 
@@ -350,6 +355,55 @@ function editHotspot(q: HotspotQuiz, e: QuestionEdit): EditResult {
   }
 }
 
+function editEssay(q: EssayQuiz, e: QuestionEdit): EditResult {
+  if (e.op !== "minWords") return refuse("That change does not belong to this kind of question.");
+  if (!Number.isInteger(e.words) || e.words < 0 || e.words > LIMITS.minWords) return refuse(`The fewest words has to be a whole number from 0 to ${LIMITS.minWords}.`);
+  q.minWords = e.words;
+  return e.words === 0 ? "Any answer counts, once something is written. An essay is not marked." : `The answer counts once it has ${e.words} ${e.words === 1 ? "word" : "words"}. An essay is not marked.`;
+}
+
+const PASSAGE_PROBLEMS: Record<string, string> = {
+  "no-words": "The passage needs some words.",
+  "none-marked": "Put square brackets round the right word, like [this].",
+  "empty-mark": "A pair of square brackets has no word in it. Put the right word between them.",
+  "split-mark": "A mark holds one word: [like] [this], not [like this]. A bracket with no partner is the same mistake.",
+  "double-mark": "A word is marked twice. Mark it once.",
+  "too-many-words": `A passage can have at most ${MAX_PASSAGE_WORDS} words, because a learner chooses from a list of them.`,
+};
+
+function editWhichWord(q: WhichWordQuiz, e: QuestionEdit): EditResult {
+  if (e.op !== "passage") return refuse("That change does not belong to this kind of question.");
+  const text = e.text.replace(/\r\n/g, "\n").trim();
+  if (text.length > LIMITS.passageChars) return refuse(`The passage can have at most ${LIMITS.passageChars} characters.`);
+  const read = readPassage(text);
+  const first = read.problems[0];
+  if (first !== undefined) return refuse(PASSAGE_PROBLEMS[first] ?? "The passage cannot be used as it is.");
+  q.passage = text;
+  const right = read.words.filter((w) => w.right).map((w) => w.text);
+  const again = [...new Set(right.filter((r) => read.words.some((w) => !w.right && w.text.toLowerCase() === r.toLowerCase())))];
+  const parts = [`The passage has ${read.words.length} words. Right: ${right.join(", ")}.`];
+  if (again.length > 0) parts.push(`${again.join(", ")} comes again where it is wrong. The list tells them apart by place, but a learner reading the passage may not.`);
+  if (right.length === read.words.length) parts.push("Every word is marked right, so the question tests nothing.");
+  return parts.join(" ");
+}
+
+function editShortcut(q: ShortcutQuiz, e: QuestionEdit): EditResult {
+  if (e.op !== "shortcutKeys") return refuse("That change does not belong to this kind of question.");
+  const keys: string[] = [];
+  for (const line of lines(e.text, true)) {
+    const canonical = canonicalShortcut(line);
+    if (canonical === null) return refuse(`"${line}" is not a keyboard shortcut. Write the modifiers (Ctrl, Alt, Shift, Meta) and then one key, like Ctrl+Shift+S.`);
+    if (!keys.includes(canonical)) keys.push(canonical);
+  }
+  if (keys.length === 0) return refuse("Write at least one shortcut that is right.");
+  if (keys.length > LIMITS.keys) return refuse(`A question can accept at most ${LIMITS.keys} shortcuts.`);
+  q.keys = keys;
+  const kept = keys.filter((k) => BROWSER_KEEPS.includes(k));
+  const parts = [`${keys.length} ${keys.length === 1 ? "shortcut is" : "shortcuts are"} right: ${keys.join(", ")}.`];
+  if (kept.length > 0) parts.push(`A browser keeps ${kept.join(", ")} for itself, so a learner cannot press ${kept.length === 1 ? "it" : "them"} on a page. They can still type ${kept.length === 1 ? "it" : "them"}.`);
+  return parts.join(" ");
+}
+
 /** Apply an edit to a question, which is changed in place. Give it a copy. */
 export function applyEdit(q: QuizContent, e: QuestionEdit): EditResult {
   switch (q.questionType) {
@@ -361,12 +415,15 @@ export function applyEdit(q: QuizContent, e: QuestionEdit): EditResult {
     case "matching": return editMatching(q, e);
     case "sequencing": return editSequence(q, e);
     case "hotspot": return editHotspot(q, e);
+    case "essay": return editEssay(q, e);
+    case "whichWord": return editWhichWord(q, e);
+    case "shortcut": return editShortcut(q, e);
   }
 }
 
 // ---- new questions
 
-export type QuizType = "mc" | "tf" | "mr" | "short" | "numeric" | "blanks" | "dropdown" | "dragwords" | "matching" | "dragdrop" | "sequence" | "hotspot";
+export type QuizType = "mc" | "tf" | "mr" | "short" | "numeric" | "blanks" | "dropdown" | "dragwords" | "matching" | "dragdrop" | "sequence" | "hotspot" | "essay" | "whichword" | "shortcut";
 
 export interface QuizKind {
   id: QuizType;
@@ -378,6 +435,10 @@ export interface QuizKind {
   alt: string;
   /** Size on the slide. */
   size: { w: number; h: number };
+  /** What the two feedback layers start by saying, where the usual words (about an answer being right or wrong) do not fit. */
+  feedback?: { correct: string; incorrect: string };
+  /** How many tries a new question of this kind starts with. */
+  attempts?: number;
 }
 
 export const QUIZ_GROUPS = ["Choose", "Type an answer", "Fill in the blanks", "Match and order", "Pictures"] as const;
@@ -394,6 +455,10 @@ export const QUIZ_KINDS: QuizKind[] = [
   { id: "matching", label: "Matching", group: "Match and order", description: "Match each item with one of several matches, from a drop-down. Extra wrong matches can be added.", name: "Matching question", alt: "Match each item", size: { w: 1000, h: 360 } },
   { id: "dragdrop", label: "Drag and drop", group: "Match and order", description: "Matching, where the matches can also be dragged onto their items. The drop-downs stay, so a keyboard works.", name: "Drag and drop question", alt: "Match each item, by dragging or from the lists", size: { w: 1000, h: 420 } },
   { id: "sequence", label: "Sequencing", group: "Match and order", description: "Put items in the right order, with Move up and Move down buttons. They can be dragged too.", name: "Sequencing question", alt: "Put the items in order", size: { w: 1000, h: 420 } },
+  { id: "essay", label: "Essay", group: "Type an answer", description: "The learner writes a few sentences. It is not marked: it counts as answered, and earns its points, once it has the number of words you set.", name: "Essay question", alt: "Your answer, written in your own words", size: { w: 720, h: 340 },
+    feedback: { correct: "Thank you. Your answer has been kept.", incorrect: "Write a little more, then check your answer again." }, attempts: 1 },
+  { id: "shortcut", label: "Keyboard shortcut", group: "Type an answer", description: "The learner types a keyboard shortcut, or presses the keys. Any way of writing it is accepted, such as ctrl + s or Control+S.", name: "Keyboard shortcut question", alt: "Type or capture a keyboard shortcut", size: { w: 720, h: 240 } },
+  { id: "whichword", label: "Choose a word", group: "Choose", description: "A passage with the right word in square brackets. The learner clicks a word, or chooses it from a list of the words.", name: "Choose a word question", alt: "Choose a word of the passage", size: { w: 1000, h: 280 } },
   { id: "hotspot", label: "Hotspot", group: "Pictures", description: "Choose an area of a picture. Every area is also listed by its label, so a screen reader can answer.", name: "Hotspot question", alt: "Choose an area of the picture", size: { w: 1000, h: 560 } },
 ];
 
@@ -416,6 +481,9 @@ export function startingQuestion(type: QuizType, imageSrc = ""): QuestionBody {
     case "matching":
     case "dragdrop": return { questionType: "matching", drag: type === "dragdrop", pairs: [{ id: "p1", premise: "First item", match: "First match" }, { id: "p2", premise: "Second item", match: "Second match" }], extras: [] };
     case "sequence": return { questionType: "sequencing", drag: true, items: [{ id: "s1", text: "First step" }, { id: "s2", text: "Second step" }, { id: "s3", text: "Third step" }] };
+    case "essay": return { questionType: "essay", minWords: 20 };
+    case "whichword": return { questionType: "whichWord", passage: "Write your passage here and put the [right] word in square brackets." };
+    case "shortcut": return { questionType: "shortcut", keys: ["Ctrl+S"] };
     case "hotspot": return {
       questionType: "hotspot", image: { src: imageSrc, alt: "" },
       regions: [{ id: "r1", label: "Left half", x: 2, y: 5, width: 46, height: 90, correct: true }, { id: "r2", label: "Right half", x: 52, y: 5, width: 46, height: 90, correct: false }],

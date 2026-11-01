@@ -8,11 +8,12 @@ import { SLIDE_LAYOUTS } from "../../../editor/src/factory.ts";
 import { VOICES, voiceOption, SPEED_MAX, SPEED_MIN } from "../../../editor/src/narration.ts";
 import { buildSimpleText, parseSimpleText, TEXT_BLOCKS, type TextBlock } from "../../../editor/src/content.ts";
 import { MAX_ANSWERS, MAX_QUESTIONS, type ImportedQuestion } from "../../../editor/src/questionimport.ts";
+import { applyEdit, startingQuestion, type QuestionEdit, type QuizType } from "../../../editor/src/questionedit.ts";
 import { audioKey, narrationFacts, objectSummary, plain, slideSummary } from "../summary.ts";
 import { ToolError, type Tool } from "../protocol.ts";
 import { listProjectNames, importPicture } from "../files.ts";
 import type { Session } from "../session.ts";
-import type { Timing } from "../../../player/src/types.ts";
+import type { QuizContent, Timing } from "../../../player/src/types.ts";
 import { EFFECTS } from "../../../player/src/animation.ts";
 import { flag, list, number, okMessage, record, said, text, tool, whole, type Environment } from "./helpers.ts";
 
@@ -542,7 +543,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
     // ---- questions
     tool(
       "add_questions",
-      "Make a question slide for each question, after a slide (or at the end). Each slide has the question as a heading, the question itself, and feedback for a right and a wrong answer. Question kinds: mc (one right answer), mr (several right answers), tf (true or false), short (a typed answer).",
+      "Make a question slide for each question, after a slide (or at the end). Each slide has the question as a heading, the question itself, and feedback for a right and a wrong answer. Question kinds: mc (one right answer), mr (several right answers), tf (true or false), short (a typed answer), essay (a written answer that is not marked: it counts once it has enough words), word (the learner chooses a word of a passage) and shortcut (the learner types or presses a keyboard shortcut).",
       {
         after: text("The slide to add them after: its number, id or name. The end of the course if left out.", { maxLength: 200, orNumber: true }),
         questions: list(
@@ -550,10 +551,13 @@ export function courseTools(s: Session, e: Environment): Tool[] {
           record(
             "One question.",
             {
-              type: text("mc, mr, tf or short.", { enum: ["mc", "mr", "tf", "short"] }),
+              type: text("mc, mr, tf, short, essay, word or shortcut.", { enum: ["mc", "mr", "tf", "short", "essay", "word", "shortcut"] }),
               question: text("The question's words.", { minLength: 1, maxLength: 1000 }),
               answers: list("The answers to choose from, in order (2 to 8). For short: the answers that are accepted. Leave out for tf.", text("One answer.", { minLength: 1, maxLength: 500 }), { maxItems: MAX_ANSWERS }),
-              correct: list("Which answers are right, as numbers starting at 1. mc: one number. mr: one or more. tf: 1 means True and 2 means False. short: leave out.", whole("An answer's number.", { minimum: 1, maximum: MAX_ANSWERS }), { maxItems: MAX_ANSWERS }),
+              correct: list("Which answers are right, as numbers starting at 1. mc: one number. mr: one or more. tf: 1 means True and 2 means False. short, essay, word, shortcut: leave out.", whole("An answer's number.", { minimum: 1, maximum: MAX_ANSWERS }), { maxItems: MAX_ANSWERS }),
+              minWords: whole("Only for essay: the fewest words that count as an answer. 0 means any answer. 20 if left out.", { minimum: 0, maximum: 1000 }),
+              passage: text("Only for word: the passage the learner reads, with each right word in [square brackets], like: The dog [barked] loudly.", { minLength: 1, maxLength: 5000 }),
+              shortcuts: list("Only for shortcut: every shortcut that is right, each written like Ctrl+Shift+S (modifiers Ctrl, Alt, Shift, Meta, then one key).", text("One shortcut.", { minLength: 1, maxLength: 60 }), { minItems: 1, maxItems: 10 }),
               points: whole("Points for a right answer. 10 if left out.", { minimum: 0, maximum: 1000 }),
               attempts: whole("How many tries the learner has.", { minimum: 1, maximum: 10 }),
               rightFeedback: text("What a learner who is right is told.", { maxLength: 1000 }),
@@ -572,9 +576,30 @@ export function courseTools(s: Session, e: Environment): Tool[] {
         const raw = a["questions"] as Record<string, unknown>[];
         const questions: ImportedQuestion[] = raw.map((q, i) => {
           const n = `Question ${i + 1}`;
-          const type = q["type"] as ImportedQuestion["type"];
+          const word = q["type"] as string;
+          const type = (word === "word" ? "whichword" : word) as ImportedQuestion["type"];
           const words = (q["question"] as string).trim();
           if (words === "") throw new ToolError(`${n} has no words.`);
+          if (type === "essay" || type === "whichword" || type === "shortcut") {
+            // These are made by the editor's own rules, so a passage or a shortcut is refused here for the same reasons and in the same words as in the editor.
+            const asked: QuestionEdit = type === "essay" ? { op: "minWords", words: typeof q["minWords"] === "number" ? q["minWords"] : 20 }
+              : type === "whichword" ? { op: "passage", text: typeof q["passage"] === "string" ? q["passage"] : "" }
+              : { op: "shortcutKeys", text: Array.isArray(q["shortcuts"]) ? (q["shortcuts"] as string[]).join("\n") : "" };
+            const probe: Record<string, unknown> = { ...(startingQuestion(type as QuizType) as Record<string, unknown>), scoring: { points: 0, attemptsAllowed: 1 }, feedback: { correct: "", incorrect: "" } };
+            const result = applyEdit(probe as unknown as QuizContent, asked);
+            if (typeof result === "object") throw new ToolError(`${n}: ${result.refuse}`);
+            return {
+              row: i + 1, type, question: words, answers: [], correct: [],
+              ...(type === "essay" ? { minWords: probe["minWords"] as number } : {}),
+              ...(type === "whichword" ? { passage: probe["passage"] as string } : {}),
+              ...(type === "shortcut" ? { keys: probe["keys"] as string[] } : {}),
+              points: typeof q["points"] === "number" ? q["points"] : null,
+              attempts: typeof q["attempts"] === "number" ? q["attempts"] : null,
+              category: "", value: null,
+              rightFeedback: typeof q["rightFeedback"] === "string" ? q["rightFeedback"] : "",
+              wrongFeedback: typeof q["wrongFeedback"] === "string" ? q["wrongFeedback"] : "",
+            };
+          }
           let answers = (q["answers"] as string[] | undefined)?.map((x) => x.trim()) ?? [];
           let correct = ((q["correct"] as number[] | undefined) ?? []).map((x) => x - 1);
           if (type === "tf") {

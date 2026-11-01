@@ -84,6 +84,9 @@ export function objectSummary(o: OSObject, layer: string): Record<string, unknow
       kind: str(c["questionType"]),
       ...(choices.length > 0 ? { choices: choices.map((x) => ({ label: x.label, correct: x.correct === true })) } : {}),
       ...(Array.isArray(c["answers"]) ? { accepted: c["answers"] } : {}),
+      ...(typeof c["minWords"] === "number" ? { minWords: c["minWords"] } : {}),
+      ...(typeof c["passage"] === "string" ? { passage: c["passage"] } : {}),
+      ...(Array.isArray(c["keys"]) ? { shortcuts: c["keys"] } : {}),
     };
   }
   if (o.type === "scenario") {

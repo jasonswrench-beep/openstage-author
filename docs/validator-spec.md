@@ -216,6 +216,13 @@ A look's name (1 to 40 characters, no space at either end) and its `announce` (1
 | A hotspot area has no label (`quiz-region-label`) | An area needs a label |
 | A hotspot area runs off the picture (`quiz-region-bounds`) | An area runs off the picture |
 | A hotspot's picture is not in the project (`asset-missing`) | Asset missing |
+| A which-word passage has no words (`quiz-passage-empty`) | The passage has no words |
+| No word of a which-word passage is marked right (`quiz-correct-answer`) | Quiz needs at least one correct word |
+| A passage has `[]` with no word in it (`quiz-passage-empty-mark`) | A mark has nothing in it |
+| A mark in a passage runs across more than one word, or a bracket has no partner (`quiz-passage-split-mark`) | A mark runs across more than one word |
+| One word of a passage is marked more than once (`quiz-passage-double-mark`) | A word is marked more than once |
+| A passage has more than 300 words (`quiz-passage-too-long`) | The passage is too long |
+| A shortcut cannot be read as modifiers and one key (`quiz-shortcut-unreadable`) | A shortcut cannot be read |
 | A question has a field that belongs to another kind, or lacks one its kind needs | A schema error |
 
 ### Quizzes: warnings
@@ -225,6 +232,10 @@ A look's name (1 to 40 characters, no space at either end) and its `announce` (1
 | Every answer of a multiple response question is marked correct (`quiz-all-correct`) | Every answer in this question is marked correct |
 | Two sequence items read the same (`quiz-item-duplicate`) | Two items read the same |
 | Two hotspot areas have the same label (`quiz-region-duplicate`) | Two areas have the same label |
+| Every word of a which-word passage is marked right (`quiz-all-correct`) | Every word in the passage is marked right |
+| A right word of a passage comes again where it is not marked (`quiz-word-repeated`) | A right word comes again where it is wrong |
+| The same shortcut is written twice, in any way (`quiz-shortcut-duplicate`) | A shortcut is listed twice |
+| A shortcut a browser keeps for itself (`quiz-shortcut-reserved`) | A browser keeps this shortcut for itself |
 
 ### Interactions — errors
 

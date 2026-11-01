@@ -6,7 +6,7 @@
 import type { Graded } from "./grading.ts";
 import type { InputInteraction, QuizContent } from "./types.ts";
 
-export type InteractionKind = "choice" | "fill-in" | "numeric" | "matching" | "sequencing" | "true-false" | "likert" | "other";
+export type InteractionKind = "choice" | "fill-in" | "long-fill-in" | "numeric" | "matching" | "sequencing" | "true-false" | "likert" | "other";
 
 export interface FormattedInteraction {
   kind: InteractionKind;
@@ -47,6 +47,12 @@ export function formatGraded(q: QuizContent, g: Graded): FormattedInteraction {
       const patterns = g.patterns.map((p) => (p.includes("#") ? p.split("#").join(RANGE) : p));
       return isReal(g.response) ? { kind: "numeric", response: g.response, patterns } : { kind: "other", response: g.response, patterns };
     }
+    case "essay":
+      // Nothing to compare it with: the pattern list is empty and whoever reads the record judges the writing. Spaces were tidied when it was graded.
+      return { kind: "long-fill-in", response: g.response, patterns: [] };
+    case "whichWord":
+    case "shortcut":
+      return { kind: "fill-in", response: safe(g.response), patterns: g.patterns.map(safe) };
     case "shortAnswer": {
       const flag = q.caseSensitive ? "{case_matters=true}" : "";
       return { kind: "fill-in", response: safe(g.response), patterns: g.patterns.map((p) => flag + safe(p)) };
@@ -73,4 +79,4 @@ export function formatInput(type: InputInteraction, response: string): { kind: I
 }
 
 /** The name SCORM 2004 gives each kind (underscores, not hyphens). xAPI keeps the hyphens. */
-export const scorm2004Type = (kind: InteractionKind): string => kind.replace("-", "_");
+export const scorm2004Type = (kind: InteractionKind): string => kind.split("-").join("_");

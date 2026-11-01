@@ -8,6 +8,7 @@ are the usual reasons Word says a file has unreadable content. Whether Word show
 import io
 import json
 import pathlib
+import re
 import shutil
 import tempfile
 import unittest
@@ -188,6 +189,25 @@ class WhatItSays(unittest.TestCase):
         for expected in ("(correct answer)", "Accepted answers: ", "Right answer: ", "Blank ", "matches ", "The right order is:", "Extra wrong options"):
             self.assertIn(expected, text)
         self.assertNotIn("<", text.replace("<=", ""), "no markup leaks into the words")
+
+    def test_an_essay_a_passage_and_a_shortcut_say_what_a_reviewer_needs(self):
+        _, _, roots = build("question-types.osproj")
+        text = [t for _, t in text_of(roots)]
+        joined = "\n".join(text)
+        self.assertIn("Answer: Written by the learner and not marked: it counts as answered from 20 words.", joined)
+        self.assertIn("A message travels from the sender along a channel to the receiver, who decodes it.", text, "the passage as the learner reads it, with no brackets")
+        self.assertIn("The learner chooses one word. The right word is in bold.", text)
+        self.assertIn("Right shortcuts: Ctrl+C; Meta+C", joined, "written the one way")
+        self.assertIn("(essay, 10 points, 1 try)", joined)
+        self.assertIn("(choose a word of a passage, 10 points, 2 tries)", joined)
+        self.assertIn("(keyboard shortcut, 10 points, 2 tries)", joined)
+
+    def test_the_right_word_of_a_passage_is_in_bold_and_no_other(self):
+        data, _ = review_doc.make(EXAMPLES / "question-types.osproj")
+        body = zipfile.ZipFile(io.BytesIO(data)).read("word/document.xml").decode("utf-8")
+        bold = re.findall(r"<w:r><w:rPr><w:b/><w:bCs/></w:rPr><w:t[^>]*>([^<]*)</w:t></w:r>", body)
+        self.assertIn("channel", bold)
+        self.assertNotIn("sender", bold)
 
     def test_a_picture_with_no_alt_text_is_flagged_and_a_decorative_one_is_said_to_be_skipped(self):
         _, _, roots = build("minimal.osproj")

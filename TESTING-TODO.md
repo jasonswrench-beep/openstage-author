@@ -2,6 +2,23 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Essay, choose a word and keyboard shortcut questions (2026-11-01)
+
+Tried in a browser with a real mouse, a real keyboard and the stand-in page (the essay's word count and "write at least 20 words" message, a wrong and a right word, Capture the keys with Ctrl+C and with Escape) and by the suites. Not tried with a screen reader, a phone, or a real LMS. The choices I made for you, each easy to change:
+
+- [ ] An essay is **not marked**: it counts once it has the fewest words (a new one starts at 20, the author can set 0 for any answer), earns all its points, and has one try. Too few words is "Write at least N words first" and does not use a try. If you would rather an essay earn nothing until an instructor marks it, that is a bigger change (the LMS has to mark it), so say so.
+- [ ] A learner's essay goes to the LMS as a long fill-in, cut to 255 characters in SCORM 1.2. Try it in a real LMS (SCORM Cloud) and look at what the LMS shows for the answer: does it show the words, and does it cut them?
+- [ ] An essay of more than 200 characters is not put back when a learner leaves and returns (SCORM 1.2 has too little room), though the question stays finished. Say if that matters.
+- [ ] With NVDA or Narrator on the essay: the box should be read with its label, the "Write at least 20 words." line and "0 words" (as the box's description, once, when it is focused, not on every word typed).
+- [ ] Choose a word: the learner clicks a word or uses the list. A **mouse and touch** click on a word worked in the browser; try it on a phone or tablet, where the words are small.
+- [ ] With NVDA or Narrator on the choose-a-word question: the passage should read as plain text, the list should be "Choose a word" with every word in it, and a word that comes twice should say its place ("the (word 5)"). Say whether that is enough to answer without the picture of the passage.
+- [ ] More than one word may be marked right, and any of them is right (only one is chosen). If you want "choose every right word" that is a different question.
+- [ ] Keyboard shortcut: Capture the keys listens for one key and cannot trap (Tab is an answer and the next Tab moves on; Escape alone stops it; leaving it stops it). To answer Escape, type it. Try it with a screen reader running: NVDA may take some keys for itself (the NVDA key, Insert), which a page cannot see.
+- [ ] Try the shortcuts a browser or Windows keeps (Ctrl+W, Alt+F4, Win+D, Ctrl+Alt+Delete) with Capture: the page cannot see them, so the validator warns when an author makes one the right answer. Check the warning reads well in the Problems list.
+- [ ] A Mac: Cmd is Meta. Try Capture on a Mac with Cmd+C and check it is recorded as `Meta+C` and counts as right when the author wrote `Cmd+C`.
+- [ ] The editor's Properties for the three kinds (Written answer, Passage, Shortcuts that are right) in the desktop app: the passage box refusing a stray bracket, and the shortcut box rewriting `ctrl + s` as `Ctrl+S` when you leave it. Tried in the test suite, not in the app.
+- [ ] `examples/question-types.osproj` has three new slides (13 to 15); `TEST-PLAN.md` there has the steps for Brightspace.
+
 ## MCP access: an AI assistant using the program (2026-11-01)
 
 - [ ] Connect a real assistant. In the desktop app press **MCP access**, tick the box, choose a folder (a new empty one is best), Save, and copy the Claude Desktop block into `claude_desktop_config.json` (or run the Claude Code command). Restart the assistant, then ask it to make a short course with a few slides, a picture, a question and some narration, check it, and publish it. Look at what it made by opening the project in the editor (close the assistant's work first, or open a copy). The server has been tried with the official MCP client library and with a test client, but never with Claude itself.

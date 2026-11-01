@@ -161,7 +161,12 @@ class Export(unittest.TestCase):
             src = "".join(tu.find(NS + "source").itertext())
             tgt = "".join(tu.find(NS + "target").itertext())
             self.assertNotEqual(src, tgt)
-            self.assertTrue(tgt.startswith("[") and tgt.endswith("]"))
+            if "/content/passage" in tu.get("id"):
+                # A passage marks its right word with square brackets, so it is not wrapped in another pair; its own marks come through.
+                self.assertEqual(tgt.count("["), src.count("["))
+                self.assertFalse(tgt.startswith("["))
+            else:
+                self.assertTrue(tgt.startswith("[") and tgt.endswith("]"))
             self.assertEqual(tu.find(NS + "target").get("state"), "needs-review-translation")
 
     def test_pseudo_text_keeps_placeholders_and_is_longer(self):
@@ -268,7 +273,8 @@ class Import(unittest.TestCase):
                 self.assertEqual(len(again.units), summary["units"], "the translated course has the same units")
                 for u in again.units:
                     if u.kind == "plain" and u.pointer[0] != "playerText":
-                        self.assertTrue(u.text.startswith("["), (u.id, u.text))
+                        passage = tuple(u.pointer[-2:]) == ("content", "passage")
+                        self.assertTrue(u.text.startswith("[") != passage, (u.id, u.text))
                 # The player's own words come back as the project's playerText, one for every key the player has.
                 table = jload(self.out(proj.stem) / "project.json")["playerText"]
                 self.assertEqual(sorted(table), sorted(xliff.PLAYER_TEXT))
@@ -445,6 +451,43 @@ class Import(unittest.TestCase):
             self.assertEqual(report["translated"], 0, broken)
             self.assertIn("placeholder", report["rejected"][0]["reason"], broken)
             self.assertEqual(self.body_html(self.out(name)), "<p>Hello {{$score}} points</p>")
+
+    def test_a_passage_keeps_the_square_brackets_round_its_right_word(self):
+        proj = copy_project("question-types.osproj", self.tmp.name)
+        data, _ = xliff.export(proj, "fr-FR")
+        root = ET.fromstring(data)
+        (unit,) = [tu for tu in root.iter(NS + "trans-unit") if tu.get("id").endswith("/content/passage")]
+        self.assertIn("[square brackets]", unit.find(NS + "note").text, "the translator is told to keep them")
+        source = "".join(unit.find(NS + "source").itertext())
+        self.assertEqual(source, "A message travels from the sender along a [channel] to the receiver, who decodes it.")
+
+        def translate(text):
+            xlf = fill_targets(data, lambda s: text if "".join(s.itertext()) == source else None)
+            return xliff.import_xliff(proj, xlf, self.out(), None)
+
+        # The bracket may move to the translated word, and the words round it may be reordered.
+        report = translate("Un message voyage de l'expéditeur au destinataire par un [canal].")
+        self.assertEqual((report["translated"], report["rejected"]), (1, []))
+        self.assertIn("[canal]", json.dumps(jload(self.out() / "slides" / "slide-015.json"), ensure_ascii=False))
+        shutil.rmtree(self.out())
+        for name, broken, why in (
+            ("lost", "Un message voyage de l'expéditeur au destinataire par un canal.", "lost or added"),
+            ("two words", "Un message voyage par [un canal] jusqu'au destinataire.", "one word"),
+            ("doubled", "Un message voyage par [canal] jusqu'au [destinataire].", "lost or added"),
+            ("empty", "Un message voyage par [] jusqu'au destinataire [canal].", "one word in square brackets"),
+            ("split", "Un message voyage par [canal jusqu'au destinataire.", "lost or added"),
+        ):
+            report = translate(broken)
+            self.assertEqual(report["translated"], 0, name)
+            self.assertTrue(report["rejected"] and why in report["rejected"][0]["reason"], (name, report["rejected"]))
+            shutil.rmtree(self.out(), ignore_errors=True)
+
+    def test_the_keys_of_a_shortcut_question_are_not_offered_for_translation(self):
+        proj = copy_project("question-types.osproj", self.tmp.name)
+        data, _ = xliff.export(proj, "fr-FR")
+        ids = [tu.get("id") for tu in ET.fromstring(data).iter(NS + "trans-unit")]
+        self.assertTrue(any(i.endswith("/content/passage") for i in ids), "the passage is offered")
+        self.assertEqual([i for i in ids if "/content/keys" in i], [], "the names of keys are the same in every language")
 
     def test_tags_in_a_plain_text_unit_are_refused(self):
         proj = self.small_project("<p>Hello</p>")

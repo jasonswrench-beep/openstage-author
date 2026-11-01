@@ -51,7 +51,7 @@ that cannot be done says why in plain words and changes nothing. Slides are name
 | Theme | `list_themes`, `set_theme` |
 | Narration | `set_narration` (the words, voice, language and speed), `make_audio` (with the installed narration voice) |
 | Timing | `set_timing` (appear after a delay, with its narration, or at a press of Show next item; how long it stays), `set_animation` (the effect as it arrives or leaves) |
-| Questions | `add_questions` (multiple choice, multiple response, true or false and short answer, a slide for each, with feedback and points) |
+| Questions | `add_questions` (multiple choice, multiple response, true or false, short answer, essay, choose a word and keyboard shortcut, a slide for each, with feedback and points; a passage or a shortcut is refused in the editor's own words, by question number) |
 | Undo | `undo`, `redo` |
 | Check and make | `check_course` (the problem check), `publish_course` (SCORM 1.2, SCORM 2004, xAPI, web files, the Word copy, and an MP4 with captions if asked), `export_review_document`, `export_translation`, `import_translation` |
 

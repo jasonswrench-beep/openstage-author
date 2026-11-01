@@ -11,10 +11,19 @@
 
 export type ImportedType = "mc" | "mr" | "tf" | "short";
 
+/** The other kinds of question a table cannot hold, which only a tool that builds questions directly (the MCP server) makes. */
+export type DirectType = "essay" | "whichword" | "shortcut";
+
 export interface ImportedQuestion {
   /** The row of the table it came from, counting the header as row 1, so the author can find it. */
   row: number;
-  type: ImportedType;
+  type: ImportedType | DirectType;
+  /** Only for essay: the fewest words that count as an answer. */
+  minWords?: number;
+  /** Only for whichword: the passage, with each right word in [square brackets]. */
+  passage?: string;
+  /** Only for shortcut: every shortcut that is right. */
+  keys?: string[];
   question: string;
   /** The answers to show, in order. A true or false question has True and False. A short answer has the answers that are accepted. */
   answers: string[];
