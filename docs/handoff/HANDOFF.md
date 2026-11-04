@@ -10,7 +10,7 @@ Suggested first message to the new instance:
 
 ## Who you are working with
 
-Jason S. Wrench, a professor at SUNY New Paltz (communication). Uses Windows PCs only. Not a programmer: Jason tests by eye and ear and by
+Jason S. Wrench, a professor of communication. Uses Windows PCs only. Not a programmer: Jason tests by eye and ear and by
 double-clicking `.bat` files, and reports what was seen or heard. Explain things in plain language, short, and say plainly what has and has
 not been verified. Never guess Jason's pronouns; use "Jason" or "they".
 

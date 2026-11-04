@@ -2062,7 +2062,7 @@ class ThemeLogoRules(unittest.TestCase):
     """A theme's logo is a picture on every slide: it needs a name (or to be decorative), a file, and room."""
 
     def logo(self, **over):
-        logo = {"src": "assets/images/logo.png", "alt": "New Paltz logo", "decorative": False, "corner": "bottom-right", "width": 120, "height": 60}
+        logo = {"src": "assets/images/logo.png", "alt": "School logo", "decorative": False, "corner": "bottom-right", "width": 120, "height": 60}
         logo.update(over)
         return logo
 

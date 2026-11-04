@@ -76,7 +76,7 @@ The plan was a short trial, which needed Jason's say-so because it downloads mod
 
 - Download `ggml-base.en.bin` (148 MB) and `ggml-small.en.bin` (488 MB), and build `whisper-cli.exe` from source. CMake is not on this computer's
   path, so first check whether the Visual Studio that is installed brings its own.
-- Run both on two minutes of Jason's real narration, with the words that matter in this field (Brightspace, SCORM, SUNY, accessible), and on a
+- Run both on two minutes of Jason's real narration, with the words that matter in this field (Brightspace, SCORM, accessible), and on a
   30 second stretch of silence and of keyboard noise.
 - Measure: the share of words that are right, how far the caption times are from where the words are, whether anything is invented in the silence, and
   how long it takes on this computer without a graphics card helping.
@@ -93,7 +93,7 @@ Jason said to go ahead. What was done, on this computer (a 13th-generation Intel
   `ggml-base.en.bin` 147,964,211 bytes, `a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002`; `ggml-small.en.bin` 487,614,201 bytes,
   `c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d`. Everything is in `D:\Whisper-Trial` (outside the repository; the models are never committed).
 - **Test audio.** (1) Jason's own narration, `Recordings/Voice Narrations/Narration 1.m4a`: 109 seconds, a clean studio recording. It has no script, so it is judged by how the two models agree and by whether
-  words start where the voice does after a pause. (2) A 176-second script with the words that matter here (Brightspace, SCORM, SUNY New Paltz, Wrench, alt text) read by Kokoro one sentence at a time, so the true
+  words start where the voice does after a pause. (2) A 176-second script with the words that matter here (Brightspace, SCORM, the school's name, Wrench, alt text) read by Kokoro one sentence at a time, so the true
   words and the true start and end of every sentence are known (the voice edges are read from the sound itself, and the word times inside a sentence are Kokoro's own, stretched to fit those edges, so they are only
   as good as that). The same speech was also made **noisy** (room noise, a fan, keyboard clicks, like a laptop microphone) and **harsh** (the voice only about 4 dB above the noise, loud clicks). (3) Four 30-second
   clips with no speech: perfect silence, room tone, keyboard clicks, held tones.
@@ -104,8 +104,8 @@ Jason said to go ahead. What was done, on this computer (a 13th-generation Intel
 | Test | base.en (148 MB) | small.en (488 MB) |
 | --- | --- | --- |
 | Jason's narration: the words | 271 words, the same words as small.en | 271 words, the same words as base.en. Read through: whole sentences, nothing wrong that I could see |
-| Script, clean: words right | 99.8% (1 wrong: "Paltz") | 99.8% (1 wrong: "Paltz"); **100% with a list of the course's words given as a hint** |
-| Script, laptop noise: words right | 97.8% (missed "Brightspace" and "New Paltz") | 98.9% (missed "New Paltz" and "Wrench") |
+| Script, clean: words right | 99.8% (1 wrong: part of the school's name) | 99.8% (1 wrong: part of the school's name); **100% with a list of the course's words given as a hint** |
+| Script, laptop noise: words right | 97.8% (missed "Brightspace" and the school's name) | 98.9% (missed the school's name and "Wrench") |
 | Script, harsh noise: words right | 83.3% | 93.3% (93.7% with the hint) |
 | Time for Jason's 109 seconds, 4 threads | 7.8 s (0.07 times as long as the recording) | 20.8 s (0.19 times) |
 | The same, 2 threads (a slower computer) | 13.1 s (0.12) | 34.0 s (0.31) |
@@ -122,8 +122,8 @@ Other findings:
 - **The built-in times are not good enough, alignment mode is.** whisper.cpp's ordinary times come in segments that run one into the next, so a caption appears up to a whole pause early (base.en) or lingers
   up to a pause too long (small.en: sentence ends a median 1.3 seconds late, and early by more than 0.3 seconds for 0 of 28 sentences on the clean script and 1 of 28 with noise). Alignment mode (`-dtw <model>` with `-nfa`, which costs about 20% more time) gives each word its own
   time, and those were accurate. The caption's end still has to be set by the editor from the next word and the real sound, because the audio is in hand.
-- **The words that matter here need help.** "New Paltz" was heard as "pouts" or "pals" by both models, and "Brightspace" and "Wrench" fail under noise. Giving the recogniser the course's own words as a hint
-  (`--prompt`) fixed them for small.en on the clean recording, and not for base.en. Under harsh noise the hint was not enough ("SUNY", "Wrench"). Every result must be read before it is trusted.
+- **The words that matter here need help.** The school's name was misheard by both models, and "Brightspace" and "Wrench" fail under noise. Giving the recogniser the course's own words as a hint
+  (`--prompt`) fixed them for small.en on the clean recording, and not for base.en. Under harsh noise the hint was not enough (the school's initials, "Wrench"). Every result must be read before it is trusted.
 - **It never invented a sentence.** The only invented word anywhere was "You" on perfect silence. Perfect silence is exactly what an edit can contain (a cut, a gap), so the editor must drop any caption
   that lies in silence, and any note in brackets, parentheses or music signs, before showing the result.
 - Numbers come out as digits ("2026", "800"), which is fine in a caption, and punctuation and capitals are added.
@@ -180,7 +180,7 @@ Follows the revised decision above, with these differences from the first plan:
   Visual Studio's own CMake as a generic build (the processor-specific parts are separate DLLs chosen when it runs; the trial's native build and this one give identical text and the same speed), with the C++ runtime linked in so nothing else has to be installed.
 - **Models** are downloaded by the shell (`speech.rs`), only from the address in its table, only when the author presses the button after reading what it is, to `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, and kept only if the size and SHA-256 are exactly the published ones.
 - **The window's connection to the shell had been using a slow text route** for every command, because the content security policy did not allow Tauri's own channel (`ipc:` and `http://ipc.localhost`). Raw sound cannot go that way, so the policy now allows it. Every earlier real-app check was run again and passed.
-- Tried in the real desktop app with the trial's spoken script as the video's sound: 100% of its 462 words right with the course's words as a hint, 27 of 28 sentence starts within half a second of the voice, "SUNY New Paltz", "Brightspace", "SCORM" and "Wrench" right, the download of base.en
+- Tried in the real desktop app with the trial's spoken script as the video's sound: 100% of its 462 words right with the course's words as a hint, 27 of 28 sentence starts within half a second of the voice, the school's name, "Brightspace", "SCORM" and "Wrench" right, the download of base.en
   (checksum verified), Stop, closing mid-listen, saving and reading back the unchecked mark, and silence, keyboard noise and held tones giving no captions. Not tried: another person's voice, a poor microphone, music under speech, a clip near 45 minutes.
 - Not built: running the recogniser for other languages (the models are English only), a graphics-card build, choosing the number of threads, listening to part of a clip, and a "placing a script by the quiet gaps in the voice" method that needs no model.
 - D5 (audio description) already exists in the course format and the player, and its authoring is in the video's Properties panel.

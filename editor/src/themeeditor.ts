@@ -175,7 +175,7 @@ export function editTheme(opts: ThemeEditorOptions): Promise<Theme | null> {
           h("div", { class: "te-logo" }, img, h("p", { class: "note", text: `Picture: ${logo.src.split("/").pop() ?? logo.src}` })),
           h("div", { class: "field" }, h("label", { for: "te-logo-alt", text: "Alt text" }), alt),
           h("div", { class: "field check" }, deco, h("label", { for: "te-logo-deco", text: "This logo is decorative (a screen reader skips it)" })),
-          h("p", { class: "note", text: "A screen reader user hears the logo on every slide, so say what it is, for example \"New Paltz logo\", or mark it decorative." }),
+          h("p", { class: "note", text: "A screen reader user hears the logo on every slide, so say what it is, for example \"School logo\", or mark it decorative." }),
           h("div", { class: "field" }, h("label", { for: "te-logo-corner", text: "Corner" }), corner),
           h("div", { class: "field" }, h("label", { for: "te-logo-width", text: "Width in pixels" }), width),
           size,

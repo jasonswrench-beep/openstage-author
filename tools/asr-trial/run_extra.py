@@ -58,7 +58,7 @@ for model in ("base", "small"):
     runs.append((model, "speech", ["-dtw", f"{model}.en", "-nfa"], "dtw"))
     runs.append((model, "narration", ["-dtw", f"{model}.en", "-nfa"], "dtw"))
     runs.append((model, "speech-hard", [], ""))
-    runs.append((model, "speech-hard", ["--prompt", "Brightspace, SCORM, SUNY New Paltz, WCAG, accessible, alt text, screen reader, Wrench."], "prompt"))
+    runs.append((model, "speech-hard", ["--prompt", "Brightspace, SCORM, Maple Ridge College, WCAG, accessible, alt text, screen reader, Wrench."], "prompt"))
 
 results = json.load(open(f"{ROOT}/results/runs.json"))
 for model, clip, extra, label in runs:

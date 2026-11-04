@@ -21,7 +21,7 @@ SCRIPT = [
     "In this video, I will show you how to build a module for Brightspace that meets the Web Content Accessibility Guidelines.",
     "Every picture in your course needs alternative text, so that a learner who uses a screen reader hears what the picture shows.",
     "Every video needs captions, and every caption needs to be on the screen long enough to read.",
-    "At SUNY New Paltz, we use a learning management system to deliver our courses.",
+    "At Maple Ridge College, we use a learning management system to deliver our courses.",
     "The module you export is a SCORM package, and the learning management system reads it as a single lesson.",
     "First, open the editor and choose a new course.",
     "Next, add a slide, type a heading, and write the words that you want the learner to read.",

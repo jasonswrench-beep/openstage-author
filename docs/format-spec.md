@@ -179,7 +179,7 @@ All twelve colours are required, and the other fields too. A background is `soli
 **Logo.** A theme may carry one `logo`, shown in a corner of every slide:
 
 ```json
-"logo": { "src": "assets/images/school-logo.png", "alt": "New Paltz logo", "decorative": false, "corner": "bottom-right", "width": 180, "height": 60 }
+"logo": { "src": "assets/images/school-logo.png", "alt": "School logo", "decorative": false, "corner": "bottom-right", "width": 180, "height": 60 }
 ```
 
 `src` is a picture under `assets/`. `corner` is `top-left`, `top-right`, `bottom-left` or `bottom-right`, and the logo sits 24 stage pixels in from the two

@@ -332,7 +332,7 @@ def _check_logo(rel, theme, asset_root, add):
             "A logo marked decorative is hidden from screen readers, so its alt text would never be read. Clear it, or untick decorative.")
     elif not logo["decorative"] and not logo["alt"].strip():
         add(ERROR, rel, theme["id"], "theme-logo-alt", "The logo needs alt text, or must be marked decorative",
-            "A screen reader user hears the logo on every slide. Say what it is, for example \"New Paltz logo\", or mark it decorative.")
+            "A screen reader user hears the logo on every slide. Say what it is, for example \"School logo\", or mark it decorative.")
     target = (asset_root / logo["src"]).resolve()
     if asset_root.resolve() not in target.parents or not target.is_file():
         add(ERROR, rel, theme["id"], "theme-logo-missing", "The logo file is missing", f"{logo['src']} does not exist in the project.")

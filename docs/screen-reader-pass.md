@@ -317,7 +317,7 @@ NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with th
 | Space on Bold, with words chosen | "Bold on. // pressed"; again: "Bold off. // not pressed"; Italic the same | works (after the fix below) |
 | Ctrl+B in the text | "Bold on." and "Bold off." | works (after the fix below) |
 | Kind of paragraph, arrow keys | "Heading 1. // Heading 1", "Heading 2.", then back "Heading 1." and "Paragraph.", the keyboard staying on the drop-down | works (after the fix below) |
-| Ctrl+K, address, Enter | "Type the address that \"New Paltz, my publishers, or the Romance\" goes to. // Web or mail address, edit, A link works with a web address... https://example.org, blank"; then "Link to https://example.org/page made." | works |
+| Ctrl+K, address, Enter | "Type the address that \"my school, my publishers, or the Romance\" goes to. // Web or mail address, edit, A link works with a web address... https://example.org, blank"; then "Link to https://example.org/page made." | works |
 | Escape with changes | "You have changed the text. Press Cancel to throw the changes away, or Done to keep them." | works |
 | Edit the HTML instead | "Edit the HTML instead, button, collapsed"; Enter: "expanded"; Tab: "HTML, edit multi line, Only paragraphs, headings, lists..."; Enter on the disclosure: "collapsed" | works |
 | Done | "Text updated. Press Control Z to undo.", and focus is back on Edit text... ("Edit text..., button...") | works |

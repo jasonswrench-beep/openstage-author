@@ -10,7 +10,7 @@ CLI = f"{ROOT}/build/bin/whisper-cli.exe"
 MODELS = {"base": f"{ROOT}/models/ggml-base.en.bin", "small": f"{ROOT}/models/ggml-small.en.bin"}
 AUDIO = f"{ROOT}/audio"
 OUT = f"{ROOT}/results/runs"
-PROMPT = "Brightspace, SCORM, SUNY New Paltz, WCAG, accessible, alt text, screen reader, Wrench."
+PROMPT = "Brightspace, SCORM, Maple Ridge College, WCAG, accessible, alt text, screen reader, Wrench."
 
 os.makedirs(OUT, exist_ok=True)
 

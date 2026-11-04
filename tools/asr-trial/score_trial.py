@@ -135,8 +135,7 @@ def summarise_errors(errs):
 TERMS = {
     "Brightspace": r"\bbrightspace\b",
     "SCORM": r"\bscorm\b",
-    "SUNY": r"\b(suny|s u n y)\b",
-    "New Paltz": r"\bnew paltz\b",
+    "Maple Ridge College": r"\bmaple ridge college\b",
     "Wrench": r"\bwrench\b",
     "Web Content Accessibility Guidelines": r"\bweb content accessibility guidelines\b",
 }

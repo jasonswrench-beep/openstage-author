@@ -456,7 +456,7 @@ export interface HintSources {
 }
 
 /**
- * A few of the names and terms in the course, to give the recogniser as a hint, which is the difference between "SUNY New Paltz" and "Sunny pouts". Acronyms (SCORM), words with a capital inside
+ * A few of the names and terms in the course, to give the recogniser as a hint, which is the difference between a name heard right and a name misheard. Acronyms (SCORM), words with a capital inside
  * (OpenStage, Brightspace's relatives), names inside a sentence, and the capitalised words of headings that are not the plain words every heading uses. Most often first, at most `maxChars`.
  */
 export function hintFor(src: HintSources, maxChars = 280): string {

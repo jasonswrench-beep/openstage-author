@@ -12,7 +12,7 @@ If a step does not work, do not fight it. Write down what you pressed and what t
 - Notepad is the program you will use. It has nothing private in it.
 - Have this script in front of you, on paper or on your phone. Read it as you do the job. It has the names that were hardest for the computer to hear.
 
-> Welcome to this short lesson. In this video, I will show you how to save a file in Notepad. At SUNY New Paltz, we use Brightspace for our courses. First, open the File menu. Next, choose Save As. Then type the name report, and press Enter. The file is now saved. Thank you for watching.
+> Welcome to this short lesson. In this video, I will show you how to save a file in Notepad. At our college, we use Brightspace for our courses. First, open the File menu. Next, choose Save As. Then type the name report, and press Enter. The file is now saved. Thank you for watching.
 
 ## 1. Record (about 10 minutes)
 
@@ -39,9 +39,9 @@ Tell me: how does the finished video look and sound? Did the course then ask you
 This is the newest part, and it has only heard a computer voice and one recording of your narration.
 
 1. With the video on the slide, press **Write captions for the video** (or select the video and press **Write captions...** in Properties).
-2. Find *Write the captions by listening to the voice*. Leave the model on **small.en**. Under **Words to listen for**, check that *Brightspace* and *New Paltz* are there; add them if not.
+2. Find *Write the captions by listening to the voice*. Leave the model on **small.en**. Under **Words to listen for**, check that *Brightspace* is there; add them if not.
 3. Press **Listen and write the captions**. It takes about a fifth of the length of the recording.
-4. Read the captions against the script. Count the words that are wrong. Look at *Notepad*, *report*, *Brightspace* and *SUNY New Paltz* in particular.
+4. Read the captions against the script. Count the words that are wrong. Look at *Notepad*, *report* and *Brightspace* in particular.
 5. Play the video. Do the captions appear when you speak?
 6. Press **I have checked the captions**, then **Save and use these captions**.
 7. For a second try: type or paste the script in **Start from a script**, press **Make captions from this script**, then **Set the times of my captions by the voice**. Do the times now follow your voice?

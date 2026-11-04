@@ -12,7 +12,7 @@ import { newProjectFiles } from "./template.ts";
 
 const classic = BUILT_IN_THEMES.find((t) => t.id === "classic")!;
 const slate = BUILT_IN_THEMES.find((t) => t.id === "slate")!;
-const logo = (over: Partial<ThemeLogo> = {}): ThemeLogo => ({ src: "assets/images/logo.png", alt: "New Paltz logo", decorative: false, corner: "top-right", width: 120, height: 60, ...over });
+const logo = (over: Partial<ThemeLogo> = {}): ThemeLogo => ({ src: "assets/images/logo.png", alt: "School logo", decorative: false, corner: "top-right", width: 120, height: 60, ...over });
 
 test("a hex colour is accepted in the forms people write it, and written one way", () => {
   assert.equal(normaliseHex("#1A2B3C"), "#1a2b3c");

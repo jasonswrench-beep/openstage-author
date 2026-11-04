@@ -58,7 +58,7 @@ Estimated total: about 100 to 150 MB, mostly Node. The reply to "why is it that 
 Tauri's bundler makes two kinds **(from general knowledge)**: an `.exe` setup built with NSIS, which can install for one user with no administrator
 password, and a `.msi` built with WiX, which IT departments like for managed computers. It needs its tools downloaded the first time it runs.
 
-**Recommendation:** NSIS, installing for the current user, first. Add the `.msi` only if SUNY IT asks for it. Resources (the folders in the table) are listed in the
+**Recommendation:** NSIS, installing for the current user, first. Add the `.msi` only if an institution's IT department asks for it. Resources (the folders in the table) are listed in the
 bundle settings and land beside the program. Nothing else in the program needs to know it is installed.
 
 Things to settle in the trial, not now: that the program finds its helpers in the install folder; that Publish and Preview work from an install folder with no Node or
@@ -102,7 +102,7 @@ the downloading and OpenStage hands out nothing. *For:* no obligations from the 
 not technical; I have not tried an installation from a clean computer.
 
 **B. A Kokoro without the GPL parts, English only.** Kokoro would have to be changed (its imports) or loaded with stand-ins for the two GPL packages, since it will not load without them.
-The English voices would then skip any word not in the dictionary, which for a course means names, places and terms such as *SUNY* or *Brightspace*. The pronunciation list in the editor
+The English voices would then skip any word not in the dictionary, which for a course means names, places and terms such as *SCORM* or *Brightspace*. The pronunciation list in the editor
 could cover some. *For:* a bundle with no GPL, if it works. *Against:* a patched Apache program to maintain; quality unknown until tried (a trial like the Whisper one would settle it); English only.
 
 **C. Another local voice with no GPL parts.** Candidates were not looked at in this note; Piper is out (GPL). Needs a search and a trial, as the Whisper choice had.
@@ -171,7 +171,7 @@ See the end of this note for what was tried.
   the Start menu entry and the entry in the list of installed programs. The author's own settings and speech models were checked afterwards and were untouched.
 * **Found and fixed on the way:** a folder listed with a glob in the bundler's resource list loses its folders (everything lands in one folder); a folder named with a trailing slash and a target of "" keeps them.
   The identifier is compiled into the program, so the trial and the real installer are separate compiles.
-* **Not tried:** a computer that is not this one (a clean Windows, a computer with no WebView2, SUNY's managed computers); the recorder recording; Windows warning about an unsigned installer (it is unsigned); upgrading over an earlier install; an install into a folder with an unusual path.
+* **Not tried:** a computer that is not this one (a clean Windows, a computer with no WebView2, an institution's managed computers); the recorder recording; Windows warning about an unsigned installer (it is unsigned); upgrading over an earlier install; an install into a folder with an unusual path.
   An uninstall while the program is running stops with an error (Tauri's own behaviour): close the program first.
 
 ## 9. Before handing an installer to other people (2026-10-19)

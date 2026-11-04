@@ -146,8 +146,8 @@ test("captions never overlap, and there are none from no words", () => {
 const mine = (...texts: string[]): Cue[] => texts.map((text, i) => ({ id: `c${i + 1}`, startMs: i * 1000, endMs: i * 1000 + 900, text }));
 
 test("the captions keep their words and take the voice's times, even when the recogniser misheard a word", () => {
-  const cues = mine("At SUNY New Paltz we use Brightspace.", "Every video needs captions.");
-  const heard = words([["At", 4000], ["sunny", 4300], ["New", 4700], ["pouts", 4900], ["we", 5300], ["use", 5450], ["Brightspace.", 5600], ["Every", 8000], ["video", 8300], ["needs", 8700], ["captions.", 9000]]);
+  const cues = mine("At Maple Ridge College we use Brightspace.", "Every video needs captions.");
+  const heard = words([["At", 4000], ["mable", 4300], ["Ridge", 4700], ["collage", 4900], ["we", 5300], ["use", 5450], ["Brightspace.", 5600], ["Every", 8000], ["video", 8300], ["needs", 8700], ["captions.", 9000]]);
   const r = placeByVoice(cues, heard, wordEnds(heard, 10000, null), 10000);
   assert.ok(typeof r !== "string");
   const p = r as Exclude<typeof r, string>;
@@ -156,7 +156,7 @@ test("the captions keep their words and take the voice's times, even when the re
   assert.equal(p.cues[1]!.startMs, 8000);
   assert.ok(p.cues[0]!.endMs > 5600 && p.cues[0]!.endMs <= 8000);
   assert.ok(p.cues[1]!.endMs >= 9100);
-  assert.equal(p.matched, 9, "9 of the 11 words were heard exactly; SUNY and Paltz were misheard but keep their places");
+  assert.equal(p.matched, 9, "9 of the 11 words were heard exactly; Maple and College were misheard but keep their places");
   assert.equal(p.total, 11);
 });
 
@@ -182,12 +182,12 @@ test("if the voice does not say the captions' words, nothing is changed and the 
 
 test("the hint is the course's names, acronyms and unusual words, most often first, and not the plain words of every heading", () => {
   const hint = hintFor({
-    title: "Making Courses Accessible at SUNY New Paltz",
+    title: "Making Courses Accessible at Maple Ridge College",
     headings: ["Welcome", "Using SCORM packages", "Brightspace", "Introduction"],
     prose: ["Dr. Wrench built OpenStage for this. We upload to Brightspace, then check the Web Content Accessibility Guidelines.", "Brightspace reads a SCORM file."],
   });
   const terms = hint.split(", ");
-  for (const t of ["Brightspace", "SCORM", "SUNY", "Paltz", "OpenStage", "Wrench"]) assert.ok(terms.includes(t), `${t} is in the hint: ${hint}`);
+  for (const t of ["Brightspace", "SCORM", "Maple", "Ridge", "OpenStage", "Wrench"]) assert.ok(terms.includes(t), `${t} is in the hint: ${hint}`);
   for (const t of ["Welcome", "Using", "Introduction", "this", "We"]) assert.ok(!terms.includes(t), `${t} is not: ${hint}`);
   assert.ok(terms.indexOf("Brightspace") < terms.indexOf("Wrench"), "the term used most comes first");
 });
@@ -225,16 +225,16 @@ test("the shell's answer about the recogniser is read, and an answer that makes 
 
 test("the course's words for the hint come from its title, slide names, headings, text and narration, and from nothing else", () => {
   const text = (html: string, role = "paragraph") => ({ type: "text", content: { html }, accessibility: { role }, narration: null }) as never;
-  const slide = (name: string, ...objects: unknown[]) => ({ name, baseLayer: { objects }, layers: [{ objects: [{ type: "text", content: { html: "<p>Moodle and Brightspace</p>" }, accessibility: { role: "paragraph" }, narration: { script: "We use SCORM at SUNY." } }] }] }) as never;
+  const slide = (name: string, ...objects: unknown[]) => ({ name, baseLayer: { objects }, layers: [{ objects: [{ type: "text", content: { html: "<p>Moodle and Brightspace</p>" }, accessibility: { role: "paragraph" }, narration: { script: "We use SCORM at ACME." } }] }] }) as never;
   const sources = hintSourcesOf({ meta: { title: "Accessible Courses" } }, [
     slide("Welcome to Brightspace", text("<h1>Getting Started</h1>", "heading"), text("<p>Dr. Wrench shows OpenStage.</p>")),
     { name: "Second", baseLayer: { objects: [{ type: "image", content: { src: "assets/images/a.png", alt: "Hidden Words" }, accessibility: { role: "img", altText: "Secret Picture" }, narration: null }] }, layers: [] } as never,
   ]);
   assert.equal(sources.title, "Accessible Courses");
   assert.deepEqual(sources.headings, ["Welcome to Brightspace", "<h1>Getting Started</h1>", "Second"]);
-  assert.deepEqual(sources.prose, ["<p>Dr. Wrench shows OpenStage.</p>", "<p>Moodle and Brightspace</p>", "We use SCORM at SUNY."]);
+  assert.deepEqual(sources.prose, ["<p>Dr. Wrench shows OpenStage.</p>", "<p>Moodle and Brightspace</p>", "We use SCORM at ACME."]);
   const hint = hintFor(sources);
-  for (const t of ["Brightspace", "SCORM", "SUNY", "OpenStage", "Wrench"]) assert.ok(hint.split(", ").includes(t), `${t} in ${hint}`);
+  for (const t of ["Brightspace", "SCORM", "ACME", "OpenStage", "Wrench"]) assert.ok(hint.split(", ").includes(t), `${t} in ${hint}`);
   assert.ok(!hint.includes("Secret") && !hint.includes("Hidden"), "a picture's description is not part of what is said");
 });
 
