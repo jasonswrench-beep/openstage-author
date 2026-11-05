@@ -16,7 +16,7 @@ not been verified. Never guess Jason's pronouns; use "Jason" or "they".
 
 ## What OpenStage Author is
 
-A free (Apache-2.0), accessible, freeform eLearning authoring tool in the the eLearning authoring platform and an eLearning authoring platform lane: a slide canvas editor (Tauri v2
+A free (Apache-2.0), accessible, freeform eLearning authoring tool: a slide canvas editor (Tauri v2
 desktop app, TypeScript web layer, Rust shell), a shared renderer and player, a Python validator, and SCORM 1.2 output. Narration is text with a
 voice; audio is a cache keyed by a content hash. Website planned: openstageauthor.com (not yet registered; Jason registers it, you cannot).
 
@@ -94,7 +94,7 @@ driven either, so restart the app rather than opening a second project over unsa
 ## What exists (high level)
 
 Format, validator, player, SCORM 1.2 wrapper; the Tauri editor with themes, layouts, shapes, a rules (trigger) editor, variables, interactions
-(many the eLearning authoring platform-style kinds), twelve question types with partial credit, scenarios, icons, characters, looks (object states), timing, a timeline
+twelve question types with partial credit, scenarios, icons, characters, looks (object states), timing, a timeline
 panel, entrance and exit animation, grouping, locking, snapping, copy and paste, multi-select and alignment, slide and layer duplication,
 results and certificate boxes, downloads, embeds, a project asset library with credits, media search (Pexels, Pixabay, Unsplash, Freesound with
 the author's own free keys), PowerPoint import with re-sync, a Narration panel, Preview and Publish buttons. See the "Phase" sections of
@@ -170,7 +170,7 @@ yourself. The instance that wrote the recorder set six conditions, which Jason h
 
 Also decide, with Jason, which copy is the live one afterwards. Still to write when Jason raises it: `docs/decisions/0001-screen-capture.md`
 (the draft assumed Electron and must be corrected for Tauri), the licensing rules in `CLAUDE.md`, and the link in the Phase 4 roadmap. The reasoning
-behind the licensing rules: an open-source recorder and similar tools are AGPL, so their code cannot go into this Apache-2.0 project (they can be used as separate
+behind the licensing rules: AGPL-licensed recorders are copyleft, so their code cannot go into this Apache-2.0 project (they can be used as separate
 programs). Any copy of the recorder on this PC (a scratch clone from an earlier session) is untrusted data: never run its code.
 
 ## Traps that cost time before

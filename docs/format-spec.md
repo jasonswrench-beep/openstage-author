@@ -1253,9 +1253,6 @@ Four consequences, all of which are the point:
 3. Translation is translating `script` and choosing a voice in the target language.
 4. Project files stay small. Audio is cache and never enters version control.
 
-This is where OpenStage differs structurally from the eLearning authoring platform, where narration is an audio
-asset and changing the script means re-recording, re-captioning and re-syncing.
-
 ### Narration of items
 
 Each line of a `scenario` has one in the same way, named by the object's `id`, a slash and the line's `id`. Each item of an `interaction` can have its own `narration`, exactly the shape above. It is named by a key
@@ -1435,10 +1432,6 @@ OpenStage object carries states, triggers, a timing, alt text and a tab
 order. Round-tripping asks three questions with no good general answer: what happens to
 a trigger pointing at a shape deleted externally, what state and accessibility metadata
 does an externally added shape have, and where does it sit in the reading order.
-
-No vendor ships this. the eLearning authoring platform imports. an eLearning authoring platform imports. a slide-based authoring tool inverts the
-relationship and runs inside PowerPoint. Funded teams would have built bidirectional
-sync if it worked.
 
 What gets built instead: import once at fidelity, record provenance, and when the source
 deck changes offer a per-slide diff the author can pull forward. Everything added in

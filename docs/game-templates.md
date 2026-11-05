@@ -6,8 +6,8 @@ something new first.
 
 ## What was asked, and what was not seen
 
-The request: gamified eLearning templates that people can insert into OpenStage, in the style of five example videos (a an eLearning authoring platform callout game,
-the eLearning authoring platform game shows, a Millionaire-style game and a Categories game), plus these genres: trivia and game shows, branching scenarios, escape rooms,
+The request: gamified eLearning templates that people can insert into OpenStage, in the style of five example videos (a callout game,
+game shows, a Millionaire-style game and a Categories game), plus these genres: trivia and game shows, branching scenarios, escape rooms,
 memory and matching, word and language games, and simulations and problem solving.
 
 **The five videos were not on the computer this was written on** (no file with those names in Downloads or anywhere in the user profile), so this
@@ -191,7 +191,7 @@ A **quiz board** and a **prize ladder** can be made with their questions already
 
 ## What the four example videos show (looked at 2026-10-21)
 
-The author sent four short screen recordings of an eLearning authoring platform game demos, about a minute each, 1024 by 720, **with no sound** (so this is from frames; nothing was heard): **Millionaire Challenge** (two takes of the same game), **Categories** and **Gameshow**. They are examples of how the genres look, not designs to copy: nothing here copies a vendor's pictures, words or names.
+The author sent four short screen recordings of eLearning game demos, about a minute each, 1024 by 720, **with no sound** (so this is from frames; nothing was heard): **Millionaire Challenge** (two takes of the same game), **Categories** and **Gameshow**. They are examples of how the genres look, not designs to copy: nothing here copies a vendor's pictures, words or names.
 
 What all of them have, and what the games built so far have too: a title slide with a Start button and instructions; a question slide; feedback that says right or wrong with a short explanation and a Continue button; a results slide with a percentage and a pass or fail word.
 

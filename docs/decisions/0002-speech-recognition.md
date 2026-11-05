@@ -92,7 +92,7 @@ Jason said to go ahead. What was done, on this computer (a 13th-generation Intel
   basics, the C++ runtime and OpenMP: **no network library at all**. The two models came from `huggingface.co/ggerganov/whisper.cpp` (tagged MIT) and their SHA-256 values match what Hugging Face publishes:
   `ggml-base.en.bin` 147,964,211 bytes, `a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002`; `ggml-small.en.bin` 487,614,201 bytes,
   `c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d`. Everything is in `D:\Whisper-Trial` (outside the repository; the models are never committed).
-- **Test audio.** (1) Jason's own narration, `Recordings/Voice Narrations/Narration 1.m4a`: 109 seconds, a clean studio recording. It has no script, so it is judged by how the two models agree and by whether
+- **Test audio.** (1) Jason's own narration: 109 seconds, a clean studio recording. It has no script, so it is judged by how the two models agree and by whether
   words start where the voice does after a pause. (2) A 176-second script with the words that matter here (Brightspace, SCORM, the school's name, Wrench, alt text) read by Kokoro one sentence at a time, so the true
   words and the true start and end of every sentence are known (the voice edges are read from the sound itself, and the word times inside a sentence are Kokoro's own, stretched to fit those edges, so they are only
   as good as that). The same speech was also made **noisy** (room noise, a fan, keyboard clicks, like a laptop microphone) and **harsh** (the voice only about 4 dB above the noise, loud clicks). (3) Four 30-second

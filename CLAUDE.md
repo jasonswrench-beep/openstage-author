@@ -10,13 +10,12 @@ Read `docs/format-spec.md` before touching anything that reads or writes a proje
 
 ## What this is
 
-A slide-based authoring studio in the the eLearning authoring platform and an eLearning authoring platform lane, built for higher
-education/businesses, funded by donation rather than license. Every other free authoring tool
-(an interactive content framework, Adapt, an open authoring toolkit, eXeLearning) is template-driven. This one is a freeform canvas.
+A slide-based authoring studio, built for higher
+education/businesses, funded by donation rather than license. It provides a freeform canvas.
 
 Not a template tool. Not an LMS. Not a cloud platform. Not a full or professional video editor.
 The Capture module includes a mid-level editor for recordings: trimming, splitting, text overlays,
-and zoom, in the manner of a screen recording studio.
+and zoom.
 
 ## Current phase
 
@@ -96,14 +95,14 @@ and configure options shipped. The full list is in `docs/decisions/0001-screen-c
 
 Screen recording is OpenStage's own Rust program, `openstage-capture`, built on Windows' own capture
 and encoding services (shown to authors as OpenScreen). Do not adopt a third-party recorder's code:
-outside recorders are copyleft. Authors may record with any program of their own, as a
+Copyleft recorder code is excluded. Authors may record with any program of their own, as a
 separate program. The reasoning, the audit and the platform notes are in
 `docs/decisions/0001-screen-capture.md`, and Capture's own documents are in `docs/capture/`. Read
 them before any work on capture, recording or simulation.
 
 ## Out of scope — do not build these
 
-Adding to this list needs a better reason than "a competitor has it."
+Expand this list when an authoring need justifies the change.
 
 - Bidirectional PowerPoint or Google Slides round-trip. Import is one-directional with
   provenance and re-sync. The reasoning is in `docs/format-spec.md`.

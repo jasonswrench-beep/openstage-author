@@ -132,7 +132,7 @@ Tried in a browser with a real mouse, a real keyboard and the stand-in page (the
 
 ## Word review document (2026-10-31)
 
-- [ ] Open a review document in Word. A sample made from `examples/question-types.osproj` is at `D:\Claude Audio Test\authoring-research\samples\question-types-review.docx`; a real publish writes `<name>-review.docx` beside the packages. It should open without a repair message. If Word says it found unreadable content, say so: that is the one thing the structure checks cannot rule out.
+- [ ] Open a review document in Word. Publish `examples/question-types.osproj` to generate a sample. Publishing writes `<name>-review.docx` beside the packages. It should open without a repair message. If Word says it found unreadable content, say so: that is the one thing the structure checks cannot rule out.
 - [ ] In Word, open the Navigation pane (View, Navigation Pane). It should list "How to read this document", "Problems the checker found", "Slides", and under Slides one heading for each slide.
 - [ ] Read the first page with NVDA or Narrator. It should read the title, the "How to read this document" paragraphs, and the problems table as a table with a header row (Kind, Where, Problem, Detail).
 - [ ] Check a quiz question: each choice is on its own line and the right one ends with "(correct answer)".

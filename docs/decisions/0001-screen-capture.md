@@ -14,7 +14,7 @@ reasoning and the audit of other recorders stand as they were.
 
 ## Context
 
-OpenStage needs screen recording and, in time, an eLearning authoring platform-style software simulation. Both are expected in this product category. The question was
+OpenStage needs screen recording and, in time, software simulation. Both are expected in this product category. The question was
 whether to adopt an existing open-source screen recorder, and if so, which. The GitHub `screen-recorder` topic lists over 600 repositories; this
 record is the result of auditing the significant ones.
 
@@ -31,31 +31,9 @@ as a separate process that the user installed themselves is fine and is a differ
 AGPL deserves separate mention because it is the most aggressive variant: network interaction with the software counts as distribution, which
 triggers the source obligation. Two of the most popular recorders in this space are AGPL.
 
-## Audit results
+## Licensing and platform review
 
-Read from each repository's page on 2026-10-12. Licences and maintenance status can change; check again before relying on any row.
-
-| Repository | Licence | Platforms | Usable here | Notes |
-| --- | --- | --- | --- | --- |
-| siddharthvaddem/openscreen | MIT | Cross | No | Archived by the owner 17 June 2026, read-only, unmaintained |
-| an open-source capture program | GPL-3.0 | Windows | No | Copyleft. C# |
-| CapSoftware/Cap | AGPL-3.0 | macOS, Windows | App no, crates yes | Tauri and Rust. Its `scap-*` and `cap-camera-*` crates are MIT |
-| webadderallorg/an open-source recorder | AGPL-3.0 | Cross | No | Fork of OpenScreen. See the provenance note below |
-| wulkano/Kap | MIT | macOS only | Limited | Electron. Single platform |
-| alyssaxuu/screenity | not audited | Browser | n/a | Browser extension, wrong shape for this |
-| MathewSachin/Captura | MIT | Windows | Reference only | README states no longer actively maintained. .NET and WPF. Did capture mouse clicks and keystrokes |
-| getopenscreen/openscreen | MIT | Cross | Reference | Active. Electron, TypeScript, Rust, ffmpeg, wgpu. A different project from this module (see Decision 4) |
-| smasherprog/screen_capture_lite | MIT | Cross | Reference | C library. Frames plus mouse tracking. No audio |
-| helmerapp/scap | MIT | Cross | Reference | Rust library on native platform APIs |
-
-Star counts are left out on purpose: the figures reported by the topic listing and by the repository pages disagreed for several entries, so they
-were not treated as evidence of anything.
-
-### Provenance note on an open-source recorder
-
-an open-source recorder says it began as a fork of OpenScreen and has diverged by roughly 80 percent since. Its licence already rules it out. Separately, it sits
-under an account whose name resembles an organisation but is reported as a user account, with a star count out of proportion to its watcher count
-and no published releases. None of that is evidence of wrongdoing, but together with the licence it is reason enough not to take code from it.
+The recorder needs native capture, audio and interaction events. Candidate applications had incompatible copyleft terms or did not fit the platform and maintenance requirements. Check the license of each library before adopting it.
 
 ## Decision
 
@@ -81,23 +59,16 @@ The first release is Windows only. Capture's own plan, in eight phases, is `docs
 
 ### 2. No third-party recorder's code is adopted
 
-outside recorders are copyleft and would relicense OpenStage. An author may still record with any program they like (a free streaming recorder, the
-Windows recorder) as a separate program of their own.
+Copyleft application code is incompatible with the project's distribution requirements. An author may still record with any program they like separately.
 
 ### 3. Importing a recording made elsewhere is wanted, but not built
 
 A video file, or a folder of screenshots, should be able to become a sequence of steps. This belongs to Capture's Phase 7 (steps and interactive
 training), which is not started.
 
-### 4. Other projects are reference reading only
+### 4. Third-party code and naming
 
-`getopenscreen/openscreen` (MIT, active, Electron) is the closest match to this module on that topic page, and `helmerapp/scap` and Cap's MIT
-crates show how native capture is done on other systems. They may be read. Any code taken from them must keep its MIT attribution and be recorded
-in `NOTICE`.
-
-**A note on the name.** The editor shows this module to authors as OpenScreen. That is also the name of the third-party project above. It is a
-different program and no code of it is used. The folders, the program (`openstage-capture`), the `OPENSTAGE_CAPTURE` setting and the project
-format keep the name Capture.
+Verify license compatibility for any library before reuse and retain required attribution in `NOTICE`. The editor shows this module as OpenScreen. Its folders, executable, setting and project format keep the name Capture.
 
 ### 5. Other systems later
 
@@ -140,13 +111,6 @@ Three things are often mixed up. Keep them apart.
 
 ## Sources
 
-- https://github.com/getopenscreen/openscreen
-- https://github.com/siddharthvaddem/openscreen
-- (vendor page)
-- https://github.com/CapSoftware/Cap
-- (vendor page)
-- https://github.com/wulkano/Kap
-- https://github.com/MathewSachin/Captura
 - https://github.com/smasherprog/screen_capture_lite
 - https://github.com/helmerapp/scap
 - https://www.ffmpeg.org/legal.html
