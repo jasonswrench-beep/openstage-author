@@ -7,12 +7,12 @@ something new first.
 ## What was asked, and what was not seen
 
 The request: gamified eLearning templates that people can insert into OpenStage, in the style of five example videos (a callout game,
-game shows, a Millionaire-style game and a Categories game), plus these genres: trivia and game shows, branching scenarios, escape rooms,
+game shows, a question-ladder game and a Categories game), plus these genres: trivia and game shows, branching scenarios, escape rooms,
 memory and matching, word and language games, and simulations and problem solving.
 
 **The five videos were not on the computer this was written on** (no file with those names in Downloads or anywhere in the user profile), so this
 note works from the genre list alone. Nothing here copies a vendor's design. Templates are built from the genres, with original layouts and
-generic names (no "Jeopardy", "Millionaire" or "Monopoly", which are trademarks).
+generic names, never a trademarked game or show name.
 
 ## What the editor can already do (read from `docs/format-spec.md` and `editor/src/templates.ts`, not run)
 

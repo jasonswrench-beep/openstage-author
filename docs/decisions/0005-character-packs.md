@@ -4,7 +4,7 @@ Status: accepted by Jason S. Wrench, 2026-10-20 (the questions below were put to
 
 ## Context
 
-The cast of a course had a picture maker: a cartoon person drawn from a few choices (skin tone, hair, expression, shirt). Jason made five sets of photo-style people with Ideogram, with 15 to 21 poses each, and said they look better than the cartoon person and like what other eLearning tools offer. They asked what the best way to include them is, and said they will probably have about ten sets, and that people should be able to download future packs and install them where the program can use them.
+The cast of a course had a picture maker: a cartoon person drawn from a few choices (skin tone, hair, expression, shirt). Jason made five sets of photo-style people with Ideogram, with 15 to 21 poses each, and said they look better than the cartoon person. They asked what the best way to include them is, and said they will probably have about ten sets, and that people should be able to download future packs and install them where the program can use them.
 
 ## What was decided
 

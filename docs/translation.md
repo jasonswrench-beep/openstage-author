@@ -1,8 +1,8 @@
 # Translating a course
 
 OpenStage does not translate for you. It makes a file a translator can work on, in the standard translation format (XLIFF 1.2), and
-brings the translated file back as a new copy of the course. Any tool that reads XLIFF can do the middle step: OmegaT (free),
-Weblate and many others.
+brings the translated file back as a new copy of the course. Any tool that reads XLIFF can do the middle step, such as OmegaT (free)
+or Weblate.
 
 Nothing about the course changes. The translated course is a new project folder beside the original, named after it and the
 language (`Intro.osproj` into French is `Intro-fr-FR.osproj`).

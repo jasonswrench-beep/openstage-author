@@ -155,7 +155,7 @@ export function openTranslate(opts: TranslateOptions): Promise<void> {
 
     dialog.append(
       h("h2", { id: "tr-title", text: "Translate" }),
-      h("p", { class: "note", text: "Translating happens in a tool that reads XLIFF files, such as OmegaT, Weblate. Make the file here, give it to the translator, and bring the translated file back. Your own course is never changed: the translation is made as a new course beside it." }),
+      h("p", { class: "note", text: "Translating happens in a tool that reads XLIFF files, such as OmegaT or Weblate. Make the file here, give it to the translator, and bring the translated file back. Your own course is never changed: the translation is made as a new course beside it." }),
       h("div", { class: "field" }, h("label", { for: "tr-language", text: "Translate into this language" }), language, suggestions),
       h("p", { id: "tr-language-help", class: "note", text: "A language tag, such as fr-FR for French or es-MX for Mexican Spanish. Choose one from the list or type your own." }),
       h("div", { class: "field check" }, pseudo, h("label", { for: "tr-pseudo", text: "Make a pseudo-translation to try the course with" })),

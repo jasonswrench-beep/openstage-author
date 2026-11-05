@@ -82,7 +82,7 @@ without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches
 
 ## Translating a course
 
-**Translate** in the editor's toolbar makes a file for a translator (XLIFF 1.2, which OmegaT, Weblate and most other tools read)
+**Translate** in the editor's toolbar makes a file for a translator (XLIFF 1.2, which OmegaT, Weblate and most other translation tools read)
 and brings the translated file back as a new copy of the course, named after the language (`Intro-fr-FR.osproj`). Your own course is never
 changed. The player's own words, such as Next and Listen, are in the file too, so the translated course speaks its language all the way
 through. The whole story, and the command line, is in `docs/translation.md`.
