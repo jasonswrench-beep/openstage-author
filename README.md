@@ -2,6 +2,8 @@
 
 # OpenStage Author
 
+[Roadmap & Feature Requests](https://app.productbridge.io/widget/784db895-cb64-45f4-9bde-4645df4aa083?tab=roadmap)
+
 A free, open-source desktop authoring studio for interactive eLearning.
 
 **Your course. Your file. No subscription, no quota, nothing phoning home.**
