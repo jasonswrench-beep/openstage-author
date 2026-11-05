@@ -43,7 +43,7 @@ The recorder needs native capture, audio and interaction events. Candidate appli
 exports an edit as an MP4. It is written in Rust because screen capture needs native code, and it uses Windows' own services through the
 `windows` crate (MIT or Apache-2.0):
 
-- pictures: Windows Graphics Capture, the service the built-in screenshot tool uses;
+- pictures: Windows Graphics Capture, the service Windows' built-in screenshot tool uses;
 - video: Windows' own media encoders, H.264 and AAC in an MP4, written as one fragmented MP4 for each take so that a crash loses about a second;
 - sound and webcam: Windows' own audio and camera services;
 - the interaction log (cursor, clicks, the window in front, the names of clicked items, and keys only when the author asks): Windows hooks and UI
