@@ -74,7 +74,7 @@ The accessibility rules of this repository's `CLAUDE.md` apply to all of it, inc
 
 - **Which copy is live afterwards.** Two live copies drift apart. Recommended: this repository is live, and the Capture repository is frozen at the source commit above with a one-line pointer here. Not decided.
 - **The 25 choices that could have gone the other way** are listed in `capture-timeline/README.md` ("Choices that could have gone the other way"), and the edit format's choices in `capture-edit-format.md`. Each is one small change to reverse.
-- **Still to write in this repository, when the owner says so:** `docs/decisions/0001-screen-capture.md` (the draft assumed Electron and must be corrected for Tauri), the licensing rules in `CLAUDE.md`, and the link in this repository's Phase 4 roadmap entry (it still points to the Capture repository). The reasoning for the licensing rules: tools such as an open-source recorder are AGPL, so their code cannot go into an Apache-2.0 project; they can be used as separate programs.
+- **Still to write in this repository, when the owner says so:** `docs/decisions/0001-screen-capture.md` (the draft assumed Electron and must be corrected for Tauri), the licensing rules in `CLAUDE.md`, and the link in this repository's Phase 4 roadmap entry (it still points to the Capture repository). The reasoning for the licensing rules: some open-source recorders are AGPL, so their code cannot go into an Apache-2.0 project; they can be used as separate programs.
 - **Not built**, so as not to be mistaken for done: snapping, dragging several clips at once, removing a stretch, renaming or deleting a track, editing screens for overlays and zoom, a captions track, cursor and click effects, an export button.
 
 ## Switched off on purpose
