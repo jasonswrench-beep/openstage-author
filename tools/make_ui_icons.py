@@ -11,6 +11,8 @@ Usage:  python tools/make_ui_icons.py          write editor/src/uiicons.gen.ts a
                               (crates/openstage-express-app/src/ui/uiicons_gen.rs there): Express draws its own window in Rust
                               (egui), with no web page, so each icon is written as lines on the 24 by 24 grid, its curves and arcs
                               cut into short straight pieces that it draws with the words' colour.
+        add  --assess PATH    OpenAssess's icons, in its repository (packages/app/ui/uiicons.gen.js there): plain JavaScript
+                              with type comments, because its interface has no build step and is checked as JavaScript.
 
 design/icons.json names, for each product, the Lucide icon of each command. Every name is checked against the Lucide set Author
 already ships (editor/web/icons/lucide.json), so a misspelt or renamed icon stops the run instead of drawing nothing. Author's icons
@@ -31,7 +33,7 @@ OUT_TS = ROOT / "editor" / "src" / "uiicons.gen.ts"
 OUT_MD = ROOT / "design" / "ICONS.md"
 
 PRODUCT_NAMES = {"author": "OpenStage Author", "recorder": "OpenStage Recorder", "explainer": "OpenExplainer",
-                 "express": "OpenStage Capture Express"}
+                 "express": "OpenStage Capture Express", "assess": "OpenAssess"}
 
 # The products whose icon file is written into their own repository, with the words their file's heading uses.
 OWN_FILES = {
@@ -39,6 +41,11 @@ OWN_FILES = {
     "explainer": {"flag": "--explainer", "whose": "OpenExplainer's own buttons, menus and panes", "why": "OpenExplainer has no copy of Author's player/src/icon.ts"},
 }
 
+
+# The products whose interface is plain JavaScript with no build step, and get their icons as a .js file (see make_own_js).
+JS_FILES = {
+    "assess": {"flag": "--assess", "whose": "OpenAssess's own buttons, menus and command search"},
+}
 
 # The products that draw their own window in Rust and get their icons as lines (see make_own_rs).
 RUST_FILES = {
@@ -449,6 +456,52 @@ def make_own_rs(plan, lucide, product):
     return "\n".join(lines)
 
 
+def make_own_js(plan, lucide, product):
+    """A product's icons as plain JavaScript (checked by TypeScript through its comments), with the function that draws them."""
+    own = JS_FILES[product]
+    names = sorted({row["icon"] for row in plan["products"][product]})
+    lines = [
+        "// @ts-check",
+        "// SPDX-License-Identifier: Apache-2.0 AND ISC",
+        "// Made by tools/make_ui_icons.py in the OpenStage Author repository, from its design/icons.json (the suite's one list of icons):",
+        f"// do not edit by hand. Change that list and run the tool there with {own['flag']} pointing at this file.",
+        f"// The icons of {own['whose']}: Lucide {lucide['version']}, kept as their drawn shapes, drawn as lines in the",
+        "// colour of the words around them, and hidden from screen readers (the words beside an icon, or a button's name, say what it is).",
+        "//",
+    ]
+    lines += [("// " + l).rstrip() for l in lucide["licence"].strip().splitlines()]
+    lines += ["", "/** @typedef {{ tag: string } & Record<string, string | number>} Shape */", ""]
+    lines.append("export const UI_ICONS = /** @type {const} */ ({")
+    for name in names:
+        shapes = json.dumps(lucide["icons"][name]["s"], separators=(",", ":"))
+        lines.append(f"  {json.dumps(name)}: {shapes},")
+    lines.append("});")
+    lines.append("")
+    lines.append("/** @typedef {keyof typeof UI_ICONS} UiIconName */")
+    lines.append("")
+    lines.append("// The name of the kind of element, which the browser needs to make one; it is never fetched.")
+    lines.append('const SVG_NS = "http://www.w3.org/2000/svg";')
+    lines.append("")
+    lines.append("/**")
+    lines.append(" * An icon, drawn in the colour of the words beside it and hidden from screen readers.")
+    lines.append(" * @param {Document} doc")
+    lines.append(" * @param {UiIconName} name")
+    lines.append(" * @returns {SVGSVGElement}")
+    lines.append(" */")
+    lines.append("export function uiIcon(doc, name) {")
+    lines.append("  const svg = doc.createElementNS(SVG_NS, \"svg\");")
+    lines.append("  for (const [k, v] of [[\"viewBox\", \"0 0 24 24\"], [\"fill\", \"none\"], [\"stroke\", \"currentColor\"], [\"stroke-width\", \"2\"], [\"stroke-linecap\", \"round\"], [\"stroke-linejoin\", \"round\"], [\"focusable\", \"false\"], [\"aria-hidden\", \"true\"], [\"class\", \"ui-icon\"]]) svg.setAttribute(k, v);")
+    lines.append("  for (const shape of /** @type {readonly Shape[]} */ (UI_ICONS[name])) {")
+    lines.append("    const part = doc.createElementNS(SVG_NS, shape.tag);")
+    lines.append("    for (const [key, value] of Object.entries(shape)) if (key !== \"tag\") part.setAttribute(key, String(value));")
+    lines.append("    svg.appendChild(part);")
+    lines.append("  }")
+    lines.append("  return svg;")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def make_md(plan, lucide):
     out = [
         "# Icons for each command",
@@ -500,6 +553,14 @@ def main(argv):
             print(f"Stopped: {own['flag']} needs the path of {PRODUCT_NAMES[product]}'s icon file.")
             return 1
         files[pathlib.Path(argv[at]).resolve()] = make_own_ts(plan, lucide, product)
+    for product, own in JS_FILES.items():
+        if own["flag"] not in argv:
+            continue
+        at = argv.index(own["flag"]) + 1
+        if at >= len(argv):
+            print(f"Stopped: {own['flag']} needs the path of {PRODUCT_NAMES[product]}'s icon file.")
+            return 1
+        files[pathlib.Path(argv[at]).resolve()] = make_own_js(plan, lucide, product)
     for product, own in RUST_FILES.items():
         if own["flag"] not in argv:
             continue

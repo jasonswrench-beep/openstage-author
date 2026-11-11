@@ -10,7 +10,7 @@ In: OpenStage Author, OpenStage Recorder, OpenStage Capture Express, OpenCapture
 - [x] Icon for every Author and Recorder command (`icons.json`, `ICONS.md`, `tools/make_ui_icons.py`)
 - [x] Jason's look at the icon list: Lucide icons agreed for buttons and menus (2026-11-10); ChatGPT only reviews them or draws larger pictures
 - [ ] Dark mode colours
-- [ ] Colours and icon list for Assess (OpenExplainer's done, 2026-11-11: the gold of its icon; its icons are the "explainer" list in `icons.json`, written into its repository by `tools/make_ui_icons.py --explainer`. Capture Express's done, 2026-11-11: the indigo of its icon; its icons are the "express" list, written into its repository as Rust lines by `tools/make_ui_icons.py --express`)
+- [x] Colours and icon lists for every product (OpenAssess's done, 2026-11-11: the orange of its icon; its icons are the "assess" list in `icons.json`, written into its repository as plain JavaScript by `tools/make_ui_icons.py --assess`, because its interface has no build step. OpenExplainer's done, 2026-11-11: the gold of its icon; its icons are the "explainer" list in `icons.json`, written into its repository by `tools/make_ui_icons.py --explainer`. Capture Express's done, 2026-11-11: the indigo of its icon; its icons are the "express" list, written into its repository as Rust lines by `tools/make_ui_icons.py --express`)
 
 ## OpenStage Author
 
@@ -56,6 +56,12 @@ Built 2026-11-11, in `D:\Claude Audio Test\openstage-capture-express` (its own r
 - [ ] X5. Settings and Export as white cards on the page; the other screens with a white strip for their way back and heading; the capture bar under a navy strip with icons on its buttons. **Built, waiting for Jason's look.**
 - Not done: the questions (Move to the Trash, Empty the trash for good) stay where they were, in the page, in a white card, not as dialogs (their keyboard order is tested and was kept); Windows high-contrast themes are not followed (egui draws its own colours).
 
-## OpenStage Assess
+## OpenAssess
 
-- [ ] Its turn
+Built 2026-11-11, in `C:\Users\Jason\openassess` (its own repository), at Jason's "Start Assess". Its interface is plain JavaScript with no build step, checked by TypeScript through comments, behind a local server with a strict content security policy; so Author's menu bar, menu button and command search were copied by way of OpenExplainer's copies and written again as JavaScript. Tried by its tests (13 new, all 439 of the app's passing, and the engine's), its two type checks, and in a real browser by a 62-step script with Author's accessibility audit (nothing found in what this change made; the older findings on the screens' own parts are listed in its `TESTING-TODO.md`). Not tried by a person, in its window or with a screen reader. Pictures in `D:\Claude Audio Test\revamp-screens\assess-before` and `assess-a1`.
+
+- [ ] A1. Colours: the suite's light colours with OpenAssess's orange (`#A04B0D`, white words on it 6.0:1; `#FFA861` on the navy bar), and a dark scheme of its own on the suite's navy; every pairing measured. **Built, waiting for Jason's look.**
+- [ ] A2. The navy bar (the icon and the name, the bank that is open, Search, and on a bank's screen Print, Answer sheets and Export filled) and five menus (File, Bank, Question, Test, Help) holding every command with icons. A bank's eight buttons are gone: three on the bar, five in the Bank menu and one "..." beside its name. **Built, waiting for Jason's look.**
+- [ ] A3. Ctrl+K command search and Help > Keyboard keys (Ctrl+/). **Built, waiting for Jason's look.**
+- [ ] A4. Dialogs: a Close button in the corner that does what Escape does, and the row of buttons kept in sight at the foot (added in one place, `ask()` in `dialogs.js`). **Built, waiting for Jason's look.**
+- Not done: Home keeps its own New bank and Open a bank file buttons (it is the welcome screen, as Author's is, and a test holds the file chooser to a real button there); the review keeps its Save into a bank button where it was. The older audit findings (18-pixel tick boxes, the bank's select boxes) are listed for Jason, not fixed.

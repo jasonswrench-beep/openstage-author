@@ -56,6 +56,20 @@ class TheIconList(unittest.TestCase):
         self.assertEqual(m.make_recorder_ts(self.plan, self.lucide), m.make_own_ts(self.plan, self.lucide, "recorder"))
         self.assertIn("the Recorder's own buttons, tabs and menus", m.make_recorder_ts(self.plan, self.lucide))
 
+    def test_a_product_with_a_plain_javascript_interface_gets_its_icons_with_type_comments_and_no_typescript(self):
+        self.assertGreater(len(self.plan["products"]["assess"]), 30)
+        text = m.make_own_js(self.plan, self.lucide, "assess")
+        names = set(re.findall(r'^  "([a-z0-9-]+)": \[', text, re.M))
+        self.assertEqual(names, {r["icon"] for r in self.plan["products"]["assess"]})
+        self.assertTrue(text.startswith("// @ts-check\n"), "checked as JavaScript")
+        self.assertIn("export function uiIcon(doc, name) {", text)
+        self.assertIn("@param {UiIconName} name", text)
+        self.assertNotIn(": Document", text, "no TypeScript syntax in a .js file")
+        self.assertNotIn(" as const", text)
+        self.assertNotIn("innerHTML", text)
+        self.assertIn("run the tool there with --assess pointing at this file", text)
+        self.assertIn("ISC License", text)
+
     def test_a_product_drawn_in_rust_gets_each_icon_as_lines_named_by_an_enum(self):
         self.assertGreater(len(self.plan["products"]["express"]), 40)
         text = m.make_own_rs(self.plan, self.lucide, "express")

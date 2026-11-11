@@ -469,6 +469,49 @@
       { "area": "Capture bar", "command": "The whole screen", "icon": "monitor" },
       { "area": "Capture bar", "command": "One window", "icon": "app-window" },
       { "area": "Capture bar", "command": "An area I draw", "icon": "scan" }
+    ],
+    "assess": [
+      { "area": "Top bar", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
+      { "area": "Top bar", "command": "Print...", "icon": "printer" },
+      { "area": "Top bar", "command": "Answer sheets...", "icon": "clipboard-list" },
+      { "area": "Top bar", "command": "Export...", "icon": "file-output" },
+
+      { "area": "File menu", "command": "New bank...", "icon": "file-plus" },
+      { "area": "File menu", "command": "Open a bank file...", "icon": "folder-open" },
+      { "area": "File menu", "command": "Bring in questions from a file...", "icon": "file-input" },
+      { "area": "File menu", "command": "Your banks", "icon": "library" },
+      { "area": "File menu", "command": "Show the OpenAssess folder", "icon": "folder-search" },
+
+      { "area": "Bank menu", "command": "Rename...", "icon": "pencil" },
+      { "area": "Bank menu", "command": "Folders", "icon": "folder-tree" },
+      { "area": "Bank menu", "command": "Coverage", "icon": "grid-3x3" },
+      { "area": "Bank menu", "command": "Check quality", "icon": "clipboard-check" },
+      { "area": "Bank menu", "command": "Remove...", "icon": "trash" },
+
+      { "area": "Question menu", "command": "New multiple choice question", "icon": "circle-dot" },
+      { "area": "Question menu", "command": "New multiple response question", "icon": "list-checks" },
+      { "area": "Question menu", "command": "New true or false question", "icon": "circle-check" },
+      { "area": "Question menu", "command": "New fill in the blank question", "icon": "pencil-line" },
+      { "area": "Question menu", "command": "New short answer question", "icon": "text-cursor-input" },
+      { "area": "Question menu", "command": "New matching question", "icon": "link" },
+      { "area": "Question menu", "command": "New ordering question", "icon": "list-ordered" },
+      { "area": "Question menu", "command": "New numeric question", "icon": "hash" },
+      { "area": "Question menu", "command": "New essay question", "icon": "file-text" },
+      { "area": "Question menu", "command": "Search the questions", "icon": "search" },
+      { "area": "Question menu", "command": "Clear filters", "icon": "funnel-x" },
+
+      { "area": "Test menu", "command": "Print...", "icon": "printer" },
+      { "area": "Test menu", "command": "Answer sheets...", "icon": "clipboard-list" },
+      { "area": "Test menu", "command": "Export...", "icon": "file-output" },
+
+      { "area": "Help menu", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
+      { "area": "Help menu", "command": "Keyboard keys", "icon": "keyboard", "keys": "Ctrl+/" },
+
+      { "area": "Everywhere", "command": "Open a menu", "icon": "chevron-down" },
+      { "area": "Everywhere", "command": "Ticked in a menu", "icon": "check" },
+      { "area": "Everywhere", "command": "Close", "icon": "x" },
+      { "area": "Everywhere", "command": "More actions", "icon": "ellipsis" },
+      { "area": "Command search", "command": "Search box", "icon": "search" }
     ]
   }
 }

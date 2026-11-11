@@ -32,15 +32,15 @@ Every pairing below was measured (WCAG contrast ratio). Words need 4.5:1, the ed
 
 **Each product has its own colour.** The pale colour of the logo is only for the logo, the navy bar and decoration: it is too faint to read on white (lavender 2.8:1, coral 2.5:1). Anything you press or read uses the deeper colour.
 
-| | Author | Recorder | OpenExplainer (OpenCapture) | Capture Express |
-|---|---|---|---|---|
-| Buttons you press, links, the chosen tab | `#6656B7` (white words on it 5.9:1) | `#A83653` (6.3:1) | `#7D5E00` (6.1:1) | `#4E57BC` (6.2:1) |
-| The same, under the pointer | `#54459E` | `#8E2A45` | `#664C00` | `#3E46A3` |
-| Background of a chosen item | `#EEEAFB` (violet words on it 5.0:1) | `#FBEBEF` (5.5:1) | `#FBF4DC` (5.5:1) | `#ECEEFC` (5.3:1) |
-| Product colour on the navy bar | `#C9B6FA` (9.5:1) | `#F7A9B6` (9.3:1) | `#FFCD28` (11.5:1) | `#9CA5FF` (7.6:1) |
-| Logo only | `#AA88F4` | `#F47F90` | `#FFCD28` (the gold of its icon) | `#9CA5FF` to `#7D87F2` (its icon's indigo) |
+| | Author | Recorder | OpenExplainer (OpenCapture) | Capture Express | OpenAssess |
+|---|---|---|---|---|---|
+| Buttons you press, links, the chosen tab | `#6656B7` (white words on it 5.9:1) | `#A83653` (6.3:1) | `#7D5E00` (6.1:1) | `#4E57BC` (6.2:1) | `#A04B0D` (6.0:1) |
+| The same, under the pointer | `#54459E` | `#8E2A45` | `#664C00` | `#3E46A3` | `#8E420B` |
+| Background of a chosen item | `#EEEAFB` (violet words on it 5.0:1) | `#FBEBEF` (5.5:1) | `#FBF4DC` (5.5:1) | `#ECEEFC` (5.3:1) | `#FDEFE5` (5.3:1) |
+| Product colour on the navy bar | `#C9B6FA` (9.5:1) | `#F7A9B6` (9.3:1) | `#FFCD28` (11.5:1) | `#9CA5FF` (7.6:1) | `#FFA861` (9.1:1) |
+| Logo only | `#AA88F4` | `#F47F90` | `#FFCD28` (the gold of its icon) | `#9CA5FF` to `#7D87F2` (its icon's indigo) | `#FFA861` to `#F08436` (its icon's orange) |
 
-OpenExplainer's pair (2026-11-11) comes from its icon, a gold viewfinder on a navy tile named "OpenCapture". Its deeper gold is near the warning colour, so a warning always carries words or a symbol too. It lives in OpenExplainer's own `src/style.css` (as `--oe-*`), not in this file, so the products' copies of version 1 stay the same. Capture Express's pair (2026-11-11) is the indigo of its icon: the light end `#9CA5FF` is light enough to be its name on the navy bar, and a deeper indigo of the same hue is its control colour. Express draws its window in Rust (egui), not a web page, so the suite's colours are written into its `src/ui/theme.rs`, where a test measures every pairing; it also keeps a dark scheme of its own (navy panels, the light indigo for links, navy words on its indigo buttons), which Author does not have. Assess gets its own pair the same way when its turn comes (logo colour for the logo, a deeper, measured colour for controls).
+OpenExplainer's pair (2026-11-11) comes from its icon, a gold viewfinder on a navy tile named "OpenCapture". Its deeper gold is near the warning colour, so a warning always carries words or a symbol too. It lives in OpenExplainer's own `src/style.css` (as `--oe-*`), not in this file, so the products' copies of version 1 stay the same. Capture Express's pair (2026-11-11) is the indigo of its icon: the light end `#9CA5FF` is light enough to be its name on the navy bar, and a deeper indigo of the same hue is its control colour. Express draws its window in Rust (egui), not a web page, so the suite's colours are written into its `src/ui/theme.rs`, where a test measures every pairing; it also keeps a dark scheme of its own (navy panels, the light indigo for links, navy words on its indigo buttons), which Author does not have. OpenAssess's pair (2026-11-11) is the orange of its icon, a clipboard on the navy tile: the light end `#FFA861` is its name on the navy bar, and a deeper orange of the same hue is its control colour. It sits near the warning colour, so a warning always carries words or a symbol too (OpenAssess's badges always have their words). It lives in OpenAssess's own `packages/app/ui/style.css` (as `--assess-*`, with the names that file always used pointed at the suite's), and OpenAssess keeps a dark scheme of its own: the suite's navy, the light orange for links, and the icon's orange under navy words for filled buttons. Every product of the suite now has its pair.
 
 The colours of the programs never change a course. Author's look is the editor around the slide; what a learner sees is the course's own theme.
 
@@ -102,4 +102,4 @@ Menus are for everyone, including people who never use a mouse:
 ## 7. Not yet decided
 
 * Dark mode (the colours above are for the light look; Windows high-contrast mode already works and must keep working).
-* The colours for Assess.
+* Nothing: every product has its colours.

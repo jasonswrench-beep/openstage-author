@@ -498,3 +498,43 @@ with a spoken name and a tooltip. See `DESIGN-GUIDE.md` for the rules and what e
 | Capture bar | The whole screen | [monitor](https://lucide.dev/icons/monitor) |  |
 | Capture bar | One window | [app-window](https://lucide.dev/icons/app-window) |  |
 | Capture bar | An area I draw | [scan](https://lucide.dev/icons/scan) |  |
+
+## OpenAssess
+
+| Where | Command | Icon | Shortcut |
+|---|---|---|---|
+| Top bar | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
+| Top bar | Print... | [printer](https://lucide.dev/icons/printer) |  |
+| Top bar | Answer sheets... | [clipboard-list](https://lucide.dev/icons/clipboard-list) |  |
+| Top bar | Export... | [file-output](https://lucide.dev/icons/file-output) |  |
+| File menu | New bank... | [file-plus](https://lucide.dev/icons/file-plus) |  |
+| File menu | Open a bank file... | [folder-open](https://lucide.dev/icons/folder-open) |  |
+| File menu | Bring in questions from a file... | [file-input](https://lucide.dev/icons/file-input) |  |
+| File menu | Your banks | [library](https://lucide.dev/icons/library) |  |
+| File menu | Show the OpenAssess folder | [folder-search](https://lucide.dev/icons/folder-search) |  |
+| Bank menu | Rename... | [pencil](https://lucide.dev/icons/pencil) |  |
+| Bank menu | Folders | [folder-tree](https://lucide.dev/icons/folder-tree) |  |
+| Bank menu | Coverage | [grid-3x3](https://lucide.dev/icons/grid-3x3) |  |
+| Bank menu | Check quality | [clipboard-check](https://lucide.dev/icons/clipboard-check) |  |
+| Bank menu | Remove... | [trash](https://lucide.dev/icons/trash) |  |
+| Question menu | New multiple choice question | [circle-dot](https://lucide.dev/icons/circle-dot) |  |
+| Question menu | New multiple response question | [list-checks](https://lucide.dev/icons/list-checks) |  |
+| Question menu | New true or false question | [circle-check](https://lucide.dev/icons/circle-check) |  |
+| Question menu | New fill in the blank question | [pencil-line](https://lucide.dev/icons/pencil-line) |  |
+| Question menu | New short answer question | [text-cursor-input](https://lucide.dev/icons/text-cursor-input) |  |
+| Question menu | New matching question | [link](https://lucide.dev/icons/link) |  |
+| Question menu | New ordering question | [list-ordered](https://lucide.dev/icons/list-ordered) |  |
+| Question menu | New numeric question | [hash](https://lucide.dev/icons/hash) |  |
+| Question menu | New essay question | [file-text](https://lucide.dev/icons/file-text) |  |
+| Question menu | Search the questions | [search](https://lucide.dev/icons/search) |  |
+| Question menu | Clear filters | [funnel-x](https://lucide.dev/icons/funnel-x) |  |
+| Test menu | Print... | [printer](https://lucide.dev/icons/printer) |  |
+| Test menu | Answer sheets... | [clipboard-list](https://lucide.dev/icons/clipboard-list) |  |
+| Test menu | Export... | [file-output](https://lucide.dev/icons/file-output) |  |
+| Help menu | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
+| Help menu | Keyboard keys | [keyboard](https://lucide.dev/icons/keyboard) | Ctrl+/ |
+| Everywhere | Open a menu | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
+| Everywhere | Ticked in a menu | [check](https://lucide.dev/icons/check) |  |
+| Everywhere | Close | [x](https://lucide.dev/icons/x) |  |
+| Everywhere | More actions | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
+| Command search | Search box | [search](https://lucide.dev/icons/search) |  |
