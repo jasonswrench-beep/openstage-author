@@ -7,6 +7,10 @@ Usage:  python tools/make_ui_icons.py          write editor/src/uiicons.gen.ts a
                               (app/src/uiicons.gen.ts there): its icons as drawn shapes, with a small drawing function,
                               because the Recorder has no copy of Author's player.
         add  --explainer PATH the same for OpenExplainer (src/ui/uiicons.gen.ts in its repository).
+        add  --express PATH   OpenStage Capture Express's icons, in its repository
+                              (crates/openstage-express-app/src/ui/uiicons_gen.rs there): Express draws its own window in Rust
+                              (egui), with no web page, so each icon is written as lines on the 24 by 24 grid, its curves and arcs
+                              cut into short straight pieces that it draws with the words' colour.
 
 design/icons.json names, for each product, the Lucide icon of each command. Every name is checked against the Lucide set Author
 already ships (editor/web/icons/lucide.json), so a misspelt or renamed icon stops the run instead of drawing nothing. Author's icons
@@ -14,6 +18,7 @@ are written, as their drawn shapes, into editor/src/uiicons.gen.ts, with the Luc
 table for people (and for anyone asked to review the choices), with the colours from design/openstage-ui.css.
 """
 import json
+import math
 import pathlib
 import re
 import sys
@@ -25,13 +30,24 @@ LUCIDE = ROOT / "editor" / "web" / "icons" / "lucide.json"
 OUT_TS = ROOT / "editor" / "src" / "uiicons.gen.ts"
 OUT_MD = ROOT / "design" / "ICONS.md"
 
-PRODUCT_NAMES = {"author": "OpenStage Author", "recorder": "OpenStage Recorder", "explainer": "OpenExplainer"}
+PRODUCT_NAMES = {"author": "OpenStage Author", "recorder": "OpenStage Recorder", "explainer": "OpenExplainer",
+                 "express": "OpenStage Capture Express"}
 
 # The products whose icon file is written into their own repository, with the words their file's heading uses.
 OWN_FILES = {
     "recorder": {"flag": "--recorder", "whose": "the Recorder's own buttons, tabs and menus", "why": "the Recorder has no copy of Author's player/src/icon.ts"},
     "explainer": {"flag": "--explainer", "whose": "OpenExplainer's own buttons, menus and panes", "why": "OpenExplainer has no copy of Author's player/src/icon.ts"},
 }
+
+
+# The products that draw their own window in Rust and get their icons as lines (see make_own_rs).
+RUST_FILES = {
+    "express": {"flag": "--express", "whose": "Capture Express's own buttons, menus and panes"},
+}
+
+# How far a straight piece may stray from the curve it stands for, on the 24 by 24 grid. Icons are drawn 14 to 24 pixels across, so
+# 0.08 of a grid square is well under a pixel.
+FLATNESS = 0.08
 
 
 class IconError(Exception):
@@ -123,6 +139,316 @@ def make_own_ts(plan, lucide, product):
     return "\n".join(lines)
 
 
+# ---- Lucide's shapes as lines, for a program that draws them itself (Capture Express, in Rust) ----
+
+_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+
+
+class _PathReader:
+    """Reads an SVG path's d attribute: letters, numbers, and the one-character flags of an arc (Lucide packs them, as in a1 1 0 01 2 2)."""
+
+    def __init__(self, d):
+        self.d, self.i = d, 0
+
+    def _skip(self):
+        while self.i < len(self.d) and self.d[self.i] in " ,\t\r\n":
+            self.i += 1
+
+    def done(self):
+        self._skip()
+        return self.i >= len(self.d)
+
+    def letter(self):
+        self._skip()
+        if self.i < len(self.d) and self.d[self.i].isalpha():
+            self.i += 1
+            return self.d[self.i - 1]
+        return None
+
+    def number(self):
+        self._skip()
+        m = _NUMBER.match(self.d, self.i)
+        if not m:
+            raise IconError(f"cannot read the path {self.d!r} at {self.i}")
+        self.i = m.end()
+        return float(m.group())
+
+    def flag(self):
+        self._skip()
+        c = self.d[self.i]
+        if c not in "01":
+            raise IconError(f"an arc flag in {self.d!r} at {self.i} is {c!r}")
+        self.i += 1
+        return c == "1"
+
+
+def _pieces(length):
+    return max(2, math.ceil(length / 0.6))
+
+
+def _cubic(p0, p1, p2, p3):
+    # Enough pieces that the lines stay within FLATNESS of the curve: the usual bound from the second differences.
+    dd = max(math.hypot(p0[0] - 2 * p1[0] + p2[0], p0[1] - 2 * p1[1] + p2[1]),
+             math.hypot(p1[0] - 2 * p2[0] + p3[0], p1[1] - 2 * p2[1] + p3[1]))
+    n = max(2, math.ceil(math.sqrt(3 * dd / (4 * FLATNESS))))
+    out = []
+    for k in range(1, n + 1):
+        t = k / n
+        u = 1 - t
+        out.append((u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
+                    u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1]))
+    return out
+
+
+def _quad(p0, p1, p2):
+    return _cubic(p0, (p0[0] + 2 / 3 * (p1[0] - p0[0]), p0[1] + 2 / 3 * (p1[1] - p0[1])),
+                  (p2[0] + 2 / 3 * (p1[0] - p2[0]), p2[1] + 2 / 3 * (p1[1] - p2[1])), p2)
+
+
+def _arc_steps(radius, sweep):
+    # The sagitta of a piece of angle a is r(1 - cos(a/2)); keep it under FLATNESS.
+    if radius <= FLATNESS:
+        return max(2, math.ceil(abs(sweep) / (math.pi / 2)))
+    a = 2 * math.acos(max(-1.0, 1 - FLATNESS / radius))
+    return max(2, math.ceil(abs(sweep) / a))
+
+
+def _arc(p0, rx, ry, rotation, large, sweep, p1):
+    """The points of an SVG arc after p0, as the SVG specification turns its end points into a centre (appendix F.6.5)."""
+    if p0 == p1:
+        return []
+    rx, ry = abs(rx), abs(ry)
+    if rx == 0 or ry == 0:
+        return [p1]
+    phi = math.radians(rotation)
+    cos_p, sin_p = math.cos(phi), math.sin(phi)
+    dx, dy = (p0[0] - p1[0]) / 2, (p0[1] - p1[1]) / 2
+    x1 = cos_p * dx + sin_p * dy
+    y1 = -sin_p * dx + cos_p * dy
+    scale = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry)
+    if scale > 1:
+        rx, ry = rx * math.sqrt(scale), ry * math.sqrt(scale)
+    num = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1
+    den = rx * rx * y1 * y1 + ry * ry * x1 * x1
+    co = math.sqrt(max(0.0, num / den)) if den else 0.0
+    if large == sweep:
+        co = -co
+    cx1, cy1 = co * rx * y1 / ry, -co * ry * x1 / rx
+    cx = cos_p * cx1 - sin_p * cy1 + (p0[0] + p1[0]) / 2
+    cy = sin_p * cx1 + cos_p * cy1 + (p0[1] + p1[1]) / 2
+
+    def angle(ux, uy, vx, vy):
+        a = math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+        return a
+
+    start = angle(1, 0, (x1 - cx1) / rx, (y1 - cy1) / ry)
+    delta = angle((x1 - cx1) / rx, (y1 - cy1) / ry, (-x1 - cx1) / rx, (-y1 - cy1) / ry)
+    if not sweep and delta > 0:
+        delta -= 2 * math.pi
+    elif sweep and delta < 0:
+        delta += 2 * math.pi
+    n = _arc_steps(max(rx, ry), delta)
+    out = []
+    for k in range(1, n + 1):
+        t = start + delta * k / n
+        x, y = rx * math.cos(t), ry * math.sin(t)
+        out.append((cos_p * x - sin_p * y + cx, sin_p * x + cos_p * y + cy))
+    out[-1] = p1
+    return out
+
+
+def _path_strokes(d):
+    """An SVG path as strokes: (points, closed). Each move starts a stroke; Z closes it."""
+    r = _PathReader(d)
+    strokes, points = [], []
+    cur = start = (0.0, 0.0)
+    last_control = None
+    last_kind = None
+    command = None
+
+    def finish(closed=False):
+        nonlocal points
+        if len(points) > 1:
+            strokes.append((points, closed))
+        points = []
+
+    while not r.done():
+        letter = r.letter()
+        if letter is not None:
+            command = letter
+        elif command is None:
+            raise IconError(f"the path {d!r} does not start with a letter")
+        rel = command.islower()
+        c = command.upper()
+        base = cur if rel else (0.0, 0.0)
+        control = None
+        if c == "M":
+            finish()
+            cur = (base[0] + r.number(), base[1] + r.number())
+            start = cur
+            points = [cur]
+            command = "l" if rel else "L"  # more pairs after a move are lines
+        elif c == "Z":
+            if points and points[-1] == start and len(points) > 2:
+                points.pop()
+            finish(True)
+            cur = start
+            points = [cur]
+            command = None
+        elif c == "L":
+            cur = (base[0] + r.number(), base[1] + r.number())
+            points.append(cur)
+        elif c == "H":
+            cur = ((cur[0] if rel else 0.0) + r.number(), cur[1])
+            points.append(cur)
+        elif c == "V":
+            cur = (cur[0], (cur[1] if rel else 0.0) + r.number())
+            points.append(cur)
+        elif c in "CS":
+            if c == "C":
+                p1 = (base[0] + r.number(), base[1] + r.number())
+            else:
+                p1 = (2 * cur[0] - last_control[0], 2 * cur[1] - last_control[1]) if last_control and last_kind in "CS" else cur
+            p2 = (base[0] + r.number(), base[1] + r.number())
+            p3 = (base[0] + r.number(), base[1] + r.number())
+            points += _cubic(cur, p1, p2, p3)
+            cur, control = p3, p2
+        elif c in "QT":
+            if c == "Q":
+                p1 = (base[0] + r.number(), base[1] + r.number())
+            else:
+                p1 = (2 * cur[0] - last_control[0], 2 * cur[1] - last_control[1]) if last_control and last_kind in "QT" else cur
+            p2 = (base[0] + r.number(), base[1] + r.number())
+            points += _quad(cur, p1, p2)
+            cur, control = p2, p1
+        elif c == "A":
+            rx, ry, rotation = r.number(), r.number(), r.number()
+            large, sweep = r.flag(), r.flag()
+            end = (base[0] + r.number(), base[1] + r.number())
+            points += _arc(cur, rx, ry, rotation, large, sweep, end)
+            cur = end
+        else:
+            raise IconError(f"the path {d!r} uses {command!r}, which this tool does not read")
+        # S reflects the last control point of a C or S before it, T that of a Q or T; anything else leaves none to reflect.
+        last_control = control if c in "CSQT" else None
+        last_kind = c
+    finish()
+    return strokes
+
+
+def _ellipse(cx, cy, rx, ry):
+    n = max(12, _arc_steps(max(rx, ry), 2 * math.pi))
+    return [(cx + rx * math.cos(2 * math.pi * k / n), cy + ry * math.sin(2 * math.pi * k / n)) for k in range(n)]
+
+
+def _rect(x, y, w, h, rx, ry):
+    if not rx and not ry:
+        return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+    rx = min(rx or ry, w / 2)
+    ry = min(ry or rx, h / 2)
+    pts = []
+    for (cx, cy, a0) in ((x + w - rx, y + ry, -math.pi / 2), (x + w - rx, y + h - ry, 0.0),
+                         (x + rx, y + h - ry, math.pi / 2), (x + rx, y + ry, math.pi)):
+        n = _arc_steps(max(rx, ry), math.pi / 2)
+        for k in range(n + 1):
+            t = a0 + (math.pi / 2) * k / n
+            pts.append((cx + rx * math.cos(t), cy + ry * math.sin(t)))
+    return pts
+
+
+def shape_strokes(shape):
+    """One Lucide shape (path, circle, ellipse, rect, line, polyline, polygon) as strokes: (points on the 24 grid, closed)."""
+    tag = shape["tag"]
+    f = lambda key, default=0.0: float(shape.get(key, default))  # noqa: E731
+    if tag == "path":
+        return _path_strokes(shape["d"])
+    if tag == "circle":
+        return [(_ellipse(f("cx"), f("cy"), f("r"), f("r")), True)]
+    if tag == "ellipse":
+        return [(_ellipse(f("cx"), f("cy"), f("rx"), f("ry")), True)]
+    if tag == "rect":
+        return [(_rect(f("x"), f("y"), f("width"), f("height"), f("rx"), f("ry")), True)]
+    if tag == "line":
+        return [([(f("x1"), f("y1")), (f("x2"), f("y2"))], False)]
+    if tag in ("polyline", "polygon"):
+        nums = [float(n) for n in _NUMBER.findall(shape["points"])]
+        return [(list(zip(nums[0::2], nums[1::2])), tag == "polygon")]
+    raise IconError(f"Lucide shape {tag!r} is not one this tool can turn into lines")
+
+
+def _tidy(points):
+    """Points rounded to a hundredth of a grid square, with a point that repeats the one before it left out."""
+    out = []
+    for x, y in points:
+        p = (round(x, 2) + 0.0, round(y, 2) + 0.0)
+        if not out or out[-1] != p:
+            out.append(p)
+    return out
+
+
+def _rust_number(v):
+    text = f"{v:.2f}".rstrip("0")
+    return text + "0" if text.endswith(".") else text
+
+
+def rust_variant(name):
+    """The Rust name of an icon: undo-2 is Undo2, arrow-down-a-z is ArrowDownAZ."""
+    return "".join(part[:1].upper() + part[1:] for part in name.split("-"))
+
+
+def make_own_rs(plan, lucide, product):
+    """A product's icons for its own Rust program: each icon as lines on the 24 grid, and an enum to name them."""
+    own = RUST_FILES[product]
+    names = sorted({row["icon"] for row in plan["products"][product]})
+    lines = [
+        "// SPDX-License-Identifier: Apache-2.0 AND ISC",
+        "// Made by tools/make_ui_icons.py in the OpenStage Author repository, from its design/icons.json (the suite's one list of icons):",
+        f"// do not edit by hand. Change that list and run the tool there with {own['flag']} pointing at this file.",
+        f"//! The icons of {own['whose']}: Lucide {lucide['version']}, each kept as the lines it is drawn with on its 24 by 24 grid",
+        "//! (curves and arcs cut into short straight pieces, none more than 0.08 of a grid square off the curve). `icon.rs` draws them",
+        "//! 2 grid squares thick in the colour of the words beside them. An icon says nothing to a screen reader: the words beside it, or",
+        "//! the name of its button, say what it is.",
+        "//",
+    ]
+    lines += [("// " + l).rstrip() for l in lucide["licence"].strip().splitlines()]
+    lines += [
+        "",
+        "/// One line of an icon: points on the 24 by 24 grid, joined in order, and whether the last is joined back to the first.",
+        "pub struct IconLine {",
+        "    pub points: &'static [[f32; 2]],",
+        "    pub closed: bool,",
+        "}",
+        "",
+        "/// Every icon the program uses, by its Lucide name.",
+        "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]",
+        "pub enum UiIcon {",
+    ]
+    lines += [f"    /// Lucide `{name}`." + "\n" + f"    {rust_variant(name)}," for name in names]
+    lines += ["}", "", "impl UiIcon {", f"    pub const ALL: [UiIcon; {len(names)}] = ["]
+    lines += [f"        UiIcon::{rust_variant(name)}," for name in names]
+    lines += ["    ];", "", "    /// Its Lucide name, as on lucide.dev.", "    pub fn name(self) -> &'static str {", "        match self {"]
+    lines += [f"            UiIcon::{rust_variant(name)} => {json.dumps(name)}," for name in names]
+    lines += ["        }", "    }", "", "    /// The lines it is drawn with.", "    pub fn lines(self) -> &'static [IconLine] {", "        match self {"]
+    lines += [f"            UiIcon::{rust_variant(name)} => &{rust_variant(name).upper()}_LINES," for name in names]
+    lines += ["        }", "    }", "}", ""]
+    for name in names:
+        strokes = []
+        for shape in lucide["icons"][name]["s"]:
+            strokes += shape_strokes(shape)
+        parts = []
+        for points, closed in strokes:
+            pts = _tidy(points)
+            if len(pts) < 2:
+                pts = pts * 2  # a dot (Lucide draws some as a path that goes nowhere): drawn as a round end
+            coords = ", ".join(f"[{_rust_number(x)}, {_rust_number(y)}]" for x, y in pts)
+            parts.append(f"    IconLine {{ points: &[{coords}], closed: {'true' if closed else 'false'} }},")
+        lines.append(f"const {rust_variant(name).upper()}_LINES: [IconLine; {len(parts)}] = [")
+        lines += parts
+        lines.append("];")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def make_md(plan, lucide):
     out = [
         "# Icons for each command",
@@ -174,6 +500,14 @@ def main(argv):
             print(f"Stopped: {own['flag']} needs the path of {PRODUCT_NAMES[product]}'s icon file.")
             return 1
         files[pathlib.Path(argv[at]).resolve()] = make_own_ts(plan, lucide, product)
+    for product, own in RUST_FILES.items():
+        if own["flag"] not in argv:
+            continue
+        at = argv.index(own["flag"]) + 1
+        if at >= len(argv):
+            print(f"Stopped: {own['flag']} needs the path of {PRODUCT_NAMES[product]}'s icon file.")
+            return 1
+        files[pathlib.Path(argv[at]).resolve()] = make_own_rs(plan, lucide, product)
     if "--check" in argv:
         stale = [str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p) for p, text in files.items() if not same(p, text)]
         if stale:

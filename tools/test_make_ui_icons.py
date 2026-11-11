@@ -56,6 +56,41 @@ class TheIconList(unittest.TestCase):
         self.assertEqual(m.make_recorder_ts(self.plan, self.lucide), m.make_own_ts(self.plan, self.lucide, "recorder"))
         self.assertIn("the Recorder's own buttons, tabs and menus", m.make_recorder_ts(self.plan, self.lucide))
 
+    def test_a_product_drawn_in_rust_gets_each_icon_as_lines_named_by_an_enum(self):
+        self.assertGreater(len(self.plan["products"]["express"]), 40)
+        text = m.make_own_rs(self.plan, self.lucide, "express")
+        names = {r["icon"] for r in self.plan["products"]["express"]}
+        self.assertEqual(set(re.findall(r'^            UiIcon::\w+ => "([a-z0-9-]+)",', text, re.M)), names)
+        for name in names:
+            self.assertIn(f"const {m.rust_variant(name).upper()}_LINES: [IconLine; ", text)
+        self.assertIn("run the tool there with --express pointing at this file", text)
+        self.assertIn("ISC License", text)
+        self.assertEqual(m.rust_variant("arrow-down-a-z"), "ArrowDownAZ")
+        self.assertEqual(m.rust_variant("undo-2"), "Undo2")
+
+    def test_every_lucide_shape_turns_into_lines_that_stay_on_the_grid_and_follow_the_curve(self):
+        for name, icon in self.lucide["icons"].items():
+            for shape in icon["s"]:
+                for points, _closed in m.shape_strokes(shape):
+                    for x, y in points:
+                        self.assertTrue(-1 <= x <= 25 and -1 <= y <= 25, f"{name}: ({x}, {y}) is off the grid")
+        # A circle of radius 10: every point is on it, and the middle of every piece is no more than the allowed amount inside it.
+        (points, closed), = m.shape_strokes({"tag": "circle", "cx": 12, "cy": 12, "r": 10})
+        self.assertTrue(closed)
+        for (ax, ay), (bx, by) in zip(points, points[1:] + points[:1]):
+            self.assertAlmostEqual(((ax - 12) ** 2 + (ay - 12) ** 2) ** 0.5, 10, places=6)
+            mid = (((ax + bx) / 2 - 12) ** 2 + ((ay + by) / 2 - 12) ** 2) ** 0.5
+            self.assertLessEqual(10 - mid, m.FLATNESS + 1e-9)
+        # An arc with packed flags (a1 1 0 01 ...) ends where the path says, and a half circle bulges the right way.
+        (points, closed), = m.shape_strokes({"tag": "path", "d": "M2 12a10 10 0 01 20 0"})
+        self.assertFalse(closed)
+        self.assertEqual(points[0], (2.0, 12.0))
+        self.assertEqual(points[-1], (22.0, 12.0))
+        self.assertLess(min(y for _, y in points), 2.1, "sweep 1 from left to right goes over the top")
+        # Z closes a stroke and a move starts a new one.
+        strokes = m.shape_strokes({"tag": "path", "d": "M4 4h4v4zM10 10l2 2"})
+        self.assertEqual([(len(p), c) for p, c in strokes], [(3, True), (2, False)])
+
     def test_the_table_for_people_names_every_command_and_every_colour(self):
         text = m.OUT_MD.read_text(encoding="utf-8")
         for rows in self.plan["products"].values():

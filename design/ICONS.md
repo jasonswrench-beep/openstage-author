@@ -420,3 +420,81 @@ with a spoken name and a tooltip. See `DESIGN-GUIDE.md` for the rules and what e
 | Each picture | Draft callout text | [wand-sparkles](https://lucide.dev/icons/wand-sparkles) |  |
 | Each picture | Replace the picture file... | [image-up](https://lucide.dev/icons/image-up) |  |
 | Each picture | Remove picture | [trash](https://lucide.dev/icons/trash) |  |
+
+## OpenStage Capture Express
+
+| Where | Command | Icon | Shortcut |
+|---|---|---|---|
+| Top bar | Start capturing | [camera](https://lucide.dev/icons/camera) |  |
+| Top bar | Undo | [undo-2](https://lucide.dev/icons/undo-2) | Ctrl+Z |
+| Top bar | Redo | [redo-2](https://lucide.dev/icons/redo-2) | Ctrl+Y |
+| Top bar | Export | [file-output](https://lucide.dev/icons/file-output) |  |
+| Top bar | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
+| Top bar | Back to guides | [arrow-left](https://lucide.dev/icons/arrow-left) |  |
+| Top bar | Saved | [circle-check](https://lucide.dev/icons/circle-check) |  |
+| Top bar | Example, not saved | [circle-dot](https://lucide.dev/icons/circle-dot) |  |
+| File menu | Start capturing | [camera](https://lucide.dev/icons/camera) |  |
+| File menu | Open a copy... | [package-open](https://lucide.dev/icons/package-open) |  |
+| File menu | Export... | [file-output](https://lucide.dev/icons/file-output) |  |
+| File menu | Back to guides | [arrow-left](https://lucide.dev/icons/arrow-left) |  |
+| File menu | Trash... | [archive](https://lucide.dev/icons/archive) |  |
+| Edit menu | Undo | [undo-2](https://lucide.dev/icons/undo-2) | Ctrl+Z |
+| Edit menu | Redo | [redo-2](https://lucide.dev/icons/redo-2) | Ctrl+Y |
+| Edit menu | Choose all steps | [square-dashed](https://lucide.dev/icons/square-dashed) | Ctrl+A |
+| Edit menu | Choose just one step | [check](https://lucide.dev/icons/check) |  |
+| Edit menu | Deleted steps... | [archive-restore](https://lucide.dev/icons/archive-restore) |  |
+| Step menu | Add a step | [plus](https://lucide.dev/icons/plus) |  |
+| Step menu | Duplicate step | [copy-plus](https://lucide.dev/icons/copy-plus) |  |
+| Step menu | Delete step | [trash](https://lucide.dev/icons/trash) | Ctrl+Shift+Delete |
+| Step menu | Move step up | [arrow-up](https://lucide.dev/icons/arrow-up) | Alt+Up |
+| Step menu | Move step down | [arrow-down](https://lucide.dev/icons/arrow-down) | Alt+Down |
+| Step menu | Previous step | [chevron-up](https://lucide.dev/icons/chevron-up) | Ctrl+Shift+Up |
+| Step menu | Next step | [chevron-down](https://lucide.dev/icons/chevron-down) | Ctrl+Shift+Down |
+| Step menu | Edit the step's title | [pencil](https://lucide.dev/icons/pencil) | F2 |
+| Step menu | Skip in export | [eye-off](https://lucide.dev/icons/eye-off) |  |
+| Step menu | Focused view | [focus](https://lucide.dev/icons/focus) |  |
+| Marks menu | Add rectangle | [square](https://lucide.dev/icons/square) |  |
+| Marks menu | Add oval | [circle](https://lucide.dev/icons/circle) |  |
+| Marks menu | Add line | [minus](https://lucide.dev/icons/minus) |  |
+| Marks menu | Add arrow | [move-up-right](https://lucide.dev/icons/move-up-right) |  |
+| Marks menu | Add text | [type](https://lucide.dev/icons/type) |  |
+| Marks menu | Add step number | [hash](https://lucide.dev/icons/hash) |  |
+| Marks menu | Add highlight | [highlighter](https://lucide.dev/icons/highlighter) |  |
+| Marks menu | Add blur | [droplets](https://lucide.dev/icons/droplets) |  |
+| Marks menu | Add spotlight | [flashlight](https://lucide.dev/icons/flashlight) |  |
+| Marks menu | Delete mark | [trash](https://lucide.dev/icons/trash) | Delete |
+| View menu | Focused view on for every step | [zoom-in](https://lucide.dev/icons/zoom-in) |  |
+| View menu | Focused view off for every step | [zoom-out](https://lucide.dev/icons/zoom-out) |  |
+| View menu | Colours: follow Windows | [monitor](https://lucide.dev/icons/monitor) |  |
+| View menu | Colours: light | [sun](https://lucide.dev/icons/sun) |  |
+| View menu | Colours: dark | [moon](https://lucide.dev/icons/moon) |  |
+| Tools menu | Settings... | [settings](https://lucide.dev/icons/settings) |  |
+| Help menu | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
+| Help menu | Keyboard keys | [keyboard](https://lucide.dev/icons/keyboard) | Ctrl+/ |
+| Help menu | About and licences | [info](https://lucide.dev/icons/info) |  |
+| Everywhere | Open a menu | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
+| Everywhere | Ticked in a menu | [check](https://lucide.dev/icons/check) |  |
+| Everywhere | Close | [x](https://lucide.dev/icons/x) |  |
+| Everywhere | Add | [plus](https://lucide.dev/icons/plus) |  |
+| Everywhere | More actions | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
+| Everywhere | Open or close a section | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
+| Home | A guide | [book-open](https://lucide.dev/icons/book-open) |  |
+| Home | Rename | [pencil](https://lucide.dev/icons/pencil) |  |
+| Home | Delete | [trash](https://lucide.dev/icons/trash) |  |
+| Home | Sort | [arrow-up-down](https://lucide.dev/icons/arrow-up-down) |  |
+| Editor | Section: Guide | [book-open](https://lucide.dev/icons/book-open) |  |
+| Editor | Section: Step | [file-text](https://lucide.dev/icons/file-text) |  |
+| Editor | Section: Close-up | [crop](https://lucide.dev/icons/crop) |  |
+| Editor | Section: Marks | [shapes](https://lucide.dev/icons/shapes) |  |
+| Editor | Section: Draw a shape with the mouse | [pen-tool](https://lucide.dev/icons/pen-tool) |  |
+| Editor | Section: Several steps chosen | [list-checks](https://lucide.dev/icons/list-checks) |  |
+| Export screen | Choose folder... | [folder-open](https://lucide.dev/icons/folder-open) |  |
+| Export screen | Save a copy as one file | [package](https://lucide.dev/icons/package) |  |
+| Capture bar | Start | [circle-dot](https://lucide.dev/icons/circle-dot) |  |
+| Capture bar | Pause | [pause](https://lucide.dev/icons/pause) |  |
+| Capture bar | Resume | [play](https://lucide.dev/icons/play) |  |
+| Capture bar | Capture now | [camera](https://lucide.dev/icons/camera) |  |
+| Capture bar | Finish | [circle-stop](https://lucide.dev/icons/circle-stop) |  |
+| Capture bar | The whole screen | [monitor](https://lucide.dev/icons/monitor) |  |
+| Capture bar | One window | [app-window](https://lucide.dev/icons/app-window) |  |
+| Capture bar | An area I draw | [scan](https://lucide.dev/icons/scan) |  |

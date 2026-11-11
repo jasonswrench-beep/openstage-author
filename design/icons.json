@@ -382,6 +382,93 @@
       { "area": "Each picture", "command": "Draft callout text", "icon": "wand-sparkles" },
       { "area": "Each picture", "command": "Replace the picture file...", "icon": "image-up" },
       { "area": "Each picture", "command": "Remove picture", "icon": "trash" }
+    ],
+    "express": [
+      { "area": "Top bar", "command": "Start capturing", "icon": "camera" },
+      { "area": "Top bar", "command": "Undo", "icon": "undo-2", "keys": "Ctrl+Z" },
+      { "area": "Top bar", "command": "Redo", "icon": "redo-2", "keys": "Ctrl+Y" },
+      { "area": "Top bar", "command": "Export", "icon": "file-output" },
+      { "area": "Top bar", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
+      { "area": "Top bar", "command": "Back to guides", "icon": "arrow-left" },
+      { "area": "Top bar", "command": "Saved", "icon": "circle-check" },
+      { "area": "Top bar", "command": "Example, not saved", "icon": "circle-dot" },
+
+      { "area": "File menu", "command": "Start capturing", "icon": "camera" },
+      { "area": "File menu", "command": "Open a copy...", "icon": "package-open" },
+      { "area": "File menu", "command": "Export...", "icon": "file-output" },
+      { "area": "File menu", "command": "Back to guides", "icon": "arrow-left" },
+      { "area": "File menu", "command": "Trash...", "icon": "archive" },
+
+      { "area": "Edit menu", "command": "Undo", "icon": "undo-2", "keys": "Ctrl+Z" },
+      { "area": "Edit menu", "command": "Redo", "icon": "redo-2", "keys": "Ctrl+Y" },
+      { "area": "Edit menu", "command": "Choose all steps", "icon": "square-dashed", "keys": "Ctrl+A" },
+      { "area": "Edit menu", "command": "Choose just one step", "icon": "check" },
+      { "area": "Edit menu", "command": "Deleted steps...", "icon": "archive-restore" },
+
+      { "area": "Step menu", "command": "Add a step", "icon": "plus" },
+      { "area": "Step menu", "command": "Duplicate step", "icon": "copy-plus" },
+      { "area": "Step menu", "command": "Delete step", "icon": "trash", "keys": "Ctrl+Shift+Delete" },
+      { "area": "Step menu", "command": "Move step up", "icon": "arrow-up", "keys": "Alt+Up" },
+      { "area": "Step menu", "command": "Move step down", "icon": "arrow-down", "keys": "Alt+Down" },
+      { "area": "Step menu", "command": "Previous step", "icon": "chevron-up", "keys": "Ctrl+Shift+Up" },
+      { "area": "Step menu", "command": "Next step", "icon": "chevron-down", "keys": "Ctrl+Shift+Down" },
+      { "area": "Step menu", "command": "Edit the step's title", "icon": "pencil", "keys": "F2" },
+      { "area": "Step menu", "command": "Skip in export", "icon": "eye-off" },
+      { "area": "Step menu", "command": "Focused view", "icon": "focus" },
+
+      { "area": "Marks menu", "command": "Add rectangle", "icon": "square" },
+      { "area": "Marks menu", "command": "Add oval", "icon": "circle" },
+      { "area": "Marks menu", "command": "Add line", "icon": "minus" },
+      { "area": "Marks menu", "command": "Add arrow", "icon": "move-up-right" },
+      { "area": "Marks menu", "command": "Add text", "icon": "type" },
+      { "area": "Marks menu", "command": "Add step number", "icon": "hash" },
+      { "area": "Marks menu", "command": "Add highlight", "icon": "highlighter" },
+      { "area": "Marks menu", "command": "Add blur", "icon": "droplets" },
+      { "area": "Marks menu", "command": "Add spotlight", "icon": "flashlight" },
+      { "area": "Marks menu", "command": "Delete mark", "icon": "trash", "keys": "Delete" },
+
+      { "area": "View menu", "command": "Focused view on for every step", "icon": "zoom-in" },
+      { "area": "View menu", "command": "Focused view off for every step", "icon": "zoom-out" },
+      { "area": "View menu", "command": "Colours: follow Windows", "icon": "monitor" },
+      { "area": "View menu", "command": "Colours: light", "icon": "sun" },
+      { "area": "View menu", "command": "Colours: dark", "icon": "moon" },
+
+      { "area": "Tools menu", "command": "Settings...", "icon": "settings" },
+
+      { "area": "Help menu", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
+      { "area": "Help menu", "command": "Keyboard keys", "icon": "keyboard", "keys": "Ctrl+/" },
+      { "area": "Help menu", "command": "About and licences", "icon": "info" },
+
+      { "area": "Everywhere", "command": "Open a menu", "icon": "chevron-down" },
+      { "area": "Everywhere", "command": "Ticked in a menu", "icon": "check" },
+      { "area": "Everywhere", "command": "Close", "icon": "x" },
+      { "area": "Everywhere", "command": "Add", "icon": "plus" },
+      { "area": "Everywhere", "command": "More actions", "icon": "ellipsis" },
+      { "area": "Everywhere", "command": "Open or close a section", "icon": "chevron-down" },
+
+      { "area": "Home", "command": "A guide", "icon": "book-open" },
+      { "area": "Home", "command": "Rename", "icon": "pencil" },
+      { "area": "Home", "command": "Delete", "icon": "trash" },
+      { "area": "Home", "command": "Sort", "icon": "arrow-up-down" },
+
+      { "area": "Editor", "command": "Section: Guide", "icon": "book-open" },
+      { "area": "Editor", "command": "Section: Step", "icon": "file-text" },
+      { "area": "Editor", "command": "Section: Close-up", "icon": "crop" },
+      { "area": "Editor", "command": "Section: Marks", "icon": "shapes" },
+      { "area": "Editor", "command": "Section: Draw a shape with the mouse", "icon": "pen-tool" },
+      { "area": "Editor", "command": "Section: Several steps chosen", "icon": "list-checks" },
+
+      { "area": "Export screen", "command": "Choose folder...", "icon": "folder-open" },
+      { "area": "Export screen", "command": "Save a copy as one file", "icon": "package" },
+
+      { "area": "Capture bar", "command": "Start", "icon": "circle-dot" },
+      { "area": "Capture bar", "command": "Pause", "icon": "pause" },
+      { "area": "Capture bar", "command": "Resume", "icon": "play" },
+      { "area": "Capture bar", "command": "Capture now", "icon": "camera" },
+      { "area": "Capture bar", "command": "Finish", "icon": "circle-stop" },
+      { "area": "Capture bar", "command": "The whole screen", "icon": "monitor" },
+      { "area": "Capture bar", "command": "One window", "icon": "app-window" },
+      { "area": "Capture bar", "command": "An area I draw", "icon": "scan" }
     ]
   }
 }

@@ -10,7 +10,7 @@ In: OpenStage Author, OpenStage Recorder, OpenStage Capture Express, OpenCapture
 - [x] Icon for every Author and Recorder command (`icons.json`, `ICONS.md`, `tools/make_ui_icons.py`)
 - [x] Jason's look at the icon list: Lucide icons agreed for buttons and menus (2026-11-10); ChatGPT only reviews them or draws larger pictures
 - [ ] Dark mode colours
-- [ ] Colours and icon lists for Capture Express and Assess (OpenExplainer's done, 2026-11-11: the gold of its icon; its icons are the "explainer" list in `icons.json`, written into its repository by `tools/make_ui_icons.py --explainer`)
+- [ ] Colours and icon list for Assess (OpenExplainer's done, 2026-11-11: the gold of its icon; its icons are the "explainer" list in `icons.json`, written into its repository by `tools/make_ui_icons.py --explainer`. Capture Express's done, 2026-11-11: the indigo of its icon; its icons are the "express" list, written into its repository as Rust lines by `tools/make_ui_icons.py --express`)
 
 ## OpenStage Author
 
@@ -45,6 +45,17 @@ Started and built 2026-11-11, in `C:\Users\Jason\OpenExplainer` (its own reposit
 - [ ] E5. Dialogs in the suite's look: rounded panel over a navy veil, a Close button that does what Escape does, the row of buttons kept in sight with the main one in gold (added in one place, `open()` in `src/dialogs.ts`). **Built, waiting for Jason's look.**
 - Not done: a welcome page (OpenExplainer opens on an empty project and keeps no list of recent projects), dark mode (as in Author), new pictures for its user guide. The name in the bar is still OpenExplainer (Jason's call).
 
-## OpenStage Capture Express, OpenStage Assess
+## OpenStage Capture Express
 
-- [ ] Each in turn
+Built 2026-11-11, in `D:\Claude Audio Test\openstage-capture-express` (its own repository), at Jason's "move on to capture express". Express draws its own window in Rust (egui, with AccessKit for screen readers), so nothing could be copied from Author: the menu bar, the menu buttons, the command search, the keys list and the sections were written again in Rust to the same rules (the WAI-ARIA menu bar and menu button patterns, a combo box with the chosen command as its active item, a heading with a button for a section). Tried by Express's window tests, which read back what a screen reader is told (358, all passing, among 910 in the program), its rule checks and clippy, and pictures of every screen (full size, the smallest window, light and dark). Not tried by a person or with a screen reader. Pictures in `D:\Claude Audio Test\revamp-screens\express-before` and `express-x1`.
+
+- [ ] X1. Colours: the suite's light colours with Express's indigo (`#4E57BC`, white words on it 6.2:1; `#9CA5FF` on the navy bar), and Express's own dark scheme kept; a test measures every pairing. **Built, waiting for Jason's look.**
+- [ ] X2. The navy bar on every screen of the whole window (the icon and the name, Search, the screen's main buttons: Start capturing on Home; Back to guides, the guide's title and whether it is saved, Undo, Redo and Export in the editor), and seven menus (File, Edit, Step, Marks, View, Tools, Help) holding every command with icons and keys. Home's four buttons (Settings, About, Trash, Open a copy) are in the menus. **Built, waiting for Jason's look.**
+- [ ] X3. The steps list's Add and "..." in its heading (in place of four buttons under it); the details as sections that open and close (Guide, Step details, Marks); the nine Add buttons for marks as one Add a mark menu. **Built, waiting for Jason's look.**
+- [ ] X4. Ctrl+K command search and Help > Keyboard keys (Ctrl+/), as dialogs in the suite's look (a Close button that does what Escape does, the keyboard given back when they close). **Built, waiting for Jason's look.**
+- [ ] X5. Settings and Export as white cards on the page; the other screens with a white strip for their way back and heading; the capture bar under a navy strip with icons on its buttons. **Built, waiting for Jason's look.**
+- Not done: the questions (Move to the Trash, Empty the trash for good) stay where they were, in the page, in a white card, not as dialogs (their keyboard order is tested and was kept); Windows high-contrast themes are not followed (egui draws its own colours).
+
+## OpenStage Assess
+
+- [ ] Its turn
