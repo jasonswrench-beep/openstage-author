@@ -66,3 +66,7 @@ For any new panel or dialog, run the script. It is a developer tool and is not p
    `await window.__frameAt(320)` loads the editor in a 320 pixel wide frame; `window.__overflow(frame)` and `window.__dialogOverflow(frame)` look for sideways scrolling.
 
 The script is a checklist of things a program can see. It does not replace listening.
+
+Its label-in-name rule (WCAG 2.5.3) leaves out select boxes and list boxes (2026-11-11): what they show is a value chosen or the
+entries of the list, not a label, so comparing it with the name was wrong every time (OpenAssess's "Kind of question" select showing
+"All kinds", and the command search's list of commands, were both flagged).

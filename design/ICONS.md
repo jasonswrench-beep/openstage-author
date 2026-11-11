@@ -538,3 +538,4 @@ with a spoken name and a tooltip. See `DESIGN-GUIDE.md` for the rules and what e
 | Everywhere | Close | [x](https://lucide.dev/icons/x) |  |
 | Everywhere | More actions | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
 | Command search | Search box | [search](https://lucide.dev/icons/search) |  |
+| Bank screen | New question (a menu of the kinds) | [plus](https://lucide.dev/icons/plus) |  |

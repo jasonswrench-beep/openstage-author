@@ -511,7 +511,8 @@
       { "area": "Everywhere", "command": "Ticked in a menu", "icon": "check" },
       { "area": "Everywhere", "command": "Close", "icon": "x" },
       { "area": "Everywhere", "command": "More actions", "icon": "ellipsis" },
-      { "area": "Command search", "command": "Search box", "icon": "search" }
+      { "area": "Command search", "command": "Search box", "icon": "search" },
+      { "area": "Bank screen", "command": "New question (a menu of the kinds)", "icon": "plus" }
     ]
   }
 }

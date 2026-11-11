@@ -131,10 +131,13 @@
       if (isControl && el.tagName !== "OPTION") {
         const nm = accName(el);
         if (!nm) add("no-accessible-name", el);
-        // Label in name (WCAG 2.5.3): the words that can be seen must be in the name.
+        // Label in name (WCAG 2.5.3): the words that can be seen must be in the name. Not for a select box or a list box: the words
+        // they show are a value chosen or the entries of the list, never their label, and comparing them with the name flagged every
+        // select named "Kind of question" that showed "All kinds" (found on OpenAssess, 2026-11-11).
         const vis = textOf(el);
         const words = (t) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-        if (vis && role !== "group" && explicit !== "slider" && el.getAttribute("aria-label") && !words(el.getAttribute("aria-label")).includes(words(vis).slice(0, 24))) add("label-not-in-name", el, `visible "${vis.slice(0, 40)}" vs name "${el.getAttribute("aria-label").slice(0, 60)}"`);
+        const showsValue = el.tagName === "SELECT" || role === "listbox" || role === "combobox";
+        if (vis && !showsValue && role !== "group" && explicit !== "slider" && el.getAttribute("aria-label") && !words(el.getAttribute("aria-label")).includes(words(vis).slice(0, 24))) add("label-not-in-name", el, `visible "${vis.slice(0, 40)}" vs name "${el.getAttribute("aria-label").slice(0, 60)}"`);
         const r = el.getBoundingClientRect();
         if ((r.width < 24 || r.height < 24) && !sr(el) && el.type !== "hidden") add("target-too-small", el, `${Math.round(r.width)}x${Math.round(r.height)}`);
       }
