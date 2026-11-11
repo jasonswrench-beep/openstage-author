@@ -5,7 +5,7 @@
 
 import { averageHex, backgroundGroups } from "./backgrounds.ts";
 import { errorText, type Backend } from "./backend.ts";
-import { creditLine, NO_PACKS, packsWithBackgrounds, whereFrom, type Pack, type PackBackground, type PackList } from "./packs.ts";
+import { creditLine, NO_PACKS, PACKS_PAGE_FAILED, PACKS_PAGE_OPENED, PACKS_PAGE_URL, packsWithBackgrounds, whereFrom, type Pack, type PackBackground, type PackList } from "./packs.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -26,7 +26,7 @@ export interface BackgroundChoice {
 }
 
 export interface BackgroundDialogOptions {
-  backend: Pick<Backend, "packsList" | "packsFolder" | "pickPackZip" | "packInstall" | "packRemove" | "packPictureUrl" | "revealInFolder">;
+  backend: Pick<Backend, "packsList" | "packsFolder" | "pickPackZip" | "packInstall" | "packRemove" | "packPictureUrl" | "revealInFolder" | "openUrl">;
   announce(message: string): void;
 }
 
@@ -40,11 +40,13 @@ export function chooseBackgroundPicture(opts: BackgroundDialogOptions): Promise<
 
     const dialog = h("dialog", { class: "dialog wide library-dialog", "aria-labelledby": "bg-title" });
     const title = h("h2", { id: "bg-title", text: "Choose a background picture" });
-    const intro = h("p", { class: "note", text: "A background picture goes behind everything on the slide. Pictures come in packs: some came with OpenStage Author, and you can add more from a zip file. The picture is a decoration, so it needs no description of its own, but the words beside each picture say what it shows. The slide's background colour is set to the picture's average colour, so the checker can still judge your text. Words on a busy picture can be hard to read in places, so put them in a text bubble or on a panel." });
+    const intro = h("p", { class: "note", text: "A background picture goes behind everything on the slide. Pictures come in packs: some came with OpenStage Author, and you can get more from the OpenStage Author website and add them here from a zip file. The picture is a decoration, so it needs no description of its own, but the words beside each picture say what it shows. The slide's background colour is set to the picture's average colour, so the checker can still judge your text. Words on a busy picture can be hard to read in places, so put them in a text bubble or on a panel." });
     const status = h("p", { class: "note lib-status", role: "status", "aria-live": "polite" });
     const failure = h("p", { class: "dialog-error", role: "alert" });
     const list = h("div", { class: "lib-list" });
     const add = h("button", { type: "button", id: "bg-add", text: "Add a pack..." });
+    const get = h("button", { type: "button", id: "bg-get", text: "Get more packs...", "aria-describedby": "bg-get-note" });
+    const getNote = h("span", { id: "bg-get-note", class: "sr-only", text: `Opens ${PACKS_PAGE_URL} in your web browser.` });
     const folder = h("button", { type: "button", id: "bg-folder", text: "Show the packs folder" });
     const close = h("button", { type: "button", id: "bg-close", text: "Close" });
 
@@ -174,6 +176,15 @@ export function chooseBackgroundPicture(opts: BackgroundDialogOptions): Promise<
         status.textContent = count();
       }
     });
+    get.addEventListener("click", async () => {
+      failure.textContent = "";
+      try {
+        await b.openUrl(PACKS_PAGE_URL);
+        status.textContent = PACKS_PAGE_OPENED;
+      } catch {
+        failure.textContent = PACKS_PAGE_FAILED;
+      }
+    });
     folder.addEventListener("click", async () => {
       failure.textContent = "";
       try {
@@ -189,7 +200,7 @@ export function chooseBackgroundPicture(opts: BackgroundDialogOptions): Promise<
       finish(null);
     });
 
-    dialog.append(title, intro, status, failure, list, h("div", { class: "dialog-actions" }, add, folder, close));
+    dialog.append(title, intro, status, failure, list, h("div", { class: "dialog-actions" }, add, get, getNote, folder, close));
     document.body.appendChild(dialog);
     status.textContent = "Looking for packs of backgrounds...";
     dialog.showModal();

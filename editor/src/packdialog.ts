@@ -3,7 +3,7 @@
 // beside the words that describe them (the same words become the alt text), so the picture is decoration here and nothing depends on seeing it.
 
 import { errorText, type Backend } from "./backend.ts";
-import { creditLine, NO_PACKS, packsWithPeople, whereFrom, type Pack, type PackList, type PackPerson } from "./packs.ts";
+import { creditLine, NO_PACKS, PACKS_PAGE_FAILED, PACKS_PAGE_OPENED, PACKS_PAGE_URL, packsWithPeople, whereFrom, type Pack, type PackList, type PackPerson } from "./packs.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -24,7 +24,7 @@ export interface LibraryChoice {
 }
 
 export interface LibraryDialogOptions {
-  backend: Pick<Backend, "packsList" | "packsFolder" | "pickPackZip" | "packInstall" | "packRemove" | "packPictureUrl" | "revealInFolder">;
+  backend: Pick<Backend, "packsList" | "packsFolder" | "pickPackZip" | "packInstall" | "packRemove" | "packPictureUrl" | "revealInFolder" | "openUrl">;
   announce(message: string): void;
 }
 
@@ -38,11 +38,13 @@ export function chooseFromLibrary(opts: LibraryDialogOptions): Promise<LibraryCh
 
     const dialog = h("dialog", { class: "dialog wide library-dialog", "aria-labelledby": "lib-title" });
     const title = h("h2", { id: "lib-title", text: "Choose a person" });
-    const intro = h("p", { class: "note", text: "People come in character packs. Some came with OpenStage Author, and you can add more from a zip file. Choosing someone adds their picture and a description of them to your cast, and their name and a voice if you had not given them yet. You can change all of it afterwards." });
+    const intro = h("p", { class: "note", text: "People come in character packs. Some came with OpenStage Author. You can get more from the OpenStage Author website and add them here from a zip file. Choosing someone adds their picture and a description of them to your cast, and their name and a voice if you had not given them yet. You can change all of it afterwards." });
     const status = h("p", { class: "note lib-status", role: "status", "aria-live": "polite" });
     const failure = h("p", { class: "dialog-error", role: "alert" });
     const list = h("div", { class: "lib-list" });
     const add = h("button", { type: "button", id: "lib-add", text: "Add a character pack..." });
+    const get = h("button", { type: "button", id: "lib-get", text: "Get more packs...", "aria-describedby": "lib-get-note" });
+    const getNote = h("span", { id: "lib-get-note", class: "sr-only", text: `Opens ${PACKS_PAGE_URL} in your web browser.` });
     const folder = h("button", { type: "button", id: "lib-folder", text: "Show the packs folder" });
     const close = h("button", { type: "button", id: "lib-close", text: "Close" });
 
@@ -154,6 +156,15 @@ export function chooseFromLibrary(opts: LibraryDialogOptions): Promise<LibraryCh
         status.textContent = count();
       }
     });
+    get.addEventListener("click", async () => {
+      failure.textContent = "";
+      try {
+        await b.openUrl(PACKS_PAGE_URL);
+        status.textContent = PACKS_PAGE_OPENED;
+      } catch {
+        failure.textContent = PACKS_PAGE_FAILED;
+      }
+    });
     folder.addEventListener("click", async () => {
       failure.textContent = "";
       try {
@@ -169,7 +180,7 @@ export function chooseFromLibrary(opts: LibraryDialogOptions): Promise<LibraryCh
       finish(null);
     });
 
-    dialog.append(title, intro, status, failure, list, h("div", { class: "dialog-actions" }, add, folder, close));
+    dialog.append(title, intro, status, failure, list, h("div", { class: "dialog-actions" }, add, get, getNote, folder, close));
     document.body.appendChild(dialog);
     status.textContent = "Looking for character packs...";
     dialog.showModal();

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Character } from "../../player/src/types.ts";
-import { chosenMessage, creditForPicture, creditLine, isPlaceholderName, parsePackAnswer, parsePackList, voiceFor, whereFrom, type Pack } from "./packs.ts";
+import { chosenMessage, creditForPicture, creditLine, isPlaceholderName, PACKS_PAGE_FAILED, PACKS_PAGE_OPENED, PACKS_PAGE_URL, parsePackAnswer, parsePackList, voiceFor, whereFrom, type Pack } from "./packs.ts";
 
 const pack = (over: Record<string, unknown> = {}) => ({
   id: "test-people", title: "Test people", version: "1.0.0", description: "Two people.", bytes: 1234, source: "bundled", folder: "test-people",
@@ -89,4 +89,11 @@ test("what is said after choosing a person names what was added", () => {
   assert.match(chosenMessage("Kathy", { name: false, voice: true }), /their picture, a voice and a description/);
   assert.match(chosenMessage("Kathy", { name: true, voice: false }), /their picture, their name and a description/);
   assert.match(chosenMessage("Kathy", { name: false, voice: false }), /change it if it is not right\.$/);
+});
+
+test("the packs page is a plain https address, and the words after opening it say where to go next", () => {
+  assert.match(PACKS_PAGE_URL, /^https:\/\/openstageauthor\.com\/apps\/openstage\/packs$/, "one https address, nothing in it that the author's details could end up in");
+  assert.match(PACKS_PAGE_OPENED, /Add a pack/, "it names the button to press once the zip is downloaded");
+  assert.ok(PACKS_PAGE_FAILED.includes(PACKS_PAGE_URL), "if the browser cannot be opened, the address is there to type in");
+  for (const words of [PACKS_PAGE_OPENED, PACKS_PAGE_FAILED]) assert.ok(!words.includes("—"), "no em dash in what is said");
 });

@@ -129,6 +129,18 @@ export function parsePackList(raw: string): PackList {
   }
 }
 
+/**
+ * The page on the OpenStage Author website where more packs are offered as zip files. The editor only opens it in the author's own browser: nothing is fetched from it,
+ * and nothing is installed until the author has downloaded a zip and chosen it with **Add a pack**, which checks all of it first (tools/charpack.py).
+ */
+export const PACKS_PAGE_URL = "https://openstageauthor.com/apps/openstage/packs";
+
+/** What to say after the packs page has been opened: where to go next. */
+export const PACKS_PAGE_OPENED = "Opened the packs page in your browser. Download a pack there, then come back here, press Add a pack, and choose the zip file you downloaded.";
+
+/** What to say if the browser could not be opened, with the address so it can be typed in. */
+export const PACKS_PAGE_FAILED = `The packs page could not be opened. You can type its address into your browser: ${PACKS_PAGE_URL}`;
+
 /** The shell's JSON after installing or removing a pack. */
 export function parsePackAnswer(raw: string): PackAnswer {
   try {
