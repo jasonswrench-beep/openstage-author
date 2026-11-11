@@ -8,7 +8,7 @@ OpenStage Author comes with two packs. **OpenStage people, set 1** has Aisyah, B
 
 ## Using a person from a pack
 
-1. Open **Characters** in the toolbar.
+1. Open **Characters...** in the **Design** menu.
 2. Add a person (or open one you have), and under *Picture* press **Choose from the library...**
 3. Choose someone. Their picture comes into your project, with the description that goes with it as the picture's **alt text**.
 
@@ -45,6 +45,7 @@ A background is a picture to go behind everything on a slide. On a slide with no
 In the library dialog (people) or the background picker (backgrounds); both do the same thing, and either can add any pack:
 
 * **Add a character pack...** (in the picker, **Add a pack...**) asks for a zip file, checks all of it, and only then installs it. A pack that is not good is not kept, and the message says what is wrong.
+* **Get more packs...** opens the packs page on the OpenStage Author website (`PACKS_PAGE_URL` in `editor/src/packs.ts`, `https://openstageauthor.com/apps/openstage/packs`) in the author's own browser. Nothing is fetched by the editor and nothing is installed by the page: the author downloads a zip, comes back and uses **Add a pack...** as above, so every pack goes through the same check. If the browser cannot be opened, the dialog shows the address to type in.
 * **Show the packs folder** opens the folder where packs you added are kept (in the editor's data folder). Uninstalling OpenStage Author offers to delete that folder with the rest of the program's data.
 * **Remove this pack** (on a pack you added; press it twice) takes the pack away. A pack that came with the program cannot be removed. People already in a cast keep their pictures, because the pictures are in the project.
 
@@ -189,6 +190,22 @@ python tools/make_background_pack.py my-rooms-source.json --raw C:\pictures\my-r
 ```
 
 Every picture is made the same size and written as WebP (about a tenth the size of the PNG it came from), `pack.json` is written for you, and the result is checked the way the editor will. `character-packs-src/openstage-offices-1.json` is the source of the pack that comes with the program.
+
+## Putting packs on the website
+
+`tools/pack_for_website.py` gets packs ready for the packs page that **Get more packs...** opens:
+
+```
+python tools/pack_for_website.py C:\packs\my-pack C:\packs\my-rooms --out C:\packs\site
+```
+
+For each pack folder it checks the pack exactly as the editor will, writes `<id>-<version>.zip` (the pack in one folder named for its id; only `pack.json`, the pictures it names and plain text files at the top go in, and anything else is named as left out), installs that zip into a temporary place with the editor's own installer to be sure the file it made is one the editor takes, and writes `<id>-<version>.zip.sha256.txt`. The same pack always makes the same zip, so the same checksum. Then it writes `index.html` in the same folder: a page with no scripts that lists the newest version of every pack zip there, with a few small pictures from each (and their words), who made it, the licence, the size and the SHA-256, and a Download link named for the pack. Run it again with only `--out` to make the page again from the zips already there.
+
+Upload the whole folder as it is. A version already in the folder is not written over with different pictures or words (raise `version` in `pack.json`, or say `--replace`); older zips stay, so a link to one still works, but the page lists only the newest. A pack may not use the id of a pack that comes with the program (`--bundled` says where those are; it is `character-packs` by default). The packs that come with the program are not offered on the page, because they are already there.
+
+What goes on the page is the pack's own words, so the pack's `description`, `credit` and every `alt` are what visitors read: write them the way the section above asks. Nothing is uploaded by the tool.
+
+The address the editor opens is `https://openstageauthor.com/apps/openstage/packs`. Two things to know when the folder goes there. The links on the page (zips, checksums, pictures) are relative to the folder, so the page must be served as a folder (`.../packs/`, which a web server normally redirects to by itself when a real folder is there) and not as a single page the server builds. And the website runs WordPress, where `/apps/openstage/` is already a page of its own: a real folder at `apps/openstage/` on the server can hide that page, so after uploading, open both `/apps/openstage/` and `/apps/openstage/packs` and check both still answer. If they do not, put the folder somewhere else and make `/apps/openstage/packs` point to it.
 
 ## Licences
 

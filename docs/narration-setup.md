@@ -10,7 +10,7 @@ program that you installed. The reasons, and the choices open about it, are in `
 
 ## The easy way: a button
 
-In an installed OpenStage Author, open **Narration** (the button in the toolbar). The section "Narration voice on this computer" has **Install the narration voice...**. It asks first: what is
+In an installed OpenStage Author, open **Narration...** (in the **Narration** menu). The section "Narration voice on this computer" has **Install the narration voice...**. It asks first: what is
 downloaded (about 670 MB, from pypi.org and huggingface.co), how much room it takes (2.1 GB, and about 1.5 GB more free on the same drive while it installs), that parts of it are GPL, and that nothing from your courses is sent. Then it installs into OpenStage's own
 folder (`%LOCALAPPDATA%\com.openstageauthor.editor\narration-engine`), a step at a time, with Cancel. **Remove the narration voice...** takes it away again and frees the room. If you have named your own
 engine (below), the editor leaves yours alone and offers neither button. Run from the source folder (not installed) there is no Python of its own to install with, and the section says so.

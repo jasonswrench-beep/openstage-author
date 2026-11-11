@@ -1,6 +1,6 @@
 """A Word document for reviewers, made from a project.
 
-    python review_doc.py PROJECT_DIR OUT.docx [--json]
+    python review_doc.py PROJECT_DIR OUT.docx [--json] [--headings=slide|number|outline|name] [--font=NAME]
 
 A colleague or an accessibility reviewer wants to read a course and write on it, not click through it. The document has, for
 every slide, what is on it in the order a screen reader reads it: the words, the alt text of each picture, the narration script,
@@ -11,6 +11,10 @@ The file is a Word 2007 or later document written directly with the standard lib
 heading styles (so Word's navigation pane works), real tables with a header row that repeats, a document title and a language.
 The same project always gives the same bytes (the dates come from the project, not the clock), so a republish changes the file only
 if the course changed.
+
+The author's publishing style (editor/src/publishstyle.ts) can change how slides are headed (--headings: "Slide 4: Name", the usual;
+"4. Name"; "2.1 Name", by section and slide; or the name only) and the font (--font, one of FONTS). A course with two or more sections
+has a Heading 1 for each section instead of the one heading "Slides".
 """
 
 import datetime
@@ -194,17 +198,23 @@ def _style(style_id, name, based_on="Normal", next_style=None, ppr="", rpr="", q
     )
 
 
-def styles_xml(language):
+# The fonts the publishing style offers: ones every Windows computer has (Aptos comes with recent Microsoft 365).
+FONTS = ("Calibri", "Aptos", "Arial", "Verdana", "Segoe UI", "Georgia", "Times New Roman")
+HEADINGS = ("slide", "number", "outline", "name")
+
+
+def styles_xml(language, font="Calibri"):
     lang = esc_attr(language)
+    f = esc_attr(font if font in FONTS else "Calibri")
     heading = lambda n, size, before: _style(  # noqa: E731
         f"Heading{n}", f"heading {n}", next_style="Normal",
         ppr=f'<w:keepNext/><w:keepLines/><w:spacing w:before="{before}" w:after="120"/><w:outlineLvl w:val="{n - 1}"/>',
-        rpr=f'<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:bCs/><w:color w:val="1F2D3D"/><w:sz w:val="{size}"/><w:szCs w:val="{size}"/>',
+        rpr=f'<w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:cs="{f}"/><w:b/><w:bCs/><w:color w:val="1F2D3D"/><w:sz w:val="{size}"/><w:szCs w:val="{size}"/>',
     )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         f'<w:styles xmlns:w="{W_NS}"><w:docDefaults><w:rPrDefault><w:rPr>'
-        '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/>'
+        f'<w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:eastAsia="{f}" w:cs="{f}"/><w:sz w:val="22"/><w:szCs w:val="22"/>'
         f'<w:lang w:val="{lang}" w:eastAsia="{lang}" w:bidi="ar-SA"/></w:rPr></w:rPrDefault>'
         '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
         '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
@@ -292,11 +302,11 @@ def core_xml(title, author, language, when):
     )
 
 
-def package(doc, title, author, language, when):
+def package(doc, title, author, language, when, font="Calibri"):
     """The finished file as bytes. Every part is written with the same fixed time, so the same document is always the same bytes."""
     parts = [
         ("[Content_Types].xml", CONTENT_TYPES), ("_rels/.rels", ROOT_RELS), ("word/document.xml", doc.document_xml()),
-        ("word/_rels/document.xml.rels", DOC_RELS), ("word/styles.xml", styles_xml(language)), ("word/numbering.xml", NUMBERING_XML),
+        ("word/_rels/document.xml.rels", DOC_RELS), ("word/styles.xml", styles_xml(language, font)), ("word/numbering.xml", NUMBERING_XML),
         ("word/settings.xml", SETTINGS_XML), ("docProps/core.xml", core_xml(title, author, language, when)), ("docProps/app.xml", APP_XML),
     ]
     import io
@@ -342,6 +352,8 @@ def reading_order(objects):
 
 
 class Writer:
+    headings = "slide"
+
     def __init__(self, project, slides, findings):
         self.project = project
         self.slides = slides
@@ -644,8 +656,26 @@ class Writer:
                             why[t["target"]].append(note)
         return names, why
 
-    def slide(self, number, slide):
-        self.doc.heading(2, f"Slide {number}: {slide['name']}")
+    def slide_heading(self, number, slide, section_number=None, in_section=None):
+        """A slide's heading in the publishing style: "Slide 4: Name" (the usual), "4. Name", "2.1 Name" (section and slide) or "Name"."""
+        name = slide["name"]
+        if self.headings == "number":
+            return f"{number}. {name}"
+        if self.headings == "outline":
+            return f"{section_number}.{in_section} {name}" if section_number is not None else f"{number}. {name}"
+        if self.headings == "name":
+            return name
+        return f"Slide {number}: {name}"
+
+    def section_heading(self, number, name):
+        if self.headings == "slide":
+            return f"Section {number}: {name}"
+        if self.headings == "outline":
+            return f"{number} {name}"
+        return name
+
+    def slide(self, number, slide, heading=None):
+        self.doc.heading(2, heading or f"Slide {number}: {slide['name']}")
         facts = []
         if slide.get("hideNavigation"):
             facts.append("The course's Back and Next are hidden here.")
@@ -692,18 +722,46 @@ class Writer:
         d = self.doc
         d.para(meta["title"], style="Title")
         d.para("Review document", style="Subtitle")
-        d.para(f"Author: {meta.get('author') or 'not given'}. Language: {meta['language']}. Last changed: {meta['modified']}. "
+        known = [f"Course code: {meta['courseCode']}." if meta.get("courseCode") else "", f"Version: {meta['version']}." if meta.get("version") else ""]
+        d.para(" ".join(x for x in known if x) + (" " if any(known) else "")
+               + f"Author: {meta.get('author') or 'not given'}. Language: {meta['language']}. Last changed: {meta['modified']}. "
                f"{len(self.slides)} {'slide' if len(self.slides) == 1 else 'slides'}.")
+        sections = self.sections()
         d.heading(1, "How to read this document")
-        d.para("Every slide is a Heading 2, and a layer that appears on a slide is a Heading 3, so Word's navigation pane lists them. What is on a slide is listed in the "
+        d.para(("Every section of the course is a Heading 1, every slide a Heading 2, " if len(sections) > 1 else "Every slide is a Heading 2, ")
+               + "and a layer that appears on a slide is a Heading 3, so Word's navigation pane lists them. What is on a slide is listed in the "
                "order a screen reader reads it. Alt text is what a screen reader says for a picture; MISSING marks a picture that has none. Narration is the script that is "
                "spoken. A right answer to a question is marked (correct answer). Rules, timing and animation are not listed: they are how the course behaves, and the "
                "way to review them is to try the course.")
         self.problems()
-        d.heading(1, "Slides")
-        for number, slide in enumerate(self.slides, start=1):
-            self.slide(number, slide)
+        number = 0
+        if len(sections) <= 1:
+            d.heading(1, "Slides")
+        for s_number, (name, slides) in enumerate(sections, start=1):
+            if len(sections) > 1:
+                d.heading(1, self.section_heading(s_number, name))
+                if not slides:
+                    self.note("This section has no slides.")
+            for in_section, slide in enumerate(slides, start=1):
+                number += 1
+                self.slide(number, slide, self.slide_heading(number, slide, s_number if len(sections) > 1 else None, in_section))
         return d
+
+    def sections(self):
+        """The course's sections, each a name and its slides in the order they play. Slides the sections do not list are put at the end of the last."""
+        by_id = {s["id"]: s for s in self.slides}
+        out, seen = [], set()
+        for scene in self.project.get("scenes", []):
+            slides = [by_id[sid] for sid in scene["slides"] if sid in by_id and sid not in seen]
+            seen.update(s["id"] for s in slides)
+            out.append((scene["name"], slides))
+        rest = [s for s in self.slides if s["id"] not in seen]
+        if rest:
+            if out:
+                out[-1][1].extend(rest)
+            else:
+                out.append(("Slides", rest))
+        return out
 
 
 # ---------------------------------------------------------------- the project on disk
@@ -724,19 +782,21 @@ def load_slides(project_dir, project):
     return slides
 
 
-def make(project_dir):
+def make(project_dir, headings="slide", font="Calibri"):
     """The review document for the project in `project_dir`, as bytes, and a short account of what it holds."""
     project_dir = pathlib.Path(project_dir)
     project = json.loads((project_dir / "project.json").read_text(encoding="utf-8"))
     slides = load_slides(project_dir, project)
     findings = validate.validate_project(project_dir)
-    doc = Writer(project, slides, findings).build()
+    writer = Writer(project, slides, findings)
+    writer.headings = headings if headings in HEADINGS else "slide"
+    doc = writer.build()
     meta = project["meta"]
     try:
         when = datetime.date.fromisoformat(meta["modified"]).isoformat() + "T00:00:00Z"
     except ValueError:
         when = "1980-01-01T00:00:00Z"
-    data = package(doc, meta["title"], meta.get("author", ""), meta["language"], when)
+    data = package(doc, meta["title"], meta.get("author", ""), meta["language"], when, font if font in FONTS else "Calibri")
     return data, {
         "slides": len(slides),
         "errors": sum(1 for f in findings if f.severity == "error"),
@@ -752,11 +812,13 @@ def main(argv):
             stream.reconfigure(encoding="utf-8")
     args = [a for a in argv if not a.startswith("--")]
     as_json = "--json" in argv
-    if len(args) != 2:
-        print("Usage: python review_doc.py PROJECT_DIR OUT.docx [--json]", file=sys.stderr)
+    flag = lambda name, default: next((a.split("=", 1)[1] for a in argv if a.startswith(f"--{name}=")), default)  # noqa: E731
+    headings, font = flag("headings", "slide"), flag("font", "Calibri")
+    if len(args) != 2 or headings not in HEADINGS or font not in FONTS:
+        print(f"Usage: python review_doc.py PROJECT_DIR OUT.docx [--json] [--headings={'|'.join(HEADINGS)}] [--font=NAME]\nThe fonts are {', '.join(FONTS)}.", file=sys.stderr)
         return 2
     try:
-        data, summary = make(args[0])
+        data, summary = make(args[0], headings, font)
         out = pathlib.Path(args[1])
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(data)

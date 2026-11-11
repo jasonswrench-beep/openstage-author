@@ -34,8 +34,8 @@ export function shapePreview(kind: string): SVGElement {
   const draw = (tag: string, attrs: Record<string, string>) => {
     const e = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-    e.setAttribute("fill", kind === "line" ? "none" : "#0b3fb3");
-    e.setAttribute("stroke", "#0b3fb3");
+    e.setAttribute("fill", kind === "line" ? "none" : "#6656b7");
+    e.setAttribute("stroke", "#6656b7");
     e.setAttribute("stroke-width", "3");
     svg.appendChild(e);
   };
@@ -65,21 +65,21 @@ export function bubblePreview(kind: "speech" | "thought", withWords: boolean): S
   };
   for (const f of bubbleParts(kind, "left", 60, 44).figures) {
     const { tag, ...attrs } = f;
-    add(tag, { ...Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, String(v)])), fill: "#e8ecf6", stroke: "#0b3fb3", "stroke-width": "2.5" });
+    add(tag, { ...Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, String(v)])), fill: "#eeeafb", stroke: "#6656b7", "stroke-width": "2.5" });
   }
   if (withWords) for (const y of [11, 18]) add("line", { x1: "14", y1: String(y), x2: "46", y2: String(y), stroke: "#6b7280", "stroke-width": "2.5", "stroke-linecap": "round" });
   svg.appendChild(group);
   return svg;
 }
 
-/** A small drawing of an interaction: the controls in the theme's blue, the content in grey. */
+/** A small drawing of an interaction: the controls in the Author colour, the content in grey. */
 export function interactionPreview(kind: string, orientation: string): SVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 120 70");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
   svg.setAttribute("class", "choice-preview");
-  const BLUE = "#0b3fb3";
+  const BLUE = "#6656b7";
   const GREY = "#d3d9e6";
   const r = (x: number, y: number, w: number, h: number, fill: string, rx = 3) => {
     const e = document.createElementNS(SVG_NS, "rect");

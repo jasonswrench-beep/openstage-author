@@ -615,7 +615,7 @@ SLIDE_NOT_WORDS = [
     "id", "layout", "background", "duration", "LAYER.id", "LAYER.name",
 ]
 PROJECT_NOT_WORDS = [
-    "schemaVersion", "meta.author", "meta.created", "meta.modified", "meta.language", "theme.*", "completion.*", "variables.*", "banks.*", "sources.*",
+    "schemaVersion", "meta.author", "meta.created", "meta.modified", "meta.language", "meta.version", "meta.courseCode", "theme.*", "completion.*", "variables.*", "banks.*", "sources.*",
     "sourceExclude.*", "settings.*", "scenes.[].id", "scenes.[].slides.*", "characters.[].id", "characters.[].voice", "characters.[].picture.src",
     "characters.[].poses.*", "characters.[].library.*",
 ]

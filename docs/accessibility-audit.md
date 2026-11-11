@@ -62,7 +62,7 @@ For any new panel or dialog, run the script. It is a developer tool and is not p
 
 1. `node editor\dev-server.mjs 5173` (the dev server also serves the script).
 2. Open `http://127.0.0.1:5173/?dir=` followed by a project folder, choose Open project.
-3. In the browser's console: `await import("/__audit.js")`, then `window.__audit()` for the screen as it is, or `await window.__crawl()` to visit every slide and object.
+3. In the browser's console: `await import("/__audit.js")`, then `window.__audit()` for the screen as it is, or `await window.__crawl()` to visit every slide and object (and each of the Properties panel's tabs with every section opened, since only what shows can be checked).
    `await window.__frameAt(320)` loads the editor in a 320 pixel wide frame; `window.__overflow(frame)` and `window.__dialogOverflow(frame)` look for sideways scrolling.
 
 The script is a checklist of things a program can see. It does not replace listening.

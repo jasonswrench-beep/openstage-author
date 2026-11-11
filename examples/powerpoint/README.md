@@ -1,6 +1,6 @@
 # PowerPoint example
 
-Two small presentations to try **PowerPoint** in the editor's toolbar, made from nothing (no Office, no one's work), so they need no credit.
+Two small presentations to try **PowerPoint slides...** in the editor's **File** menu, made from nothing (no Office, no one's work), so they need no credit.
 
 | File | What it is |
 | --- | --- |

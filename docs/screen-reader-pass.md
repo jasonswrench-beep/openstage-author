@@ -36,7 +36,7 @@ When something goes wrong, also add a line to the problem list at the end: which
 **What to do.**
 1. Press F6 and listen. Press it again, several times, until you are back where you started.
 2. Press Shift+F6 to go backwards.
-3. Open the Timeline panel (the **Timeline** button in the toolbar) and press F6 again.
+3. Open the Timeline panel (**Timeline** in the **Narration** menu) and press F6 again.
 
 **A good result.** Each panel is named when focus enters it. The Timeline panel is included while it is showing and left out when it is hidden. Focus is never lost, and you never end up in a place with nothing named.
 
@@ -84,7 +84,7 @@ When something goes wrong, also add a line to the problem list at the end: which
 1. Choose a text object and Tab through the Properties panel. Listen to each field.
 2. Change a value (for example the object's name) and press Tab.
 3. Do the same for a shape and for an image.
-4. Find a button that is unavailable (for example **Move earlier** when only one object is chosen) and move to it.
+4. Find a command that is unavailable (for example **Earlier in reading order** in the Objects panel's **...** menu while several objects are chosen) and move to it.
 
 **A good result.** Every field has a spoken label, and the same label is not read twice. Changing a value keeps your place and does not jump focus. A control that is unavailable can still be reached and says it is unavailable.
 
@@ -97,7 +97,7 @@ When something goes wrong, also add a line to the problem list at the end: which
 
 **What to do.** For each of these, open the dialog, Tab around inside it, press Escape, and check where focus lands.
 - **New project**, **Add slide** (the layout picker), **Theme**, and the **Add** menu pickers (a shape, a question, an interaction).
-- **Variables**, **Timing** and **Narration** (the toolbar buttons).
+- **Variables**, **Timing** and **Narration** (in the **Design** and **Narration** menus; until 2026-11-10 they were toolbar buttons).
 - **Publish**: start a publish and then cancel it.
 
 **A good result.** Focus moves into the dialog and is announced with its name. Tab stays inside it. Escape closes it and focus returns to the button that opened it. For Narration and Publish, progress and the Cancel button are announced. You are never trapped.
@@ -131,7 +131,7 @@ When something goes wrong, also add a line to the problem list at the end: which
 ### 7. The Timing list
 
 **What to do.**
-1. Open the **Timing** button in the toolbar.
+1. Choose **Timing...** in the **Narration** menu.
 2. Move through the table. Change a time with the keyboard.
 3. Close it.
 

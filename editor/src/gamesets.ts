@@ -490,6 +490,9 @@ export const MAX_ROUNDS = 10;
 export const ROUND_POINTS = 100;
 /** How many steps a new round starts with. The author can add up to 8 and take them down to 2 in the question's own properties. */
 export const ROUND_STEPS = 4;
+/** Where a round's question box starts, and how tall it is: room for the instruction, four steps and Check answer as the player draws them, with a little to spare. */
+export const ORDER_QUIZ_TOP = 170;
+export const ORDER_QUIZ_HEIGHT = 376;
 
 function orderPreview(): PreviewBlock[] {
   const out: PreviewBlock[] = [{ kind: "button", rect: [80, 560, 240, 56] }];
@@ -514,18 +517,21 @@ function orderRound(ctx: GameContext, id: string, nextId: string, round: number,
   const steps = ["First step", "Second step", "Third step", "Fourth step"].slice(0, ROUND_STEPS);
   // The steps are written in the right order; the learner is shown them in another (see the sequencing question).
   quiz.content = { ...quiz.content, items: steps.map((text, i) => ({ id: `s${i + 1}`, text })), scoring: { points: ROUND_POINTS, attemptsAllowed: 1 } };
-  // Four steps need less room than the question's own box (made for eight), so the feedback and the way on fit below it. A round given more steps may need the box made taller.
-  quiz.geometry = { ...quiz.geometry, height: 340 };
+  // Four steps need less room than the question's own box (made for eight), so the feedback and the way on fit below it. The player draws
+  // the instruction, four steps and Check answer in 360 of the slide's 720; the box was 340, which cut Check answer in half and made the
+  // box scroll (found 2026-11-10 when the example was played), so it is 376 and starts just under the question. A round given more steps
+  // may need the box made taller.
+  quiz.geometry = { ...quiz.geometry, y: ORDER_QUIZ_TOP, height: ORDER_QUIZ_HEIGHT };
   const wrongText = "Not quite. Say what the right order is, and why.";
   const wrong = built.layers[1]!.objects[0]!;
   wrong.content = { ...wrong.content, html: `<p>${wrongText}</p>` };
   wrong.accessibility = { ...wrong.accessibility, altText: wrongText };
   // After an answer the way on is in the feedback that appears, so it is there only when it can be used. It sits below the question, however many steps there are.
   const last = round === rounds;
-  const feedbackY = Math.max(460, quiz.geometry.y + quiz.geometry.height + 12);
+  const feedbackY = Math.max(460, quiz.geometry.y + quiz.geometry.height + 10);
   for (const layer of built.layers) {
-    layer.objects[0]!.geometry = { ...layer.objects[0]!.geometry, x: 80, y: feedbackY, width: 1120, height: 100 };
-    const next = button(alloc, last ? "See my results" : "Next round", last ? "See my results" : "Next round", [80, feedbackY + 120, 300, 56], 50, 2);
+    layer.objects[0]!.geometry = { ...layer.objects[0]!.geometry, x: 80, y: feedbackY, width: 1120, height: 80 };
+    const next = button(alloc, last ? "See my results" : "Next round", last ? "See my results" : "Next round", [80, feedbackY + 92, 300, 56], 50, 2);
     next.triggers = buildActivation({ kind: "jump", slideId: nextId });
     layer.objects.push(next);
   }

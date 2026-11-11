@@ -433,7 +433,7 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
 
 /** One line about an object's audio, for the Properties panel. */
 export function statusLine(s: AudioStatus): string {
-  if (s.state === "missing") return "No audio yet for this script. Make it from the Narration button in the toolbar. Until then the course shows the script as a transcript.";
+  if (s.state === "missing") return "No audio yet for this script. Make it from Narration in the Narration menu. Until then the course shows the script as a transcript.";
   const timing = s.exactTimings ? "Captions are timed to the spoken words." : "Captions are timed by estimate, because the exact word times could not be matched to the script.";
   return `Audio is ready, ${formatDuration(s.duration ?? 0)}. ${timing}`;
 }

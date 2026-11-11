@@ -16,7 +16,7 @@ If a step does not work, do not fight it. Write down what you pressed and what t
 
 ## 1. Record (about 10 minutes)
 
-1. Press **OpenScreen** on the toolbar.
+1. Choose **Record the screen (OpenScreen)...** in the **Insert** menu (it is in the **Narration** menu too).
 2. Choose **A whole screen** (or just the Notepad window). Leave your voice and the computer's sound on their defaults.
 3. Under **OpenScreen may**, choose **Note where the mouse goes and what is clicked** (or the choice that also notes the keys). Without this, the steps in part 4 have nothing to work from.
 4. Press **Start recording**. After the countdown, read the script and do the job in Notepad at the same time: open the **File** menu, choose **Save as**, type *report*, press **Enter**. Go slowly, and click as you say each sentence.

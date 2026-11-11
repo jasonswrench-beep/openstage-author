@@ -126,7 +126,7 @@ test("an object's audio is ready when the generator has made the file its key na
 });
 
 test("the status line says what to do, and how the captions are timed", () => {
-  assert.match(statusLine({ state: "missing", duration: null, exactTimings: null }), /No audio yet.*Narration button.*transcript/);
+  assert.match(statusLine({ state: "missing", duration: null, exactTimings: null }), /No audio yet.*Narration in the Narration menu.*transcript/);
   assert.equal(statusLine({ state: "ready", duration: 75, exactTimings: true }), "Audio is ready, 1 minute 15 seconds. Captions are timed to the spoken words.");
   assert.match(statusLine({ state: "ready", duration: 4, exactTimings: false }), /Audio is ready, 4 seconds\. Captions are timed by estimate/);
 });

@@ -39,7 +39,7 @@ offered, and a plugin has no way to be handed a recording (voice cloning is out 
 
 ## Setting it up
 
-1. Choose **AI services** on the toolbar.
+1. Choose **AI services...** in the **Tools** menu.
 2. Paste your OpenAI key. The **Get your OpenAI key** button opens the page where you sign up and copy it. The key is from OpenAI's developer
    platform, billed separately from a ChatGPT subscription. You pay OpenAI for what you make; OpenStage does not charge anything and cannot
    see what it costs.

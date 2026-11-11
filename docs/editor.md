@@ -10,6 +10,145 @@ Run it by double-clicking `OPEN EDITOR.bat`. The first run builds it.
 
 ## What it does
 
+**The top bar and the menus.** The navy bar along the top holds the program's logo and name, the title of the open course,
+whether it is saved, and the five buttons used all the time: **Undo**, **Redo**, **Save**, **Preview** and **Publish**, each
+with an icon and its word, with **Search** (Ctrl+K) beside them. Under it is a row of menus: **File**, **Edit**, **Insert**, **Slide**, **Design**, **Narration**,
+**Review**, **Tools** and **Help**. Every command is in a menu, with its icon and its keyboard shortcut, even when it is also a
+button somewhere else; one that cannot be used yet stays in its menu, dimmed. F10, or Alt pressed and let go on its own, moves
+to the menus (see Keyboard). The look follows the suite's design guide (`design/DESIGN-GUIDE.md`): the colours and sizes are in
+`design/openstage-ui.css`, which `editor/build.mjs` puts in front of the editor's own styles, and the icons are the Lucide
+icons named in `design/icons.json` (`tools/make_ui_icons.py` writes them into `editor/src/uiicons.gen.ts`). The menus are
+`editor/src/menubar.ts`.
+
+**The panels' Add and ... buttons, and right-click menus.** Each panel has two buttons beside its heading in place of the rows
+of buttons it used to have. In the **Slides** panel, **Add** opens a menu with **New slide...**, **Game...**, **Quiz from a
+spreadsheet...** and **Slides from a file...**, and **...** (named "More for this slide") has **Duplicate slide**, **Change
+layout...**, **Move slide up**, **Move slide down**, **Question banks...**, **Share slides...** and **Delete slide**. In the
+**Objects** panel, **Add** starts with **Find something to add...** and then lists each kind of object (the same list as the Insert menu) and **...** ("More for the selected
+objects") has **Edit text...**, **Cut**, **Copy**, **Paste**, **Duplicate**, **Delete**, **Select all**, **Group**, **Ungroup**,
+**Select group**, **Lock** (or **Unlock**) and **Earlier** and **Later in reading order**. The layer bar above the canvas has
+**Add layer** and **...** ("More for this layer": **Duplicate layer**, **Move layer earlier**, **Move layer later**, **Delete
+layer**). Right-clicking a slide in the list, an object in the list or on the canvas opens the menu for it where the pointer is,
+and chooses it first if it was not chosen; right-clicking an empty part of the slide offers **Paste**, **Select all** and each kind
+of object to add. Shift+F10 or the Menu key opens the same menu beside the slide, object or selection that has focus. Every
+command is also in the menus under the top bar, with the same words, icon and shortcut (one list of commands feeds them all, in
+`editor/src/app.ts`, `makeCommands`). A dialog opened from one of these menus gives focus back to the button (or the item) it was
+opened from. Elsewhere in the window the browser's own right-click menu (Back, Reload, Print) is kept away, because Reload would
+throw away unsaved work; in a box for typing, or with words selected, it stays, for Cut, Copy and Paste. The menus are
+`editor/src/popupmenu.ts`.
+
+**Find something to add (the Insert gallery).** **Insert > Find something to add...**, also first in the Objects panel's **Add**
+menu and in the right-click menu of the slide, opens one window with everything that can be added (76 things: text, buttons,
+pictures and media, shapes and bubbles, every kind of question, input and survey, every interaction, the timer and the scenario,
+results, the certificate, games and a quiz from a spreadsheet), as in the design specification's mockup A03. Focus starts in a
+search box: typing finds things by their name first, then by their kind and group, then by what they are for, scored the way the
+command search scores commands (so "countdown" finds the timer and "survey" the Likert scale). A row of kinds (All, Basics,
+Pictures and media, Shapes and bubbles, Questions and surveys, Interactions, Results and games) narrows the list; they are radio
+buttons. Each choice is a button with an icon, its name and one line about it (the whole description is its tooltip, and is
+searched). Down goes from the box to the first choice, the arrow keys, Home and End move between choices (only one is a Tab stop,
+so Tab crosses the grid in one step) and Up from the first goes back to the box. Choosing one does exactly what the Insert menu and
+its picker do, with the same message and as one step to undo; a choice with a window of its own (a picture, an icon, a person, a
+game) opens that window. The gallery is `editor/src/insertgallery.ts`; the pickers and the gallery share `addChosen` in `app.ts`.
+
+**Dialogs.** Every dialog has the suite's look (revamp step 6): a white panel with rounded corners over a navy veil, never wider or
+taller than the window (it scrolls inside), a **Close** button in its top corner that does what Escape does (so a dialog that asks
+before throwing work away, or stops a job first, still does), and its last row of buttons as a foot that stays in sight at the
+bottom while the rest scrolls, with its main button (the first that is not Cancel or Close) in the Author colour. Plain buttons,
+boxes and groups inside are in the suite's colours; the pickers' cards have a violet edge, tint and tick when chosen. The Close
+button comes last in the dialog, so focus still starts where each dialog puts it. `editor/src/dialogchrome.ts` adds these parts
+as a dialog opens, so the dialogs themselves did not change; the look is in `editor.css` under "Dialogs".
+
+**Search for a command, and the list of keys.** **Search** in the navy bar, Ctrl+K anywhere outside a dialog, or **Search for a
+command...** in the Help menu opens a box to type a few letters of what you want to do. It lists the commands that fit, each with
+its icon, the menu or menus it is in and its shortcut: first a command whose name is what you typed or starts with it, then one
+with a word starting each word you typed (whole words first, so "slide" puts **New slide...** before **Share slides...**), then
+the menu it is in ("design" finds **Themes...**), and last the words of its description ("scorm" or "lms" finds **Publish...**,
+"color" or "colour" finds **Themes...**; in a description a word of under five letters has to be a whole word). With nothing typed
+it lists every command, in the order of the menus. Up and Down (and Page Up and Page Down) move through what is found, Enter does
+the chosen command, and Escape, the close button or a click outside closes the box. A command that cannot be used now is dimmed,
+and Enter on it says so and does nothing. Like a menu, the search gives focus back to where you were before it runs a command, so a
+dialog the command opens gives focus back there when it closes. Inside a dialog Ctrl+K does nothing new: in the Edit text dialog it
+still makes a link. **Keyboard keys...** in the Help menu, Ctrl+/, or the **Keys** button under the slide (beside **Snap**) opens a
+list of every key the editor has, in tables by where they work; from the **Keys** button the slide's own keys come first. The
+**Keys** button took the place of the paragraph of keys that used to sit under the slide. A screen reader still hears the keys used
+most when the slide gets focus, ending with "Ctrl+/ lists every key". **Edit text...** is in the Edit menu too. The search is
+`editor/src/commandsearch.ts`; the list of keys is `editor/src/keys.ts` (a test checks that it holds every shortcut in
+`design/icons.json`) and `editor/src/keysdialog.ts`.
+
+**The welcome page.** With no project open the editor shows its welcome page. On the left are **New project...** and **Open
+project...**. On the right are **Recent projects**, the projects you made or opened lately, newest first (at most eight). Each shows its
+title, its number of slides, when you last opened it ("opened yesterday") and its folder; click it, or Tab to it and press Enter, to open
+it. Its **...** button holds **Open**, **Show in folder** and **Take off the list** (the project itself is never touched). If a project
+cannot be opened because its folder was moved, renamed or deleted, the editor says so and offers to take it off the list. The **...** beside
+the heading holds **Remember projects I open** (on at first; turning it off also empties the list) and **Clear the list**. The list is
+kept in the editor's own settings file on this computer, never in a project. Under them are the **Examples** that came with the program:
+click one to choose an empty folder, and the editor puts a copy of the example there and opens the copy, so the example stays as it came
+and your changes are your own. **Show all the examples** opens the folder they are in. **File > Close project** closes the project (asking
+first if there are unsaved changes) and goes back to the welcome page; it waits while OpenScreen is recording or a preview or publish is
+being made. The page is `editor/src/welcome.ts`, the list is `editor/src/recent.ts`, the examples it offers (and their order) are
+`editor/src/examples.ts`, and the copying is `examples_list` and `copy_example` in `lib.rs`.
+
+**The Properties panel's tabs.** The Properties panel shows what is chosen under three tabs. **Content** is what the learner reads,
+hears and is told: the name, the words, the answers, the items, the narration, and the Accessibility group (alt text, decorative, role, tab
+order). **Style** is how it looks and where it sits: Appearance, Looks, Position and size, and Line up with the slide. **Behaviour** is when
+it comes and goes and what it does: Timing, Animation, Rules, and for a question its Scoring and Feedback layers (an interaction's own
+Behaviour group is there too). With nothing chosen the tabs are about the slide: its name, its layer's name and **Narration on this slide**
+under Content, its layout and background under Style, and its timing, slide animation, **Moving through the course** and the course's
+**Complete when** under Behaviour. With several chosen there is no Content tab: lining up and grouping are under Style, timing and
+animation for all of them under Behaviour. A badge beside the heading says what is chosen ("Text box", "Question", "2 objects", "Slide").
+The tab you choose is kept as you go from object to object, so setting the timing of several objects in turn stays on Behaviour; choosing
+a tab goes back to the top of the panel, and the row of tabs stays in view while the panel scrolls. The row is one stop for the Tab key:
+Left and Right (and Home and End) move along it and show the tab they reach, Tab goes into the tab shown, and F6 to the panel lands on the
+chosen tab. Inside a tab each group (Timing, Animation, Rules, Accessibility and so on) is a **section that opens and closes**: its heading
+is a button with an icon, its name and an arrow, so a tab starts as a short list of headings with only its first section open (Jason,
+2026-11-10: "have all the major headings listed, but you only see the parts under when you click on one of the headings"). Click a
+heading, or press Enter or Space on it, to open or close it; a screen reader hears whether it is expanded. A section you open or close
+stays that way as you go from object to object while the editor is open. When the editor sends you to a box in another tab or a closed
+section (a new picture's alt text, say), that tab and that section open. Inside a section each label sits above its box. The tabs and
+sections only group the boxes that were there before; nothing was added or taken away. They are `editor/src/propstabs.ts`, and the icons
+are in `design/icons.json` under "Properties panel".
+
+**Sections, for a long course.** The slides of a course can be grouped into **sections** (the `scenes` a project has always had; a
+course plays them one after another, so nothing a learner sees changes). With one section the list of slides is as it always was. **Slide
+> New section starting here...** (also in the Slides panel's **...** menu and on a right-click on a slide) asks for a name and starts a
+section at the slide you are on: it and the slides after it in its section move to the new section. Once there are two or more, the list
+shows each section's name with how many slides it has, and its slides under it, numbered through the whole course. Click a section's name,
+or press Enter, Space or Right and Left on it, to open or close it; Left on a slide goes up to its section's name, and Up and Down skip the
+slides of a closed section. **Open all sections** and **Close all sections** are in the Slides panel's **...** menu. A section that holds
+the slide you go to opens by itself. A right-click on a section's name (or Shift+F10) gives **Rename section...**, **Sort A to Z**, **Sort in
+the order made**, **Move section up** and **down** (Alt+Up and Alt+Down on its name), and **Remove section (keep its slides)**, which puts
+its slides at the end of the section before it and deletes none. The Slide menu has the same for the section of the slide you are on, with
+**Sort section...** asking which order, and **Move slide to section...**. Sorting happens once: the course then plays the slides in that
+order, a later slide stays where you put it, and Ctrl+Z undoes it. A slide's number in its file (slide-012) is the order it was made in.
+Move slide up and down (and Alt+Up and Alt+Down on a slide) cross into the next section at the edge of one. The status line and what a
+screen reader is told name the section ("Slide 4 of 40, in Practice"). Which sections are closed is remembered while the editor is open.
+The sections are `editor/src/sections.ts`.
+
+**Go to slide.** Ctrl+J (or **Slide > Go to slide...**) opens a box like the command search: type a few letters of a slide's name or its
+number, Up and Down move through the slides found (each with its section), Enter goes there and Escape closes. Timed with 400 slides, the
+editor stays quick (choosing a slide or an object takes about 30 thousandths of a second); the checks run beside it and never hold it up.
+
+**A course's code and version, and new versions.** With nothing selected, **Properties > Content > Course details** has the course's
+**Course code** (such as CMM 360) and **Version** (such as 1.0), both optional (format 0.49.0). The version shows beside the course's title
+in the top bar and the window's title. For a big revision after learners have started, **File > Save as new version...** saves your
+changes first (if you agree), asks for the new version (it suggests the next, 1.0 or 1.3 giving 2.0), and copies the whole project into an
+empty folder you choose, narration audio included and the update backup left out (`copy_project` in `lib.rs`), then opens the copy with its
+new version. The version you had stays as it is. `docs/draft-to-live.md` says when to keep editing a course and publish again, and when
+to make a new version.
+
+**The publishing style.** **File > Publishing style...** (and a button in the Publish window) sets the house rules for what Publish makes,
+once, for every project on this computer (the editor's settings file). **Names of the published files** is a pattern of parts in braces,
+`{title}`, `{code}`, `{version}`, `{date}` and `{folder}` (the project folder's name, the usual), with a button for each that puts it in at
+the cursor and a line showing the name the open course would get: `{code}_{title}_v{version}` gives `CMM-360_Introduction-to-Communication_v2.0`,
+with `CMM-360_Introduction-to-Communication_v2.0-scorm12.zip` and the other packages beside it. Spaces and marks other than dots, hyphens
+and underscores become hyphens, and a part the course does not have is left out. **The Word review document** can head each slide "Slide
+4: Name" (the usual), "4. Name", "2.1 Name" (by section and slide) or with its name only, in one of seven fonts every Windows computer
+has; a course with sections has a Heading 1 for each section, numbered the same way, and the code and version are under its title. The
+Publish window says the name the files will get. With the usual style, Publish is exactly what it always was, byte for byte. The rules
+are `editor/src/publishstyle.ts` and its window `editor/src/publishstyledialog.ts`; the desktop program checks the name and the choices
+again before anything is written (`safe_publish_name` and `review_flags` in `lib.rs`), and `tools/review_doc.py` takes `--headings` and
+`--font`.
+
 Make a new project (a title, an author, a language and an empty folder, which gets one slide with the title on it) or open an existing project folder. Choose a slide and a layer. Choose an object from the Objects list or on the
 canvas. Move and resize it with the mouse, the arrow keys, or typed values. Edit its name, alt text,
 role, tab order and decorative setting. Change reading order. Undo and redo. Save. Preview the course in a
@@ -22,15 +161,15 @@ style (paragraph or a heading level), a button's label, font size and colours. I
 into the project's `assets/images` folder when added, and are left with empty alt text, so the
 validator flags them until the author writes it or marks them decorative.
 
-**Duplicating a slide, and duplicating and reordering layers.** **Duplicate slide** (under the Slides list, and Ctrl+D while you are in the
+**Duplicating a slide, and duplicating and reordering layers.** **Duplicate slide** (in the Slides panel's **...** menu, the Slide menu and a right-click on a slide, and Ctrl+D while you are in the
 list) puts a copy straight after the slide, in the same scene, and selects it. The copy is called "name copy", then "name copy 2". Everything is
 copied as it is: the layers, every object in the same place, locks, groups, timing, animation, narration (the copy reuses the audio already made, until you
 change a word) and the slide's layout, background and automatic advance. The layers keep their ids, because a layer id only has to be unique on its
 own slide, and the objects get new ids, because those are unique across the project and name their narration. Rules between the slide's own
 objects and layers work on the copy. An input saves to variables of its own, so the copy does not overwrite the original's answers, and the rules
 on the copy that read those answers read the copy's. Rules that jump to other slides are unchanged, and rules on other slides that jump to this
-one still go to the original. Each question on a copied slide counts toward the score again, and you are told. **Duplicate layer** (on the layer
-bar above the canvas) puts a copy of the layer you are editing and what is on it straight after it, and you are now editing the copy. A rule inside the layer that points at the layer itself, or at one of its objects, points at the copy; a rule that
+one still go to the original. Each question on a copied slide counts toward the score again, and you are told. **Duplicate layer** (in the **...** menu on the layer
+bar above the canvas, and the Slide menu) puts a copy of the layer you are editing and what is on it straight after it, and you are now editing the copy. A rule inside the layer that points at the layer itself, or at one of its objects, points at the copy; a rule that
 points at another layer still does. Nothing shows the copy yet, because a layer appears only when a rule shows it, so you add that rule. A
 question on a copied layer brings feedback layers of its own. The base layer can be duplicated too, into an ordinary layer. **Earlier** and
 **Later** on the same bar move the layer you are editing in the layer order (the base layer is always first). A later layer is drawn in front of an
@@ -78,7 +217,7 @@ say, and **Line up** in the Properties panel (and typed places) give a keyboard 
 dragged, but other objects snap to it.
 
 **Grouping.** Group ties two or more objects together so they are chosen, moved, resized, copied and deleted as one. **Group** (Ctrl+G),
-**Ungroup** (Ctrl+Shift+G) and **Select group** are under the Objects list, and in the Properties panel while several are selected. On the
+**Ungroup** (Ctrl+Shift+G) and **Select group** are in the Objects panel's **...** menu, the Edit menu and a right-click on an object, and in the Properties panel while several are selected. On the
 canvas, clicking any object in a group chooses the whole group (Shift or Ctrl and click adds or removes the whole group, and a box dragged across part
 of a group takes all of it), and **Alt and click** chooses just that one object. From the keyboard, the Objects list and Page Down still choose one object
 at a time, so any member can be reached and edited alone, and **Select group** adds the rest of its group. A group shows as one solid box with resize
@@ -130,13 +269,13 @@ meaning.
 
 **A background picture.** With nothing selected, the **Design** box has **Background picture...**, which opens the packs of backgrounds: offices, meeting and training rooms, reception areas, corridors, kitchens and outdoor entrances come with the program, each picture beside a description of it. Choosing one puts it behind everything on the slide. It is a decorative picture named *Background picture*, locked so a click on the slide does not move it (Unlock it in the Objects list to move or resize it), and the slide's own background becomes the picture's average colour so the Problems list can still judge your text and text that follows the theme stays readable. The same picture on another slide is the same file. **Remove background picture** takes it off. Words on a busy picture can be hard to read in places: put them in a text bubble or on a panel.
 
-**Sharing slides, and taking in slides someone shared.** In the Slides panel, **Share slides...** saves slides you choose as one file (ending `.osset`) with what they need: their variables and rules, the people of a scenario, the pictures and sounds and where they came from. Give the file to someone; they choose **Add slides from a file...**, see who made it, what it is for and what others may do with it, and **Add** puts the slides after the one they are on, as one step to undo, with ids and variables of their own, so a game added twice does not share what it remembers. A file that is not a good set is refused before anything is changed, in words. `docs/slide-sets.md` describes the file and everything it is refused for.
+**Sharing slides, and taking in slides someone shared.** In the Slides panel's **...** menu (and the File menu), **Share slides...** saves slides you choose as one file (ending `.osset`) with what they need: their variables and rules, the people of a scenario, the pictures and sounds and where they came from. Give the file to someone; they choose **Slides from a file...** in the Slides panel's **Add** menu (or **Add slides from a file...** in the File menu), see who made it, what it is for and what others may do with it, and **Add** puts the slides after the one they are on, as one step to undo, with ids and variables of their own, so a game added twice does not share what it remembers. A file that is not a good set is refused before anything is changed, in words. `docs/slide-sets.md` describes the file and everything it is refused for.
 
 **Showing a value that changes.** A text box's **Show a value in the text** list puts a value in the words: the points earned so far, the points possible, the percent, the questions finished, right, or in the course, or any variable of your own. **Put it in the text** writes it where the cursor is as `{{Name}}`, for example `Score: {{$score}}`. While the course is played the number is put there and changes when it changes. On the slide in the editor it shows the variable's starting value, or 0. If the text shows a value, **Say changes aloud** makes it a live region, so a screen reader says the new value (good for a score, which changes now and then; not for something that changes all the time). Renaming a variable changes every text that shows it, in the same Undo step, and a variable a text shows cannot be deleted. The Problems list names a `{{Name}}` that matches nothing.
 
-**Questions from a spreadsheet.** In the Slides panel, **Quiz from a file...** (it was called Questions from a file) reads a table of questions saved as a CSV file (columns Type, Question, A to H, Correct, and optionally Points, Attempts, Feedback if right and Feedback if wrong) and makes a slide for each question after the slide you are on, with its feedback layers, as one step to undo. It can make them a question bank and mix their answers in the same step. **Save a blank table to start from...** writes a template with an example of each kind. A row with a mistake is left out and the dialog says which row and why. See `docs/question-import.md`.
+**Questions from a spreadsheet.** In the Slides panel's **Add** menu (and the Insert menu), **Quiz from a spreadsheet...** (it was called Quiz from a file, and before that Questions from a file) reads a table of questions saved as a CSV file (columns Type, Question, A to H, Correct, and optionally Points, Attempts, Feedback if right and Feedback if wrong) and makes a slide for each question after the slide you are on, with its feedback layers, as one step to undo. It can make them a question bank and mix their answers in the same step. **Save a blank table to start from...** writes a template with an example of each kind. A row with a mistake is left out and the dialog says which row and why. See `docs/question-import.md`.
 
-**Question banks.** In the Slides panel, **Question banks...** opens a dialog for making banks: a bank holds the slides from one slide to another, shows each learner some of them (it starts by showing half), and can mix the order. The picks are made when a learner begins and kept if they come back; the score, Back and Next and the "Slide 3 of 5" label all follow what they were shown. A slide in a bank says so in the Slides list. Deleting a slide takes it out of its bank, and a copy of a slide in a bank (Duplicate slide) joins the bank, right after the original. Put one question on each slide of a bank, make them worth the same points, and jump to the slide before a bank rather than into it; the Problems list warns about each. A bank is not carried in a shared set of slides.
+**Question banks.** In the Slides panel's **...** menu (and the Slide menu), **Question banks...** opens a dialog for making banks: a bank holds the slides from one slide to another, shows each learner some of them (it starts by showing half), and can mix the order. The picks are made when a learner begins and kept if they come back; the score, Back and Next and the "Slide 3 of 5" label all follow what they were shown. A slide in a bank says so in the Slides list. Deleting a slide takes it out of its bank, and a copy of a slide in a bank (Duplicate slide) joins the bank, right after the original. Put one question on each slide of a bank, make them worth the same points, and jump to the slide before a bank rather than into it; the Problems list warns about each. A bank is not carried in a shared set of slides.
 
 **Shuffling answers.** A multiple choice or multiple response question has **Show the answers in a different order to each learner**. The editor always shows your order; a learner sees theirs, the same one each time they come back. Do not write answers that depend on where they stand ("A.", "All of the above").
 
@@ -185,7 +324,7 @@ you, and a line left blank is left out. Both start with no alt text, which you w
 quiz questions. On the canvas each shows an example, because the real thing depends on a learner. The Problems list warns
 if the course has no quiz, since neither can then mean anything.
 
-**Course settings.** With nothing selected, the Properties panel has a Course section. "Complete when" is the
+**Course settings.** With nothing selected, the Properties panel has a Course section (under Behaviour). "Complete when" is the
 setting that decides when the course counts as complete: **the learner has seen every slide**, which is how every
 course worked before, or **the learner reaches the last slide**. Every quiz has to be finished either way. Choose the
 last slide whenever a rule can send some learners past some slides, because with "every slide" they would never
@@ -211,10 +350,10 @@ project's `.cache/narration`, each file named by a hash of the script, voice, sp
 the editor always knows whether an object's audio exists: change a word and the audio is out of date; undo it and it is
 back, because it is found again by its words. The Properties section says whether the audio exists and how long it is,
 and whether the captions are timed to the spoken words; with audio, a "Listen to the audio" button plays it there. The
-**Narration** button in the toolbar opens a dialog listing every narrated object, slide by slide in the order they play,
+**Narration...** in the Narration menu opens a dialog listing every narrated object, slide by slide in the order they play,
 each with its audio status, a "Go to" button, and "Make audio" (or "Make all missing audio" for the lot). It works from the
 project as it is on screen, saved or not, and can be cancelled; the first time can take a minute or more for each object.
-**On the slide itself.** With nothing selected, the Properties panel starts with **Narration on this slide**: every narration on the slide, in the order it plays, each with its words in a box ready to read and change, the voice, speed and pronunciations, whether its audio is made, **Listen to the audio**, and **Go to** the object that says it. A slide with no narration yet has one box: what is written there is said by the slide's heading (or its first text, or its first object that is not decoration), as the PowerPoint import chooses. An object with no narration of its own, on a slide that is narrated by another object, says so in its Narration group and has a **Go to** button, so an empty box is not taken for "no narration here". **Whether the audio is made, and making it, is right under each script** (on the slide's panel and on an object's own Narration group): a mark and a few words, "Audio made, 27 seconds" or "No audio yet" with a sentence about what that means (the course shows the words as a transcript and nothing is said), and the one button that fits: **Make audio**, **Listen to the audio**, **Cancel** while it is being made (with the same progress words as the Narration window), or **Set up the narration voice...** when the voice is not installed (it opens the Narration window with Install ready). A slide with several narrations also says "2 of 3 parts have audio" and has **Make the missing audio (1)**. The keyboard stays on that button all the way. It is the same work as the Narration window (`editor/src/makeaudio.ts`): a service is asked before it is sent words, and what cannot be made says why.
+**On the slide itself.** With nothing selected, the Properties panel's Content tab has **Narration on this slide**: every narration on the slide, in the order it plays, each with its words in a box ready to read and change, the voice, speed and pronunciations, whether its audio is made, **Listen to the audio**, and **Go to** the object that says it. A slide with no narration yet has one box: what is written there is said by the slide's heading (or its first text, or its first object that is not decoration), as the PowerPoint import chooses. An object with no narration of its own, on a slide that is narrated by another object, says so in its Narration group and has a **Go to** button, so an empty box is not taken for "no narration here". **Whether the audio is made, and making it, is right under each script** (on the slide's panel and on an object's own Narration group): a mark and a few words, "Audio made, 27 seconds" or "No audio yet" with a sentence about what that means (the course shows the words as a transcript and nothing is said), and the one button that fits: **Make audio**, **Listen to the audio**, **Cancel** while it is being made (with the same progress words as the Narration window), or **Set up the narration voice...** when the voice is not installed (it opens the Narration window with Install ready). A slide with several narrations also says "2 of 3 parts have audio" and has **Make the missing audio (1)**. The keyboard stays on that button all the way. It is the same work as the Narration window (`editor/src/makeaudio.ts`): a service is asked before it is sent words, and what cannot be made says why.
 While audio is being made the dialog shows a progress bar and a sentence at the top ("3 of 45 done, about 6 minutes left"), and the **Make all missing audio** button says how far it has got. The speech engine itself says nothing until it ends, so the dialog looks at the audio that has appeared on the disk every second and a half, and works out the time left from how fast it came (Kokoro is slow to start, about 10 to 25 seconds, and then about 20 milliseconds a character on a computer without a graphics card; the first words say "a first guess"; what this computer really did is remembered for next time). A screen reader hears the first estimate, and then the progress at a quarter, a half and three quarters of the way, and the bar has its own text. Each row says "Audio ready" as its audio appears. Cancel still works, and what was finished is kept.
 If no speech engine is set up the dialog says so and still lists everything (transcripts and captions work without audio).
 The engine is installed separately (`docs/narration-setup.md`); its Python is named once in `local-settings.bat`
@@ -372,23 +511,23 @@ keyboard can scroll it. Both use the theme's colours, so only their font and siz
 **Going away at an item.** In an object's Timing, **Goes away when the learner shows item number** (blank: it does not) makes the object go when the learner presses Show next item for that item, and **Seconds after that item** delays it. It works with any way of appearing except following a clip, and with **Stays for** as well (whichever is first). An item that only has things going away is still an item to press. The summary under the fields says it in words ("Appears when the learner shows item 1, then goes away when the learner shows item 3"). A PowerPoint exit effect that waits for a click comes in as this.
 **Waiting for the learner.** In an object's Timing, **Appears** has a choice, **When the learner shows the next item**, and **Item number** appears: items with the same number show together, in order of the numbers. The learner has a button, **Show next item**, on the slide. The timeline draws such an object at its delay and marks it as a guess. Choosing this for several selected objects gives each the next number. **The items can come by themselves instead:** with nothing selected, the slide's **Timing** has **Show the items one after another by themselves** (it shows only on a slide that has such objects), with **The first item comes after** and **Then one every**, in seconds (the starting values are 2 and 3). The objects keep their item numbers, so unticking it puts the slide back to waiting for presses. The timeline then draws each item at the time its step comes, no longer as a guess. The learner can still pause, bring the next item at once with **Show next item**, or show everything.
 
-**Leaving out Back and Next.** With nothing selected, the slide's Properties have a **Moving through the course** box with **Leave out Back and Next on this slide**. The learner then leaves the slide only through something on it
+**Leaving out Back and Next.** With nothing selected, the slide's Properties have a **Moving through the course** box (under Behaviour) with **Leave out Back and Next on this slide**. The learner then leaves the slide only through something on it
 (a Continue button, a tile) or when its time is up, which is how the games keep players in the game. Ticking it says what it did, and warns if nothing on the slide goes to another slide yet; the Problems list reports the same as an error.
 One step for Undo. The score slide at the end of a game keeps Back and Next.
 
-**The Slides panel's buttons stay in view.** Add slide, Games, Quiz from a file, Duplicate slide, Change layout, Delete slide, Up, Down, Share slides, Slides from a file and Question banks are pinned to the top of the Slides panel. The panel is a column: the heading and buttons stay where they are and only the list of slides scrolls, with the scroll bar beside the list alone (it used to scroll the whole panel and let slide names show through a strip above the buttons). So
+**The Slides panel's buttons stay in view.** The heading with its **Add** and **...** buttons (which hold what used to be eleven buttons: see "The panels' Add and ... buttons" above) is pinned to the top of the Slides panel. The panel is a column: the heading and buttons stay where they are and only the list of slides scrolls, with the scroll bar beside the list alone (it used to scroll the whole panel and let slide names show through a strip above the buttons). So
 in a long course they are never scrolled out of reach.
 
 **Timing.** Everything starts as always there. In the Properties panel every object has a **Timing** section: **Appears**
 (after the slide opens, or after its own narration starts, which needs narration), **Seconds** to wait, and **Stays for**
 (blank: until the slide ends), with a sentence underneath that says it in words ("Appears 2.5 seconds after its narration starts,
 then disappears 6 seconds later"). An object on another layer counts from when its layer is shown. An object with a timing shows
-", timed" in the Objects list. The **Timing** button in the toolbar opens the **Timing list**: a real table of every object on
+", timed" in the Objects list. **Timing...** in the Narration menu opens the **Timing list**: a real table of every object on
 the slide, whichever layer, with the same three controls on each row and the sentence beside them, and a box at the top for
 whether the slide moves on by itself after some seconds (blank or 0: it waits for the learner). It is all keyboard operable and
 every control is named for its object. With nothing selected, the slide's Properties show the same slide box.
 
-**The Timeline.** The **Timeline** button in the toolbar (pressed while it is showing) shows a panel under the canvas that draws the
+**The Timeline.** **Timeline** in the Narration menu (ticked while it is showing) shows a panel under the canvas that draws the
 slide's timing along a time axis, so a whole slide can be seen at a glance. Each object is a row with a bar for when it is showing.
 A bar that runs to the edge stays, an object that is always there is a thin grey bar, and one that follows its narration is green. A
 thin line under a bar is that object's narration, drawn once its audio has been made (the Narration button makes it), because
@@ -449,7 +588,7 @@ changed. On the canvas the first item is shown open. The example project `exampl
 has one slide for each. Scored drag and drop, matching, hotspots and text entry are quiz questions (see Quiz questions). A story that branches is a scenario (see
 Scenarios and the cast).
 
-**PowerPoint.** The **PowerPoint** button in the toolbar brings slides in from a PowerPoint presentation (a `.pptx` file; Google Slides can download one), and brings slides you brought in earlier
+**PowerPoint.** **PowerPoint slides...** in the File menu brings slides in from a PowerPoint presentation (a `.pptx` file; Google Slides can download one), and brings slides you brought in earlier
 up to date after the presentation has changed. It is a dialog with a few steps, each headed so a screen reader says where you are. *Choose the file.* If the project already has imported decks, say whether
 this is a new presentation or a newer version of one (the dialog guesses from the slides they have in common). *Bring slides in:* a list of the slides, each with a box (hidden ones start unticked), and the button says how many; the
 slides go after the one you are on, and it is one step to undo. The report afterwards says in plain words what was left out or changed: charts and SmartArt, animations, speaker notes, fonts that were replaced, pictures with no
@@ -496,7 +635,7 @@ check (a multiple choice question with feedback for a right and a wrong answer, 
 built into the editor and need no format change. Their buttons are already wired and reachable in reading order; the words, the question and the story are placeholders to replace. The slide they make is an
 ordinary slide, not tied to the template, and adding one is a single step for Undo.
 
-**Finding games and quizzes.** The Slides panel has **Games...** and **Quiz from a file...** beside **Add slide**. **Games...** opens the picker with only the games; **Quiz from a file...** opens the questions window set up as a quiz (the test bank box starts unticked). In the **Add slide** picker, which is long, a row of buttons at the top (Go to: Basic, Columns and grids, ..., Quizzes and test banks, Games) goes straight to a group and puts the keyboard on its first card; the row stays in view as the picker scrolls. The picker has a group **Quizzes and test banks, from a spreadsheet** with **Quiz from a spreadsheet** (every learner gets every question, in order) and **Test bank from a spreadsheet** (each learner is shown some, at random and mixed); both open the questions window of `docs/question-import.md`, with its heading and its test bank box set to match.
+**Finding games and quizzes.** The Slides panel's **Add** menu has **Game...** and **Quiz from a spreadsheet...** under **New slide...** (so has the Insert menu). **Game...** opens the picker with only the games; **Quiz from a spreadsheet...** opens the questions window set up as a quiz (the test bank box starts unticked). In the **New slide** picker, which is long, a row of buttons at the top (Go to: Basic, Columns and grids, ..., Quizzes and test banks, Games) goes straight to a group and puts the keyboard on its first card; the row stays in view as the picker scrolls. The picker has a group **Quizzes and test banks, from a spreadsheet** with **Quiz from a spreadsheet** (every learner gets every question, in order) and **Test bank from a spreadsheet** (each learner is shown some, at random and mixed); both open the questions window of `docs/question-import.md`, with its heading and its test bank box set to match.
 **Games.** The Add slide picker has a second group, **Games, ready-made**, after the lesson slides. A game is several slides that jump between each other, with the variables and rules that make it play, built from
 the editor's own parts. A game leaves out the course's Back and Next on every slide but its last (the score), using a slide's `hideNavigation`, so a player goes on only by playing:
 a tile, an answer, the door. On the quiz board a question's **Back to the board** button is in its feedback, so it appears once the question is answered and not before. Choosing one asks how big it should be (a drop-down for each number, labelled, with a line that says how many slides it will add), then adds all its slides after the
@@ -519,7 +658,7 @@ skips it; the same facts are in words: "Question 3 of 8, worth 300 points" at th
 and rungs already answered are faded text. The game adds no variables and changes no course setting, because every jump goes to the next slide. If you change the number of questions or their points, change the line at the top of
 each question and its rung to match. Reading order on a question is where the learner is, the question, then its answers; in the feedback, the words and then the way on. `examples/prize-ladder.osproj` is a finished ladder of eight questions.
 
-The fourth game is the **Order challenge** (3 to 10 rounds, one drop-down in the dialog): an opening slide, a round for each and a results slide. Each round is one question in which the learner puts four steps in the right order (they are written in the right order for you to write over, and shown to the learner in another), worth 100 points with one try; the right order is shown whichever way it goes, so nobody is knocked out and every round gets finished. It needs no variables.
+The fourth game is the **Order challenge** (3 to 10 rounds, one drop-down in the dialog): an opening slide, a round for each and a results slide. Each round is one question in which the learner puts four steps in the right order (they are written in the right order for you to write over, and shown to the learner in another), worth 100 points with one try; the right order is shown whichever way it goes, so nobody is knocked out and every round gets finished. It needs no variables. `examples/order-challenge.osproj` is a finished challenge of four rounds.
 
 The third game is the **Escape room**: 2 to 5 rooms and 1 to 3 tries at each lock (two drop-downs in the dialog). It adds an opening slide, then a **room** and a **door** for each room, and a results slide. A room has three places
 to search, which are buttons (there are no pictures to put hotspots on; put a picture behind them and move them if you like), and **Go to the door**. A place opens its clue, one at a time, with a **Close** button, and is marked
@@ -533,10 +672,10 @@ to the same place: places still look searched, a lock with tries left keeps its 
 the three places, then the door; at a door, where the learner is, the question, its answer box, then Back to the room, and in each feedback the words and then the way on. `examples/escape-room.osproj` is a finished escape room of
 three rooms.
 
-**Scenarios and the cast.** The **Characters** button in the toolbar opens the cast: the people a course can show and give a voice to. Each has a name, a few words
+**Scenarios and the cast.** **Characters...** in the Design menu opens the cast: the people a course can show and give a voice to. Each has a name, a few words
 on who they are, a voice, and a picture with its alt text (or a "decorative" box, and then the alt text is cleared). For the picture you can press **Choose from the library...** to pick a person from a character pack (`docs/character-packs.md`), or **Choose a picture from my computer...**.
 The library shows each person with a description of them beside their picture. Choosing one brings their picture into the project with that description as the alt text (the dialog says so aloud, and the alt text is yours to change), gives a person who has no name yet
-the name and a voice of the kind the pack suggests, and saves the credit for the picture with the cast, in the same undo step. The library dialog also adds a pack from a zip file, shows the folder your own packs are kept in, and removes a pack you added (press twice).
+the name and a voice of the kind the pack suggests, and saves the credit for the picture with the cast, in the same undo step. The library dialog also adds a pack from a zip file, opens the packs page of the website in your browser (**Get more packs...**, to download one), shows the folder your own packs are kept in, and removes a pack you added (press twice).
 A picture that was copied into the project while choosing and was then replaced, or the dialog was cancelled, is deleted again. You can add a person, move them and remove them.
 A person from the library has a **Poses** box: **Add poses from the library...** shows every pose the pack has for them, each with its picture beside its words and a check box, and copies only the ones ticked into the project (so a course that uses three stays small); a pose can be taken out again, unless a line uses it, and then the dialog says where.
 In a scenario, a line said by a person with poses has a **Pose beside the line** box: their picture, or one of their poses, which is drawn beside the line, to the waist, instead of their small face. Changing who says a line keeps the pose if the new speaker has one with the same id and takes it off if not, and says so. The pictures are decoration: the person's name is always written beside them.
@@ -574,7 +713,7 @@ and what there is to choose from) as its narration, to be changed as you like. C
 for example taking away the last right answer, is refused and says why. The validator checks each kind (see the validator spec). The example project
 `examples/question-types.osproj` has one slide for each kind.
 
-**Slide layouts.** The Add slide and Change layout buttons open a picker with a small drawing of each of
+**Slide layouts.** **New slide...** and **Change layout...** open a picker with a small drawing of each of
 26 layouts, in four groups:
 
 - **Basic:** Title Slide, Title and Content, Section Header, Two Content, Comparison, Title Only, Blank,
@@ -692,7 +831,7 @@ are left out) and names any slide with words that nothing reads aloud; "Show the
 still are and the dialog says why. On the command line it is `--targets=mp4` with `--video-size`, `--video-silent` and `--video-no-motion`.
 The whole story is in `docs/video.md`.
 
-**MCP access.** The toolbar's **MCP access** button opens a dialog that lets an AI assistant such as Claude use the program: build a course, check it
+**MCP access.** **MCP access...** in the Tools menu opens a dialog that lets an AI assistant such as Claude use the program: build a course, check it
 and publish it, with nobody at the keyboard. It is off until you tick **Let an AI assistant use OpenStage Author** and choose **the folder it may
 use** (an assistant can open, make, change and publish courses only inside that folder), and press Save. The dialog gives the lines that connect
 Claude Desktop (a block for `claude_desktop_config.json`) and Claude Code (a command), each with a Copy button, naming the program's own Node, the
@@ -719,11 +858,18 @@ on save).
 
 ## Keyboard
 
-Every task has a route that needs no pointer. The canvas keys are a convenience on top.
+Every task has a route that needs no pointer. The canvas keys are a convenience on top. The same keys are in the editor itself:
+Help > Keyboard keys, Ctrl+/, or the **Keys** button under the slide.
 
 | Where | Keys |
 | --- | --- |
 | Anywhere | Ctrl+N new project, Ctrl+O open, Ctrl+S save, Ctrl+P preview, Ctrl+Shift+P publish, Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo, F6 and Shift+F6 next and previous panel |
+| Anywhere | F10, or Alt pressed and let go on its own, moves to the menus and, pressed again, back to where you were |
+| Anywhere except in a dialog | Ctrl+K searches for a command by its name; Ctrl+/ lists every key |
+| The command search | Type to find; Up and Down, Page Up and Page Down move through what is found; Enter does the chosen command; Escape closes it and goes back to where you were |
+| The menus | Left and Right move along the menus; Down, Enter or Space opens one (Up opens it at its last item); in a menu Up and Down move, Home and End go to the first and last item, a letter goes to the next item starting with it, Left and Right open the menu beside it, Enter chooses; Escape closes the menu, and Escape again goes back to where you were; after a dialog a command opened closes, focus is back where you were |
+| A panel's Add and ... buttons | Down, Enter or Space opens its menu on the first item, Up on the last; in the menu Up and Down move, Home and End go to the first and last item, a letter goes to the next item starting with it, Enter chooses, Escape or Tab closes it and goes back to the button |
+| A slide or object in a list, or the canvas | Shift+F10 or the Menu key opens the menu for it (the same as a right-click), beside it; Escape goes back |
 | Anywhere except in a text box | Ctrl+D duplicate the selected object, Ctrl+C copy, Ctrl+X cut, Ctrl+V paste |
 | Anywhere except in a text box | Ctrl+A select every object on the layer, Ctrl+L lock or unlock the selected objects, Ctrl+G group the selected objects, Ctrl+Shift+G ungroup them |
 | Slide, Objects and Problems lists | Up and Down, Home and End move; Enter or Space chooses |
@@ -732,7 +878,7 @@ Every task has a route that needs no pointer. The canvas keys are a convenience 
 | Dragging on the canvas | Hold Alt to drag without snapping |
 | Clicking on the canvas | Clicking an object in a group chooses the whole group; hold Alt and click to choose just that object |
 | Canvas | F2 edits the words of the chosen text (so does a double click on it) |
-| Edit text dialog | Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, Ctrl+K link; the toolbar is one tab stop and Left, Right, Home and End move along it; Escape asks before throwing changes away |
+| Edit text dialog | Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, Ctrl+K link (here Ctrl+K is not the search); the toolbar is one tab stop and Left, Right, Home and End move along it; Escape asks before throwing changes away |
 | Canvas | Arrow keys move 1 pixel, with Shift 10, all the selected objects together; Alt+arrows resize one object or one whole group; Page Down and Page Up choose the next or previous object, and with Shift add it to the selection; Delete removes the selected objects; Escape clears the selection |
 
 Moves, resizes and selections made on the canvas are announced in a polite live region. Alt text and
@@ -744,7 +890,7 @@ OpenStage Capture is a separate program that records the screen. The editor star
 shell (the Rust side) that make that possible. They are built and tested; the panels an author would use (a recorder panel, a clip list) are not
 built yet, so apart from the check dialog in the first item nothing here shows on screen. The page reaches all of it through `editor/src/backend.ts`.
 
-- **OpenScreen: recording from the editor.** OpenScreen is the name authors see for the Capture module. The toolbar's **OpenScreen** button opens a dialog
+- **OpenScreen: recording from the editor.** OpenScreen is the name authors see for the Capture module. **Record the screen (OpenScreen)...**, in the Insert and Narration menus, opens a dialog
   with three parts: **Record**, the recording as it goes, and **Is this computer ready to record?**
   - **Record.** The author names the recording and chooses what to record: a whole screen, one window (found with **Look for windows**; the window is asked for
     by its title), or part of a screen (four numbers, at least 64 by 64 pixels). They choose a microphone, whose sound to record (the computer's own sound includes a
@@ -762,7 +908,7 @@ built yet, so apart from the check dialog in the first item nothing here shows o
     everything the recorder said (warnings and problems, each starting "Note." or "Problem."). Changes of state, markers, warnings and the end are spoken through a status
     region; the sound levels and the running time are shown but not spoken, so a screen reader is not talked over. The recorder's keys work from any program while recording:
     Ctrl+Shift+F10 pause or resume, Ctrl+Shift+F11 stop, Ctrl+Shift+F12 start again (the editor says which could not be used, and the buttons always work). A recording goes
-    on if the dialog is closed: the toolbar button then reads "OpenScreen (recording)" and the editor speaks the news itself. If the recorder ends without finishing, the editor says so
+    on if the dialog is closed: a red **OpenScreen: recording** button shows in the top bar (pressing it opens OpenScreen again) and the editor speaks the news itself. If the recorder ends without finishing, the editor says so
     and repairs what was recorded (at most about a second can be lost). When it finishes, the dialog says where the recording is kept and offers to show its folder.
   - **Is this computer ready to record?** **Check this computer** runs the recorder's own `setup-check`: the Windows version, screen capture, the video and sound encoders, the microphone and
     the camera and the permission to use them, and the room left on the disk of the open project. Each finding starts with "Passed." or "Problem." (never colour alone), and one sentence at
@@ -799,8 +945,8 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   **Finishing the edit** (the timeline of the recording editor). Put the playhead where a mistake starts and press **I**, where it ends and press **O**: a shaded band shows the stretch and the words under the timeline say it. **X** removes it from every track and leaves a gap; **Shift+X** removes it and moves everything after it earlier; **Alt+X** clears the marks. Overlays and zooms in the stretch go with it or are shortened, and the sentence says what happened to them. One undo puts it all back.
   Dragging with the mouse **snaps** to the playhead, the edges of other clips and the ends of the edit (a line shows where; the **Snap** button or **N** turns it off; holding **Alt** turns it off for one drag, as on a slide). With several clips chosen, dragging one moves them all. The **Tracks** button renames or deletes a track; one with things on it asks first.
   Other things not built are listed in `capture-timeline/README.md` (a captions track, cursor and click effects).
-  The first page (no project open) offers **New project**, **Open project** and **Show the examples**, which opens the folder of example projects that came with the program (`examples_folder` in `lib.rs`); the button is left out when there are none.
-  **About** (the last button in the toolbar) shows the version and where things are on this computer (the program, its Python and Node, the recorder, the speech recogniser, the settings and data folders, whether the narration voice is installed, the web view and Windows versions), as lines and as text to copy into a message when asking for help; it holds no key and nothing from a course. **Show the guides** opens the folder of guides that came with an installed copy.
+  The first page (no project open) is the welcome page: **New project**, **Open project**, the projects opened lately, and the examples that came with the program, each opened as a copy (see **The welcome page** near the top of this guide). **Show all the examples** opens their folder (`examples_folder` in `lib.rs`); it is left out when there is none.
+  **About OpenStage Author...** (in the Help menu) shows the version and where things are on this computer (the program, its Python and Node, the recorder, the speech recogniser, the settings and data folders, whether the narration voice is installed, the web view and Windows versions), as lines and as text to copy into a message when asking for help; it holds no key and nothing from a course. **Show the guides** opens the folder of guides that came with an installed copy.
   **Steps from a recording.** **Make steps from this recording** (in the OpenScreen dialog, and for the recording just made) opens a review dialog (`editor/src/stepsdialog.ts`) for the steps that can be made from
   what the author did while OpenScreen was noting the mouse and keyboard (`takes/take-N/events.jsonl`): one step for each click (told as "Click the Save button.", "Choose Open from the menu.", "Double-click ...",
   "Right-click ..."; without a name, "Click the highlighted spot."), each stretch of typing ("Type "report"."), each key such as Enter or Ctrl+S, each change of program, and each marker. Anything the edit cuts out makes no

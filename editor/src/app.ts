@@ -1,4 +1,4 @@
-// The editor's window: toolbar, slide list, canvas, properties, objects, problems.
+// The editor's window: the top bar and its menus, slide list, canvas, properties, objects, problems.
 //
 // Accessibility rules this file follows (ATAG Part A, and CLAUDE.md):
 //  - Everything is reachable and operable by keyboard. The canvas is a convenience; each
@@ -28,12 +28,15 @@ import { ITEM_LIMITS } from "../../player/src/interactions.ts";
 import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
 import { askText } from "./textprompt.ts";
+import { openPublishStyle } from "./publishstyledialog.ts";
+import { dateText, nextVersion, type NameValues } from "./publishstyle.ts";
 import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
 import { canHaveLooks, isReadyLook, lookFieldsFor, lookLabel, lookNameProblem, lookUse, mixHex, percentOf, solidnessOf, type LookField } from "./looks.ts";
-import type { CreditEntry, Effect, Style } from "../../player/src/types.ts";
+import type { CreditEntry, Effect, Slide, Style } from "../../player/src/types.ts";
 import { askChoice, bubblePreview, interactionPreview, shapePreview } from "./choicepicker.ts";
 import { ADD_MENU, bubbleChoice, groupOptions, INPUTS, INTERACTIONS, isPictureBox, NAVIGATION_BUTTONS, SLIDE_LAYOUTS, type QuizType } from "./factory.ts";
+import { galleryItems, MEDIA_CHOICES, openInsertGallery } from "./insertgallery.ts";
 import { askLayout, QUIZ_PREFIX } from "./layoutpicker.ts";
 import { TEMPLATE_PREFIX } from "./templates.ts";
 import { GAME_PREFIX, GAME_SETS, gameById } from "./gamesets.ts";
@@ -51,6 +54,12 @@ import { describeTiming, isStartingTiming, MAX_STEP, parseSeconds, secondsText }
 import { brief, paragraphsOf } from "./paragraphs.ts";
 import { describeAnimation, describeSlideTransition, effectChoices, isStartingAnimation, MAX_DURATION, MIN_DURATION, type Phase } from "./animation.ts";
 import { openAbout } from "./aboutdialog.ts";
+import { MenuBar, uiIcon, type MenuCommand, type MenuDef, type MenuEntry } from "./menubar.ts";
+import { PopupMenu, menuButton } from "./popupmenu.ts";
+import { openCommandSearch, searchEntries, slidesFoundText, type SearchEntry } from "./commandsearch.ts";
+import { cleanSectionName, slidesWord, SECTION_NAME_MAX, type SortBy } from "./sections.ts";
+import { openKeys } from "./keysdialog.ts";
+import type { UiIconName } from "./uiicons.gen.ts";
 import { audioRowNote, audioRowText, audioStatus, engineOf, isKnownVoice, keyOf, languageOptions, newNarration, setVoiceSources, soundIgnoresLanguage, voiceGroups, voiceTraits, type CachedAudio, type Narration } from "./narration.ts";
 import { makeAudio } from "./makeaudio.ts";
 import { availability, buildVoiceSources, disclosureNote, isAllowed, noPlugins, serviceById, voiceLimits, voiceNote, type PluginList, type ServiceId, type Work } from "./aiservices.ts";
@@ -64,7 +73,10 @@ import { openSteps } from "./stepsdialog.ts";
 import type { Extra } from "./captions.ts";
 import { defaultSettings, type Phase as RecordPhase, type RecordSettings } from "./capturesession.ts";
 import { sampleButton, sampleMakingText, sampleNote, samplePlayingText, type SampleAnswer, type SampleState } from "./voicesample.ts";
-import { parseSettings, type Settings } from "./stock.ts";
+import { parseSettings, serializeSettings, type Settings } from "./stock.ts";
+import { WelcomePage, type ShownExample } from "./welcome.ts";
+import { examplesToShow } from "./examples.ts";
+import { addRecent, findRecent, recentTitle, removeRecent, sameFolder, type RecentProject } from "./recent.ts";
 import { openPublish } from "./publishdialog.ts";
 import { openTranslate } from "./translatedialog.ts";
 import { openMcp } from "./mcpdialog.ts";
@@ -90,6 +102,7 @@ import { castUse, poseUse, YOU } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
 import { logoFromImage } from "./themeedit.ts";
 import { BUILT_IN_THEMES, COLOR_ROLE_NAMES } from "./themes.ts";
+import { kindName, tabbedSections, type PropsTab, type TabbedSections } from "./propstabs.ts";
 
 type Attrs = Record<string, string | boolean | number>;
 
@@ -174,74 +187,63 @@ export class App {
   private readonly announcer: HTMLElement;
   private readonly canvas: Canvas;
 
-  private readonly newBtn: HTMLButtonElement;
-  private readonly openBtn: HTMLButtonElement;
-  private readonly themeBtn: HTMLButtonElement;
-  private readonly castBtn: HTMLButtonElement;
   /** The situation being edited in each scenario's panel, by object id. */
   private readonly scenarioSelect = new Map<string, string>();
   /** The lines whose voice settings are open in the panel. */
   private readonly scenarioOpen = new Set<string>();
-  private readonly assetsBtn: HTMLButtonElement;
-  private readonly pptxBtn: HTMLButtonElement;
-  private readonly variablesBtn: HTMLButtonElement;
-  private readonly narrationBtn: HTMLButtonElement;
-  private readonly aboutBtn: HTMLButtonElement;
-  private readonly aiBtn: HTMLButtonElement;
-  private readonly recorderBtn: HTMLButtonElement;
   /** Holds a recording, so it goes on when the dialog is closed. */
   private readonly recorder = new RecorderController(backend);
   private recorderSettings: RecordSettings = defaultSettings();
   /** What is known about videos made from a recording this session, by their path in the course: what is on the screen, and how long they are. For their transcripts. */
   private readonly madeVideos = new Map<string, { extras: Extra[]; lengthMs: number }>();
-  private readonly timingBtn: HTMLButtonElement;
-  private readonly timelineBtn: HTMLButtonElement;
   private readonly timelinePanel: TimelinePanel;
   private readonly saveBtn: HTMLButtonElement;
+  /** The menus under the top bar: every command, with its icon and its shortcut. */
+  private readonly menuBar: MenuBar;
+  private readonly docTitle: HTMLElement;
+  private readonly saveState: HTMLElement;
+  /** In the top bar while OpenScreen is recording; pressing it opens OpenScreen. */
+  private readonly recordingChip: HTMLButtonElement;
   private readonly undoBtn: HTMLButtonElement;
   private readonly redoBtn: HTMLButtonElement;
   private readonly previewBtn: HTMLButtonElement;
   private readonly publishBtn: HTMLButtonElement;
-  private readonly translateBtn: HTMLButtonElement;
-  private readonly mcpBtn: HTMLButtonElement;
+  /** Opens the command search (Ctrl+K). It looks like a box to type in, as the search does in other programs' title bars. */
+  private readonly searchBtn: HTMLButtonElement;
 
+  /** Every command, made once: the menus under the top bar, the panels' Add and "..." menus and the right-click menus share them. */
+  private readonly c = this.makeCommands();
   private readonly slideList: HTMLElement;
-  private readonly addSlideBtn: HTMLButtonElement;
-  private readonly changeLayoutBtn: HTMLButtonElement;
-  private readonly deleteSlideBtn: HTMLButtonElement;
-  private readonly duplicateSlideBtn: HTMLButtonElement;
-  private readonly shareSlidesBtn: HTMLButtonElement;
-  private readonly banksBtn: HTMLButtonElement;
-  private readonly questionsFileBtn: HTMLButtonElement;
-  private readonly gamesBtn: HTMLButtonElement;
-  private readonly slidesFromFileBtn: HTMLButtonElement;
-  private readonly slideUpBtn: HTMLButtonElement;
-  private readonly slideDownBtn: HTMLButtonElement;
+  /** The Slides panel's two buttons: Add (a slide, a game, a quiz from a spreadsheet, slides from a file) and "..." (the rest). */
+  private readonly slideAddBtn: HTMLButtonElement;
+  private readonly slideMoreBtn: HTMLButtonElement;
   private readonly layerSelect: HTMLSelectElement;
-  private readonly addLayerBtn: HTMLButtonElement;
-  private readonly deleteLayerBtn: HTMLButtonElement;
-  private readonly duplicateLayerBtn: HTMLButtonElement;
-  private readonly layerEarlierBtn: HTMLButtonElement;
-  private readonly layerLaterBtn: HTMLButtonElement;
+  private readonly layerAddBtn: HTMLButtonElement;
+  private readonly layerMoreBtn: HTMLButtonElement;
   private readonly objectList: HTMLElement;
-  private readonly addKind: HTMLSelectElement;
-  private readonly addObjectBtn: HTMLButtonElement;
-  private readonly deleteObjectBtn: HTMLButtonElement;
-  private readonly duplicateBtn: HTMLButtonElement;
-  private readonly copyBtn: HTMLButtonElement;
-  private readonly cutBtn: HTMLButtonElement;
-  private readonly pasteBtn: HTMLButtonElement;
-  private readonly selectAllBtn: HTMLButtonElement;
-  private readonly lockBtn: HTMLButtonElement;
-  private readonly groupBtn: HTMLButtonElement;
-  private readonly ungroupBtn: HTMLButtonElement;
-  private readonly selectGroupBtn: HTMLButtonElement;
-  private readonly moveEarlier: HTMLButtonElement;
-  private readonly moveLater: HTMLButtonElement;
+  /** The Objects panel's two buttons: Add (each kind of object) and "..." (what can be done with the selected objects). */
+  private readonly objectAddBtn: HTMLButtonElement;
+  private readonly objectMoreBtn: HTMLButtonElement;
+  /** The menu a right-click (or Shift+F10, or the Menu key) opens on a slide, an object or the canvas. */
+  private readonly contextMenu: PopupMenu;
   private readonly problemList: HTMLElement;
   private readonly problemSummary: HTMLElement;
   private readonly propsBody: HTMLElement;
+  /** The badge beside the Properties heading: what kind of object is chosen, how many, or the slide. */
+  private readonly propsKind: HTMLElement;
+  /** The Properties tab chosen last (Content, Style or Behaviour), kept from one object to the next (propstabs.ts). */
+  private propsTab: PropsTab = "content";
+  /** The tabs of the panel as it is now, to show the one a control is in before focus goes to it. */
+  private propsTabs: TabbedSections | null = null;
+  /** The Properties sections the author opened (true) or closed (false), by tab and name, kept from one object to the next while the editor is open. */
+  private readonly propsOpen = new Map<string, boolean>();
+  /** The sections of the Slides panel the author closed, by project folder and section, while the editor is open. */
+  private readonly sectionsClosed = new Set<string>();
+  /** The slide the Slides panel was last drawn for, so a newly chosen slide's section is opened once, not every time it is drawn. */
+  private slidesShownFor = "";
   private readonly welcome: HTMLElement;
+  /** What is shown when no project is open: New and Open project, the projects opened lately, and the examples (welcome.ts). */
+  private readonly welcomePage: WelcomePage;
   private readonly workspace: HTMLElement;
   private readonly statusSave: HTMLElement;
   private readonly statusSlide: HTMLElement;
@@ -261,21 +263,19 @@ export class App {
     this.announcer = h("div", { class: "sr-only", role: "status", "aria-live": "polite" });
     this.canvas = new Canvas(document, () => this.model, backend, (m) => this.announce(m));
     this.canvas.onEditText = () => void this.editText();
+    this.canvas.onShowKeys = () => void this.showKeys("canvas");
 
-    this.newBtn = this.tool("New project", "Make a new project (Ctrl+N)", () => void this.newProject());
-    this.openBtn = this.tool("Open project", "Open a project folder (Ctrl+O)", () => void this.open());
-    this.themeBtn = this.tool("Themes", "Choose a theme: the colours, fonts and backgrounds of the whole project", () => void this.chooseTheme());
-    this.castBtn = this.tool("Characters", "The cast: the people a scenario can show and a learner can choose to be, with their pictures and voices", () => void this.openCast());
-    this.assetsBtn = this.tool("Assets", "The project's images, video and audio, and stock images to add to it", () => void this.openAssetsDialog());
-    this.pptxBtn = this.tool("PowerPoint", "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", () => void this.openPowerPointDialog());
-    this.variablesBtn = this.tool("Variables", "The values the course remembers, which rules and inputs use", () => void this.openVariablesDialog());
-    this.narrationBtn = this.tool("Narration", "Everything the course says aloud, and making the audio for it", () => void this.openNarrationDialog());
-    this.recorderBtn = this.tool("OpenScreen", "Record the screen, and check that this computer is ready to record", () => void this.openRecorderDialog());
-    this.watchRecorder();
-    this.aiBtn = this.tool("AI services", "A key for OpenAI, to make voices and pictures with it, and voice plugins", () => void this.openAiServicesDialog());
-    this.timingBtn = this.tool("Timing", "When things appear and disappear on this slide, and whether it moves on by itself", () => void this.openTimingDialog());
-    this.timelineBtn = this.tool("Timeline", "Show or hide a timeline of this slide, which draws when everything appears and goes", () => this.toggleTimeline());
-    this.timelineBtn.setAttribute("aria-pressed", "false");
+    // The top bar keeps only what is done all the time; everything else is in the menus under it (design/DESIGN-GUIDE.md).
+    this.saveBtn = this.barButton("Save", "save", "Save changes (Ctrl+S)", () => void this.save());
+    this.undoBtn = this.barButton("Undo", "undo-2", "Undo the last change (Ctrl+Z)", () => this.undo());
+    this.redoBtn = this.barButton("Redo", "redo-2", "Redo (Ctrl+Y)", () => this.redo());
+    this.previewBtn = this.barButton("Preview", "monitor-play", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
+    this.publishBtn = this.barButton("Publish", "upload", "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI (Ctrl+Shift+P)", () => void this.publish());
+    this.publishBtn.classList.add("primary");
+    // Its name starts with the word it shows, so someone who says "click Search" reaches it.
+    this.searchBtn = h("button", { type: "button", class: "bar-search", "aria-label": "Search for a command", title: "Find any command by its name (Ctrl+K)", "aria-keyshortcuts": "Control+K", "aria-haspopup": "dialog" },
+      uiIcon(document, "search"), h("span", { class: "bar-search-word", text: "Search" }), h("kbd", { class: "bar-search-keys", text: "Ctrl+K", "aria-hidden": "true" }));
+    this.searchBtn.addEventListener("click", () => this.openSearch());
     this.timelinePanel = new TimelinePanel({
       model: () => this.model,
       narrationMs: (o) => this.narrationMs(o),
@@ -283,78 +283,53 @@ export class App {
       openList: () => void this.openTimingDialog(),
       onClose: () => this.toggleTimeline(false),
     });
-    this.saveBtn = this.tool("Save", "Save changes (Ctrl+S)", () => void this.save());
-    this.undoBtn = this.tool("Undo", "Undo the last change (Ctrl+Z)", () => this.undo());
-    this.redoBtn = this.tool("Redo", "Redo (Ctrl+Y)", () => this.redo());
-    this.previewBtn = this.tool("Preview", "See the course in your browser as it is now, saved or not (Ctrl+P)", () => void this.preview());
-    this.publishBtn = this.tool("Publish", "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI (Ctrl+Shift+P)", () => void this.publish());
-    this.translateBtn = this.tool("Translate", "Make a file for translating the course into another language, and bring the translation back", () => void this.translate());
-    this.mcpBtn = this.tool("MCP access", "Let an AI assistant such as Claude build, check and publish courses with this program, and get the lines that connect it", () => void this.mcpAccess());
-    this.aboutBtn = this.tool("About", "The version of OpenStage Author, and where things are on this computer (for asking for help)", () => void this.openAboutDialog());
-    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Project" }, this.newBtn, this.openBtn, this.themeBtn, this.castBtn, this.assetsBtn, this.pptxBtn, this.variablesBtn, this.narrationBtn, this.aiBtn, this.recorderBtn, this.timingBtn, this.timelineBtn, this.saveBtn, this.undoBtn, this.redoBtn, this.previewBtn, this.publishBtn, this.translateBtn, this.mcpBtn, this.aboutBtn);
-    const header = h("header", { class: "topbar" }, h("h1", { text: "OpenStage Author" }), toolbar);
+    this.recordingChip = h("button", { type: "button", class: "recording-chip", hidden: true, title: "Open OpenScreen" });
+    this.recordingChip.addEventListener("click", () => void this.openRecorderDialog());
+    this.watchRecorder();
+    this.menuBar = new MenuBar(document, this.menus());
+    this.docTitle = h("span", { class: "doc-title" });
+    this.saveState = h("span", { class: "save-state" });
+    const brand = h("div", { class: "brand" },
+      h("img", { class: "brand-mark", src: "brand-author.svg", alt: "", width: 28, height: 28 }),
+      h("h1", {}, h("span", { class: "brand-name", text: "OpenStage" }), " ", h("span", { class: "brand-product", text: "Author" })));
+    const quick = h("div", { class: "quick-actions", role: "group", "aria-label": "Main actions" }, this.undoBtn, this.redoBtn, this.saveBtn, this.previewBtn, this.publishBtn);
+    const header = h("header", { class: "topbar" },
+      h("div", { class: "shell" }, brand, h("div", { class: "doc" }, this.docTitle, this.saveState), this.searchBtn, this.recordingChip, quick),
+      h("div", { class: "menu-row" }, this.menuBar.element));
 
-    // Slides
+    // Slides: one Add button and a "..." menu; the rest of what can be done with slides is in the Slide menu and on a right-click.
     this.slideList = h("ul", { class: "item-list", role: "list" });
-    this.addSlideBtn = this.small("Add slide", "Add a slide after this one, choosing its layout", () => void this.addSlide());
-    this.changeLayoutBtn = this.small("Change layout", "Choose a different layout for this slide", () => void this.changeLayout());
-    this.deleteSlideBtn = this.small("Delete slide", "Delete this slide (Delete key in the list)", () => this.deleteSlide());
-    this.duplicateSlideBtn = this.small("Duplicate slide", "Make a copy of this slide straight after it (Ctrl+D in the list)", () => this.duplicateSlide());
-    this.shareSlidesBtn = this.small("Share slides...", "Save slides, with what they need, as one file to give to someone else", () => void this.shareSlides());
-    this.slidesFromFileBtn = this.small("Add slides from a file...", "Add slides someone gave you as one file after this slide", () => void this.addSlidesFromFile());
-    this.banksBtn = this.small("Question banks...", "Choose which slides each learner is shown: some of a run of questions, picked at random", () => void this.openBanksDialog());
-    this.questionsFileBtn = this.small("Quiz from a file...", "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide. Tick the test bank box there to show each learner only some of them", () => void this.addQuestionsFromFile("quiz"));
-    this.gamesBtn = this.small("Games...", "Add a ready-made game after this slide: a quiz board, a prize ladder or an escape room", () => void this.addSlide("games"));
-    this.slideUpBtn = this.small("Up", "Move this slide earlier (Alt+Up Arrow)", () => this.moveSlide(-1), "Move slide up");
-    this.slideDownBtn = this.small("Down", "Move this slide later (Alt+Down Arrow)", () => this.moveSlide(1), "Move slide down");
-    // The heading and the buttons stay where they are while a long list of slides scrolls under them, so Add slide is never a long scroll away.
+    this.slideAddBtn = menuButton(document, { id: "slides-add", text: "Add", name: "Add slides", icon: "plus", title: "Add a slide, a game, a quiz from a spreadsheet or slides from a file, after this slide", entries: () => this.slideAddEntries() }).button;
+    this.slideMoreBtn = menuButton(document, { id: "slides-more", name: "More for this slide", icon: "ellipsis", entries: () => this.slideMoreEntries() }).button;
+    // The heading and the buttons stay where they are while a long list of slides scrolls under them, so Add is never a long scroll away.
     const slidesNav = h("nav", { class: "panel slides", "aria-labelledby": "slides-h" },
       h("div", { class: "panel-tools" },
-        h("h2", { id: "slides-h", text: "Slides" }),
-        h("div", { class: "btn-row" }, this.addSlideBtn, this.gamesBtn, this.questionsFileBtn),
-        h("div", { class: "btn-row" }, this.duplicateSlideBtn, this.changeLayoutBtn, this.deleteSlideBtn, this.slideUpBtn, this.slideDownBtn),
-        h("div", { class: "btn-row" }, this.shareSlidesBtn, this.slidesFromFileBtn, this.banksBtn)),
+        h("div", { class: "panel-head" }, h("h2", { id: "slides-h", text: "Slides" }), h("div", { class: "panel-actions" }, this.slideAddBtn, this.slideMoreBtn))),
       this.slideList);
 
     // Canvas and layers
     this.layerSelect = h("select", { id: "layer-select" });
     this.layerSelect.addEventListener("change", () => this.model?.selectLayer(this.layerSelect.value));
-    this.addLayerBtn = this.small("Add layer", "Add a layer to this slide", () => this.addLayer());
-    this.deleteLayerBtn = this.small("Delete layer", "Delete this layer and what is on it", () => this.deleteLayer());
-    this.duplicateLayerBtn = this.small("Duplicate layer", "Make a copy of this layer and what is on it, straight after it. Nothing shows the copy until you add a rule that does", () => this.duplicateLayer());
-    this.layerEarlierBtn = this.small("Earlier", "Move this layer earlier: it is drawn behind, and read before, the layers after it", () => this.moveLayer(-1), "Move layer earlier");
-    this.layerLaterBtn = this.small("Later", "Move this layer later: it is drawn in front of, and read after, the layers before it", () => this.moveLayer(1), "Move layer later");
-    const layerBar = h("div", { class: "layer-bar" }, h("label", { for: "layer-select", text: "Layer being edited" }), this.layerSelect, this.addLayerBtn, this.duplicateLayerBtn, this.layerEarlierBtn, this.layerLaterBtn, this.deleteLayerBtn);
+    this.layerAddBtn = this.panelButton("Add layer", "layers-plus", "Add a layer to this slide", () => this.addLayer());
+    this.layerMoreBtn = menuButton(document, { id: "layer-more", name: "More for this layer", icon: "ellipsis", entries: () => this.layerMoreEntries() }).button;
+    const layerBar = h("div", { class: "layer-bar" }, h("label", { for: "layer-select", text: "Layer being edited" }), this.layerSelect, this.layerAddBtn, this.layerMoreBtn);
     const main = h("main", { class: "center", "aria-label": "Canvas" }, layerBar, this.canvas.element);
 
     // Properties
     this.propsBody = h("div", { class: "props-body" });
-    const props = h("aside", { class: "panel props", "aria-labelledby": "props-h" }, h("h2", { id: "props-h", text: "Properties" }), this.propsBody);
+    this.propsKind = h("span", { class: "props-kind", id: "props-kind" });
+    const props = h("aside", { class: "panel props", "aria-labelledby": "props-h" },
+      h("div", { class: "panel-head props-head" }, h("h2", { id: "props-h", text: "Properties" }), this.propsKind), this.propsBody);
 
     // Objects
     this.objectList = h("ul", { class: "item-list", role: "list" });
-    this.addKind = h("select", { id: "add-kind" }, ...ADD_MENU.map((k) => h("option", { value: k.value, text: k.label })));
-    this.addObjectBtn = this.small("Add object", "Add the chosen kind of object to this layer", () => void this.addObject());
-    this.deleteObjectBtn = this.small("Delete object", "Delete the selected objects (Delete key)", () => this.deleteObject());
-    this.moveEarlier = this.small("Move earlier", "Earlier in reading order (Alt+Up Arrow)", () => this.reorder(-1));
-    this.moveLater = this.small("Move later", "Later in reading order (Alt+Down Arrow)", () => this.reorder(1));
-    this.duplicateBtn = this.small("Duplicate", "Make a copy of the selected object beside it (Ctrl+D)", () => this.duplicateObject());
-    this.copyBtn = this.small("Copy", "Copy the selected object (Ctrl+C)", () => this.copyObject());
-    this.cutBtn = this.small("Cut", "Copy the selected object and remove it (Ctrl+X)", () => this.cutObject());
-    this.pasteBtn = this.small("Paste", "Paste the copied objects on this layer, which may be on another slide (Ctrl+V)", () => this.pasteObject());
-    this.selectAllBtn = this.small("Select all", "Select every object on this layer (Ctrl+A)", () => this.selectAllObjects());
-    this.lockBtn = this.small("Lock", "Lock the selected objects so they cannot be moved, resized, rotated or deleted by accident (Ctrl+L)", () => this.toggleLockObjects());
-    this.groupBtn = this.small("Group", "Tie the selected objects together, so they are chosen, moved, resized, copied and deleted as one (Ctrl+G)", () => this.groupObjects());
-    this.ungroupBtn = this.small("Ungroup", "Break the selected objects' groups apart (Ctrl+Shift+G)", () => this.ungroupObjects());
-    this.selectGroupBtn = this.small("Select group", "Select everything that is in the same group as the selected objects", () => this.selectGroupObjects());
+    this.objectAddBtn = menuButton(document, { id: "objects-add", text: "Add", name: "Add an object", icon: "plus", title: "Add an object to the layer being edited", entries: () => [this.c.insertGallery, "-", ...this.c.addObjects] }).button;
+    this.objectMoreBtn = menuButton(document, { id: "objects-more", name: "More for the selected objects", icon: "ellipsis", entries: () => this.objectMenuEntries() }).button;
     const objects = h("section", { class: "panel objects", "aria-labelledby": "objects-h" },
-      h("h2", { id: "objects-h", text: "Objects" }),
-      h("div", { class: "btn-row" }, h("label", { for: "add-kind", text: "Add" }), this.addKind, this.addObjectBtn),
-      h("div", { class: "btn-row" }, this.deleteObjectBtn, this.moveEarlier, this.moveLater),
-      h("div", { class: "btn-row" }, this.duplicateBtn, this.copyBtn, this.cutBtn, this.pasteBtn, this.selectAllBtn, this.lockBtn),
-      h("div", { class: "btn-row" }, this.groupBtn, this.ungroupBtn, this.selectGroupBtn),
+      h("div", { class: "panel-head" }, h("h2", { id: "objects-h", text: "Objects" }), h("div", { class: "panel-actions" }, this.objectAddBtn, this.objectMoreBtn)),
       h("p", { class: "note", text: "In reading order, which is also the tab order." }),
       this.objectList);
+    this.contextMenu = new PopupMenu(document, "context-menu", "Menu");
 
     // Problems
     this.problemSummary = h("span", { class: "summary" });
@@ -364,26 +339,24 @@ export class App {
       this.problemList);
 
     this.workspace = h("div", { class: "workspace" }, slidesNav, main, this.timelinePanel.element, props, h("div", { class: "bottom" }, objects, problems));
-    this.welcome = h("main", { class: "welcome", "aria-labelledby": "welcome-h" },
-      h("h2", { id: "welcome-h", text: "Open a project to begin" }),
-      h("p", { id: "welcome-text", text: "A project is a folder containing project.json. Make a new one, or open one you have made." }));
-    const newWelcome = h("button", { type: "button", text: "New project" });
-    newWelcome.addEventListener("click", () => void this.newProject());
-    const openWelcome = h("button", { type: "button", text: "Open project" });
-    openWelcome.addEventListener("click", () => void this.open());
-    this.welcome.append(newWelcome, " ", openWelcome);
-    // Example projects come with the program: say so and show where they are, so a first-time author is not left to look for them.
-    const showExamples = h("button", { type: "button", id: "welcome-examples", text: "Show the examples", hidden: true });
-    this.welcome.append(" ", showExamples);
-    void backend.examplesFolder().then((folder) => {
-      if (folder === "") return;
-      const note = this.welcome.querySelector("#welcome-text");
-      if (note) note.textContent = "A project is a folder containing project.json. Make a new one, open one you have made, or look at the example projects that came with the program: press Show the examples, then Open project and choose one of them.";
-      showExamples.hidden = false;
-      showExamples.addEventListener("click", () => {
+    this.welcomePage = new WelcomePage(document, {
+      newProject: () => void this.newProject(),
+      openProject: () => void this.open(),
+      openRecent: (p, from) => void this.openRecent(p, from),
+      showFolder: (dir) => { backend.revealInFolder(dir).then(() => this.announce("Showing the project's folder."), (err) => this.announce(errorText(err))); },
+      forget: (p) => void this.forgetRecent(p),
+      clearRecent: () => void this.clearRecent(),
+      setKeepRecent: (on) => void this.setKeepRecent(on),
+      openExample: (e, from) => void this.openExample(e, from),
+    });
+    this.welcome = this.welcomePage.element;
+    void this.refreshWelcome();
+    // The examples that came with the program, each opened as a copy; and the folder they are in, for the ones not listed.
+    void Promise.all([backend.examplesList().catch(() => []), backend.examplesFolder().catch(() => "")]).then(([found, folder]) => {
+      this.welcomePage.setExamples(examplesToShow(found), folder === "" ? null : () => {
         backend.revealInFolder(folder).then(() => this.announce("Showing the example projects."), (err) => this.announce(errorText(err)));
       });
-    }, () => undefined);
+    });
 
     this.statusSave = h("span");
     this.statusSlide = h("span");
@@ -418,6 +391,236 @@ export class App {
     if (name) b.setAttribute("aria-label", name);
     b.classList.add("small");
     return b;
+  }
+
+  /** A button on a panel with its icon and its word (Add layer). */
+  private panelButton(label: string, icon: UiIconName, title: string, fn: () => void): HTMLButtonElement {
+    const b = this.tool("", title, fn);
+    b.append(uiIcon(document, icon), h("span", { text: label }));
+    b.classList.add("panel-button");
+    return b;
+  }
+
+  /** After a dialog: if focus was lost (the place it came from has gone, or it was nowhere), it goes to this button. */
+  private focusIfLost(b: HTMLElement): void {
+    const a = document.activeElement;
+    if (!a || a === document.body || !a.isConnected) b.focus();
+  }
+
+  /** A button in the top bar: its icon and its word. */
+  private barButton(label: string, icon: UiIconName, title: string, fn: () => void): HTMLButtonElement {
+    const b = this.tool("", title, fn);
+    b.append(uiIcon(document, icon), h("span", { text: label }));
+    b.classList.add("bar-button");
+    return b;
+  }
+
+  /**
+   * After a dialog opened from a menu closes: the dialog gives focus back to where the author was, and if it could not (focus is
+   * nowhere), focus goes to the menu that holds the command, as it used to go to the command's button.
+   */
+  private afterDialog(menu: string): void {
+    const a = document.activeElement;
+    if (!a || a === document.body || !a.isConnected) this.menuBar.focusMenu(menu);
+  }
+
+  /**
+   * Every command, made once. The menus under the top bar, the panels' Add and "..." menus and the right-click menus all use these, so a
+   * command says the same thing, has the same icon and shortcut, and is dimmed for the same reason wherever it is.
+   */
+  private makeCommands() {
+    const open = () => !!this.model;
+    const free = () => !!this.model && !this.working;
+    const one = () => this.model?.selected.length === 1;
+    const hasObject = () => !!this.model?.object;
+    const slideAt = () => (this.model ? this.model.slides.findIndex((s) => s.id === this.model!.sel.slideId) : -1);
+    const layerAt = () => (this.model?.slide ? this.model.slide.layers.findIndex((l) => l.id === this.model!.sel.layerId) : -1);
+    const insertIcons: Record<string, UiIconName> = {
+      text: "type", "group:button": "square-mouse-pointer", hotspot: "square-dashed-mouse-pointer", "group:media": "image", "group:shape": "shapes",
+      "group:content": "table", "group:question": "circle-question-mark", "group:interaction": "puzzle", "group:course": "award",
+    };
+    const cmd = (c: MenuCommand): MenuCommand => c;
+    return {
+      newProject: cmd({ label: "New project...", icon: "file-plus", keys: "Ctrl+N", title: "Make a new project", run: () => void this.newProject() }),
+      openProject: cmd({ label: "Open project...", icon: "folder-open", keys: "Ctrl+O", title: "Open a project folder", run: () => void this.open() }),
+      saveNewVersion: cmd({ label: "Save as new version...", icon: "file-stack", title: "For a big revision: copy the whole course to a new folder with a new version number and open the copy, so the version you have now stays as it is", run: () => void this.saveNewVersion(), enabled: free }),
+      publishStyle: cmd({ label: "Publishing style...", icon: "file-cog", title: "Your house rules for what Publish makes: the names of the files, and the Word review document's headings, numbering and font", run: () => void this.editPublishStyle() }),
+      closeProject: cmd({ label: "Close project", icon: "folder-x", title: "Close this project and go back to the welcome page, with your recent projects and the examples", run: () => void this.closeProject(), enabled: open }),
+      save: cmd({ label: "Save", icon: "save", keys: "Ctrl+S", title: "Save changes", run: () => void this.save(), enabled: () => !!this.model?.dirty }),
+      slidesFromFile: cmd({ label: "Slides from a file...", icon: "file-input", title: "Add slides someone gave you as one file after this slide", run: () => void this.addSlidesFromFile(), enabled: open }),
+      shareSlides: cmd({ label: "Share slides...", icon: "share-2", title: "Save slides, with what they need, as one file to give to someone else", run: () => void this.shareSlides(), enabled: open }),
+      powerPoint: cmd({ label: "PowerPoint slides...", icon: "presentation", title: "Bring slides in from a PowerPoint presentation, or bring slides you brought in earlier up to date after the presentation changed", run: () => void this.openPowerPointDialog(), enabled: open }),
+      translate: cmd({ label: "Translate...", icon: "languages", title: "Make a file for translating the course into another language, and bring the translation back", run: () => void this.translate(), enabled: free }),
+      preview: cmd({ label: "Preview", icon: "monitor-play", keys: "Ctrl+P", title: "See the course in your browser as it is now, saved or not", run: () => void this.preview(), enabled: free }),
+      publish: cmd({ label: "Publish...", icon: "upload", keys: "Ctrl+Shift+P", title: "Make packages for your LMS: SCORM 1.2, SCORM 2004 and xAPI", run: () => void this.publish(), enabled: free }),
+
+      undo: cmd({ label: "Undo", icon: "undo-2", keys: "Ctrl+Z", run: () => this.undo(), enabled: () => !!this.model?.canUndo }),
+      redo: cmd({ label: "Redo", icon: "redo-2", keys: "Ctrl+Y", run: () => this.redo(), enabled: () => !!this.model?.canRedo }),
+      cut: cmd({ label: "Cut", icon: "scissors", keys: "Ctrl+X", title: "Copy the selected object and remove it", run: () => this.cutObject(), enabled: hasObject }),
+      copy: cmd({ label: "Copy", icon: "copy", keys: "Ctrl+C", title: "Copy the selected object", run: () => this.copyObject(), enabled: hasObject }),
+      paste: cmd({ label: "Paste", icon: "clipboard-paste", keys: "Ctrl+V", title: "Paste the copied objects on this layer, which may be on another slide", run: () => this.pasteObject(), enabled: () => !!this.model?.canPaste }),
+      duplicate: cmd({ label: "Duplicate", icon: "copy-plus", keys: "Ctrl+D", title: "Make a copy of the selected object beside it", run: () => this.duplicateObject(), enabled: hasObject }),
+      deleteObjects: cmd({ label: "Delete", icon: "trash", keys: "Delete", title: "Delete the selected objects", run: () => this.deleteObject(), enabled: hasObject }),
+      selectAll: cmd({ label: "Select all", icon: "square-dashed", keys: "Ctrl+A", title: "Select every object on this layer", run: () => this.selectAllObjects(), enabled: () => (this.model?.objects.length ?? 0) > 0 }),
+      group: cmd({ label: "Group", icon: "group", keys: "Ctrl+G", title: "Tie the selected objects together, so they are chosen, moved, resized, copied and deleted as one", run: () => this.groupObjects(), enabled: () => !!this.model?.canGroup }),
+      ungroup: cmd({ label: "Ungroup", icon: "ungroup", keys: "Ctrl+Shift+G", title: "Break the selected objects' groups apart", run: () => this.ungroupObjects(), enabled: () => !!this.model?.canUngroup }),
+      selectGroup: cmd({ label: "Select group", icon: "boxes", title: "Select everything that is in the same group as the selected objects", run: () => this.selectGroupObjects(), enabled: () => !!this.model?.canSelectGroup }),
+      lock: cmd({ label: "Lock", icon: "lock", keys: "Ctrl+L", title: "Lock the selected objects so they cannot be moved, resized, rotated or deleted by accident", run: () => this.toggleLockObjects(), enabled: hasObject,
+        labelNow: () => (this.model?.selectionLock === "all" ? "Unlock" : "Lock"), iconNow: () => (this.model?.selectionLock === "all" ? "lock-open" : "lock") }),
+      earlier: cmd({ label: "Earlier in reading order", icon: "arrow-up", keys: "Alt+Up", title: "Earlier in reading order, which is also the tab order", run: () => this.reorder(-1), enabled: one }),
+      later: cmd({ label: "Later in reading order", icon: "arrow-down", keys: "Alt+Down", title: "Later in reading order, which is also the tab order", run: () => this.reorder(1), enabled: one }),
+      editText: cmd({ label: "Edit text...", icon: "pencil", keys: "F2", title: "Edit the words with bold, italic, underline, lists, headings and links (F2 on the canvas, or double click the text)", run: () => void this.editText(), enabled: () => one() && this.model?.object?.type === "text" }),
+
+      insertGallery: cmd({ label: "Find something to add...", icon: "layout-grid", title: "Everything you can add to a slide in one window, to search by name or by what it is for", run: () => void this.openInsertGallery(), enabled: open }),
+      addObjects: ADD_MENU.map((k): MenuCommand => ({ label: k.label, icon: insertIcons[k.value], title: "Add this to the layer being edited", run: () => void this.addObject(k.value), enabled: open })),
+      recordScreen: cmd({ label: "Record the screen (OpenScreen)...", icon: "video", title: "Record the screen, and check that this computer is ready to record", run: () => void this.openRecorderDialog() }),
+      game: cmd({ label: "Game...", icon: "gamepad-2", title: "Add a ready-made game after this slide: a quiz board, a prize ladder, an escape room or an order challenge", run: () => void this.addSlide("games"), enabled: open }),
+      quizFromFile: cmd({ label: "Quiz from a spreadsheet...", icon: "sheet", title: "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide. Tick the test bank box there to show each learner only some of them", run: () => void this.addQuestionsFromFile("quiz"), enabled: open }),
+
+      newSlide: cmd({ label: "New slide...", icon: "plus", title: "Add a slide after this one, choosing its layout", run: () => void this.addSlide(), enabled: open }),
+      duplicateSlide: cmd({ label: "Duplicate slide", icon: "copy-plus", title: "Make a copy of this slide straight after it (Ctrl+D in the list of slides)", run: () => this.duplicateSlide(), enabled: open }),
+      changeLayout: cmd({ label: "Change layout...", icon: "layout-template", title: "Choose a different layout for this slide", run: () => void this.changeLayout(), enabled: open }),
+      slideUp: cmd({ label: "Move slide up", icon: "arrow-up", title: "Move this slide earlier (Alt+Up Arrow in the list of slides)", run: () => this.moveSlide(-1), enabled: () => slideAt() > 0 }),
+      slideDown: cmd({ label: "Move slide down", icon: "arrow-down", title: "Move this slide later (Alt+Down Arrow in the list of slides)", run: () => this.moveSlide(1), enabled: () => !!this.model && slideAt() >= 0 && slideAt() < this.model.slides.length - 1 }),
+      deleteSlide: cmd({ label: "Delete slide", icon: "trash", title: "Delete this slide (Delete key in the list of slides)", run: () => this.deleteSlide(), enabled: () => !!this.model && this.model.slides.length > 1 }),
+      goToSlide: cmd({ label: "Go to slide...", icon: "locate", keys: "Ctrl+J", title: "Find a slide by its name or its number and go to it", run: () => this.goToSlide(), enabled: open }),
+      newSection: cmd({ label: "New section starting here...", icon: "list-plus", title: "Start a new section of the course at this slide: it and the slides after it in its section move to the new section", run: () => void this.newSection(), enabled: () => this.canStartSection() }),
+      moveToSection: cmd({ label: "Move slide to section...", icon: "folder-input", title: "Move this slide to the end of another section", run: () => void this.moveSlideToSection(), enabled: () => (this.model?.sections.length ?? 0) > 1 }),
+      openSections: cmd({ label: "Open all sections", icon: "chevrons-up-down", title: "Show the slides of every section in the list of slides", run: () => this.setAllSections(true), enabled: () => (this.model?.sections.length ?? 0) > 1 }),
+      closeSections: cmd({ label: "Close all sections", icon: "chevrons-down-up", title: "Show only the sections' names in the list of slides, so a long course fits", run: () => this.setAllSections(false), enabled: () => (this.model?.sections.length ?? 0) > 1 }),
+      ...this.sectionCommands(() => this.model?.sectionOfSlide()?.id),
+      banks: cmd({ label: "Question banks...", icon: "shuffle", title: "Choose which slides each learner is shown: some of a run of questions, picked at random", run: () => void this.openBanksDialog(), enabled: open }),
+      addLayer: cmd({ label: "Add layer", icon: "layers-plus", title: "Add a layer to this slide", run: () => this.addLayer(), enabled: open }),
+      duplicateLayer: cmd({ label: "Duplicate layer", icon: "copy-plus", title: "Make a copy of this layer and what is on it, straight after it. Nothing shows the copy until you add a rule that does", run: () => this.duplicateLayer(), enabled: () => !!this.model?.layer }),
+      layerEarlier: cmd({ label: "Move layer earlier", icon: "arrow-up", title: "It is drawn behind, and read before, the layers after it", run: () => this.moveLayer(-1), enabled: () => layerAt() > 0 }),
+      layerLater: cmd({ label: "Move layer later", icon: "arrow-down", title: "It is drawn in front of, and read after, the layers before it", run: () => this.moveLayer(1), enabled: () => !!this.model?.slide && layerAt() !== -1 && layerAt() < this.model.slide.layers.length - 1 }),
+      deleteLayer: cmd({ label: "Delete layer", icon: "trash", title: "Delete this layer and what is on it", run: () => this.deleteLayer(), enabled: () => !!this.model && this.model.sel.layerId !== this.model.slide?.baseLayer.id }),
+
+      themes: cmd({ label: "Themes...", icon: "palette", title: "Choose a theme: the colours, fonts and backgrounds of the whole project", run: () => void this.chooseTheme(), enabled: open }),
+      characters: cmd({ label: "Characters...", icon: "users", title: "The cast: the people a scenario can show and a learner can choose to be, with their pictures and voices", run: () => void this.openCast(), enabled: open }),
+      assets: cmd({ label: "Assets...", icon: "images", title: "The project's images, video and audio, and stock images to add to it", run: () => void this.openAssetsDialog(), enabled: open }),
+      variables: cmd({ label: "Variables...", icon: "variable", title: "The values the course remembers, which rules and inputs use", run: () => void this.openVariablesDialog(), enabled: open }),
+
+      narration: cmd({ label: "Narration...", icon: "audio-lines", title: "Everything the course says aloud, and making the audio for it", run: () => void this.openNarrationDialog(), enabled: free }),
+      timing: cmd({ label: "Timing...", icon: "timer", title: "When things appear and disappear on this slide, and whether it moves on by itself", run: () => void this.openTimingDialog(), enabled: free }),
+      timeline: cmd({ label: "Timeline", icon: "chart-gantt", title: "Show or hide a timeline of this slide, which draws when everything appears and goes", run: () => this.toggleTimeline(), enabled: open, checked: () => this.timelinePanel.open }),
+
+      problems: cmd({ label: "Problems", icon: "triangle-alert", title: "Go to the list of problems found in the course", run: () => this.goToProblems(), enabled: open }),
+      ai: cmd({ label: "AI services...", icon: "sparkles", title: "A key for OpenAI, to make voices and pictures with it, and voice plugins", run: () => void this.openAiServicesDialog() }),
+      mcp: cmd({ label: "MCP access...", icon: "plug", title: "Let an AI assistant such as Claude build, check and publish courses with this program, and get the lines that connect it", run: () => void this.mcpAccess() }),
+      search: cmd({ label: "Search for a command...", icon: "search", keys: "Ctrl+K", title: "Find any command by its name, so you do not need to know which menu holds it", run: () => this.openSearch() }),
+      keys: cmd({ label: "Keyboard keys...", icon: "keyboard", keys: "Ctrl+/", title: "Every keyboard shortcut the editor has, in one list", run: () => void this.showKeys() }),
+      about: cmd({ label: "About OpenStage Author...", icon: "info", title: "The version of OpenStage Author, and where things are on this computer (for asking for help)", run: () => void this.openAboutDialog() }),
+    };
+  }
+
+  /** The menus under the top bar. */
+  private menus(): MenuDef[] {
+    const c = this.c;
+    return [
+      { id: "file", label: "File", items: [
+        c.newProject, c.openProject, c.save, c.saveNewVersion, c.closeProject, "-",
+        { ...c.slidesFromFile, label: "Add slides from a file..." }, c.shareSlides, c.powerPoint, c.translate, "-",
+        c.preview, c.publish, c.publishStyle,
+      ] },
+      { id: "edit", label: "Edit", items: [c.undo, c.redo, "-", c.editText, "-", ...this.objectEntries()] },
+      { id: "insert", label: "Insert", items: [c.insertGallery, "-", ...c.addObjects, "-", c.recordScreen, c.game, c.quizFromFile] },
+      { id: "slide", label: "Slide", items: [
+        c.newSlide, c.duplicateSlide, c.changeLayout, c.slideUp, c.slideDown, c.deleteSlide, "-",
+        c.goToSlide, c.newSection, c.moveToSection, c.renameSection, c.sortSection, c.sectionUp, c.sectionDown, c.removeSection, "-",
+        c.banks, "-",
+        c.addLayer, c.duplicateLayer, c.layerEarlier, c.layerLater, c.deleteLayer,
+      ] },
+      { id: "design", label: "Design", items: [c.themes, c.characters, c.assets, c.variables] },
+      { id: "narration", label: "Narration", items: [c.narration, "-", c.timing, c.timeline, "-", c.recordScreen] },
+      { id: "review", label: "Review", items: [c.problems, "-", c.preview, c.publish] },
+      { id: "tools", label: "Tools", items: [c.ai, c.mcp] },
+      { id: "help", label: "Help", items: [c.search, c.keys, "-", c.about] },
+    ];
+  }
+
+  /** What can be done with the selected objects: in the Edit menu, and (with Edit text) in the Objects panel's "..." menu and on a right-click. */
+  private objectEntries(): MenuEntry[] {
+    const c = this.c;
+    return [c.cut, c.copy, c.paste, c.duplicate, c.deleteObjects, c.selectAll, "-", c.group, c.ungroup, c.selectGroup, c.lock, "-", c.earlier, c.later];
+  }
+
+  private objectMenuEntries(): MenuEntry[] {
+    return [this.c.editText, "-", ...this.objectEntries()];
+  }
+
+  /** A right-click on the canvas where there is nothing: paste, select all, or add something. */
+  private canvasEntries(): MenuEntry[] {
+    return [this.c.paste, this.c.selectAll, "-", this.c.insertGallery, ...this.c.addObjects];
+  }
+
+  private slideAddEntries(): MenuEntry[] {
+    const c = this.c;
+    return [c.newSlide, c.game, c.quizFromFile, "-", c.slidesFromFile];
+  }
+
+  private slideMoreEntries(): MenuEntry[] {
+    const c = this.c;
+    return [c.duplicateSlide, c.changeLayout, c.slideUp, c.slideDown, "-", c.goToSlide, c.newSection, c.moveToSection, c.openSections, c.closeSections, "-", c.banks, c.shareSlides, "-", c.deleteSlide];
+  }
+
+  /** A right-click on a slide in the list. */
+  private slideContextEntries(): MenuEntry[] {
+    const c = this.c;
+    return [c.newSlide, "-", c.duplicateSlide, c.changeLayout, c.slideUp, c.slideDown, c.newSection, c.moveToSection, "-", c.deleteSlide];
+  }
+
+  /** A right-click (or Shift+F10) on a section's heading in the list of slides: what can be done with that section. */
+  private sectionContextEntries(sectionId: string): MenuEntry[] {
+    const s = this.sectionCommands(() => sectionId);
+    return [s.renameSection, s.sortAZ, s.sortMade, s.sectionUp, s.sectionDown, "-", this.c.openSections, this.c.closeSections, "-", s.removeSection];
+  }
+
+  /**
+   * The commands for one section: the section of the slide being edited (in the Slide menu) or the one right-clicked (on its heading).
+   * They are made the same way for both, so they say the same and are dimmed for the same reasons.
+   */
+  private sectionCommands(target: () => string | undefined) {
+    const m = () => this.model;
+    const at = () => { const id = target(); return id ? (m()?.sections.findIndex((x) => x.id === id) ?? -1) : -1; };
+    const has = () => at() >= 0;
+    const several = () => (m()?.sections.length ?? 0) > 1;
+    return {
+      renameSection: { label: "Rename section...", icon: "pencil-line", title: "Give this section another name", run: () => void this.renameSectionDialog(target()), enabled: has } as MenuCommand,
+      sortSection: { label: "Sort section...", icon: "arrow-down-a-z", title: "Put this section's slides in order, once: A to Z by name, or in the order they were made", run: () => void this.sortSectionDialog(target()), enabled: has } as MenuCommand,
+      sortAZ: { label: "Sort A to Z", icon: "arrow-down-a-z", title: "Put this section's slides in A to Z order of their names, once. The course plays them in that order", run: () => this.sortSectionNow(target(), "name"), enabled: has } as MenuCommand,
+      sortMade: { label: "Sort in the order made", icon: "arrow-down-0-1", title: "Put this section's slides in the order they were made, once. The course plays them in that order", run: () => this.sortSectionNow(target(), "made"), enabled: has } as MenuCommand,
+      sectionUp: { label: "Move section up", icon: "chevrons-up", title: "Move this section, with its slides, before the section above it (Alt+Up on its name in the list)", run: () => this.moveSectionBy(target(), -1), enabled: () => at() > 0 } as MenuCommand,
+      sectionDown: { label: "Move section down", icon: "chevrons-down", title: "Move this section, with its slides, after the section below it (Alt+Down on its name in the list)", run: () => this.moveSectionBy(target(), 1), enabled: () => has() && at() < (m()?.sections.length ?? 0) - 1 } as MenuCommand,
+      removeSection: { label: "Remove section (keep its slides)", icon: "list-x", title: "Take this section away. Its slides join the section before it; no slide is deleted", run: () => this.removeSectionNow(target()), enabled: () => has() && several() } as MenuCommand,
+    };
+  }
+
+  private layerMoreEntries(): MenuEntry[] {
+    const c = this.c;
+    return [c.duplicateLayer, c.layerEarlier, c.layerLater, "-", c.deleteLayer];
+  }
+
+  /** Ctrl+K, the Search button or Help > Search for a command: every command in the menus, found by its name. */
+  private openSearch(): void {
+    openCommandSearch(document, searchEntries(this.menus()), { fallback: () => this.searchBtn });
+  }
+
+  /** Ctrl+/, Help > Keyboard keys or the Keys button under the slide: every key, in tables by where they work. */
+  private async showKeys(first?: string): Promise<void> {
+    await openKeys({ announce: (msg) => this.announce(msg), first });
+    this.afterDialog("help");
+  }
+
+  /** Review > Problems: to the list of problems, on its first problem if there is one. */
+  private goToProblems(): void {
+    const first = this.problemList.querySelector<HTMLElement>("button, [tabindex='0']");
+    if (first) first.focus();
+    else {
+      this.problemSummary.setAttribute("tabindex", "-1");
+      this.problemSummary.focus();
+    }
+    this.announce(`Problems. ${this.problemSummary.textContent ?? ""}`);
   }
 
   private announce(message: string): void {
@@ -462,7 +665,8 @@ export class App {
     }
   }
 
-  private async load(dir: string): Promise<void> {
+  /** Open the project in this folder. `note` is said after "Opened ...". */
+  private async load(dir: string, note = ""): Promise<void> {
     let opened = await backend.open(dir);
     let updated = "";
     const version = String(JSON.parse(opened.project)["schemaVersion"]);
@@ -489,8 +693,147 @@ export class App {
     this.renderAll();
     this.scheduleValidate(0);
     void this.refreshNarration();
-    this.announce(`Opened ${model.project.meta.title}, ${model.slides.length} slides.${updated}`);
+    this.announce(`Opened ${model.project.meta.title}, ${model.slides.length} slides.${updated}${note}`);
     this.focusSlideList();
+    void this.rememberProject(dir, model, true);
+  }
+
+  // ---- the welcome page
+
+  /** Show the projects opened lately on the welcome page, as the settings file has them now. */
+  private async refreshWelcome(): Promise<void> {
+    const s = parseSettings(await backend.readSettings().catch(() => ""));
+    this.welcomePage.setRecent(s.recent ?? [], s.keepRecent !== false);
+  }
+
+  /**
+   * Keep the project on the welcome page's list (unless the author asked the editor not to keep one). On opening it goes to the top;
+   * after a save only its title and number of slides are brought up to date, and only if they changed.
+   */
+  private async rememberProject(dir: string, m: Model, opened: boolean): Promise<void> {
+    try {
+      const s = parseSettings(await backend.readSettings().catch(() => ""));
+      if (s.keepRecent === false) return;
+      const list = s.recent ?? [];
+      const entry: RecentProject = { dir, title: m.project.meta.title, slides: m.slides.length, opened: new Date().toISOString() };
+      let next: RecentProject[];
+      if (opened) next = addRecent(list, entry);
+      else {
+        const old = findRecent(list, dir);
+        if (!old || (old.title === entry.title && old.slides === entry.slides)) return;
+        next = list.map((p) => (sameFolder(p.dir, dir) ? { ...p, title: entry.title, slides: entry.slides } : p));
+      }
+      await backend.writeSettings(serializeSettings({ ...s, recent: next }));
+      this.welcomePage.setRecent(next, true);
+    } catch {
+      // The list is a convenience: a settings file that cannot be written does not stop anyone working.
+    }
+  }
+
+  /** Open a project from the welcome page's list. If it cannot be opened (its folder moved or deleted), offer to take it off the list. */
+  private async openRecent(p: RecentProject, from: HTMLElement): Promise<void> {
+    if (this.model?.dirty && !(await backend.confirm("You have unsaved changes. Open another project and lose them?"))) return;
+    try {
+      await this.load(p.dir);
+    } catch (err) {
+      const name = recentTitle(p);
+      this.announce(`Could not open ${name}.`);
+      const forget = await backend.confirm(`Could not open "${name}".\n\n${errorText(err)}\n\nIts folder may have been moved, renamed or deleted. Take it off the list of recent projects? If it has only moved, you can open it from where it is now with Open project.`);
+      if (forget) await this.forgetRecent(p);
+      else if (from.isConnected) from.focus();
+    }
+  }
+
+  /** Take one project off the list, and put focus on the card that takes its place. */
+  private async forgetRecent(p: RecentProject): Promise<void> {
+    const s = parseSettings(await backend.readSettings().catch(() => ""));
+    const list = s.recent ?? [];
+    const at = Math.max(0, list.findIndex((x) => sameFolder(x.dir, p.dir)));
+    const next = removeRecent(list, p.dir);
+    try {
+      await backend.writeSettings(serializeSettings({ ...s, recent: next }));
+    } catch (err) {
+      this.announce(`Could not change the list. ${errorText(err)}`);
+      return;
+    }
+    this.welcomePage.setRecent(next, s.keepRecent !== false);
+    this.welcomePage.focusRecent(at);
+    this.announce(`${recentTitle(p)} is off the list. The project itself is not touched.`);
+  }
+
+  private async clearRecent(): Promise<void> {
+    const s = parseSettings(await backend.readSettings().catch(() => ""));
+    try {
+      await backend.writeSettings(serializeSettings({ ...s, recent: [] }));
+    } catch (err) {
+      this.announce(`Could not clear the list. ${errorText(err)}`);
+      return;
+    }
+    this.welcomePage.setRecent([], s.keepRecent !== false);
+    this.announce("The list of recent projects is empty. No project was touched.");
+  }
+
+  /** Whether the editor keeps a list of the projects opened. Turning it off also empties the list, so nothing is left behind. */
+  private async setKeepRecent(on: boolean): Promise<void> {
+    const s = parseSettings(await backend.readSettings().catch(() => ""));
+    const next: Settings = { ...s, recent: on ? (s.recent ?? []) : [] };
+    if (on) delete next.keepRecent;
+    else next.keepRecent = false;
+    try {
+      await backend.writeSettings(serializeSettings(next));
+    } catch (err) {
+      this.announce(`Could not change the setting. ${errorText(err)}`);
+      return;
+    }
+    this.welcomePage.setRecent(next.recent ?? [], on);
+    this.announce(on ? "The projects you open will be listed here." : "The editor will not keep a list of the projects you open, and the list is empty now.");
+  }
+
+  /** Copy an example that came with the program into an empty folder the author chooses, and open the copy. */
+  private async openExample(e: ShownExample, from: HTMLElement): Promise<void> {
+    if (this.model?.dirty && !(await backend.confirm("You have unsaved changes. Open another project and lose them?"))) return;
+    const back = () => { if (from.isConnected) from.focus(); };
+    const dir = await backend.pickFolder(`Choose an empty folder for your copy of ${e.title}`, "new");
+    if (!dir) return back();
+    try {
+      await backend.copyExample(e.name, dir);
+    } catch (err) {
+      this.announce(`Could not copy the example. ${errorText(err)}`);
+      window.alert(`Could not copy the example.\n\n${errorText(err)}`);
+      return back();
+    }
+    try {
+      await this.load(dir, " This is your own copy of the example, so change it as you like.");
+    } catch (err) {
+      this.announce(`The example was copied but could not be opened. ${errorText(err)}`);
+      window.alert(`The example was copied to ${dir} but could not be opened.\n\n${errorText(err)}`);
+      back();
+    }
+  }
+
+  /** Close the project and go back to the welcome page. */
+  private async closeProject(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const refuse = (why: string) => { this.announce(why); window.alert(why); };
+    if (this.recorder.busy) return refuse("OpenScreen is recording into this project. Stop the recording before closing the project.");
+    if (this.working) return refuse("Wait for the preview or the publishing to finish before closing the project.");
+    if (m.dirty && !(await backend.confirm("You have unsaved changes. Close the project and lose them?"))) return;
+    window.clearTimeout(this.validateTimer);
+    this.validateSeq++; // a check that is still running is not shown
+    window.clearTimeout(this.problemSayTimer);
+    this.model = null;
+    this.findings = [];
+    this.checkFailure = "";
+    this.scenarioSelect.clear();
+    this.scenarioOpen.clear();
+    this.narrationCache = new Map();
+    this.workspace.hidden = true;
+    this.welcome.hidden = false;
+    this.updateChrome();
+    await this.refreshWelcome();
+    this.welcomePage.focusRecent(0);
+    this.announce(`Closed ${m.project.meta.title}. This is the welcome page.`);
   }
 
   /** Choose a theme for the whole project. */
@@ -499,14 +842,14 @@ export class App {
     if (!m) return;
     const theme = await askTheme({ current: m.theme.id });
     if (!theme) {
-      this.themeBtn.focus();
+      this.afterDialog("design");
       return;
     }
     if (theme === "edit") return this.editTheme();
     // A built-in theme brings its own colours and fonts, and the project's logo stays.
     const msg = m.setTheme(theme, true);
     this.announce(msg ? `${msg}${msg.endsWith(".") ? "" : "."} Press Control Z to undo.` : `${theme.name} is already the theme.`);
-    this.themeBtn.focus();
+    this.afterDialog("design");
   }
 
   /** Change the project's own theme: its colours, its fonts and a logo. */
@@ -524,7 +867,7 @@ export class App {
       const msg = m.setTheme(edited, false);
       this.announce(msg ? `${msg}. Press Control Z to undo.` : "The theme was not changed.");
     }
-    this.themeBtn.focus();
+    this.afterDialog("design");
   }
 
   /** Choose a picture for the logo, copy it into the project, and find out how big it is. */
@@ -561,6 +904,7 @@ export class App {
     try {
       await backend.save(m.dir, files, removed);
       m.markSaved(files);
+      void this.rememberProject(m.dir, m, false);
       return files.length + removed.length;
     } catch (err) {
       this.announce(`Could not save. ${errorText(err)}`);
@@ -607,6 +951,8 @@ export class App {
         backend, dir: m.dir,
         save: async () => (await this.writeChanges()) !== null,
         announce: (msg) => this.announce(msg),
+        values: () => this.nameValues(m),
+        editStyle: async () => { await openPublishStyle({ backend, values: this.nameValues(m), announce: (msg) => this.announce(msg) }); },
       });
     } finally {
       this.working = false;
@@ -631,7 +977,7 @@ export class App {
     } finally {
       this.working = false;
       this.updateChrome();
-      this.translateBtn.focus();
+      this.afterDialog("file");
     }
   }
 
@@ -643,7 +989,7 @@ export class App {
     } finally {
       // The dialog wrote its choices into the settings file, so what is held here is read again, or a later save of a key would write the old choices back.
       this.settings = parseSettings(await backend.readSettings().catch(() => ""));
-      this.mcpBtn.focus();
+      this.afterDialog("tools");
     }
   }
 
@@ -691,7 +1037,7 @@ export class App {
       },
       excludeCaptures: () => (m?.excludeFromPackage("captures") ? "The captures folder is now left out of the published course. Save the project to keep that." : null),
     });
-    this.recorderBtn.focus();
+    this.afterDialog("narration");
   }
 
   /** Put a finished recording, already copied into the course, on the slide the author is on. It starts with no description and no captions: the author writes them. */
@@ -750,12 +1096,13 @@ export class App {
     return said;
   }
 
-  /** The toolbar button says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
+  /** The top bar says when a recording is going on, and the editor speaks its news when the dialog is not open to do it. */
   private watchRecorder(): void {
     const short: Partial<Record<RecordPhase, string>> = { starting: "starting", countdown: "counting down", recording: "recording", paused: "paused", stopping: "stopping" };
     this.recorder.subscribe((session, say) => {
       const word = short[session.phase];
-      this.recorderBtn.textContent = word ? `OpenScreen (${word})` : "OpenScreen";
+      this.recordingChip.hidden = !word;
+      this.recordingChip.replaceChildren(uiIcon(document, "circle-dot"), h("span", { text: word ? `OpenScreen: ${word}` : "OpenScreen" }));
       if (say.length > 0 && !recorderDialogOpen()) this.announce(say.join(" "));
     });
   }
@@ -767,7 +1114,7 @@ export class App {
       this.plugins = result.plugins;
       this.applyServices();
     }
-    this.aiBtn.focus();
+    this.afterDialog("tools");
   }
 
   /** Whether a service may be sent what the author is about to make with it. They are asked the first time, and a yes is kept. */
@@ -833,16 +1180,15 @@ export class App {
   private toggleTimeline(open = !this.timelinePanel.open): void {
     if (open && !this.model) return;
     this.timelinePanel.setOpen(open);
-    this.timelineBtn.setAttribute("aria-pressed", String(open));
     this.announce(open ? "Timeline shown below the canvas." : "Timeline hidden.");
     if (open) this.timelinePanel.element.querySelector<HTMLElement>(".tl-grip, .tl-name")?.focus();
-    else this.timelineBtn.focus();
+    else this.afterDialog("narration");
   }
 
   /** The About window: the version, and where things are on this computer. */
   private async openAboutDialog(): Promise<void> {
     await openAbout({ backend, announce: (msg) => this.announce(msg) });
-    this.aboutBtn.focus();
+    this.afterDialog("help");
   }
 
   /** The Narration dialog: all the narration in the course, and making its audio. */
@@ -875,9 +1221,9 @@ export class App {
     if (goTo && m.reveal(goTo.slideId, goTo.object.id)) {
       if (home) this.renderProps();
       this.announce(`Selected ${goTo.object.name}${goTo.item ? `, item ${goTo.item.title}` : goTo.cue ? `, audio description at ${clockText(goTo.cue.time)}` : goTo.line && home ? `, ${S.describeLine(home)}` : ""}. Its narration is in the Properties panel.`);
-      document.getElementById(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : goTo.cue ? `p-desc-${goTo.cue.id}-narration-script` : goTo.line ? `p-sc-line-${goTo.line.id}-narration-script` : "p-narration-script")?.focus();
+      this.focusProp(goTo.item ? `p-ix-${goTo.item.id}-narration-script` : goTo.cue ? `p-desc-${goTo.cue.id}-narration-script` : goTo.line ? `p-sc-line-${goTo.line.id}-narration-script` : "p-narration-script");
     } else {
-      this.narrationBtn.focus();
+      this.afterDialog("narration");
     }
   }
 
@@ -886,7 +1232,7 @@ export class App {
     const m = this.model;
     if (!m) return;
     const choice = await askShare({ slides: m.slides.map((s) => ({ id: s.id, name: s.name })), current: m.slide?.id ?? "", author: m.project.meta.author });
-    this.shareSlidesBtn.focus();
+    this.focusIfLost(this.slideMoreBtn);
     if (!choice) return;
     try {
       const out = await backend.pickSetSave(`${choice.title.replace(/[^A-Za-z0-9 _-]+/g, "").trim() || "slides"}.osset`);
@@ -919,7 +1265,7 @@ ${errorText(err)}`);
     try {
       const file = await backend.pickSetFile();
       if (!file) {
-        this.slidesFromFileBtn.focus();
+        this.focusIfLost(this.slideAddBtn);
         return;
       }
       this.announce("Checking the set...");
@@ -929,13 +1275,13 @@ ${errorText(err)}`);
         window.alert(`That set cannot be added.
 
 ${read.message}`);
-        this.slidesFromFileBtn.focus();
+        this.focusIfLost(this.slideAddBtn);
         return;
       }
       stage = read.value.stage;
       const yes = await askAddSet(read.value, m.slide?.name ?? "");
       if (!yes) {
-        this.slidesFromFileBtn.focus();
+        this.focusIfLost(this.slideAddBtn);
         return;
       }
       const pictures = new Map<string, string>();
@@ -983,12 +1329,12 @@ ${errorText(err)}`);
     if (!m) return;
     try {
       const picture = await this.libraryPicture();
-      this.addKind.focus();
+      this.focusIfLost(this.objectAddBtn);
       if (!picture) return;
       const o = m.addPackPicture(picture);
       if (o) {
         this.announce(`Added ${o.name}. The description from the library is its alt text: read it, and change it if it is not right, or mark the picture decorative if it only decorates.`);
-        document.getElementById("p-alt")?.focus();
+        this.focusProp("p-alt");
       }
     } catch (err) {
       this.announce(`Could not add the person. ${errorText(err)}`);
@@ -1004,7 +1350,7 @@ ${errorText(err)}`);
       ...(c.poses ?? []).map((pose) => ({ value: `${c.id}|${pose.id}`, label: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, description: "A pose.", src: pose.src, alt: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}`, decorative: false, name: `${c.name}, ${pose.label.charAt(0).toLowerCase()}${pose.label.slice(1)}` })),
     ]);
     if (options.length === 0) {
-      this.announce("The cast has no pictures yet. Open Characters in the toolbar and give a person a picture, or choose a person from the library.");
+      this.announce("The cast has no pictures yet. Open Characters in the Design menu and give a person a picture, or choose a person from the library.");
       return null;
     }
     const value = await askChoice({
@@ -1023,7 +1369,7 @@ ${errorText(err)}`);
     const done = (put: { name: string; decorative?: boolean } | null) => {
       if (!put) return;
       this.announce(put.decorative ? `${put.name} is in the box. It is marked as decoration.` : `${put.name} is in the box. Read its alt text in the Properties panel, and change it if it is not right.`);
-      document.getElementById("p-alt")?.focus();
+      this.focusProp("p-alt");
     };
     const guard = (f: () => Promise<void>) => () => void f().catch((err) => this.announce(`Could not put the picture in. ${errorText(err)}`));
     const fromComputer = guard(async () => {
@@ -1034,7 +1380,7 @@ ${errorText(err)}`);
       const stem = (src.split("/").pop() ?? src).replace(/\.[^.]*$/, "");
       const put = m.fillPictureBox(o.id, { src, ...(size ? { size } : {}), name: stem, alt: "" });
       if (put) this.announce(`${stem} is in the box. It needs alt text: describe it in the Alt text field, or mark it decorative.`);
-      document.getElementById("p-alt")?.focus();
+      this.focusProp("p-alt");
     });
     const fromCast = guard(async () => {
       const pic = await this.castPicture();
@@ -1125,7 +1471,7 @@ ${errorText(err)}`);
       discardPicture: (src) => backend.deleteAsset(m.dir, src),
       announce: (msg) => this.announce(msg),
     });
-    this.castBtn.focus();
+    this.afterDialog("design");
     if (!next) return;
     const msg = m.setCharacters(next.cast, next.credits);
     this.announce(msg ? `${msg} Press Control Z to undo.` : "The cast is as it was.");
@@ -1137,7 +1483,7 @@ ${errorText(err)}`);
     if (!m) return;
     await openTiming({ model: m, announce: (msg) => this.announce(msg) });
     this.renderProps(true);
-    this.timingBtn.focus();
+    this.afterDialog("narration");
   }
 
   /** When the selected object appears and disappears. Left alone, an object is there all the time. */
@@ -1305,7 +1651,7 @@ ${errorText(err)}`);
       return [
         this.selectField(`slide-anim-${phase}`, label, effectChoices(phase), now?.effect ?? "none", (v) => {
           done(m.setSlideTransition(slide.id, phase, { effect: v as NonNullable<typeof now>["effect"] }));
-          document.getElementById(`p-slide-anim-${phase}`)?.focus();
+          this.focusProp(`p-slide-anim-${phase}`);
         }),
         ...(now ? [this.field(`slide-anim-${phase}-time`, secondsLabel, secondsText(now.duration), (v) => {
           const ms = parseSeconds(v);
@@ -1345,7 +1691,7 @@ ${errorText(err)}`);
       const msg = m.setAutoSteps(slide.id, on ? { first: 2000, every: 3000 } : null);
       if (msg) this.announce(msg);
       this.renderProps();
-      document.getElementById("p-slide-auto-steps")?.focus();
+      this.focusProp("p-slide-auto-steps");
     });
     const out: HTMLElement[] = [
       h("div", { class: "field check" }, box, h("label", { for: "p-slide-auto-steps", text: "Show the items one after another by themselves" })),
@@ -1444,7 +1790,7 @@ ${errorText(err)}`);
       h("p", { class: "note", text: `This object says nothing. This slide's narration is said by ${[...new Set(elsewhere.map((x) => x.object.name))].join(", ")}.` }),
       h("div", { class: "btn-row" }, this.small(`Go to ${elsewhere[0]!.object.name}`, "Select the object that says this slide's narration", () => {
         if (m.reveal(elsewhere[0]!.slideId, elsewhere[0]!.object.id)) this.announce(`Selected ${elsewhere[0]!.object.name}. Its narration is in the Properties panel.`);
-        document.getElementById("p-narration-script")?.focus();
+        this.focusProp("p-narration-script");
       })),
     ];
     return [h("fieldset", {}, h("legend", { text: "Narration" }), ...pointer,
@@ -1708,7 +2054,7 @@ ${errorText(err)}`);
       const r = m.addPronunciation(key, newTerm.value, newIpa.value);
       if (!r.ok) { this.announce(r.message); (newTerm.value.trim() === "" ? newTerm : newIpa).focus(); return; }
       this.announce(r.message);
-      document.getElementById(`p-${pron}-new-term`)?.focus(); // the panel was redrawn, with empty boxes
+      this.focusProp(`p-${pron}-new-term`); // the panel was redrawn, with empty boxes
     });
     return h("fieldset", { class: "pron" }, h("legend", { text: "Pronunciations" }),
       h("p", { class: "note", text: "Teach the voice a word it gets wrong. Write the word as it is spelled in the script, then how it sounds in IPA, for example \u02c8l\u026ak\u0259rt for Likert." }),
@@ -1855,168 +2201,187 @@ ${errorText(err)}`);
     this.layerSelect.focus();
   }
 
-  private async addObject(): Promise<void> {
+  /**
+   * Add something from an Add menu (the Objects panel's, the Insert menu's or a right-click menu's): a kind that has several sorts first
+   * asks which in its picker. What is chosen is then added by addChosen, which the Insert gallery uses too.
+   */
+  private async addObject(kind: string): Promise<void> {
+    if (!this.model) return;
+    if (kind === "image") return this.addImage();
+    if (!kind.startsWith("group:")) return this.addChosen(kind);
+    const picked = await this.pickInGroup(kind.slice(6));
+    this.focusIfLost(this.objectAddBtn);
+    if (picked) await this.addChosen(picked);
+  }
+
+  /** The Insert gallery (insertgallery.ts): everything that can be added, in one window to search. */
+  private async openInsertGallery(): Promise<void> {
+    if (!this.model) return;
+    const picked = await openInsertGallery(document, galleryItems());
+    this.focusIfLost(this.objectAddBtn);
+    if (picked) await this.addChosen(picked);
+  }
+
+  /**
+   * Ask which sort of a kind to add, in its picker. Resolves to what addChosen takes ("nav:next", "media:video", "quiz:mc",
+   * "interaction:tabs:horizontal" and so on), or null when the picker was closed.
+   */
+  private async pickInGroup(group: string): Promise<string | null> {
+    if (group === "button") {
+      const kind = await askChoice({
+        heading: "Add a button", legend: "Kind of button", confirm: "Add button",
+        choices: [
+          { value: "plain", label: "Button", description: "A button with words you write. Say what it does in the Rules box.", group: "Your own" },
+          ...NAVIGATION_BUTTONS.map((b) => ({ value: b.id, label: b.label, description: b.description, group: "Ready-made, already wired" })),
+        ],
+      });
+      return kind === null ? null : kind === "plain" ? "button" : `nav:${kind}`;
+    }
+    if (group === "media") {
+      const pick = await askChoice({
+        heading: "Add an image, video, audio or file", legend: "Kind", confirm: "Add",
+        choices: MEDIA_CHOICES.map((c) => ({ value: c.id, label: c.label, description: c.description, group: c.group })),
+      });
+      return pick === null ? null : `media:${pick}`;
+    }
+    if (group === "question") {
+      return askChoice({
+        heading: "Add a question, input or survey", legend: "Kind", confirm: "Add",
+        choices: [
+          ...QUIZ_KINDS.map((k) => ({ value: `quiz:${k.id}`, label: k.label, description: k.description, group: `Quiz questions: ${k.group.toLowerCase()}` })),
+          ...INPUTS.map((i) => ({ value: `input:${i.id}`, label: i.label, description: i.description, group: i.group === "Inputs" ? "Inputs that save a choice" : "Surveys" })),
+        ],
+      });
+    }
+    if (group === "content") {
+      const kind = await askChoice({
+        heading: "Add a table or scrolling text", legend: "Kind", confirm: "Add",
+        choices: [
+          { value: "table", label: "Table", description: "Rows and columns of text, with header cells a screen reader can announce." },
+          { value: "scrollingText", label: "Scrolling text", description: "A box of text that scrolls when it is long. The keyboard can scroll it." },
+        ],
+      });
+      return kind === null ? null : `content:${kind}`;
+    }
+    if (group === "course") {
+      const kind = await askChoice({
+        heading: "Add results or a certificate", legend: "Kind", confirm: "Add",
+        choices: [
+          { value: "results", label: "Results", description: "Shows the learner's score and whether they passed, and can list each question. It fills itself in from the quiz." },
+          { value: "certificate", label: "Certificate", description: "For a learner who passed. They type their own name, then print it or save it as a PDF." },
+        ],
+      });
+      return kind === null ? null : `course:${kind}`;
+    }
+    if (group === "interaction") {
+      const picked = await askChoice({
+        heading: "Add an interaction, scenario or timer", legend: "Interaction", confirm: "Add",
+        choices: [
+          ...INTERACTIONS.map((i) => ({ value: `interaction:${i.id}`, label: i.label, description: i.description, group: i.group, preview: interactionPreview(i.kind, i.orientation) })),
+          { value: "timer", label: "Timer", description: "A countdown clock for the slide or its layer. The learner can always add time or turn it off. A rule on the timer says what happens when the time runs out, such as showing a layer, going to another slide or changing a variable.", group: "Time limits" },
+          { value: "scenario", label: "Branching scenario", description: "A story the learner steps through by choosing what to do. Each choice leads to another situation, until an ending. Choices can add to a number, and people from the cast can speak.", group: "Stories" },
+        ],
+      });
+      return picked;
+    }
+    return askChoice(group === "shape"
+      ? {
+        heading: "Add a shape or a bubble", legend: "Shape or bubble", confirm: "Add",
+        choices: [
+          ...groupOptions("shape").map((c) => ({ ...c, group: "Shapes", preview: shapePreview(c.value.slice(6)) })),
+          { value: "bubble:text-speech", label: "Speech bubble, with words", description: "A speech bubble you type in, to say what someone is saying.", group: "Speech and thought bubbles", preview: bubblePreview("speech", true) },
+          { value: "bubble:text-thought", label: "Thought bubble, with words", description: "A thought bubble you type in, to say what someone is thinking.", group: "Speech and thought bubbles", preview: bubblePreview("thought", true) },
+          { value: "bubble:shape-speech", label: "Speech bubble, empty", description: "A plain speech bubble with no words in it, to put your own words or a picture over.", group: "Speech and thought bubbles", preview: bubblePreview("speech", false) },
+          { value: "bubble:shape-thought", label: "Thought bubble, empty", description: "A plain thought bubble with no words in it.", group: "Speech and thought bubbles", preview: bubblePreview("thought", false) },
+        ],
+      }
+      : { heading: "Add a quiz question", legend: "Kind of question", confirm: "Add question", choices: groupOptions("quiz").map((c) => ({ ...c, description: c.value === "quiz:tf" ? "A statement the learner marks true or false." : "One correct answer among several choices." })) });
+  }
+
+  /**
+   * Add one thing that has been chosen, from a picker or from the Insert gallery: "text", "button", "nav:<id>", "hotspot", "media:<kind>",
+   * "shape:<name>", "bubble:<how>-<which>", "content:<kind>", "quiz:<type>", "input:<kind>", "interaction:<id>", "timer", "scenario",
+   * "course:<kind>", and the three in the Insert menu that are not objects: "record", "game" and "quizFromFile".
+   */
+  private async addChosen(choice: string): Promise<void> {
     const m = this.model;
     if (!m) return;
-    let choice = this.addKind.value;
-    if (choice === "image") return this.addImage();
-    if (choice.startsWith("group:")) {
-      const group = choice.slice(6);
-      if (group === "button") {
-        const kind = await askChoice({
-          heading: "Add a button", legend: "Kind of button", confirm: "Add button",
-          choices: [
-            { value: "plain", label: "Button", description: "A button with words you write. Say what it does in the Rules box.", group: "Your own" },
-            ...NAVIGATION_BUTTONS.map((b) => ({ value: b.id, label: b.label, description: b.description, group: "Ready-made, already wired" })),
-          ],
-        });
-        this.addKind.focus();
-        if (!kind) return;
-        if (kind === "plain") {
-          const o = m.addObject("button");
-          if (o) this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Write its words in the Properties panel, and say what it does in the Rules box.`);
-        } else {
-          const o = m.addNavigationButton(kind);
-          if (o) this.announce(`Added the ${o.name} button, number ${o.accessibility.tabOrder ?? 0} in reading order. Its rule is already written, and it works from the keyboard. Move it where you want it; you can change its words, look and icon in the Properties panel.`);
-        }
-        return;
-      }
-      if (group === "media") {
-        const pick = await askChoice({
-          heading: "Add an image, video, audio or file", legend: "Kind", confirm: "Add",
-          choices: [
-            { value: "image", label: "Image", description: "A picture from your computer.", group: "From your computer" },
-            { value: "video", label: "Video file", description: "A video from your computer. It needs captions.", group: "From your computer" },
-            { value: "audio", label: "Audio file", description: "A sound from your computer. It needs captions or a transcript.", group: "From your computer" },
-            { value: "download", label: "File to download", description: "A PDF, Word document or other file learners can save to their own device. You describe what it is, and confirm it is accessible.", group: "From your computer" },
-            { value: "youtube", label: "YouTube video", description: "Plays from YouTube. You confirm the captions and add a transcript.", group: "From the web" },
-            { value: "vimeo", label: "Vimeo video", description: "Plays from Vimeo. You confirm the captions and add a transcript.", group: "From the web" },
-            { value: "person", label: "A person from the library", description: "A picture of a person from a character pack, waving, thinking, presenting. Its description becomes the alt text, for you to check.", group: "Assets" },
-            { value: "icon", label: "Icon", description: "A simple line picture from the Lucide set, drawn in a colour you choose. Search by what it means.", group: "Assets" },
-            { value: "library", label: "Browse the assets", description: "The project's own files, and stock images to add to it.", group: "Assets" },
-          ],
-        });
-        this.addKind.focus();
-        if (!pick) return;
-        if (pick === "image") return this.addImage();
-        if (pick === "video" || pick === "audio") return this.addMediaFile(pick);
-        if (pick === "download") return this.addDownloadFile();
-        if (pick === "library") return this.openAssetsDialog();
-        if (pick === "icon") return this.addIcon();
-        if (pick === "person") return this.addPerson();
-        return this.addEmbedVideo(pick as "youtube" | "vimeo");
-      }
-      if (group === "question") {
-        const picked = await askChoice({
-          heading: "Add a question, input or survey", legend: "Kind", confirm: "Add",
-          choices: [
-            ...QUIZ_KINDS.map((k) => ({ value: `quiz:${k.id}`, label: k.label, description: k.description, group: `Quiz questions: ${k.group.toLowerCase()}` })),
-            ...INPUTS.map((i) => ({ value: `input:${i.id}`, label: i.label, description: i.description, group: i.group === "Inputs" ? "Inputs that save a choice" : "Surveys" })),
-          ],
-        });
-        this.addKind.focus();
-        if (!picked) return;
-        if (picked === "input:character" && m.characters.length < 2) {
-          this.announce("A choice of character needs at least two people in the cast. Open Characters in the toolbar to add them, then add this again.");
-          this.castBtn.focus();
-          return;
-        }
-        if (picked.startsWith("input:")) {
-          const made = m.addInput(picked.slice(6));
-          if (made) this.announce(`Added ${made.name} with its own variables. Write the prompt and the options in the Properties panel.`);
-        } else if (picked === "quiz:hotspot") {
-          await this.addHotspotQuestion();
-        } else {
-          const quiz = m.addQuiz(picked.slice(5) as QuizType);
-          const kind = quizKind(picked.slice(5));
-          if (quiz && kind) this.announce(`Added a ${kind.label.toLowerCase()} question with two feedback layers. Write the question in the heading above it, set its answers in the Properties panel, and write the feedback. One question per slide works best.`);
-        }
-        return;
-      }
-      if (group === "content") {
-        const kind = await askChoice({
-          heading: "Add a table or scrolling text", legend: "Kind", confirm: "Add",
-          choices: [
-            { value: "table", label: "Table", description: "Rows and columns of text, with header cells a screen reader can announce." },
-            { value: "scrollingText", label: "Scrolling text", description: "A box of text that scrolls when it is long. The keyboard can scroll it." },
-          ],
-        });
-        this.addKind.focus();
-        if (!kind) return;
-        const o = m.addObject(kind as "table" | "scrollingText");
-        if (o) this.announce(`Added ${o.name}. Give it a name in the Alt text field, which a screen reader reads, and write its content in the Properties panel.`);
-        return;
-      }
-      if (group === "course") {
-        const kind = await askChoice({
-          heading: "Add results or a certificate", legend: "Kind", confirm: "Add",
-          choices: [
-            { value: "results", label: "Results", description: "Shows the learner's score and whether they passed, and can list each question. It fills itself in from the quiz." },
-            { value: "certificate", label: "Certificate", description: "For a learner who passed. They type their own name, then print it or save it as a PDF." },
-          ],
-        });
-        this.addKind.focus();
-        if (!kind) return;
-        const o = m.addObject(kind as "results" | "certificate");
-        if (o) this.announce(`Added ${o.name}. Give it a name in the Alt text field, which a screen reader reads, and set its words in the Properties panel. Put it on a slide after the quiz questions.`);
-        return;
-      }
-      if (group === "interaction") {
-        const pickedInteraction = await askChoice({
-          heading: "Add an interaction, scenario or timer", legend: "Interaction", confirm: "Add",
-          choices: [
-            ...INTERACTIONS.map((i) => ({ value: i.id, label: i.label, description: i.description, group: i.group, preview: interactionPreview(i.kind, i.orientation) })),
-            { value: "timer", label: "Timer", description: "A countdown clock for the slide or its layer. The learner can always add time or turn it off. A rule on the timer says what happens when the time runs out, such as showing a layer, going to another slide or changing a variable.", group: "Time limits" },
-            { value: "scenario", label: "Branching scenario", description: "A story the learner steps through by choosing what to do. Each choice leads to another situation, until an ending. Choices can add to a number, and people from the cast can speak.", group: "Stories" },
-          ],
-        });
-        this.addKind.focus();
-        if (!pickedInteraction) return;
-        if (pickedInteraction === "timer") {
-          const made = m.addTimer();
-          if (made) this.announce(`Added a timer of 30 seconds, number ${made.accessibility.tabOrder ?? 0} in reading order. It starts when its layer is shown. In the Rules box, add a rule that happens when the time runs out, and set the time in the Properties panel.`);
-          return;
-        }
-        if (pickedInteraction === "scenario") {
-          const made = m.addScenario();
-          if (made) this.announce(`Added a scenario with a small story to write over: one situation with two choices, each leading to its own ending. Give the scenario a name in the Alt text field, which a screen reader reads, then write the story in the Properties panel.`);
-          return;
-        }
-        const made = m.addInteraction(pickedInteraction);
-        if (made && (made.content as unknown as InteractionContent).kind === "labeledGraphic") {
-          this.announce(`Added ${made.name} with three markers. Choose the picture they sit on.`);
-          await this.chooseGraphic(made.id);
-          return;
-        }
-        if (made) this.announce(`Added ${made.name} with three items. Write each item's title and text in the Properties panel, and give the group a name that says what it is about.`);
-        return;
-      }
-      const picked = await askChoice(group === "shape"
-        ? {
-          heading: "Add a shape or a bubble", legend: "Shape or bubble", confirm: "Add",
-          choices: [
-            ...groupOptions("shape").map((c) => ({ ...c, group: "Shapes", preview: shapePreview(c.value.slice(6)) })),
-            { value: "bubble:text-speech", label: "Speech bubble, with words", description: "A speech bubble you type in, to say what someone is saying.", group: "Speech and thought bubbles", preview: bubblePreview("speech", true) },
-            { value: "bubble:text-thought", label: "Thought bubble, with words", description: "A thought bubble you type in, to say what someone is thinking.", group: "Speech and thought bubbles", preview: bubblePreview("thought", true) },
-            { value: "bubble:shape-speech", label: "Speech bubble, empty", description: "A plain speech bubble with no words in it, to put your own words or a picture over.", group: "Speech and thought bubbles", preview: bubblePreview("speech", false) },
-            { value: "bubble:shape-thought", label: "Thought bubble, empty", description: "A plain thought bubble with no words in it.", group: "Speech and thought bubbles", preview: bubblePreview("thought", false) },
-          ],
-        }
-        : { heading: "Add a quiz question", legend: "Kind of question", confirm: "Add question", choices: groupOptions("quiz").map((c) => ({ ...c, description: c.value === "quiz:tf" ? "A statement the learner marks true or false." : "One correct answer among several choices." })) });
-      this.addKind.focus();
-      if (!picked) return;
-      choice = picked;
+    if (choice === "record") return this.openRecorderDialog();
+    if (choice === "game") return this.addSlide("games");
+    if (choice === "quizFromFile") return this.addQuestionsFromFile("quiz");
+    if (choice === "button") {
+      const o = m.addObject("button");
+      if (o) this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Write its words in the Properties panel, and say what it does in the Rules box.`);
+      return;
     }
+    if (choice.startsWith("nav:")) {
+      const o = m.addNavigationButton(choice.slice(4));
+      if (o) this.announce(`Added the ${o.name} button, number ${o.accessibility.tabOrder ?? 0} in reading order. Its rule is already written, and it works from the keyboard. Move it where you want it; you can change its words, look and icon in the Properties panel.`);
+      return;
+    }
+    if (choice.startsWith("media:")) {
+      const pick = choice.slice(6);
+      if (pick === "image") return this.addImage();
+      if (pick === "video" || pick === "audio") return this.addMediaFile(pick);
+      if (pick === "download") return this.addDownloadFile();
+      if (pick === "library") return this.openAssetsDialog();
+      if (pick === "icon") return this.addIcon();
+      if (pick === "person") return this.addPerson();
+      return this.addEmbedVideo(pick as "youtube" | "vimeo");
+    }
+    if (choice.startsWith("input:")) {
+      if (choice === "input:character" && m.characters.length < 2) {
+        this.announce("A choice of character needs at least two people in the cast. Open Characters in the Design menu to add them, then add this again.");
+        this.menuBar.focusMenu("design");
+        return;
+      }
+      const made = m.addInput(choice.slice(6));
+      if (made) this.announce(`Added ${made.name} with its own variables. Write the prompt and the options in the Properties panel.`);
+      return;
+    }
+    if (choice === "quiz:hotspot") return this.addHotspotQuestion();
     if (choice.startsWith("quiz:")) {
+      const kind = quizKind(choice.slice(5));
       const quiz = m.addQuiz(choice.slice(5) as QuizType);
-      if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
+      if (quiz && kind) this.announce(`Added a ${kind.label.toLowerCase()} question with two feedback layers. Write the question in the heading above it, set its answers in the Properties panel, and write the feedback. One question per slide works best.`);
+      else if (quiz) this.announce("Added a quiz question with its answers and two feedback layers. One question per slide works best. The first answer starts as the correct one; change it in the Properties panel, and write the question and the feedback.");
+      return;
+    }
+    if (choice.startsWith("content:")) {
+      const o = m.addObject(choice.slice(8) as "table" | "scrollingText");
+      if (o) this.announce(`Added ${o.name}. Give it a name in the Alt text field, which a screen reader reads, and write its content in the Properties panel.`);
+      return;
+    }
+    if (choice.startsWith("course:")) {
+      const o = m.addObject(choice.slice(7) as "results" | "certificate");
+      if (o) this.announce(`Added ${o.name}. Give it a name in the Alt text field, which a screen reader reads, and set its words in the Properties panel. Put it on a slide after the quiz questions.`);
+      return;
+    }
+    if (choice === "timer") {
+      const made = m.addTimer();
+      if (made) this.announce(`Added a timer of 30 seconds, number ${made.accessibility.tabOrder ?? 0} in reading order. It starts when its layer is shown. In the Rules box, add a rule that happens when the time runs out, and set the time in the Properties panel.`);
+      return;
+    }
+    if (choice === "scenario") {
+      const made = m.addScenario();
+      if (made) this.announce(`Added a scenario with a small story to write over: one situation with two choices, each leading to its own ending. Give the scenario a name in the Alt text field, which a screen reader reads, then write the story in the Properties panel.`);
+      return;
+    }
+    if (choice.startsWith("interaction:")) {
+      const made = m.addInteraction(choice.slice(12));
+      if (made && (made.content as unknown as InteractionContent).kind === "labeledGraphic") {
+        this.announce(`Added ${made.name} with three markers. Choose the picture they sit on.`);
+        await this.chooseGraphic(made.id);
+        return;
+      }
+      if (made) this.announce(`Added ${made.name} with three items. Write each item's title and text in the Properties panel, and give the group a name that says what it is about.`);
       return;
     }
     if (choice.startsWith("bubble:")) {
       this.addBubble(m, choice);
       return;
     }
-    const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "button" | "hotspot");
+    const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "hotspot");
     if (o && o.type === "hotspot") {
       this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
     } else if (o) {
@@ -2050,7 +2415,7 @@ ${errorText(err)}`);
       const quiz = m.addQuiz("hotspot", { imageSrc: src });
       if (quiz) {
         this.announce("Added a hotspot question with two areas and two feedback layers. It needs a description of the picture, which a screen reader reads, and the areas need their places and labels. Write them in the Properties panel.");
-        document.getElementById("p-hotspot-alt")?.focus();
+        this.focusProp("p-hotspot-alt");
       }
     } catch (err) {
       this.announce(`Could not add the hotspot question. ${errorText(err)}`);
@@ -2083,7 +2448,7 @@ ${errorText(err)}`);
         : source === "prompt" ? ` You asked for: "${suggestion}". Describe what the picture actually shows, which may differ.`
         : ` The service describes it as: "${suggestion}". You can use that as a start.`;
       this.announce(`Added image ${src.split("/").pop()}. It needs alt text: describe it in the Alt text field, or mark it decorative.${tip}`);
-      document.getElementById("p-alt")?.focus();
+      this.focusProp("p-alt");
     }
   }
 
@@ -2091,7 +2456,7 @@ ${errorText(err)}`);
     const o = this.model?.addMedia(kind, src);
     if (!o) return;
     this.announce(`Added ${kind} ${src.split("/").pop()}. Give it a name in the Alt text field, and ${kind === "video" ? "add a captions file" : "add captions or a transcript"} in the Properties panel.`);
-    document.getElementById("p-alt")?.focus();
+    this.focusProp("p-alt");
   }
 
   private async addMediaFile(kind: "video" | "audio"): Promise<void> {
@@ -2112,7 +2477,7 @@ ${errorText(err)}`);
     const o = this.model?.addDownload(src);
     if (!o) return;
     this.announce(`Added a file to download, ${src.split("/").pop()}. It needs a name in the Alt text field, a description of what the file is, and your confirmation that it is accessible. All three are in the Properties panel.`);
-    document.getElementById("p-dl-description")?.focus();
+    this.focusProp("p-dl-description");
   }
 
   private async addDownloadFile(): Promise<void> {
@@ -2137,12 +2502,12 @@ ${errorText(err)}`);
       help: `Paste the address of the video from your browser's address bar. It plays from ${name}, so the learner needs an internet connection.`,
       check: (t) => (parseVideoAddress(t, provider)?.provider === provider ? null : `That is not a ${name} video address. Copy it from the video's page.`),
     });
-    this.addKind.focus();
+    this.focusIfLost(this.objectAddBtn);
     if (text === null) return;
     const o = m.addEmbed(text, provider);
     if (o) {
       this.announce(`Added a ${name} video. It needs a name in the Alt text field, a transcript, and your confirmation that it has captions. All three are in the Properties panel.`);
-      document.getElementById("p-alt")?.focus();
+      this.focusProp("p-alt");
     }
   }
 
@@ -2161,7 +2526,7 @@ ${errorText(err)}`);
       },
     });
     if (done.openNarration) await this.openNarrationDialog();
-    else this.pptxBtn.focus();
+    else this.afterDialog("file");
   }
 
   private async openAssetsDialog(tab?: "project" | "stock" | "settings"): Promise<void> {
@@ -2182,7 +2547,7 @@ ${errorText(err)}`);
         if (msg) this.announce(`${msg} for ${o.name}.`);
       },
     });
-    this.assetsBtn.focus();
+    this.afterDialog("design");
   }
 
   /** The video or audio clip's captions and transcript. */
@@ -2190,7 +2555,7 @@ ${errorText(err)}`);
     const captions = typeof o.content["captions"] === "string" ? String(o.content["captions"]) : "";
     const write = this.small("Write captions...", "Write, time and check the captions here, or start from a script or a caption file", () => void this.openCaptionsDialog().then((said) => {
       if (said !== "") this.announce(said);
-      document.getElementById("p-write-captions")?.focus();
+      this.focusProp("p-write-captions");
     }));
     write.id = "p-write-captions";
     const choose = this.small("Choose captions file...", "Choose a .vtt captions file from your computer", () => void this.chooseCaptions(o.id));
@@ -2384,7 +2749,7 @@ ${errorText(err)}`);
     const left = m.objects.map((x) => x.id);
     const next = left[Math.min(at, left.length - 1)];
     if (next) this.refocus(`object:${next}`);
-    else this.addKind.focus();
+    else this.objectAddBtn.focus();
   }
 
   /** Keep the keyboard user's place: if focus was in the Objects list, it goes to the newly selected object. */
@@ -2434,7 +2799,7 @@ ${errorText(err)}`);
     const left = m.objects.map((x) => x.id);
     const next = left[Math.min(at, left.length - 1)];
     if (next) this.refocus(`object:${next}`);
-    else this.addKind.focus();
+    else this.objectAddBtn.focus();
   }
 
   private pasteObject(): void {
@@ -2566,53 +2931,18 @@ ${errorText(err)}`);
     this.setEnabled(this.redoBtn, !!m?.canRedo);
     this.setEnabled(this.previewBtn, !!m && !this.working);
     this.setEnabled(this.publishBtn, !!m && !this.working);
-    this.setEnabled(this.translateBtn, !!m && !this.working);
     this.statusSave.textContent = !m ? "No project open" : m.dirty ? "Unsaved changes" : "All changes saved";
+    this.docTitle.textContent = m ? `${m.project.meta.title}${m.courseVersion ? `, version ${m.courseVersion}` : ""}` : "";
+    this.saveState.hidden = !m;
+    this.saveState.classList.toggle("dirty", !!m?.dirty);
+    this.saveState.replaceChildren(uiIcon(document, m?.dirty ? "circle-dot" : "circle-check"), h("span", { text: m?.dirty ? "Unsaved changes" : "Saved" }));
     const idx = m ? m.slides.findIndex((s) => s.id === m.sel.slideId) : -1;
-    this.statusSlide.textContent = m ? `Slide ${idx + 1} of ${m.slides.length}` : "";
+    const sectionNow = m && m.sections.length > 1 ? m.sectionOfSlide()?.name : undefined;
+    this.statusSlide.textContent = m ? `Slide ${idx + 1} of ${m.slides.length}${sectionNow ? `, ${sectionNow}` : ""}` : "";
     const e = this.findings.filter((f) => f.severity === "error").length;
     const w = this.findings.length - e;
     this.statusProblems.textContent = m ? (this.checkFailure ? "Could not check" : this.summaryText(e, w)) : "";
-    void backend.setTitle(m ? `${m.dirty ? "* " : ""}${m.project.meta.title} - OpenStage Author` : "OpenStage Author");
-    const hasObject = !!m?.object;
-    // Reading order is one object's place in the order, so it is for one object at a time.
-    const one = m?.selected.length === 1;
-    this.setEnabled(this.moveEarlier, !!one);
-    this.setEnabled(this.moveLater, !!one);
-    this.setEnabled(this.selectAllBtn, (m?.objects.length ?? 0) > 0);
-    this.lockBtn.textContent = m?.selectionLock === "all" ? "Unlock" : "Lock";
-    this.setEnabled(this.lockBtn, hasObject);
-    this.setEnabled(this.groupBtn, !!m?.canGroup);
-    this.setEnabled(this.ungroupBtn, !!m?.canUngroup);
-    this.setEnabled(this.selectGroupBtn, !!m?.canSelectGroup);
-    this.setEnabled(this.deleteObjectBtn, hasObject);
-    this.setEnabled(this.duplicateBtn, hasObject);
-    this.setEnabled(this.copyBtn, hasObject);
-    this.setEnabled(this.cutBtn, hasObject);
-    this.setEnabled(this.pasteBtn, !!m?.canPaste);
-    this.setEnabled(this.deleteSlideBtn, !!m && m.slides.length > 1);
-    this.setEnabled(this.changeLayoutBtn, !!m);
-    this.setEnabled(this.themeBtn, !!m);
-    this.setEnabled(this.castBtn, !!m);
-    this.setEnabled(this.assetsBtn, !!m);
-    this.setEnabled(this.pptxBtn, !!m);
-    this.setEnabled(this.variablesBtn, !!m);
-    this.setEnabled(this.narrationBtn, !!m && !this.working);
-    this.setEnabled(this.timingBtn, !!m && !this.working);
-    this.setEnabled(this.timelineBtn, !!m);
-    this.setEnabled(this.slideUpBtn, !!m && idx > 0);
-    this.setEnabled(this.slideDownBtn, !!m && idx >= 0 && idx < m.slides.length - 1);
-    this.setEnabled(this.deleteLayerBtn, !!m && m.sel.layerId !== m.slide?.baseLayer.id);
-    this.setEnabled(this.duplicateSlideBtn, !!m);
-    this.setEnabled(this.shareSlidesBtn, !!m);
-    this.setEnabled(this.banksBtn, !!m);
-    this.setEnabled(this.questionsFileBtn, !!m);
-    this.setEnabled(this.gamesBtn, !!m);
-    this.setEnabled(this.slidesFromFileBtn, !!m);
-    this.setEnabled(this.duplicateLayerBtn, !!m && !!m.layer);
-    const layerAt = m?.slide ? m.slide.layers.findIndex((l) => l.id === m.sel.layerId) : -1;
-    this.setEnabled(this.layerEarlierBtn, layerAt > 0);
-    this.setEnabled(this.layerLaterBtn, !!m?.slide && layerAt !== -1 && layerAt < m.slide.layers.length - 1);
+    void backend.setTitle(m ? `${m.dirty ? "* " : ""}${m.project.meta.title}${m.courseVersion ? ` (version ${m.courseVersion})` : ""} - OpenStage Author` : "OpenStage Author");
   }
 
   private summaryText(errors: number, warnings: number): string {
@@ -2657,7 +2987,35 @@ ${errorText(err)}`);
 
   private refocus(key: string): void {
     const target = Array.from(this.root.querySelectorAll<HTMLElement>("[data-key]")).find((n) => n.dataset["key"] === key);
+    if (target) this.showPropsTabOf(target);
     target?.focus();
+  }
+
+  /** Put the Properties panel's sections under its tabs (propstabs.ts), showing the tab chosen last, with `intro` above the tabs. */
+  private fillProps(intro: HTMLElement[], sections: Partial<Record<PropsTab, HTMLElement[]>>): void {
+    const tabbed = tabbedSections(document, sections, {
+      chosen: this.propsTab,
+      labelledBy: "props-h",
+      onChoose: (tab) => { this.propsTab = tab; },
+      remembered: (key) => this.propsOpen.get(key),
+      onToggle: (key, open) => { this.propsOpen.set(key, open); },
+    });
+    this.propsTabs = tabbed;
+    this.propsBody.replaceChildren(...intro, ...tabbed.nodes);
+  }
+
+  /** If a node is in a Properties tab that is not showing, or in a closed section, show that tab and open the section (and keep both), so focus can go there. */
+  private showPropsTabOf(node: Node): void {
+    const tab = this.propsTabs?.reveal(node);
+    if (tab) this.propsTab = tab;
+  }
+
+  /** Move focus to a control in the Properties panel, first showing the tab it is in. */
+  private focusProp(id: string): void {
+    const target = document.getElementById(id);
+    if (!target) return;
+    this.showPropsTabOf(target);
+    target.focus();
   }
 
   private item(key: string, label: string, current: boolean, onPick: (e: MouseEvent) => void, extra = ""): HTMLLIElement {
@@ -2672,15 +3030,19 @@ ${errorText(err)}`);
    * the current one, or else the first. The arrow keys move between the items.
    */
   private rove(list: HTMLElement, focused: Element | null = null): void {
-    const items = Array.from(list.querySelectorAll<HTMLElement>("button.item"));
-    const stop = rovingStop(items.map((i) => ({ focused: i === focused, current: i.getAttribute("aria-current") === "true", pressed: i.getAttribute("aria-pressed") === "true" })));
-    items.forEach((i, at) => (i.tabIndex = at === stop ? 0 : -1));
+    const all = Array.from(list.querySelectorAll<HTMLElement>("button.item"));
+    for (const i of all) i.tabIndex = -1;
+    // Only what shows can be the Tab stop. A section heading counts as current when the slide being edited is hidden in it.
+    const items = all.filter((i) => !i.closest("[hidden]"));
+    const holdsCurrent = (i: HTMLElement) => i.classList.contains("section-toggle") && !!i.parentElement?.querySelector("[hidden] [aria-current='true']");
+    const stop = rovingStop(items.map((i) => ({ focused: i === focused, current: i.getAttribute("aria-current") === "true" || holdsCurrent(i), pressed: i.getAttribute("aria-pressed") === "true" })));
+    if (stop >= 0) items[stop]!.tabIndex = 0;
   }
 
   /** Up and Down, Home and End move between the items of a list. */
   private wireArrows(list: HTMLElement, onAltArrow?: (key: string, dir: -1 | 1) => void, onDelete?: (key: string) => void): void {
     list.addEventListener("keydown", (e) => {
-      const items = Array.from(list.querySelectorAll<HTMLElement>("button.item"));
+      const items = Array.from(list.querySelectorAll<HTMLElement>("button.item")).filter((i) => !i.closest("[hidden]"));
       const at = items.indexOf(document.activeElement as HTMLElement);
       if (at === -1) return;
       if (e.key === "Delete" && onDelete) {
@@ -2704,14 +3066,199 @@ ${errorText(err)}`);
   private renderSlides(): void {
     const m = this.model;
     if (!m) return;
+    const sections = m.sections;
+    const several = sections.length > 1;
+    // A slide that has just been chosen (from Go to slide, a problem, a menu) is shown: its section opens.
+    if (m.sel.slideId !== this.slidesShownFor) {
+      const home = m.sectionOfSlide();
+      if (home) this.sectionsClosed.delete(this.sectionKey(home.id));
+      this.slidesShownFor = m.sel.slideId;
+    }
+    const number = new Map(m.slides.map((s, i) => [s.id, i + 1]));
+    const slideItem = (s: Slide) => {
+      const i = number.get(s.id)!;
+      return this.item(`slide:${s.id}`, `${i}. ${s.name}${m.bankOf(s.id) ? ` (in the question bank ${m.bankOf(s.id)!.name})` : ""}`, s.id === m.sel.slideId, () => {
+        m.selectSlide(s.id);
+        const sec = several ? m.sectionOfSlide(s.id) : undefined;
+        this.announce(`Slide ${i} of ${m.slides.length}${sec ? `, in ${sec.name}` : ""}: ${s.name}.`);
+      });
+    };
     this.keepFocus(() => {
-      this.slideList.replaceChildren(
-        ...m.slides.map((s, i) => this.item(`slide:${s.id}`, `${i + 1}. ${s.name}${m.bankOf(s.id) ? ` (in the question bank ${m.bankOf(s.id)!.name})` : ""}`, s.id === m.sel.slideId, () => {
-          m.selectSlide(s.id);
-          this.announce(`Slide ${i + 1} of ${m.slides.length}: ${s.name}.`);
-        })),
-      );
+      if (!several) {
+        this.slideList.replaceChildren(...m.slides.map(slideItem));
+      } else {
+        const byId = new Map(m.slides.map((s) => [s.id, s]));
+        this.slideList.replaceChildren(...sections.map((sec) => {
+          const open = !this.sectionsClosed.has(this.sectionKey(sec.id));
+          const listId = `slides-of-${sec.id}`;
+          const chevron = uiIcon(document, "chevron-down");
+          chevron.classList.add("section-chevron");
+          const toggle = h("button", { type: "button", class: "item section-toggle", "data-key": `section:${sec.id}`, "aria-expanded": String(open), "aria-controls": listId, title: open ? "Close this section (Left arrow)" : "Open this section (Right arrow)" },
+            chevron, h("span", { class: "section-name", text: sec.name }), " ", h("span", { class: "section-count", text: sec.slides.length === 0 ? "empty" : slidesWord(sec.slides.length) }));
+          toggle.addEventListener("click", () => this.toggleSection(sec.id));
+          const inner = h("ul", { class: "item-list section-slides", role: "list", id: listId, ...(open ? {} : { hidden: true }) },
+            ...sec.slides.map((id) => byId.get(id)).filter((x): x is Slide => !!x).map(slideItem));
+          if (sec.slides.length === 0) inner.append(h("li", { class: "note", text: "No slides yet. Use Move slide to section to put one here." }));
+          return h("li", { class: "section" }, toggle, inner);
+        }));
+      }
       this.rove(this.slideList);
+    });
+  }
+
+  /** Where a section's open or closed state is kept: by project and section. */
+  private sectionKey(sectionId: string): string {
+    return `${this.model?.dir ?? ""}|${sectionId}`;
+  }
+
+  /** Open or close a section of the list of slides. Focus stays on its heading. */
+  private toggleSection(sectionId: string, open?: boolean): void {
+    const m = this.model;
+    const sec = m?.sections.find((x) => x.id === sectionId);
+    if (!m || !sec) return;
+    const key = this.sectionKey(sectionId);
+    const now = open ?? this.sectionsClosed.has(key);
+    if (now === !this.sectionsClosed.has(key)) return;
+    if (now) this.sectionsClosed.delete(key);
+    else this.sectionsClosed.add(key);
+    this.renderSlides();
+    this.refocus(`section:${sectionId}`);
+    this.announce(`${sec.name}, ${now ? `open, ${slidesWord(sec.slides.length)}` : "closed"}.`);
+  }
+
+  /** Open all, or close all, of the sections in the list of slides. */
+  private setAllSections(open: boolean): void {
+    const m = this.model;
+    if (!m) return;
+    for (const sec of m.sections) {
+      if (open) this.sectionsClosed.delete(this.sectionKey(sec.id));
+      else this.sectionsClosed.add(this.sectionKey(sec.id));
+    }
+    this.renderSlides();
+    const here = m.sectionOfSlide();
+    this.refocus(open ? `slide:${m.sel.slideId}` : `section:${here?.id ?? m.sections[0]!.id}`);
+    this.announce(open ? `All ${m.sections.length} sections are open.` : `All ${m.sections.length} sections are closed. Each shows its name and how many slides it has; Right arrow or Enter opens one.`);
+  }
+
+  /** Whether a new section can start at the slide being edited: not at a slide that already starts its section. */
+  private canStartSection(): boolean {
+    const m = this.model;
+    const home = m?.sectionOfSlide();
+    return !!home && home.slides.indexOf(m!.sel.slideId) > 0;
+  }
+
+  /** What to say after a section change, and where focus goes. */
+  private sectionDone(r: { ok: boolean; message: string }, key: string): void {
+    if (r.message) this.announce(r.ok ? `${r.message} Press Control Z to undo.` : r.message);
+    this.refocus(key);
+  }
+
+  private async newSection(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    if (!this.canStartSection()) {
+      this.announce("This slide already starts its section. Choose a slide further down to start a new section there.");
+      return;
+    }
+    const name = await askText({
+      heading: "New section", label: "Name of the section", confirm: "Make the section",
+      initial: `Section ${m.sections.length + 1}`,
+      help: "The section starts at this slide and takes the slides after it in its section. Sections help you find your way round a long course; the learner goes through the slides in the same order as before.",
+      check: (t) => (cleanSectionName(t) === null ? `Write a name of up to ${SECTION_NAME_MAX} letters.` : null),
+    });
+    if (name === null) return this.refocus(`slide:${m.sel.slideId}`);
+    this.sectionDone(m.startSection(name), `slide:${m.sel.slideId}`);
+  }
+
+  private async renameSectionDialog(sectionId: string | undefined): Promise<void> {
+    const m = this.model;
+    const sec = m?.sections.find((x) => x.id === sectionId);
+    if (!m || !sec) return;
+    const back = m.sections.length > 1 ? `section:${sec.id}` : `slide:${m.sel.slideId}`;
+    const name = await askText({
+      heading: "Rename section", label: "Name of the section", confirm: "Rename", initial: sec.name,
+      check: (t) => (cleanSectionName(t) === null ? `Write a name of up to ${SECTION_NAME_MAX} letters.` : null),
+    });
+    if (name === null) return this.refocus(back);
+    this.sectionDone(m.renameSection(sec.id, name), back);
+  }
+
+  private async sortSectionDialog(sectionId: string | undefined): Promise<void> {
+    const m = this.model;
+    const sec = m?.sections.find((x) => x.id === sectionId);
+    if (!m || !sec) return;
+    const by = await askChoice({
+      heading: `Sort ${sec.name}`, legend: "Put its slides in order", confirm: "Sort",
+      choices: [
+        { value: "name", label: "A to Z", description: "By the slides' names. Numbers in names go in counting order, so Week 2 comes before Week 10." },
+        { value: "made", label: "In the order they were made", description: "The slide made first comes first." },
+      ],
+    });
+    if (by === "name" || by === "made") this.sortSectionNow(sec.id, by);
+    else this.refocus(`slide:${m.sel.slideId}`);
+  }
+
+  private sortSectionNow(sectionId: string | undefined, by: SortBy): void {
+    const m = this.model;
+    if (!m || !sectionId) return;
+    this.sectionDone(m.sortSection(sectionId, by), m.sections.length > 1 ? `section:${sectionId}` : `slide:${m.sel.slideId}`);
+  }
+
+  private moveSectionBy(sectionId: string | undefined, delta: -1 | 1): void {
+    const m = this.model;
+    if (!m || !sectionId) return;
+    this.sectionDone(m.moveSection(sectionId, delta), `section:${sectionId}`);
+  }
+
+  private removeSectionNow(sectionId: string | undefined): void {
+    const m = this.model;
+    if (!m || !sectionId) return;
+    this.sectionDone(m.removeSection(sectionId), `slide:${m.sel.slideId}`);
+    this.focusSlideList();
+  }
+
+  private async moveSlideToSection(): Promise<void> {
+    const m = this.model;
+    const home = m?.sectionOfSlide();
+    if (!m || m.sections.length < 2) return;
+    const slide = m.slide;
+    const to = await askChoice({
+      heading: `Move ${slide?.name ?? "this slide"} to a section`, legend: "Section", confirm: "Move the slide",
+      choices: m.sections.filter((x) => x.id !== home?.id).map((x) => ({ value: x.id, label: x.name, description: x.slides.length === 0 ? "Empty." : `${slidesWord(x.slides.length)}. The slide goes at the end.` })),
+    });
+    if (!to) return this.refocus(`slide:${m.sel.slideId}`);
+    this.sectionDone(m.moveSlidesToSection(to), `slide:${m.sel.slideId}`);
+  }
+
+  /** Ctrl+J or Slide > Go to slide: find a slide by its name or number, in the same window as the command search. */
+  private goToSlide(): void {
+    const m = this.model;
+    if (!m) return;
+    const several = m.sections.length > 1;
+    const entries: SearchEntry[] = m.slides.map((s, i) => {
+      const sec = several ? m.sectionOfSlide(s.id) : undefined;
+      return {
+        menus: sec ? [sec.name] : [],
+        cmd: {
+          label: `${i + 1}. ${s.name}`,
+          run: () => {
+            m.selectSlide(s.id);
+            this.refocus(`slide:${s.id}`);
+            this.announce(`Slide ${i + 1} of ${m.slides.length}${sec ? `, in ${sec.name}` : ""}: ${s.name}.`);
+          },
+        },
+      };
+    });
+    openCommandSearch(document, entries, {
+      fallback: () => this.slideList.querySelector<HTMLElement>("button.item[tabindex='0']"),
+      words: {
+        heading: "Go to slide",
+        intro: "Type a few letters of the slide's name, or its number. Up and Down move through what is found, Enter goes there, Escape closes.",
+        placeholder: "For example: 12, or summary",
+        listName: "Slides found",
+        found: slidesFoundText,
+        where: (e) => (e.menus[0] ? `in ${e.menus[0]}` : ""),
+      },
     });
   }
 
@@ -2857,6 +3404,7 @@ ${errorText(err)}`);
   private renderProps(valuesOnly = false): void {
     const m = this.model;
     if (!m) return;
+    this.propsKind.textContent = m.selected.length > 1 ? (m.selectedGroup ? `Group of ${m.selected.length}` : `${m.selected.length} objects`) : m.object ? kindName(m.object.type) : "Slide";
     // Several objects selected: the panel is about lining them up, because their own settings differ.
     if (m.selected.length > 1) {
       const group = m.selectedGroup;
@@ -2985,7 +3533,7 @@ ${errorText(err)}`);
         if (r.message) this.announce(r.message);
       }
       // After the change, because a box the author is in is never overwritten while they are in it.
-      document.getElementById("p-timing-start")?.focus();
+      this.focusProp("p-timing-start");
     } catch (err) {
       this.announce(`Could not play the clip. ${errorText(err)}`);
     }
@@ -3057,9 +3605,8 @@ ${errorText(err)}`);
     this.setEnabled(across, m.selectedUnits >= 3);
     this.setEnabled(down, m.selectedUnits >= 3);
     const names = sel.map((o) => o.name).join(", ");
-    this.propsBody.replaceChildren(
-      h("p", { class: "note", text: group ? `Group of ${sel.length} objects: ${names}.` : `${sel.length} objects selected: ${names}.` }),
-      h("fieldset", {}, h("legend", { text: "Group" }),
+    this.fillProps([h("p", { class: "note", text: group ? `Group of ${sel.length} objects: ${names}.` : `${sel.length} objects selected: ${names}.` })], {
+      style: [h("fieldset", {}, h("legend", { text: "Group" }),
         this.groupButtons(m),
         h("p", { class: "note", text: group
           ? "These objects are one group. Clicking one on the slide chooses them all, and they move, resize, copy and delete together. Hold Alt and click to choose just one, or choose it from the Objects list. A group is for editing only: the course looks the same."
@@ -3071,9 +3618,9 @@ ${errorText(err)}`);
       h("fieldset", {}, h("legend", { text: "Space out evenly" }),
         h("div", { class: "btn-row" }, across, down),
         h("p", { class: "note", text: "Needs three or more objects, counting a whole group as one. The outermost two stay where they are." })),
-      this.multiTimingFields(m, sel),
-      this.multiAnimationFields(m, sel),
-      h("p", { class: "note", text: "The arrow keys, Delete, Duplicate, Copy, Cut and Paste work on all of them. To change one object's text, colours, alt text, rules or narration, choose that object on its own." }));
+      h("p", { class: "note", text: "The arrow keys, Delete, Duplicate, Copy, Cut and Paste work on all of them. To change one object's text, colours, alt text, rules or narration, choose that object on its own." })],
+      behaviour: [this.multiTimingFields(m, sel), this.multiAnimationFields(m, sel)],
+    });
   }
 
   /** When nothing is selected, the Properties panel is about the slide and layer. */
@@ -3082,21 +3629,103 @@ ${errorText(err)}`);
     const layer = m.layer;
     if (!slide || !layer) {
       this.propsBody.replaceChildren();
+      this.propsTabs = null;
       return;
     }
-    this.propsBody.replaceChildren(
-      h("p", { class: "note", text: "No object selected. Choose one in the Objects list, or click it on the canvas." }),
-      this.slideNarrationFields(m),
-      this.designFields(m, slide.id),
-      h("fieldset", {}, h("legend", { text: "Slide" }),
-        this.field("slide-name", "Slide name", slide.name, (v) => { const msg = m.renameSlide(slide.id, v); if (msg) this.announce(msg); else (document.getElementById("p-slide-name") as HTMLInputElement).value = slide.name; })),
-      h("fieldset", {}, h("legend", { text: "Layer" }),
-        this.field("layer-name", "Layer name", layer.name, (v) => { const msg = m.renameLayer(layer.id, v); if (msg) this.announce(msg); else (document.getElementById("p-layer-name") as HTMLInputElement).value = layer.name; })),
-      this.slideTimingFields(m),
-      this.slideTransitionFields(m),
-      this.slideNavigationFields(m),
-      this.courseFields(m),
-    );
+    this.fillProps([h("p", { class: "note", text: "No object selected. Choose one in the Objects list, or click it on the canvas." })], {
+      content: [
+        h("fieldset", {}, h("legend", { text: "Slide" }),
+          this.field("slide-name", "Slide name", slide.name, (v) => { const msg = m.renameSlide(slide.id, v); if (msg) this.announce(msg); else (document.getElementById("p-slide-name") as HTMLInputElement).value = slide.name; })),
+        h("fieldset", {}, h("legend", { text: "Layer" }),
+          this.field("layer-name", "Layer name", layer.name, (v) => { const msg = m.renameLayer(layer.id, v); if (msg) this.announce(msg); else (document.getElementById("p-layer-name") as HTMLInputElement).value = layer.name; })),
+        this.slideNarrationFields(m),
+        this.courseDetailFields(m),
+      ],
+      style: [this.designFields(m, slide.id)],
+      behaviour: [
+        this.slideTimingFields(m),
+        this.slideTransitionFields(m),
+        this.slideNavigationFields(m),
+        this.courseFields(m),
+      ],
+    });
+  }
+
+  /** The course's own code and version (format 0.49.0): used by the publishing style for file names, and in the Word review document. */
+  private courseDetailFields(m: Model): HTMLElement {
+    const detail = (which: "courseCode" | "version", id: string, label: string, value: string) =>
+      this.field(id, label, value, (v) => {
+        const r = m.setCourseDetail(which, v);
+        if (r.message) this.announce(r.message);
+        // A refused value goes back to what the course has, even while the box has focus.
+        const box = document.getElementById(`p-${id}`) as HTMLInputElement | null;
+        if (box && !r.ok) box.value = which === "version" ? m.courseVersion : m.courseCode;
+      }, { describedBy: "course-detail-note" });
+    return h("fieldset", {}, h("legend", { text: "Course details" }),
+      detail("courseCode", "course-code", "Course code (for example CMM 360)", m.courseCode),
+      detail("version", "course-version", "Version (for example 1.0)", m.courseVersion),
+      h("p", { id: "course-detail-note", class: "note", text: "Both can be left empty. Your publishing style (File > Publishing style) can put them in the names of the published files, and the Word review document shows them. For a big revision after learners have started, use File > Save as new version: it copies the course with a new version, so the one in your LMS stays as it is." }));
+  }
+
+  /** What the publishing style's name is made from, for this course and today. */
+  private nameValues(m: Model): NameValues {
+    const folder = m.dir.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "course";
+    return { folder, title: m.project.meta.title, code: m.courseCode || undefined, version: m.courseVersion || undefined, date: dateText(new Date()) };
+  }
+
+  /** File > Publishing style: the house rules for what Publish makes. */
+  private async editPublishStyle(): Promise<void> {
+    const m = this.model;
+    await openPublishStyle({ backend, values: m ? this.nameValues(m) : null, announce: (msg) => this.announce(msg) });
+    this.afterDialog("file");
+  }
+
+  /**
+   * File > Save as new version: for a big revision, the whole course is copied to a new, empty folder with a new version number and the
+   * copy is opened, so the version that is live in an LMS stays as it is. Unsaved changes are saved to the current version first, if the
+   * author agrees. The narration audio comes along, so it is not made again.
+   */
+  private async saveNewVersion(): Promise<void> {
+    const m = this.model;
+    if (!m || this.working) return;
+    if (this.recorder.busy) {
+      this.announce("OpenScreen is recording into this project. Stop the recording first.");
+      return;
+    }
+    if (m.dirty) {
+      if (!(await backend.confirm("Save your changes to this version first, then make the new version?"))) return this.afterDialog("file");
+      if ((await this.writeChanges()) === null) return;
+    }
+    const was = m.courseVersion;
+    const title = m.project.meta.title;
+    const version = await askText({
+      heading: "Save as new version", label: "Version of the new copy", confirm: "Choose its folder...",
+      initial: nextVersion(was),
+      help: `This copies the whole course to a new, empty folder for a big revision, and opens the copy. The course you have now${was ? ` (version ${was})` : ""} stays as it is, so it can stay live in your LMS while you work on the new one; publish the new one as a new item when it is ready. For small fixes, keep editing this one and publish again.`,
+      check: (t) => (t.trim() === "" ? "Write a version, such as 2.0." : t.trim().length > 20 ? "A version can have up to 20 letters." : null),
+    });
+    if (version === null) return this.afterDialog("file");
+    const dir = await backend.pickFolder(`Choose an empty folder for version ${version.trim()} of ${title}`, "new");
+    if (!dir) return this.afterDialog("file");
+    const from = m.dir;
+    try {
+      await backend.copyProject(from, dir);
+    } catch (err) {
+      this.announce(`Could not make the new version. ${errorText(err)}`);
+      window.alert(`Could not make the new version.\n\n${errorText(err)}`);
+      return this.afterDialog("file");
+    }
+    try {
+      await this.load(dir);
+      const copy = this.model;
+      if (!copy) return;
+      copy.setCourseDetail("version", version);
+      if ((await this.writeChanges()) === null) return;
+      this.announce(`This is version ${version.trim()} of ${title}, a copy in ${dir}. ${was ? `Version ${was}` : "The course you had"} is unchanged in ${from}.`);
+    } catch (err) {
+      this.announce(`The new version was copied to ${dir} but could not be opened. ${errorText(err)}`);
+      window.alert(`The new version was copied to ${dir} but could not be opened.\n\n${errorText(err)}`);
+    }
   }
 
   /** Settings of the whole course, shown when nothing is selected. */
@@ -3174,12 +3803,12 @@ ${errorText(err)}`);
     use.addEventListener("click", () => {
       const said = m.useAltSuggestion(o.id);
       if (said) this.announce(said);
-      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+      this.focusProp("p-alt");
     });
     drop.addEventListener("click", () => {
       const said = m.dismissAltSuggestion(o.id);
       if (said) this.announce(said);
-      this.propsBody.querySelector<HTMLElement>("#p-alt")?.focus();
+      this.focusProp("p-alt");
     });
     return h("div", { id: "alt-suggestion", class: "alt-suggestion", role: "group", "aria-labelledby": "alt-suggestion-title" },
       h("p", { id: "alt-suggestion-title", class: "alt-suggestion-title", text: "A description has been suggested, and not checked yet" }),
@@ -3387,18 +4016,9 @@ ${errorText(err)}`);
 
     if (canHaveLooks(o.type)) looks.push(this.solidField(m, o));
 
-    this.propsBody.replaceChildren(
-      h("p", { class: "identity", text: `${o.type}, id ${o.id}` }),
-      ...(o.group ? [h("p", { class: "note", text: `In a group of ${m.groupSize(o.id)}. Select group chooses all of them, and Ungroup breaks the group apart.` })] : []),
-      this.field("name", "Name", o.name, (v) => { const msg = m.setName(o.id, v); if (msg) this.announce(msg); else this.fillValues(o); }),
-      ...(content.length ? [h("fieldset", {}, h("legend", { text: "Content" }), ...content)] : []),
-      ...(looks.length ? [h("fieldset", {}, h("legend", { text: "Appearance" }), ...looks)] : []),
-      ...this.lookFields(m, o),
-      ...this.narrationFields(m, o),
-      ...this.timingFields(m, o),
-      ...(o.type === "text" ? this.paragraphFields(m, o) : []),
-      ...this.animationFields(m, o),
-      ...this.ruleFields(m, o),
+    // What belongs to this kind of object is Content, except a question's scoring and feedback and an interaction's Behaviour box,
+    // which say what happens (marked data-tab="behaviour" where they are made).
+    const kindFields: HTMLElement[] = [
       ...(o.type === "quizQuestion" ? this.quizFields(m, o) : []),
       ...(o.type === "interaction" ? this.interactionFields(m, o) : []),
       ...(o.type === "scenario" ? this.scenarioFields(m, o) : []),
@@ -3415,6 +4035,11 @@ ${errorText(err)}`);
       ...(o.type === "download" ? this.downloadFields(m, o) : []),
       ...(o.type === "timer" ? this.timerFields(m, o) : []),
       ...(isPictureBox(o) ? this.pictureBoxFields(m, o) : []),
+    ];
+    const kindBehaviour = kindFields.filter((f) => f.dataset["tab"] === "behaviour");
+    const kindContent = kindFields.filter((f) => f.dataset["tab"] !== "behaviour");
+
+    const place = [
       h("fieldset", {}, h("legend", { text: "Position and size" }),
         this.field("x", "Left edge (X)", o.geometry.x, num("x"), { number: true }),
         this.field("y", "Top edge (Y)", o.geometry.y, num("y"), { number: true }),
@@ -3424,7 +4049,8 @@ ${errorText(err)}`);
         this.field("z", "Stacking order", o.geometry.z, num("z"), { number: true }),
         h("div", { class: "field check" }, locked, h("label", { for: "p-locked", text: "Locked (the editor will not move, resize, rotate or delete it)" }))),
       h("fieldset", {}, h("legend", { text: "Line up with the slide" }), this.alignButtons(m)),
-      h("fieldset", {}, h("legend", { text: "Accessibility" }),
+    ];
+    const access = h("fieldset", {}, h("legend", { text: "Accessibility" }),
         h("div", { class: "field check" }, decorative, h("label", { for: "p-decorative", text: "Decorative (no meaning, hidden from screen readers)" })),
         this.field("alt", "Alt text", a.altText, (v) => { m.setAccessibility(o.id, { altText: v }); }, { area: true, describedBy: "alt-note" }),
         h("p", { id: "alt-note", class: "note", text: o.type === "hotspot"
@@ -3457,8 +4083,31 @@ ${errorText(err)}`);
         this.field("tab", "Tab order (blank for none)", a.tabOrder, (v) => {
           const n = v.trim() === "" ? null : Number(v);
           if (m.setAccessibility(o.id, { tabOrder: n }) === null) { this.announce("Tab order must be a whole number, 0 or more."); this.fillValues(o); }
-        }, { number: true })),
-    );
+        }, { number: true }));
+
+    this.fillProps([], {
+      content: [
+        h("p", { class: "identity", text: `${o.type}, id ${o.id}` }),
+        ...(o.group ? [h("p", { class: "note", text: `In a group of ${m.groupSize(o.id)}. Select group chooses all of them, and Ungroup breaks the group apart.` })] : []),
+        this.field("name", "Name", o.name, (v) => { const msg = m.setName(o.id, v); if (msg) this.announce(msg); else this.fillValues(o); }),
+        ...(content.length ? [h("fieldset", {}, h("legend", { text: "Content" }), ...content)] : []),
+        ...kindContent,
+        ...this.narrationFields(m, o),
+        access,
+      ],
+      style: [
+        ...(looks.length ? [h("fieldset", {}, h("legend", { text: "Appearance" }), ...looks)] : []),
+        ...this.lookFields(m, o),
+        ...place,
+      ],
+      behaviour: [
+        ...kindBehaviour,
+        ...this.timingFields(m, o),
+        ...(o.type === "text" ? this.paragraphFields(m, o) : []),
+        ...this.animationFields(m, o),
+        ...this.ruleFields(m, o),
+      ],
+    });
   }
 
   /** How solid the object, or one of its looks, is painted: 100 is fully solid, less lets what is behind show through. */
@@ -3795,7 +4444,7 @@ ${errorText(err)}`);
 
     return [
       ...kindFields,
-      h("fieldset", {}, h("legend", { text: "Scoring" }),
+      h("fieldset", { "data-tab": "behaviour" }, h("legend", { text: "Scoring" }),
         this.field("points", "Points", q.scoring.points, (v) => { const msg = m.setScoring(o.id, { points: Number(v) }); if (msg) this.announce(msg); else this.fillQuiz(o); }, { number: true }),
         this.field("attempts", "Attempts allowed", q.scoring.attemptsAllowed, (v) => { const msg = m.setScoring(o.id, { attemptsAllowed: Number(v) }); if (msg) this.announce(msg); else { this.announce("Attempts must be a whole number from 1 to 10."); this.fillQuiz(o); } }, { number: true }),
         h("p", { class: "note", text: partial
@@ -3803,7 +4452,7 @@ ${errorText(err)}`);
           : q.questionType === "essay"
             ? "An essay cannot be marked for you, so it earns all its points once it has enough words. A learner who writes too few is asked to write more, and that does not use up an attempt."
             : "A right answer earns all the points and a wrong one none. The question is finished when it is right or the attempts are used up." })),
-      h("fieldset", {}, h("legend", { text: "Feedback layers" }), ...feedback),
+      h("fieldset", { "data-tab": "behaviour" }, h("legend", { text: "Feedback layers" }), ...feedback),
     ];
   }
 
@@ -4110,7 +4759,7 @@ ${errorText(err)}`);
       if (r.message) this.announce(r.message);
     });
     return [
-      h("fieldset", {}, h("legend", { text: "Behaviour" }), ...behaviour),
+      h("fieldset", { "data-tab": "behaviour" }, h("legend", { text: "Behaviour" }), ...behaviour),
       ...(c.kind === "labeledGraphic" ? this.graphicFields(m, o) : []),
       h("fieldset", {}, h("legend", { text: "Items" }),
         h("p", { class: "note", text: "Each item can say its own words when the learner opens it, and a Listen button in the item plays them again. Text that has no audio is a barrier for some learners, so give every item narration." }),
@@ -4139,12 +4788,12 @@ ${errorText(err)}`);
     const m = this.model;
     if (!m) return;
     const icon = await this.chooseIcon("Add an icon");
-    this.addKind.focus();
+    this.focusIfLost(this.objectAddBtn);
     if (!icon) return;
     const o = m.addIcon(icon);
     if (o) {
       this.announce(`Added the ${iconWords(icon.name)} icon. It needs alt text: say what it means, for example "Next", in the Alt text field, or mark it decorative. The icon set calls it "${iconWords(icon.name)}", which you can use as a start.`);
-      document.getElementById("p-alt")?.focus();
+      this.focusProp("p-alt");
     }
   }
 
@@ -4155,7 +4804,7 @@ ${errorText(err)}`);
       h("p", { class: "note", text: `The ${iconWords(icon.name)} icon, from Lucide. A course that uses an icon names Lucide on its credits page. The icon is drawn in the colour below and takes the theme's colours; make it 24 pixels or more each way so it can be seen.` }),
       h("div", { class: "btn-row" }, this.small("Change icon...", "Choose a different icon", () => void (async () => {
         const next = await this.chooseIcon("Choose a different icon");
-        document.getElementById("p-icon-change")?.focus();
+        this.focusProp("p-icon-change");
         if (!next) return;
         const msg = m.changeIcon(o.id, next);
         if (msg) this.announce(msg);
@@ -4178,7 +4827,7 @@ ${errorText(err)}`);
     if (!icon) {
       out.push(this.small("Add an icon...", "Show a small picture before or after the button's words", () => void (async () => {
         const chosen = await this.chooseIcon("Choose an icon for the button");
-        document.getElementById("p-button-look")?.focus();
+        this.focusProp("p-button-look");
         if (chosen) say(m.setButtonIcon(o.id, chosen));
       })()));
     } else {
@@ -4188,7 +4837,7 @@ ${errorText(err)}`);
         h("div", { class: "btn-row" },
           this.small("Change icon...", "Choose a different icon for this button", () => void (async () => {
             const chosen = await this.chooseIcon("Choose an icon for the button");
-            document.getElementById("p-button-look")?.focus();
+            this.focusProp("p-button-look");
             if (chosen) say(m.setButtonIcon(o.id, chosen));
           })()),
           this.small("Remove icon", "Take the icon off this button", () => say(m.setButtonIcon(o.id, null)))),
@@ -4281,7 +4930,7 @@ ${errorText(err)}`);
       if (r.id) {
         this.scenarioSelect.set(o.id, r.id);
         this.renderProps();
-        document.getElementById("p-sc-title")?.focus();
+        this.focusProp("p-sc-title");
       }
       if (r.message) this.announce(r.message);
     });
@@ -4344,7 +4993,7 @@ ${errorText(err)}`);
       const b = this.small(label, title, () => {
         const r = m.addScenarioLine(o.id, target);
         if (r.message) this.announce(r.message);
-        if (r.id) document.getElementById(`p-sc-line-${r.id}-text`)?.focus();
+        if (r.id) this.focusProp(`p-sc-line-${r.id}-text`);
       });
       this.setEnabled(b, count < limit);
       return b;
@@ -4381,7 +5030,7 @@ ${errorText(err)}`);
     const addChoice = this.small("Add a choice", "Add a choice the learner can make here", () => {
       const r = m.addScenarioChoice(o.id, node.id);
       if (r.message) this.announce(r.message);
-      if (r.id) document.getElementById(`p-sc-choice-${r.id}-label`)?.focus();
+      if (r.id) this.focusProp(`p-sc-choice-${r.id}-label`);
     });
     this.setEnabled(addChoice, node.choices.length < S.LIMITS.choices);
 
@@ -4780,7 +5429,7 @@ ${errorText(err)}`);
       const src = await backend.importImage(m.dir, picked);
       const msg = m.setItemImage(objectId, itemId, src);
       if (msg) this.announce(msg);
-      document.getElementById(`p-ix-${itemId}-alt`)?.focus();
+      this.focusProp(`p-ix-${itemId}-alt`);
     } catch (err) {
       this.announce(`Could not add the picture. ${errorText(err)}`);
     }
@@ -4865,7 +5514,7 @@ ${errorText(err)}`);
       if (!picked) return;
       const msg = m.setGraphic(objectId, await backend.importImage(m.dir, picked));
       if (msg) this.announce(msg);
-      document.getElementById("p-ix-graphic-alt")?.focus();
+      this.focusProp("p-ix-graphic-alt");
     } catch (err) {
       this.announce(`Could not use that picture. ${errorText(err)}`);
     }
@@ -4939,7 +5588,7 @@ ${errorText(err)}`);
       this.announce(msg ? `${msg}. Press Control Z to undo.` : "The text is as it was.");
     }
     this.renderProps(true);
-    document.getElementById("p-edit-text")?.focus();
+    this.focusProp("p-edit-text");
   }
 
   private textFields(m: Model, o: OSObject): HTMLElement[] {
@@ -5154,7 +5803,7 @@ ${errorText(err)}`);
       pickTemplateSave: () => backend.pickQuestionTemplateSave(),
       writeTemplate: (dest, text) => backend.questionTemplateWrite(dest, text),
     }, preset);
-    this.questionsFileBtn.focus();
+    this.focusIfLost(this.slideAddBtn);
     if (!choice) return;
     const msg = m.addQuestionSlides(choice.questions, { bank: choice.bank, shuffleAnswers: choice.shuffleAnswers });
     if (msg) this.announce(msg);
@@ -5164,7 +5813,7 @@ ${errorText(err)}`);
     const m = this.model;
     if (!m) return;
     await openBanks(m, (msg) => this.announce(msg));
-    this.banksBtn.focus();
+    this.focusIfLost(this.slideMoreBtn);
     this.renderProps();
   }
 
@@ -5172,7 +5821,7 @@ ${errorText(err)}`);
     const m = this.model;
     if (!m) return;
     await openVariables(m, (msg) => this.announce(msg));
-    this.variablesBtn.focus();
+    this.afterDialog("design");
     this.renderProps();
   }
 
@@ -5195,6 +5844,10 @@ ${errorText(err)}`);
       if (e.shiftKey) this.ungroupObjects(); else this.groupObjects();
     }
     else if (e.key === "F6") { e.preventDefault(); this.cycleRegion(e.shiftKey ? -1 : 1); }
+    // Not inside a dialog: in the Edit text window Ctrl+K makes a link.
+    else if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k" && !document.querySelector("dialog[open]")) { e.preventDefault(); this.openSearch(); }
+    else if (mod && !e.altKey && e.key === "/" && !document.querySelector("dialog[open]")) { e.preventDefault(); void this.showKeys(); }
+    else if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "j" && this.model && !document.querySelector("dialog[open]")) { e.preventDefault(); this.goToSlide(); }
     else if (mod && !typing && !e.shiftKey && !e.altKey && this.model && !document.querySelector("dialog[open]")) {
       // Duplicate, copy, cut and paste work on the selected object. When words are selected on the page, Copy is theirs, not ours.
       const key = e.key.toLowerCase();
@@ -5213,14 +5866,82 @@ ${errorText(err)}`);
     const regions = this.regions.filter((r) => !r.hidden);
     const at = regions.findIndex((r) => r.contains(document.activeElement));
     const next = regions[(at + dir + regions.length) % regions.length]!;
-    const focusable = next.querySelector<HTMLElement>("[aria-current='true'], button:not([aria-disabled='true']), [tabindex='0'], input, select, textarea");
+    const focusable = next.querySelector<HTMLElement>("[role='tablist'] [aria-selected='true']") ?? next.querySelector<HTMLElement>("[aria-current='true'], button:not([aria-disabled='true']), [tabindex='0'], input, select, textarea");
     focusable?.focus();
     const name = next.getAttribute("aria-label") ?? next.querySelector("h2")?.textContent ?? "";
     this.announce(name);
   }
 
+  /**
+   * A right-click on a slide, an object or the canvas opens the menu for it where the pointer is; Shift+F10 or the Menu key opens the
+   * same menu beside the item (or the selection) that has focus. Like a click, it first chooses what it is on, unless that is already
+   * chosen. Anywhere else the browser's own menu (Back, Reload, Print) is kept away, because Reload would throw away unsaved work; in
+   * a box for typing, or with words selected, it stays, for Cut, Copy and Paste.
+   */
+  private wireContextMenus(): void {
+    const itemIn = (list: HTMLElement, key: string) => () => [...list.querySelectorAll<HTMLElement>("button.item")].find((b) => b.dataset["key"] === key) ?? null;
+    const show = (target: HTMLElement, point: { x: number; y: number } | null): boolean => {
+      const m = this.model;
+      if (!m || this.workspace.hidden) return false;
+      const key = target.closest<HTMLElement>("button.item")?.dataset["key"] ?? "";
+      let entries: MenuEntry[];
+      let back: () => HTMLElement | null;
+      let label: string;
+      let anchor: HTMLElement | { x: number; y: number } | null = point;
+      if (this.slideList.contains(target) && key.startsWith("section:")) {
+        entries = this.sectionContextEntries(key.slice("section:".length));
+        back = itemIn(this.slideList, key);
+        label = "Menu for this section";
+      } else if (this.slideList.contains(target) && key.startsWith("slide:")) {
+        const id = key.slice("slide:".length);
+        if (m.sel.slideId !== id) m.selectSlide(id);
+        entries = this.slideContextEntries();
+        back = itemIn(this.slideList, key);
+        label = "Menu for this slide";
+      } else if (this.objectList.contains(target) && key.startsWith("object:")) {
+        const id = key.slice("object:".length);
+        if (!m.selected.some((o) => o.id === id)) m.selectObject(id);
+        entries = this.objectMenuEntries();
+        back = itemIn(this.objectList, key);
+        label = "Menu for the selected objects";
+      } else if (this.canvas.isStage(target)) {
+        entries = m.selected.length > 0 ? this.objectMenuEntries() : this.canvasEntries();
+        back = () => this.canvas.focusTarget;
+        label = m.selected.length > 0 ? "Menu for the selected objects" : "Menu for the slide canvas";
+        anchor ??= this.canvas.menuAnchor();
+      } else return false;
+      const there = back();
+      there?.focus();
+      anchor ??= there ?? target;
+      this.contextMenu.open(entries, anchor, { returnTo: back, label });
+      return true;
+    };
+    let byKeys = 0;
+    this.workspace.addEventListener("keydown", (e) => {
+      const menuKey = e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey);
+      if (menuKey && show(e.target as HTMLElement, null)) {
+        e.preventDefault();
+        byKeys = Date.now();
+      }
+    });
+    document.addEventListener("contextmenu", (e) => {
+      const t = e.target as HTMLElement;
+      // The Menu key also sends this, after its keydown has opened our menu.
+      if (Date.now() - byKeys < 1500 && this.contextMenu.isOpen) {
+        e.preventDefault();
+        return;
+      }
+      if (this.workspace.contains(t) && show(t, { x: e.clientX, y: e.clientY })) {
+        e.preventDefault();
+        return;
+      }
+      const typing = !!t.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+      if (!typing && (window.getSelection()?.toString() ?? "") === "") e.preventDefault();
+    });
+  }
+
   private focusSlideList(): void {
-    this.slideList.querySelector<HTMLElement>("[aria-current='true']")?.focus();
+    (this.slideList.querySelector<HTMLElement>("[aria-current='true']:not([hidden] *)") ?? this.slideList.querySelector<HTMLElement>("button.item[tabindex='0']"))?.focus();
   }
 
   /** Arrow keys, Alt+arrows and Delete inside the lists. */
@@ -5228,15 +5949,33 @@ ${errorText(err)}`);
     this.wireArrows(
       this.slideList,
       (key, dir) => {
+        // Alt+Up and Alt+Down move a section on its heading, and a slide on a slide.
+        if (key.startsWith("section:")) return this.moveSectionBy(key.slice("section:".length), dir);
         const id = key.replace(/^slide:/, "");
         this.model?.selectSlide(id);
         this.moveSlide(dir);
       },
       (key) => {
+        if (!key.startsWith("slide:")) return;
         this.model?.selectSlide(key.replace(/^slide:/, ""));
         this.deleteSlide();
       },
     );
+    // Right opens a section and Left closes it, on its heading; Left on a slide goes up to its section's heading (as in a tree).
+    this.slideList.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      const key = (document.activeElement as HTMLElement | null)?.dataset?.["key"] ?? "";
+      if (key.startsWith("section:")) {
+        e.preventDefault();
+        const id = key.slice("section:".length);
+        const open = !this.sectionsClosed.has(this.sectionKey(id));
+        if (e.key === "ArrowRight" && open) this.slideList.querySelector<HTMLElement>(`#slides-of-${CSS.escape(id)} button.item`)?.focus();
+        else this.toggleSection(id, e.key === "ArrowRight");
+      } else if (key.startsWith("slide:") && e.key === "ArrowLeft" && (this.model?.sections.length ?? 0) > 1) {
+        const sec = this.model?.sectionOfSlide(key.slice("slide:".length));
+        if (sec) { e.preventDefault(); this.refocus(`section:${sec.id}`); }
+      }
+    });
     this.wireArrows(
       this.objectList,
       (key, dir) => {
@@ -5266,6 +6005,7 @@ ${errorText(err)}`);
       if (msg) this.announce(msg);
     });
     this.wireArrows(this.problemList);
+    this.wireContextMenus();
     for (const list of [this.slideList, this.objectList, this.problemList]) {
       list.addEventListener("focusin", (e) => { if ((e.target as HTMLElement).matches?.("button.item")) this.rove(list, e.target as Element); });
     }

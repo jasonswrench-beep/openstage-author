@@ -11,6 +11,8 @@ import type { Effect, ObjectAnimation } from "../../player/src/types.ts";
 import type { OSObject } from "../../player/src/types.ts";
 import type { Backend } from "./backend.ts";
 import { scaleBoxes } from "./group.ts";
+import { CANVAS_DESCRIPTION } from "./keys.ts";
+import { uiIcon } from "./menubar.ts";
 import type { Change, Model } from "./model.ts";
 import { SNAP_SCREEN_PX, snapMove, snapResize, type Box, type Guide } from "./snap.ts";
 import { DEFAULT_THEME } from "./themes.ts";
@@ -18,14 +20,6 @@ import { DEFAULT_THEME } from "./themes.ts";
 type Handle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_DRAG_SIZE = 8;
-
-export const CANVAS_HINT =
-  "Arrow keys move the selected objects by 1, or 10 with Shift. Alt with arrow keys resizes one object or one whole group. " +
-  "Page Down and Page Up select the next or previous object, and Shift with them adds to the selection. " +
-  "Shift and click adds or removes an object, and dragging a box round objects selects them. Ctrl and A selects everything. " +
-  "Clicking an object that is in a group chooses the whole group: hold Alt while you click to choose just that object. " +
-  "Dragging snaps to the slide's edges and middle and to other objects: hold Alt to drag freely, or use the Snap button. " +
-  "F2, or a double click, edits the words of a chosen text. Escape clears the selection. You can also type exact values in the Properties panel, and use Line up.";
 
 const SNAP_KEY = "openstage.snap";
 
@@ -88,6 +82,8 @@ export class Canvas {
   /** Snapping while dragging is on. */
   private snapOn = true;
   private readonly snapButton: HTMLButtonElement;
+  /** Opens the list of every key, with the slide's keys first. */
+  private readonly keysButton: HTMLButtonElement;
   /** The lines drawn while a drag lines up with something. */
   private guideEls: HTMLElement[] = [];
   private readonly stage: StageRenderer;
@@ -107,6 +103,9 @@ export class Canvas {
   /** Called when the author asks to edit the words of the chosen text: a double click on it, or F2. The app opens the Edit text dialog. */
   onEditText: (() => void) | null = null;
 
+  /** Called when the author presses Keys under the slide. The app opens the list of keys with the slide's keys first. */
+  onShowKeys: (() => void) | null = null;
+
   constructor(doc: Document, model: () => Model | null, backend: Backend, announce: (m: string) => void) {
     this.model = model;
     this.backend = backend;
@@ -118,7 +117,7 @@ export class Canvas {
     this.viewport = doc.createElement("div");
     this.viewport.className = "canvas-viewport";
 
-    // The one tab stop for the canvas. Its keys are described by the hint below.
+    // The one tab stop for the canvas. A screen reader hears the keys used most (the description below); the Keys button lists them all.
     this.group = doc.createElement("div");
     this.group.className = "canvas-wrap";
     this.group.tabIndex = 0;
@@ -150,10 +149,12 @@ export class Canvas {
     this.wrap.appendChild(this.stageEl);
     this.viewport.appendChild(this.wrap);
 
+    // The paragraph of keys that used to sit under the slide is the Keys button now (and Help > Keyboard keys, Ctrl+/). What is left
+    // of it is for a screen reader only: the keys used most, said when the slide gets focus.
     const hint = doc.createElement("p");
     hint.id = "canvas-hint";
-    hint.className = "canvas-hint";
-    hint.textContent = CANVAS_HINT;
+    hint.className = "sr-only";
+    hint.textContent = CANVAS_DESCRIPTION;
     // The Snap switch. A button that is pressed or not, so it is a stop for the keyboard and a screen reader says which.
     this.snapOn = readSnapSetting();
     this.snapButton = doc.createElement("button");
@@ -166,9 +167,18 @@ export class Canvas {
       this.announce(`Snapping is ${this.snapOn ? "on" : "off"}.`);
     });
     this.showSnapState();
+    this.keysButton = doc.createElement("button");
+    this.keysButton.type = "button";
+    this.keysButton.className = "small";
+    this.keysButton.title = "Every key for the slide, and the rest of the editor's keys (Ctrl+/)";
+    this.keysButton.setAttribute("aria-haspopup", "dialog");
+    const keysWord = doc.createElement("span");
+    keysWord.textContent = "Keys";
+    this.keysButton.append(uiIcon(doc, "keyboard"), keysWord);
+    this.keysButton.addEventListener("click", () => this.onShowKeys?.());
     const tools = doc.createElement("div");
     tools.className = "canvas-tools";
-    tools.appendChild(this.snapButton);
+    tools.append(this.snapButton, this.keysButton);
     this.element.append(this.viewport, tools, hint);
 
     // Editing mode: objects are drawn but inert. The shared renderer draws them.
@@ -179,6 +189,7 @@ export class Canvas {
     this.overlay.addEventListener("pointermove", (e) => this.onPointerMove(e));
     this.overlay.addEventListener("pointerup", (e) => this.onPointerUp(e));
     this.overlay.addEventListener("pointercancel", (e) => this.onPointerUp(e));
+    this.overlay.addEventListener("contextmenu", (e) => this.onContextMenu(e));
     this.overlay.addEventListener("dblclick", () => { if (this.model()?.object?.type === "text") this.onEditText?.(); });
     new ResizeObserver(() => this.fit()).observe(this.viewport);
   }
@@ -187,11 +198,33 @@ export class Canvas {
     this.group.focus();
   }
 
+  /** The canvas's one tab stop: where focus goes back to when a menu opened on the canvas closes. */
+  get focusTarget(): HTMLElement {
+    return this.group;
+  }
+
+  /** Whether this is on the slide itself (where a right-click opens the menu for what is there), not the Snap and Keys buttons under it. */
+  isStage(node: Node): boolean {
+    return this.group.contains(node);
+  }
+
+  /** Where a menu opened from the keyboard on the canvas goes: at the top left of what is selected (in sight), or of the canvas. */
+  menuAnchor(): { x: number; y: number } {
+    const on = !this.box.hidden ? this.box : this.marks[0] ?? this.group;
+    const r = on.getBoundingClientRect();
+    const v = this.viewport.getBoundingClientRect();
+    const x = Math.min(Math.max(r.left, v.left), v.right - 16) + 12;
+    const y = Math.min(Math.max(r.top, v.top), v.bottom - 16) + 12;
+    return { x, y };
+  }
+
   private showSnapState(): void {
     const state = this.snapButton.ownerDocument.createElement("span");
     state.setAttribute("aria-hidden", "true");
     state.textContent = this.snapOn ? " on" : " off";
-    this.snapButton.replaceChildren("Snap", state);
+    const word = this.snapButton.ownerDocument.createElement("span");
+    word.textContent = "Snap";
+    this.snapButton.replaceChildren(uiIcon(this.snapButton.ownerDocument, "magnet"), word, state);
     this.snapButton.setAttribute("aria-pressed", String(this.snapOn));
     this.snapButton.title = "Snap to the slide's edges and middle, and to other objects, while dragging. Hold Alt while dragging to turn it off for that drag. Line up in the Properties panel does the same from the keyboard.";
   }
@@ -477,7 +510,7 @@ export class Canvas {
 
   // ---- pointer
 
-  private toStage(e: PointerEvent): { x: number; y: number } {
+  private toStage(e: MouseEvent): { x: number; y: number } {
     const r = this.wrap.getBoundingClientRect();
     return { x: (e.clientX - r.left) / this.scale, y: (e.clientY - r.top) / this.scale };
   }
@@ -487,6 +520,22 @@ export class Canvas {
     if (!m) return null;
     const byZ = [...(m.layer?.objects ?? [])].sort((a, b) => b.geometry.z - a.geometry.z);
     return byZ.find((o) => x >= o.geometry.x && x <= o.geometry.x + o.geometry.width && y >= o.geometry.y && y <= o.geometry.y + o.geometry.height) ?? null;
+  }
+
+  /** A right-click chooses what it is on, as a click does, unless that is chosen already; on nothing, it chooses nothing. The menu it opens is the editor's (app.ts). */
+  private onContextMenu(e: MouseEvent): void {
+    const m = this.model();
+    if (!m || this.drag) return;
+    this.group.focus({ preventScroll: true });
+    const p = this.toStage(e);
+    const target = this.hit(p.x, p.y);
+    if (!target) {
+      if (m.selected.length > 0) m.selectObject(null);
+      return;
+    }
+    if (m.selected.some((o) => o.id === target.id)) return;
+    m.selectWithGroup(target.id);
+    this.say(m.describeSelection());
   }
 
   private onPointerDown(e: PointerEvent): void {

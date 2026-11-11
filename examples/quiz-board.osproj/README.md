@@ -1,6 +1,6 @@
 # Quiz board: accessibility basics
 
-A short example made with the editor itself: the ready-made **Quiz board** game (Add slide, then Games, ready-made) with its placeholders replaced by nine real questions. It shows what the game makes and gives something to play at once. It has no purpose beyond that.
+A short example made with the editor itself: the ready-made **Quiz board** game (in the Slides panel, **Add**, then **Game...**) with its placeholders replaced by nine real questions. It shows what the game makes and gives something to play at once. It has no purpose beyond that.
 
 | Slide | What it shows |
 | --- | --- |

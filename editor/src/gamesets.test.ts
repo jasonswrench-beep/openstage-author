@@ -1395,6 +1395,22 @@ test("each round is one sequencing question of four steps in the right order, on
   });
 });
 
+test("a round's question box has room for its instruction, four steps and Check answer as the player draws them (360), and the feedback and the way on sit under it, on the slide", () => {
+  const { rounds } = orderGame({ rounds: 3 });
+  for (const s of rounds) {
+    const q = quizOf(s).geometry;
+    assert.ok(q.height >= 370, `${s.name}: the box is ${q.height} high`);
+    const prompt = s.baseLayer.objects.find((o) => o.name === "Question")!.geometry;
+    assert.ok(q.y >= prompt.y + prompt.height, `${s.name}: the box starts under the question`);
+    for (const layer of s.layers) {
+      for (const o of layer.objects) {
+        assert.ok(o.geometry.y >= q.y + q.height, `${s.name}: ${o.name} is under the question box`);
+        assert.ok(o.geometry.y + o.geometry.height <= 712, `${s.name}: ${o.name} is on the slide, with room to spare`);
+      }
+    }
+  }
+});
+
 test("Start goes to the first round, and a game's slides leave out Back and Next except the last", () => {
   const { intro, rounds, made } = orderGame({ rounds: 3 });
   const start = intro.baseLayer.objects.find((o) => o.name === "Start the game")!;
@@ -1454,4 +1470,36 @@ test("a project with an order challenge passes the real validator with no findin
     m.addGameSet("order-challenge", { rounds });
     assert.deepEqual(validate(m), [], `${rounds} rounds`);
   }
+});
+
+test("the order-challenge example has all four rounds written, each with its own steps and feedback", () => {
+  const { pkg } = play(exampleFiles("order-challenge"));
+  const rounds = pkg.slides.filter((s) => s.baseLayer.objects.some((o) => o.type === "quizQuestion"));
+  assert.deepEqual(rounds.map((s) => s.name), ["Round 1", "Round 2", "Round 3", "Round 4"]);
+  for (const s of rounds) {
+    const prompt = s.baseLayer.objects.find((o) => o.name === "Question")!;
+    assert.ok(!/Type your question here/.test(String(prompt.content["html"])), `${s.name} is written`);
+    const items = (quizOf(s).content as unknown as { items: { text: string }[] }).items;
+    assert.equal(items.length, 4);
+    assert.ok(items.every((i) => !/^(First|Second|Third|Fourth) step$/.test(i.text)), `${s.name} has its own steps`);
+    for (const l of s.layers) assert.ok(!/Explain why|Say what the right order is/.test(String(l.objects[0]!.content["html"])), `${s.name}: ${l.name} is written`);
+  }
+});
+
+test("the order-challenge example passes the real validator with no findings at all, and can be played from the title to a full score and a pass", { skip: !process.env["OPENSTAGE_PYTHON"] }, () => {
+  const files = exampleFiles("order-challenge");
+  assert.deepEqual(validate(files), []);
+  const p = play(files);
+  const [title, intro, ...rest] = p.pkg.slides;
+  const results = rest.pop()!;
+  p.rt.goTo(title!.id);
+  p.rt.goTo(intro!.id);
+  p.rt.fire(intro!.baseLayer.objects.find((o) => o.name === "Start the game")!.id, "click");
+  for (const s of rest) {
+    assert.equal(p.rt.currentSlide!.id, s.id);
+    roundAndGoOn(p, s, "right");
+  }
+  assert.equal(p.rt.currentSlide!.id, results.id);
+  assert.deepEqual(p.rt.assessment(), { quizzes: 4, locked: 4, totalPoints: 400, earnedPoints: 400 });
+  assert.equal(lessonStatus(evaluate(p.rt), "incomplete"), "passed");
 });

@@ -1,0 +1,418 @@
+{
+  "id": "slide-006",
+  "name": "Round 4",
+  "duration": null,
+  "layout": null,
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0028",
+        "geometry": {
+          "x": 80,
+          "y": 24,
+          "width": 1120,
+          "height": 36,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Where you are",
+        "content": {
+          "html": "<p>Round 4 of 4, worth 100 points. Points so far: {{$score}}</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.muted"
+        },
+        "accessibility": {
+          "altText": "Round 4 of 4, worth 100 points. Points so far: [score]",
+          "role": "paragraph",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0031",
+        "geometry": {
+          "x": 80,
+          "y": 70,
+          "width": 1120,
+          "height": 90,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Question",
+        "content": {
+          "html": "<h2>Put the stages of a team meeting in order.</h2>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 36,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Put the stages of a team meeting in order.",
+          "role": "heading",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0032",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1000,
+          "height": 376,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "quizQuestion",
+        "name": "Sequencing question",
+        "content": {
+          "questionType": "sequencing",
+          "drag": true,
+          "items": [
+            {
+              "id": "s1",
+              "text": "Send the agenda"
+            },
+            {
+              "id": "s2",
+              "text": "Say what the meeting is for"
+            },
+            {
+              "id": "s3",
+              "text": "Agree who does what next"
+            },
+            {
+              "id": "s4",
+              "text": "Send a short note of what was agreed"
+            }
+          ],
+          "scoring": {
+            "points": 100,
+            "attemptsAllowed": 1
+          },
+          "feedback": {
+            "correct": "layer-7",
+            "incorrect": "layer-8"
+          }
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "Put the items in order",
+          "role": "group",
+          "tabOrder": 3,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "layer-7",
+      "name": "Correct feedback",
+      "objects": [
+        {
+          "id": "obj-0029",
+          "geometry": {
+            "x": 80,
+            "y": 556,
+            "width": 1120,
+            "height": 80,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Correct feedback",
+          "content": {
+            "html": "<p>Right. The agenda goes out first, the purpose opens the meeting, and the note afterwards keeps what was agreed.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.good"
+          },
+          "accessibility": {
+            "altText": "Right. The agenda goes out first, the purpose opens the meeting, and the note afterwards keeps what was agreed.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0033",
+          "geometry": {
+            "x": 80,
+            "y": 648,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-007",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-007",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "See my results",
+          "content": {
+            "label": "See my results"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "See my results",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer-8",
+      "name": "Incorrect feedback",
+      "objects": [
+        {
+          "id": "obj-0030",
+          "geometry": {
+            "x": 80,
+            "y": 556,
+            "width": 1120,
+            "height": 80,
+            "rotation": 0,
+            "z": 40
+          },
+          "states": {},
+          "triggers": [],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "text",
+          "name": "Incorrect feedback",
+          "content": {
+            "html": "<p>Not quite. The agenda goes out before the meeting, which opens with what it is for and ends by agreeing who does what; the note comes afterwards.</p>"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.bad"
+          },
+          "accessibility": {
+            "altText": "Not quite. The agenda goes out before the meeting, which opens with what it is for and ends by agreeing who does what; the note comes afterwards.",
+            "role": "status",
+            "tabOrder": 1,
+            "decorative": false
+          }
+        },
+        {
+          "id": "obj-0034",
+          "geometry": {
+            "x": 80,
+            "y": 648,
+            "width": 300,
+            "height": 56,
+            "rotation": 0,
+            "z": 50
+          },
+          "states": {},
+          "triggers": [
+            {
+              "id": "trg-0001",
+              "event": "click",
+              "action": "jumpToSlide",
+              "target": "slide-007",
+              "conditions": []
+            },
+            {
+              "id": "trg-0002",
+              "event": "keyActivate",
+              "action": "jumpToSlide",
+              "target": "slide-007",
+              "conditions": []
+            }
+          ],
+          "timing": {
+            "appear": "time",
+            "start": 0,
+            "visibleFor": null
+          },
+          "animation": {
+            "enter": {
+              "effect": "none",
+              "duration": 500
+            },
+            "exit": {
+              "effect": "none",
+              "duration": 500
+            }
+          },
+          "narration": null,
+          "provenance": null,
+          "simulation": null,
+          "type": "button",
+          "name": "See my results",
+          "content": {
+            "label": "See my results"
+          },
+          "style": {
+            "fontFamily": "theme:font.body",
+            "fontSize": 18,
+            "color": "theme:color.onAccentStrong",
+            "fill": "theme:color.accentStrong",
+            "radius": 8
+          },
+          "accessibility": {
+            "altText": "See my results",
+            "role": "button",
+            "tabOrder": 2,
+            "decorative": false
+          }
+        }
+      ]
+    }
+  ],
+  "hideNavigation": true
+}

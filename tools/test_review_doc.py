@@ -324,3 +324,63 @@ class CommandLine(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
+
+
+class PublishingStyle(unittest.TestCase):
+    """The author's publishing style (editor/src/publishstyle.ts): how slides and sections are headed, the font, and the course's code and version."""
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.dir = self.tmp / "p.osproj"
+        shutil.copytree(EXAMPLES / "question-types.osproj", self.dir, ignore=shutil.ignore_patterns(".cache"))
+        pj = self.dir / "project.json"
+        project = json.loads(pj.read_text(encoding="utf-8"))
+        slides = project["scenes"][0]["slides"]
+        project["scenes"] = [{"id": "scene-main", "name": "Basics", "slides": slides[:3]}, {"id": "scene-2", "name": "Harder ones", "slides": slides[3:]}]
+        project["meta"]["version"] = "2.1"
+        project["meta"]["courseCode"] = "CMM 360"
+        pj.write_text(json.dumps(project, indent=2), encoding="utf-8")
+        self.names = [json.loads((self.dir / "slides" / f"{sid}.json").read_text(encoding="utf-8"))["name"] for sid in slides]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def headings(self, style, font="Calibri"):
+        data, _ = review_doc.make(self.dir, style, font)
+        roots = check_package(self, data)
+        return [(st, t) for st, t in text_of(roots) if st in ("Heading1", "Heading2")], roots
+
+    def test_each_section_is_a_heading_1_and_the_slides_are_numbered_through_the_course(self):
+        found, _ = self.headings("slide")
+        self.assertIn(("Heading1", "Section 1: Basics"), found)
+        self.assertIn(("Heading1", "Section 2: Harder ones"), found)
+        self.assertNotIn(("Heading1", "Slides"), found)
+        self.assertIn(("Heading2", f"Slide 4: {self.names[3]}"), found)
+        self.assertLess(found.index(("Heading1", "Section 2: Harder ones")), found.index(("Heading2", f"Slide 4: {self.names[3]}")))
+
+    def test_the_other_heading_styles(self):
+        found, _ = self.headings("number")
+        self.assertIn(("Heading2", f"4. {self.names[3]}"), found)
+        self.assertIn(("Heading1", "Harder ones"), found)
+        found, _ = self.headings("outline")
+        self.assertIn(("Heading2", f"2.1 {self.names[3]}"), found)
+        self.assertIn(("Heading1", "2 Harder ones"), found)
+        found, _ = self.headings("name")
+        self.assertIn(("Heading2", self.names[3]), found)
+
+    def test_the_code_and_version_are_under_the_title_and_the_font_is_used(self):
+        _, roots = self.headings("slide", "Arial")
+        front = [t for _, t in text_of(roots)][2]
+        self.assertTrue(front.startswith("Course code: CMM 360. Version: 2.1. Author:"), front)
+        styles = zipfile.ZipFile(io.BytesIO(review_doc.make(self.dir, "slide", "Arial")[0])).read("word/styles.xml").decode("utf-8")
+        self.assertIn('w:ascii="Arial"', styles)
+        self.assertNotIn("Calibri", styles)
+
+    def test_a_style_or_font_that_is_not_offered_is_refused_on_the_command_line(self):
+        out = self.tmp / "x.docx"
+        self.assertEqual(review_doc.main([str(self.dir), str(out), "--headings=fancy"]), 2)
+        self.assertEqual(review_doc.main([str(self.dir), str(out), "--font=Comic Sans MS"]), 2)
+        self.assertFalse(out.exists())
+        self.assertEqual(review_doc.main([str(self.dir), str(out), "--headings=outline", "--font=Georgia"]), 0)
+        self.assertTrue(out.exists())
+

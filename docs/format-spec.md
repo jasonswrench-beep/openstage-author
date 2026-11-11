@@ -42,13 +42,15 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.47.0",
+  "schemaVersion": "0.49.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
     "language": "en-US",
     "created": "2026-10-10",
-    "modified": "2026-10-10"
+    "modified": "2026-10-10",
+    "version": "1.0",
+    "courseCode": "CMM 360"
   },
   "stage": { "width": 1280, "height": 720 },
   "variables": [
@@ -66,6 +68,15 @@ by a machine and occasionally edited by hand.
   ]
 }
 ```
+
+`meta.version` and `meta.courseCode` are optional (added in 0.49.0): the course's own version, as the author writes it (such as 1.0 or
+2.1, up to 20 characters), and its code at the institution (such as CMM 360, up to 40). Neither may start or end with a space. The
+editor uses them in the names of published files when the publishing style asks for them (see `docs/editor.md`), and the Word review
+document shows them under its title. They are not translated. A course does not need them, and an older course has neither.
+
+`scenes` are the course's sections: named groups of slides, played one after another, so a slide's place in the course is its place in
+its section and its section's place in the list. The editor shows them in the Slides panel once there are two or more, and the
+translation file lists their names ("Section name"). Nothing a learner sees depends on them.
 
 `credits` says whether the published course shows a credits page (see Assets and credits). It is on
 by default and shows nothing until an asset has credit to give.
@@ -1717,6 +1728,7 @@ updated.
 
 | From | To | What changes |
 | --- | --- | --- |
+| 0.48.0 | 0.49.0 | Adds the optional `version` and `courseCode` of a project's `meta`: the course's own version and its code at the institution, used in the names of published files and in the Word review document. Nothing in an older course changes. |
 | 0.47.0 | 0.48.0 | Adds one kind of input, `text`: a labelled box the learner types into (`lines`, `maxLength`, `hint`), saved in a string variable and, with `report`, told to the LMS as a `fill-in`. Nothing in an older course changes. |
 | 0.46.0 | 0.47.0 | Adds three kinds of quiz question: `essay` (`minWords`), `whichWord` (`passage`) and `shortcut` (`keys`). Nothing in an older course changes. |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |

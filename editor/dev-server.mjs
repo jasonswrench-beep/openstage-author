@@ -4,7 +4,7 @@
 import { createServer } from "node:http";
 import { spawnSync } from "node:child_process";
 import { deflateSync } from "node:zlib";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,7 @@ const web = path.join(here, "web");
 const repo = path.join(here, "..");
 const port = Number(process.argv[2] ?? 5173);
 const python = process.env.OPENSTAGE_PYTHON ?? "python";
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".json": "application/json" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json" };
 
 const safe = (p) => p === "project.json" || p === "theme.json" || p === "assets.json" || (/^slides\/[^/\\.:][^/\\:]*\.json$/.test(p) && !p.includes(".."));
 const body = (req) =>
@@ -144,6 +144,33 @@ createServer(async (req, res) => {
       for (const sub of ["slides", "assets/images", "assets/video", "assets/audio"]) mkdirSync(path.join(dir, sub), { recursive: true });
       for (const sub of ["images", "video", "audio"]) writeFileSync(path.join(dir, "assets", sub, ".gitkeep"), "");
       for (const f of files) writeFileSync(path.join(dir, f.path), f.text);
+      return send(res, 200, {});
+    }
+    // The examples, as examples_list and copy_example in lib.rs do them: the ones in the repository's examples folder.
+    if (url.pathname === "/api/examples") {
+      const dir = path.join(repo, "examples");
+      const list = readdirSync(dir).filter((n) => /^[a-z0-9-]+\.osproj$/.test(n) && existsSync(path.join(dir, n, "project.json"))).sort().map((name) => {
+        const project = JSON.parse(readFileSync(path.join(dir, name, "project.json"), "utf-8"));
+        return { name, title: project.meta?.title ?? "", slides: new Set((project.scenes ?? []).flatMap((sc) => sc.slides ?? [])).size };
+      });
+      return send(res, 200, list);
+    }
+    // File > Save as new version: the whole project copied into an empty folder, leaving out the backup an update keeps (copy_project in lib.rs).
+    if (url.pathname === "/api/copy-project") {
+      const { from, to } = await body(req);
+      if (!existsSync(path.join(String(from), "project.json"))) return send(res, 400, "That folder is not an OpenStage project.", "text/plain");
+      const src = path.resolve(String(from)), dst = path.resolve(String(to));
+      if (dst === src || dst.startsWith(src + path.sep) || src.startsWith(dst + path.sep)) return send(res, 400, "Choose a folder outside this project. The new version is a copy beside it, not inside it.", "text/plain");
+      if (existsSync(dst) && readdirSync(dst).length > 0) return send(res, 400, "That folder is not empty. Choose an empty folder, or make a new one.", "text/plain");
+      cpSync(src, dst, { recursive: true, filter: (f) => path.basename(f) !== ".openstage-backup" });
+      return send(res, 200, {});
+    }
+    if (url.pathname === "/api/copy-example") {
+      const { name, dir } = await body(req);
+      const source = path.join(repo, "examples", String(name));
+      if (!/^[a-z0-9-]+\.osproj$/.test(name) || !existsSync(path.join(source, "project.json"))) return send(res, 400, "That example did not come with this copy of the program.", "text/plain");
+      if (existsSync(dir) && readdirSync(dir).length > 0) return send(res, 400, "That folder is not empty. Choose an empty folder, or make a new one.", "text/plain");
+      cpSync(source, dir, { recursive: true, filter: (from) => path.basename(from) !== ".openstage-backup" });
       return send(res, 200, {});
     }
     if (url.pathname === "/api/mcp-info") {

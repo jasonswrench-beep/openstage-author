@@ -61,7 +61,7 @@ speech recogniser (`BUILD SPEECH RECOGNISER.bat`) to be built already. It makes 
 Double-click that file to install OpenStage Author for your own Windows account (no administrator password). It has its own Python and Node, so nothing else has to be installed, and it appears in the Start menu;
 Settings, Apps removes it. It is not signed yet, so Windows shows "Windows protected your PC": choose **More info**, then **Run anyway**. To try an installer without touching the real program (its own name, its own
 settings), use `BUILD INSTALLER.bat trial`. The narration voice is not in the installer: open **Narration** in the editor and press **Install the narration voice**; it asks first, downloads about 670 MB and takes about 2.1 GB.
-The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`. The last button in the editor's toolbar, **About**, shows the version and where things are on the computer, to copy into a message when you ask for help.
+The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`. **About OpenStage Author...**, in the editor's **Help** menu, shows the version and where things are on the computer, to copy into a message when you ask for help.
 
 ## Publishing a course
 
@@ -82,7 +82,7 @@ without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches
 
 ## Translating a course
 
-**Translate** in the editor's toolbar makes a file for a translator (XLIFF 1.2, which OmegaT, Weblate and most other translation tools read)
+**Translate...** in the editor's **File** menu makes a file for a translator (XLIFF 1.2, which OmegaT, Weblate and most other translation tools read)
 and brings the translated file back as a new copy of the course, named after the language (`Intro-fr-FR.osproj`). Your own course is never
 changed. The player's own words, such as Next and Listen, are in the file too, so the translated course speaks its language all the way
 through. The whole story, and the command line, is in `docs/translation.md`.

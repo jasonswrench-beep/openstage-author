@@ -12,7 +12,8 @@ export interface Variable {
 
 export interface Project {
   schemaVersion: string;
-  meta: { title: string; author: string; language: string; created: string; modified: string };
+  /** `version` and `courseCode` are optional (added in 0.49.0): the course's own version and its code at the institution. */
+  meta: { title: string; author: string; language: string; created: string; modified: string; version?: string; courseCode?: string };
   stage: { width: number; height: number };
   variables: Variable[];
   theme: { ref: string } | null;

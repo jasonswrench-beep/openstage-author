@@ -20,6 +20,9 @@
 //   --video-size=WxH       The video's size in pixels (both even), if not the stage's own. A wide stage is made at most 1920 wide.
 //   --video-silent=SECONDS How long a slide with nothing narrated and nothing timed is shown. 5 if left out.
 //   --video-no-motion      Every effect and every change of slide is a cut, for people who cannot have motion.
+//   --review-headings=slide|number|outline|name  How the Word review document heads each slide (the author's publishing style;
+//                          tools/review_doc.py). "slide" if left out.
+//   --review-font=NAME     The Word review document's font, one of review_doc.py's FONTS. Calibri if left out.
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -50,7 +53,7 @@ const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME]";
 if (!projectArg || !outArg) {
   console.error(usage);
   process.exit(2);
@@ -79,6 +82,8 @@ if (silentFlag && !(silentSeconds !== undefined && silentSeconds >= 1 && silentS
   process.exit(2);
 }
 const videoMotion = !flags.includes("--video-no-motion");
+// The Word review document's style, passed on to review_doc.py, which says if it is not one it offers.
+const reviewFlags = flags.filter((a) => a.startsWith("--review-headings=") || a.startsWith("--review-font=")).map((a) => a.replace(/^--review-/, "--"));
 const projectDir = path.resolve(projectArg);
 const outDir = path.resolve(outArg);
 
@@ -321,7 +326,7 @@ if (!preview) {
     } catch {
       // Not a file we can clear (a folder of that name, say): the tool below will say what is wrong.
     }
-    const made = spawnSync(python, [path.join(repoRoot, "tools", "review_doc.py"), projectDir, docxPath, "--json"], { encoding: "utf-8", maxBuffer: 16 * 1024 * 1024, windowsHide: true });
+    const made = spawnSync(python, [path.join(repoRoot, "tools", "review_doc.py"), projectDir, docxPath, "--json", ...reviewFlags], { encoding: "utf-8", maxBuffer: 16 * 1024 * 1024, windowsHide: true });
     let reason = "";
     try {
       const answer = JSON.parse(made.stdout) as { ok: boolean; message?: string };

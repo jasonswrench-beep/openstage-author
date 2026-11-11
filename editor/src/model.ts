@@ -43,10 +43,11 @@ import type { GameContent } from "./gameimport.ts";
 import { templateById } from "./templates.ts";
 import { castUse, cloneCast, draftProblems as castProblems, poseUse, tidyPerson, voiceChanges } from "./characters.ts";
 import * as S from "./scenarioedit.ts";
+import { moveSection, moveSlideAcross, moveSlidesToSection, newSectionId, removeSection, renameSection, sectionOf, sortSection, startSection, type Section, type SectionResult, type SortBy } from "./sections.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.48.0";
+export const FORMAT_VERSION = "0.49.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -528,7 +529,7 @@ export class Model {
     return this.describeSelection();
   }
 
-  /** Add to the selection everything grouped with a selected object (the Select group button). */
+  /** Add to the selection everything grouped with a selected object (Select group, in the menus). */
   selectGroup(): string | null {
     const sel = this.selected;
     if (sel.length === 0) return null;
@@ -1706,6 +1707,35 @@ export class Model {
   }
 
   /** Choose what completes the course (besides finishing every quiz). One undo step. */
+  /** The course's own version and its code at the institution (format 0.49.0), or "" for none. */
+  get courseVersion(): string {
+    return this.project.meta.version ?? "";
+  }
+
+  get courseCode(): string {
+    return this.project.meta.courseCode ?? "";
+  }
+
+  /**
+   * Set the course's version or its code. Blank takes it away. Spaces at either end are dropped, and anything longer than the format
+   * allows (20 letters for a version, 40 for a code) is refused with a reason. One undo step; typing more into the same box joins it.
+   */
+  setCourseDetail(which: "version" | "courseCode", value: string): { ok: boolean; message: string } {
+    const v = value.replace(/\s+/g, " ").trim();
+    const max = which === "version" ? 20 : 40;
+    const word = which === "version" ? "version" : "course code";
+    if (v.length > max) return { ok: false, message: `A ${word} can have up to ${max} letters.` };
+    const now = this.project.meta[which] ?? "";
+    if (v === now) return { ok: true, message: "" };
+    this.record(`meta:${which}`);
+    const meta = { ...this.project.meta };
+    if (v === "") delete meta[which];
+    else meta[which] = v;
+    this.project.meta = meta;
+    this.emit({ kind: "content" });
+    return { ok: true, message: v === "" ? `The course has no ${word} now.` : `The course's ${word} is ${v}.` };
+  }
+
   setCompletion(slides: "all" | "last"): string | null {
     if (this.completion === slides && this.project.completion?.slides === slides) return null;
     this.record("");
@@ -4514,18 +4544,68 @@ export class Model {
     return on ? "Each learner will see the answers in a different order. Here you still see your own order." : "The answers are shown in your order.";
   }
 
+  /** Move a slide one place. At the edge of its section it crosses into the next section (sections.ts). */
   moveSlide(slideId: string, delta: -1 | 1): string | null {
-    const scene = this.project.scenes.find((s) => s.slides.includes(slideId));
     const doc = this.docs.find((d) => d.id === slideId);
-    if (!scene || !doc) return null;
-    const at = scene.slides.indexOf(slideId);
-    const to = at + delta;
-    if (to < 0 || to >= scene.slides.length) return delta < 0 ? `${doc.slide.name} is already first.` : `${doc.slide.name} is already last.`;
+    if (!doc) return null;
+    const r = moveSlideAcross(this.project.scenes, slideId, delta);
+    if (!r.ok) return delta < 0 ? `${doc.slide.name} is already first.` : `${doc.slide.name} is already last.`;
     this.record("");
-    [scene.slides[at], scene.slides[to]] = [scene.slides[to]!, scene.slides[at]!];
+    this.project.scenes = r.sections;
     this.syncDocOrder();
     this.emit({ kind: "structure" });
-    return `${doc.slide.name} is now slide ${this.docs.findIndex((d) => d.id === slideId) + 1} of ${this.docs.length}`;
+    return `${doc.slide.name} is now slide ${this.docs.findIndex((d) => d.id === slideId) + 1} of ${this.docs.length}${r.message ? `. ${r.message}` : ""}`;
+  }
+
+  // ---- sections (the project's scenes: named groups of slides the course plays in order; sections.ts)
+
+  /** The sections of the course, in order. */
+  get sections(): readonly Section[] {
+    return this.project.scenes;
+  }
+
+  /** The section a slide is in (the slide being edited if none is named). */
+  sectionOfSlide(slideId = this.sel.slideId): Section | undefined {
+    return sectionOf(this.project.scenes, slideId);
+  }
+
+  /** Put a change to the sections in place, as one undo step. Gives back what to tell the author, and whether it was done. */
+  private changeSections(r: SectionResult): { ok: boolean; message: string } {
+    if (!r.ok) return { ok: false, message: r.message };
+    this.record("");
+    this.project.scenes = r.sections;
+    this.syncDocOrder();
+    this.emit({ kind: "structure" });
+    return { ok: true, message: r.message };
+  }
+
+  /** A new section starting at the slide being edited: it and the slides after it in its section move to the new one. */
+  startSection(name: string, slideId = this.sel.slideId): { ok: boolean; message: string } {
+    return this.changeSections(startSection(this.project.scenes, slideId, name, newSectionId(this.project.scenes)));
+  }
+
+  renameSection(sectionId: string, name: string): { ok: boolean; message: string } {
+    return this.changeSections(renameSection(this.project.scenes, sectionId, name));
+  }
+
+  /** Take a section away, keeping its slides (they join the section before it). */
+  removeSection(sectionId: string): { ok: boolean; message: string } {
+    return this.changeSections(removeSection(this.project.scenes, sectionId));
+  }
+
+  moveSection(sectionId: string, delta: -1 | 1): { ok: boolean; message: string } {
+    return this.changeSections(moveSection(this.project.scenes, sectionId, delta));
+  }
+
+  /** Move slides (the one being edited if none are named) to the end of a section. */
+  moveSlidesToSection(sectionId: string, slideIds: readonly string[] = [this.sel.slideId]): { ok: boolean; message: string } {
+    return this.changeSections(moveSlidesToSection(this.project.scenes, slideIds, sectionId));
+  }
+
+  /** Sort a section's slides once: A to Z by name, or in the order they were made. The course then plays them in that order. */
+  sortSection(sectionId: string, by: SortBy): { ok: boolean; message: string } {
+    const names = new Map(this.docs.map((d) => [d.id, d.slide.name]));
+    return this.changeSections(sortSection(this.project.scenes, sectionId, by, (id) => names.get(id) ?? id, this.project.meta.language));
   }
 
   renameSlide(slideId: string, name: string): string | null {
@@ -4869,11 +4949,13 @@ export class Model {
   }
 
   private snapshot(): string {
-    return JSON.stringify({ scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, banks: this.project.banks, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
+    return JSON.stringify({ meta: this.project.meta, scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, banks: this.project.banks, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
   }
 
   private restore(snapshot: string): void {
-    const state = JSON.parse(snapshot) as { scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; banks?: Project["banks"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
+    const state = JSON.parse(snapshot) as { meta?: Project["meta"]; scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; banks?: Project["banks"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
+    // The course's details (its version and code are set in the editor) come back too.
+    if (state.meta) this.project.meta = state.meta;
     this.project.scenes = state.scenes;
     this.project.variables = state.variables;
     if (state.characters) this.project.characters = state.characters;

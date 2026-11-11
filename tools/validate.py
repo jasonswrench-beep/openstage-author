@@ -37,7 +37,7 @@ from quiztext import BROWSER_KEEPS, MAX_PASSAGE_WORDS, canonical_shortcut, read_
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 48, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 49, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {

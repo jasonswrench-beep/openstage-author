@@ -5,7 +5,7 @@ It never changes your presentation. Google Slides works too: in Google Slides ch
 
 ## Bringing slides in
 
-1. Open the project, and choose **PowerPoint** in the toolbar.
+1. Open the project, and choose **PowerPoint slides...** in the **File** menu.
 2. Choose the `.pptx` file. (An older `.ppt` file has to be saved as `.pptx` in PowerPoint first.)
 3. If the presentation has speaker notes, the first thing on this screen is a box, **Use speaker notes as narration** (it starts unticked: tick it if you want them; see below). Then choose the slides you want. Hidden slides start unticked. They go after the slide you are on.
 4. Read the report. It tells you what came across and what did not.

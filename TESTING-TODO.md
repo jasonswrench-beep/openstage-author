@@ -2,6 +2,89 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Dialogs in the new look, and Find something to add (2026-11-11)
+
+Step 6 of the new look. Built and covered by 10 editor tests, a 44-step check in the browser preview, a tour that opens each of the 37 dialogs the menus open at full size and in a phone-width window, and the editor's own accessibility audit on the new window and eleven others. Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** Open a few dialogs (Publish, Themes, Narration, a picker from the Insert menu). Each should be a white panel with rounded corners over a darker page, with an x in the top corner and its buttons at the bottom, the main one in violet. Is anything harder to find than before?
+- [ ] **The Close button.** In Edit text, type something and press the x: it should stay open and say you changed the text (Cancel throws the change away), as Escape does. While a publish runs, the x should stop it, as Escape does.
+- [ ] **Find something to add.** Insert > Find something to add... (or the first item of the Objects panel's Add). Type "quiz", "picture", "timer", "survey". Add something by keyboard: Down, the arrows, Enter. Is anything missing that you would look for here?
+- [ ] **A small window.** Make the editor window narrow, or zoom in with Ctrl and +, and open a long picker (New slide..., Interaction...): Add and Cancel should stay at the bottom while the cards scroll.
+- [ ] **With NVDA.** Open Find something to add: NVDA should say "Add to the slide, dialog" and the line under the heading, then the search box. Down then the arrows should read each card's name and its line. Tab should reach the kinds ("All, radio button, checked, 1 of 7") and then Cancel and Close.
+- [ ] **Windows high contrast.** The chosen kind and a chosen picker card should be filled in the system's highlight colour; cards and buttons should keep an edge.
+
+## Sections, Go to slide, versions and the publishing style (2026-11-10)
+
+Built from what people who tried Author asked for. Covered by 12 section tests, 8 publishing-style tests, 2 migration tests, 4 Word-document tests and 3 Rust tests, a 40-step check in the browser preview, and a real publish of an example with a style (the files took the styled name; the Word document had Arial, a Heading 1 for each section and "2.1 Numeric" headings). Not tried in the desktop program's own window, in a real LMS or with a screen reader.
+
+- [ ] **Sections in a long course.** Open a long course (or the Question types example), go to slide 6 and use **Slide > New section starting here...**, then make another further down. Close a section, open it, and move one with Alt+Down on its name. Is the list easier to find your way round?
+- [ ] **Sorting.** Right-click a section's name and choose **Sort A to Z**, then Ctrl+Z. Is it clear that the course now plays the slides in that order?
+- [ ] **Go to slide.** Press Ctrl+J, type part of a slide's name, press Enter.
+- [ ] **A new version in the real program.** Give a course a version in Properties (nothing selected, Content, Course details), then **File > Save as new version...**, make a new folder and choose it. The copy should open with the new version beside its title, with its narration audio, and the old folder should be unchanged.
+- [ ] **The publishing style in the real program.** Set **File > Publishing style...** to `{code}_{title}_v{version}` with "2.1 Name" headings, then publish. The folder, the zips and the Word document should carry that name; open the Word document and look at its headings and font. Then set it **Back to the usual** and publish again: the names should be the project folder's, as before.
+- [ ] **With NVDA.** On a section's name NVDA should say its name, how many slides, "button, expanded" or "collapsed"; Right and Left should open and close it.
+
+## The Properties panel in tabs: Content, Style, Behaviour (2026-11-10)
+
+Step 5 of the new look. Built and covered by 5 editor tests, and driven in the browser preview by a 44-step check (mouse and keyboard); the editor's own accessibility audit finds nothing on any tab of the sample project. Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** Choose a text, a button, a question and nothing at all, and look at each tab. Is each thing where you would look for it? Write down anything you would move to another tab (for example, should Narration be under Content, as now?).
+- [ ] **Sections that open and close.** Each tab is now a short list of headings with icons (Timing, Animation, Rules...), with only the first one open. Open Rules on a button, then click another button: Rules should still be open. Is it easier to find things? Should a different section start open (for example Rules on a button)?
+- [ ] **Labels above the boxes.** Inside a section each label now sits above its box. Is it easier to read?
+- [ ] **Keeping the tab.** Choose Behaviour, then click from object to object on the slide: Behaviour should stay. Add a picture: the Content tab should open with the cursor in its Alt text.
+- [ ] **With NVDA.** Press F6 until the Properties panel: NVDA should say "Properties, tab list" and the chosen tab ("Content, tab, selected, 1 of 3"). Right should say "Style, tab, selected, 2 of 3". Tab should go into the panel: a section heading should say its name, "button, expanded" or "collapsed", and Enter should open or close it.
+- [ ] **Windows high contrast.** The chosen tab should be filled in the system's highlight colour, and the row of tabs should have an edge.
+
+## The welcome page: recent projects and the examples (2026-11-10)
+
+Step 4 of the new look. Built and covered by 10 editor tests and 2 Rust tests, and driven in the browser preview by a 53-step check (mouse and keyboard). Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** Start the program with no project open. Is the page clear? Are **New project...** and **Open project...** easy to find, and are the twelve examples worth showing (and in a good order)? The four games are in the second row.
+- [ ] **Recent projects in the real program.** Open two or three of your projects, then **File > Close project**. They should be listed, newest first, with the right number of slides. Close the program and start it again: they should still be there. Try **Show in folder** on one.
+- [ ] **A project that has moved.** Rename the folder of a project on the list, then click it on the welcome page. It should say it could not open it and offer to take it off the list.
+- [ ] **An example in the installed program.** Click an example, make a new empty folder in the folder window, and choose it. The copy should open, and the example in the program's folder should stay as it was (try changing and saving the copy).
+- [ ] **The new Order challenge example.** Open a copy and play it with Preview: four rounds of putting steps in order, the score going up, and **Check answer** and **Next round** fully showing on every round.
+- [ ] **With NVDA.** Tab through the page: New project, Open project, the list's More button, each recent project (its title, then "6 slides, opened today" and its folder), then the examples (title, "Example, 16 slides", and its line). Escape from a More menu should go back to its button.
+- [ ] **Windows high contrast.** The cards, the buttons and the More buttons should all have edges.
+
+## Search for a command (Ctrl+K), and the Keys button (2026-11-10)
+
+Step 3 of the new look. Built and covered by 13 editor tests, and driven in the browser preview by a 46-step check (mouse and keyboard). Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** The navy bar has a **Search** box beside Undo. Under the slide, the paragraph of keys is gone; **Snap** and a new **Keys** button are there. Is the slide area tidier, and is **Keys** easy to find?
+- [ ] **Finding things.** Press Ctrl+K and type a few words you would use yourself (for example "background", "voice", "quiz", "export", "colour"). Write down any word that should have found something and did not.
+- [ ] **In the real program.** Ctrl+K and Ctrl+/ should open the search and the list of keys, not anything of Windows or the program window. In the Edit text window, Ctrl+K should still make a link.
+- [ ] **With NVDA.** Press Ctrl+K: NVDA should say "Search for a command, dialog", the line under the heading, then the box. Type "them": after a moment it should say how many were found. Down should read each command with its menu (and "unavailable" for a dimmed one). Enter on **Themes...**, then Escape: you should be back where you started. Tab to the slide: it should read a short line of keys ending "Ctrl+/ lists every key", not the old long paragraph.
+- [ ] **Windows high contrast.** The Search box in the navy bar, the chosen line in the search, and the Keys button should still show.
+
+## The panels' Add and ... buttons, and right-click menus (2026-11-10)
+
+Step 2 of the new look. Built and covered by 5 editor tests, and driven in the browser preview by a 47-step check (mouse and keyboard). Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** Each panel now has two buttons by its heading: **Add** and **...**. Do you find what used to be the rows of buttons (Duplicate slide, Change layout, Share slides, Copy, Group, Lock and the rest)?
+- [ ] **Right-click.** In the real program, right-click a slide in the list, an object in the list, an object on the slide and an empty part of the slide. Each should show our menu (not the browser's menu with Back and Reload). Right-click inside a text box: the usual Cut, Copy and Paste menu should still come up.
+- [ ] **The Menu key and Shift+F10.** On a slide in the list, an object in the list and the canvas, each should open the same menu beside it; Escape goes back.
+- [ ] **With NVDA.** Tab to the Slides panel's **...** button: NVDA should say "More for this slide, menu button, collapsed" (or similar). Down opens it and reads each item; a dimmed one says "unavailable". Choose **Question banks...**, close it with Escape: you should be back on **...**.
+- [ ] **Windows high contrast.** The Add and ... buttons, and an open menu, should still show.
+
+## The new top bar and menus (2026-11-10)
+
+Built and covered by 3 editor tests and 8 tests of `tools/make_ui_icons.py`, and driven by keyboard in the browser preview. Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **The look.** Open a course in the real program. Is the navy bar with the logo, the course name, Saved, and Undo, Redo, Save, Preview and Publish right? Are the nine menus where you would look for things?
+- [ ] **Alt and F10.** Press and let go of Alt: focus should go to File. Press it again: back where you were. F10 does the same. Holding Alt while dragging on the slide must not jump to the menus.
+- [ ] **With NVDA.** On File, NVDA should say "File, menu item, collapsed" (or similar) and "menu bar". Down opens it and reads each item with its shortcut; a dimmed one should say "unavailable". Choose Themes, close the window with Escape: you should be back where you started.
+- [ ] **Windows high contrast.** The open menu, the item you are on and the buttons in the bar should all still show.
+
+## Get more packs, and the packs page (2026-11-07)
+
+Built and covered by 1 editor test and 16 tests of `tools/pack_for_website.py`; the two dialogs were driven in a test page with a stand-in for the desktop shell, and the page it makes was opened in a browser (all pictures load, no sideways scrolling at phone width). Not tried in the desktop program's own window, and nothing is on the website yet.
+
+- [ ] **The button in the real program.** Open **Characters**, **Choose from the library...**, press **Get more packs...**. Your browser should open `https://openstageauthor.com/apps/openstage/packs` and the dialog should say where to go next. Do the same in the background picker (**Background picture...**). Until the page is uploaded the browser will show an error page, which is expected.
+- [ ] **With a screen reader.** Is the button found after **Add a character pack...**, does it say it opens the packs page in the browser, and is the sentence after pressing it read out?
+- [ ] **The page.** Run `python tools/pack_for_website.py character-packs/openstage-people-1 --out C:\packs\site --bundled C:\packs\none` (the empty `--bundled` folder is only so the pack that comes with the program can be tried as if it were new), open `C:\packs\site\index.html`, and listen to it with NVDA. Do the headings, the pictures' descriptions and the Download links make sense? Then download the zip from the page and add it with **Add a character pack...**.
+- [ ] **Upload.** The packs page lives at `https://openstageauthor.com/apps/openstage/packs` (Jason, 2026-11-07; the address is `PACKS_PAGE_URL` in `editor/src/packs.ts`). Upload the whole folder the tool makes (`index.html`, the zips, the `.sha256.txt` files and `previews/`) so it answers at that address, then open the address in a browser and check the Download links work.
+
 ## Captions timed by the quiet gaps in the voice (2026-11-01)
 
 Built and covered by 13 tests with sound made in the test (tones and silences). Never tried on a recording of a real voice, which is the whole point of it.
@@ -14,7 +97,7 @@ Built and covered by 13 tests with sound made in the test (tones and silences). 
 
 Built and covered by 6 tests, including the real validator and a play-through to a pass and a fail. Not looked at on a screen.
 
-- [ ] **Add one.** Add slide > Games, ready-made > Order challenge. Look at an opening slide, a round and the results in the editor and in Preview. Check the four steps fit and the feedback and **Next round** sit below the question, without overlapping.
+- [ ] **Add one.** In the Slides panel, Add > Game... > Order challenge. Look at an opening slide, a round and the results in the editor and in Preview. Check the four steps fit and the feedback and **Next round** sit below the question, without overlapping.
 - [ ] **Play it** in Preview: put a round in the wrong order, then the right order in the next. The feedback says where the right order is; the score at the top of the next round should be the points so far.
 - [ ] **Write your own steps** in a round (2 to 8 steps). With more than four, the question's box may need making taller.
 - [ ] **With a keyboard and a screen reader:** the Move up and Move down buttons of a sequencing question are the same as everywhere else; check the round reads in a sensible order.

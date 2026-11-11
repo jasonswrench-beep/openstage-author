@@ -22,6 +22,7 @@ desktop.ini
 target/
 editor/web/main.js
 editor/web/style.css
+editor/web/brand-author.svg
 editor/src-tauri/gen/
 
 # Also ignored by GitHub's Rust template

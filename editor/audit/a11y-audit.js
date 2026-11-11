@@ -216,18 +216,33 @@ window.__crawl = async () => {
       (found[k] = found[k] || { rule: v.rule, where: v.where, detail: v.detail, n: 0, first: ctx }).n++;
     }
   };
+  // The Properties panel shows one tab at a time (Content, Style, Behaviour), with its sections folded, and the audit only sees what shows,
+  // so each tab is visited with every section opened.
+  const openSections = async () => {
+    for (const b of [...document.querySelectorAll('.props-tabpanel:not([hidden]) .props-section-toggle[aria-expanded="false"]')]) b.click();
+    await wait(40);
+  };
+  const everyTab = async (ctx) => {
+    const tabs = [...document.querySelectorAll('.props [role=tab]')];
+    if (tabs.length === 0) { await openSections(); record(ctx, window.__audit()); return; }
+    for (const t of tabs) {
+      t.click();
+      await openSections();
+      record(ctx + ' ' + t.textContent, window.__audit());
+    }
+  };
   const slides = [...document.querySelectorAll('button.item[data-key^="slide:"]')].map((b) => b.dataset.key);
   const types = {};
   for (const key of slides) {
     document.querySelector(`button.item[data-key="${key}"]`).click();
     await wait(120);
-    record(key, window.__audit());
+    await everyTab(key);
     for (const ok of [...document.querySelectorAll('button.item[data-key^="object:"]')].map((b) => b.dataset.key)) {
       document.querySelector(`button.item[data-key="${ok}"]`).click();
       await wait(90);
       const id = document.querySelector('.props-body .identity')?.textContent || '';
       types[id.split(',')[0]] = (types[id.split(',')[0]] || 0) + 1;
-      record(key + '/' + ok + ' ' + id, window.__audit());
+      await everyTab(key + '/' + ok + ' ' + id);
     }
   }
   return { slides: slides.length, types, found: Object.values(found) };
@@ -241,7 +256,7 @@ window.__frameAt = async (width, height = 900) => {
   f.id = 'probeframe'; f.style.cssText = `position:fixed;left:0;top:0;width:${width}px;height:${height}px;z-index:99999;background:#fff;border:0`;
   f.src = location.href; document.body.append(f);
   await new Promise((r) => (f.onload = r)); await wait(400);
-  [...f.contentDocument.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Open project').click();
+  f.contentDocument.getElementById('welcome-open').click();
   await wait(1300);
   return f;
 };

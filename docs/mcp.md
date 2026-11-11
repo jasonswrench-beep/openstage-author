@@ -8,7 +8,7 @@ no window, it is off until turned on, it can use one folder only, and everything
 
 ## Turning it on
 
-MCP is **off** until you turn it on. In the editor press **MCP access** (in the toolbar; no project needs to be open):
+MCP is **off** until you turn it on. In the editor choose **MCP access...** (in the **Tools** menu; no project needs to be open):
 
 - Tick **Let an AI assistant use OpenStage Author** and choose **the folder it may use**, then press **Save**. An assistant can open, make, change
   and publish courses only inside this folder, and nowhere else on the computer. The settings are kept with the program's other settings

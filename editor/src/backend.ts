@@ -21,6 +21,7 @@ import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
 import { parseMcpInfo, type McpInfo } from "./mcpsettings.ts";
 import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
 import { parseSetMade, parseSetRead, type SetAnswer, type SetMade, type SetRead } from "./slidesets.ts";
+import { parseExamples, type ExampleInfo } from "./examples.ts";
 
 /** A readable message from whatever was thrown, without the word "Error:" in front. */
 export function errorText(err: unknown): string {
@@ -98,7 +99,10 @@ export interface Backend {
   preview(dir: string, files: FileText[]): Promise<PublishResult>;
   /** Publish the saved project: the course as web files and a SCORM 1.2 zip, both inside `folder`. */
   /** Make the packages, and with `video` an MP4 of the course too (Windows only; it takes minutes). */
-  publish(dir: string, folder: string, options?: { video?: boolean }): Promise<PublishResult>;
+  /** `name` is the publishing style's name for the files (none: the project folder's); `headings` and `font` style the Word review document. */
+  publish(dir: string, folder: string, options?: { video?: boolean; name?: string; headings?: string; font?: string }): Promise<PublishResult>;
+  /** Copy a whole project into an empty folder, for a new version of the course. */
+  copyProject(from: string, to: string): Promise<void>;
   /** Stop the preview or publish that is running. Returns whether there was one. */
   cancelJob(): Promise<boolean>;
   /** Open a page that OpenStage Author made in the author's own browser. */
@@ -113,6 +117,10 @@ export interface Backend {
   mcpInfo(): Promise<McpInfo>;
   /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
   examplesFolder(): Promise<string>;
+  /** The example projects that came with the program: each one's folder name, its course title and how many slides it has. */
+  examplesList(): Promise<ExampleInfo[]>;
+  /** Copy an example project (by its folder's name) into an empty folder, to open it there. Refuses a folder that has anything in it. */
+  copyExample(name: string, dir: string): Promise<void>;
   /** The character packs on this computer: the ones that came with the program and the ones the author added, and any folder that looks like a pack but cannot be used. */
   packsList(): Promise<PackList>;
   /** The folder the author's own packs are kept in (made if it is not there yet), to show them. */
@@ -354,8 +362,9 @@ const tauriBackend: Backend = {
     return parsePublishResult(await invoke<string>("preview_project", { dir, files }));
   },
   async publish(dir, folder, options) {
-    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true }));
+    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true, name: options?.name ?? null, headings: options?.headings ?? null, font: options?.font ?? null }));
   },
+  copyProject: (from, to) => invoke<void>("copy_project", { from, to }),
   cancelJob: () => invoke<boolean>("cancel_job"),
   openInBrowser: (path) => invoke<void>("open_in_browser", { path }),
   revealInFolder: (path) => revealItemInDir(path),
@@ -367,6 +376,10 @@ const tauriBackend: Backend = {
     return parseMcpInfo(await invoke<string>("mcp_info"));
   },
   examplesFolder: () => invoke<string>("examples_folder"),
+  async examplesList() {
+    return parseExamples(JSON.parse(await invoke<string>("examples_list")));
+  },
+  copyExample: (name, dir) => invoke<void>("copy_example", { name, dir }),
   async packsList() {
     return parsePackList(await invoke<string>("packs_list"));
   },
@@ -605,6 +618,9 @@ const previewBackend: Backend = {
   async publish() {
     throw new Error("Publishing needs the desktop app.");
   },
+  async copyProject(from, to) {
+    await post("/api/copy-project", { from, to });
+  },
   async cancelJob() {
     return false;
   },
@@ -625,6 +641,12 @@ const previewBackend: Backend = {
   },
   async examplesFolder() {
     return "";
+  },
+  async examplesList() {
+    return parseExamples(await post<unknown>("/api/examples", {}));
+  },
+  async copyExample(name, dir) {
+    await post("/api/copy-example", { name, dir });
   },
   async packsList() {
     return NO_PACKS;

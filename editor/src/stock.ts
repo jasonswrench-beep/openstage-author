@@ -10,6 +10,8 @@
 import type { CreditEntry } from "../../player/src/types.ts";
 import { emptyAi, parseAi, type AiSettings } from "./aiservices.ts";
 import { parseMcpSettings, type McpSettings } from "./mcpsettings.ts";
+import { parseRecent, type RecentProject } from "./recent.ts";
+import { parsePublishStyle, type PublishStyle } from "./publishstyle.ts";
 
 export type MediaKind = "image" | "video" | "audio";
 export type Provider = "pixabay" | "unsplash" | "pexels" | "freesound";
@@ -308,6 +310,12 @@ export interface Settings {
   ai: AiSettings;
   /** Whether an AI assistant may use the program through MCP, and the one folder it may use (see mcpsettings.ts). Absent means off. */
   mcp?: McpSettings;
+  /** The projects opened lately, newest first, for the welcome page (see recent.ts). Absent until one is opened. */
+  recent?: RecentProject[];
+  /** False when the author asked the editor not to keep a list of the projects they open. Absent means it keeps one. */
+  keepRecent?: boolean;
+  /** The author's publishing style for every project: the names of published files and the Word review document's look (publishstyle.ts). Absent means the usual. */
+  publishStyle?: PublishStyle;
 }
 
 export const KEYED: Provider[] = ["pexels", "pixabay", "unsplash", "freesound"];
@@ -315,11 +323,14 @@ export const KEYED: Provider[] = ["pexels", "pixabay", "unsplash", "freesound"];
 export function parseSettings(raw: string): Settings {
   const out: Settings = { keys: { pixabay: "", unsplash: "", pexels: "", freesound: "" }, ai: emptyAi() };
   try {
-    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown; ai?: unknown; mcp?: unknown };
+    const data = JSON.parse(raw) as { keys?: Record<string, unknown>; publishFolder?: unknown; ai?: unknown; mcp?: unknown; recent?: unknown; keepRecent?: unknown; publishStyle?: unknown };
     for (const id of KEYED) out.keys[id] = text(data.keys?.[id]);
     out.ai = parseAi(data.ai);
     if (data.mcp !== undefined) out.mcp = parseMcpSettings(data.mcp);
     if (text(data.publishFolder).trim() !== "") out.publishFolder = text(data.publishFolder);
+    if (data.recent !== undefined) out.recent = parseRecent(data.recent);
+    if (data.keepRecent === false) out.keepRecent = false;
+    if (data.publishStyle !== undefined) out.publishStyle = parsePublishStyle(data.publishStyle);
   } catch {
     // no settings yet, or a damaged file: start empty
   }

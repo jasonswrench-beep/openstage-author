@@ -6,7 +6,7 @@ A set is data only: slides (in the course format), pictures, sounds, video and c
 
 ## Sharing slides
 
-In the **Slides** panel, **Share slides...** opens a dialog:
+In the **Slides** panel, the **...** menu's **Share slides...** (also in the File menu) opens a dialog:
 
 * choose the slides (the one you are on starts chosen; **Choose all the slides** and **Choose none** help);
 * give the set a **name**, say **who made it**, say **what it is for** in a sentence or two, and say **what others may do with it** (its licence, in your own words, for example "Free to use and change, with credit to the author" or "Public domain");
@@ -26,7 +26,7 @@ Your project is saved first, because the file is made from what is saved. Nothin
 
 ## Adding slides from a file
 
-**Add slides from a file...**, beside it, asks for an `.osset` file, checks all of it, and shows what it holds: who made it, what it is for, what others may do with it, how many slides, variables, people and files, and the names of the slides. **Add** puts the slides after the slide you are on, as **one step to undo**.
+**Slides from a file...**, in the Slides panel's **Add** menu (**Add slides from a file...** in the File menu), asks for an `.osset` file, checks all of it, and shows what it holds: who made it, what it is for, what others may do with it, how many slides, variables, people and files, and the names of the slides. **Add** puts the slides after the slide you are on, as **one step to undo**.
 
 What happens when they come in:
 

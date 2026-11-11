@@ -849,10 +849,59 @@ fn publish_flags(preview: bool, video: bool) -> Vec<&'static str> {
     flags
 }
 
+/// The Word review document's headings and fonts the author's publishing style can choose (editor/src/publishstyle.ts; tools/review_doc.py
+/// keeps the same lists and refuses anything else).
+const REVIEW_HEADINGS: [&str; 4] = ["slide", "number", "outline", "name"];
+const REVIEW_FONTS: [&str; 7] = ["Calibri", "Aptos", "Arial", "Verdana", "Segoe UI", "Georgia", "Times New Roman"];
+
+/// The flags that pass the publishing style's Word headings and font to publish.ts. The usual ones (slide, Calibri) pass nothing, so a
+/// publish without a style is exactly what it always was. Anything the editor does not offer is refused.
+fn review_flags(headings: Option<&str>, font: Option<&str>) -> Result<Vec<String>, String> {
+    let mut flags = Vec::new();
+    if let Some(h) = headings {
+        if !REVIEW_HEADINGS.contains(&h) {
+            return Err(format!("{h} is not a way the Word review document can head its slides."));
+        }
+        if h != "slide" {
+            flags.push(format!("--review-headings={h}"));
+        }
+    }
+    if let Some(f) = font {
+        if !REVIEW_FONTS.contains(&f) {
+            return Err(format!("{f} is not one of the fonts the Word review document can use."));
+        }
+        if f != "Calibri" {
+            flags.push(format!("--review-font={f}"));
+        }
+    }
+    Ok(flags)
+}
+
+/// A name for the published files from the author's publishing style, made safe for any computer and any LMS: letters, digits, dots,
+/// hyphens and underscores stay, anything else becomes a hyphen, runs of those marks become one, and none is left at either end. None if
+/// nothing is left, or the name is one Windows keeps for itself.
+fn safe_publish_name(raw: &str) -> Option<String> {
+    let mut out = String::new();
+    for c in raw.chars() {
+        let c = if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '-' };
+        let mark = c == '.' || c == '-' || c == '_';
+        if mark && out.ends_with(['.', '-', '_']) {
+            continue;
+        }
+        out.push(c);
+    }
+    let out: String = out.trim_matches(['.', '-', '_']).chars().take(80).collect();
+    let out = out.trim_end_matches(['.', '-', '_']).to_string();
+    let stem = out.split('.').next().unwrap_or("").to_ascii_uppercase();
+    let reserved = ["CON", "PRN", "AUX", "NUL"].contains(&stem.as_str())
+        || ((stem.starts_with("COM") || stem.starts_with("LPT")) && stem.len() == 4 && stem.as_bytes()[3].is_ascii_digit());
+    if out.is_empty() || reserved { None } else { Some(out) }
+}
+
 /// Run publish.ts on a project folder, writing to `out`, and return the one line of JSON it prints.
 /// The JSON says whether it worked (ok), and if not why (message, findings). A tool that cannot run at all is
-/// an Err with a message for the author.
-fn run_publish_tool(project: &Path, out: &Path, preview: bool, video: bool) -> Result<String, String> {
+/// an Err with a message for the author. `extra` is the publishing style's flags (`review_flags`).
+fn run_publish_tool(project: &Path, out: &Path, preview: bool, video: bool, extra: &[String]) -> Result<String, String> {
     let _slot = JobSlot::take()?;
     let script = find_repo_file("player/publish.ts").ok_or("Could not find player/publish.ts.")?;
     let player = script.parent().ok_or("Could not find the player folder.")?;
@@ -861,7 +910,7 @@ fn run_publish_tool(project: &Path, out: &Path, preview: bool, video: bool) -> R
     }
     let node = std::env::var("OPENSTAGE_NODE").unwrap_or_else(|_| "node".into());
     let mut cmd = Command::new(node);
-    cmd.current_dir(player).arg(&script).arg(project).arg(out).args(publish_flags(preview, video));
+    cmd.current_dir(player).arg(&script).arg(project).arg(out).args(publish_flags(preview, video)).args(extra);
     // A video is made with the recorder's exporter, so the tool is told where it is (if it cannot be found the tool says so and the rest is still published).
     if video && !preview {
         if let Ok(recorder) = capture_program() {
@@ -925,6 +974,11 @@ fn resolve_planned(path: &Path) -> Result<PathBuf, String> {
 /// Where a publish into `folder` will write, after checking that it is safe to empty: never the project or
 /// anything holding it or inside it, and never a folder of the author's own files that happens to share the name.
 fn publish_target(project: &Path, folder: &Path) -> Result<PathBuf, String> {
+    publish_target_named(project, folder, None)
+}
+
+/// The same, with the name the author's publishing style gives the published files instead of the project folder's.
+fn publish_target_named(project: &Path, folder: &Path, name: Option<&str>) -> Result<PathBuf, String> {
     if !project.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
@@ -934,7 +988,11 @@ fn publish_target(project: &Path, folder: &Path) -> Result<PathBuf, String> {
     let project = plain_path(project.canonicalize().map_err(|e| e.to_string())?);
     // The folder may not exist yet. Nothing is made until every check has passed, so a refused place is left alone.
     let folder = resolve_planned(folder)?;
-    let out = folder.join(course_folder_name(&project));
+    let stem = match name {
+        Some(n) => safe_publish_name(n).ok_or("The publishing style makes a name that cannot be used for files. Change it in File > Publishing style.")?,
+        None => course_folder_name(&project),
+    };
+    let out = folder.join(stem);
     if out.starts_with(&project) || project.starts_with(&out) {
         return Err("Choose a folder outside the project. Publishing writes a copy of the course, and it cannot go inside the project.".into());
     }
@@ -955,9 +1013,41 @@ fn publish_target(project: &Path, folder: &Path) -> Result<PathBuf, String> {
 }
 
 /// Publish the project as it is on disk. The page saves first.
-fn publish_blocking(project: &Path, folder: &Path, video: bool) -> Result<String, String> {
-    let out = publish_target(project, folder)?;
-    run_publish_tool(&plain_path(project.canonicalize().map_err(|e| e.to_string())?), &out, false, video)
+fn publish_blocking(project: &Path, folder: &Path, video: bool, name: Option<&str>, extra: &[String]) -> Result<String, String> {
+    let out = publish_target_named(project, folder, name)?;
+    run_publish_tool(&plain_path(project.canonicalize().map_err(|e| e.to_string())?), &out, false, video, extra)
+}
+
+/// Copy a whole project into an empty folder, for a new version of the course (File > Save as new version). Everything comes along, the
+/// narration audio too, except the backup an update keeps. Never into the project itself or a folder that holds it, and never over anything.
+fn copy_project_blocking(from: &Path, to: &Path) -> Result<(), String> {
+    if !from.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !to.is_absolute() {
+        return Err("Choose a folder for the new version.".into());
+    }
+    let from = plain_path(from.canonicalize().map_err(|e| e.to_string())?);
+    let to = resolve_planned(to)?;
+    if to.starts_with(&from) || from.starts_with(&to) {
+        return Err("Choose a folder outside this project. The new version is a copy beside it, not inside it.".into());
+    }
+    if to.exists() {
+        if !to.is_dir() {
+            return Err("That path is a file, not a folder.".into());
+        }
+        if fs::read_dir(&to).map_err(|e| e.to_string())?.next().is_some() {
+            return Err("That folder is not empty. Choose an empty folder, or make a new one.".into());
+        }
+    }
+    copy_example_tree(&from, &to)
+}
+
+#[tauri::command]
+async fn copy_project(from: String, to: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || copy_project_blocking(Path::new(&from), Path::new(&to)))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Put a file in `dst`: a hard link when the two are on the same drive (instant, and no copy of a big video),
@@ -1024,7 +1114,7 @@ fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
     let root = std::env::temp_dir().join("openstage-author-preview");
     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     let (project, out) = prepare_preview(dir, files, &root)?;
-    let result = run_publish_tool(&project, &out, true, false);
+    let result = run_publish_tool(&project, &out, true, false, &[]);
     // A preview that did not come out leaves nothing behind. (One that did is kept, because a browser is showing it.)
     if !matches!(&result, Ok(json) if json.starts_with(r#"{"ok":true"#)) {
         if let Some(home) = project.parent() {
@@ -2072,8 +2162,9 @@ async fn preview_project(dir: String, files: Vec<FileText>) -> Result<String, St
 
 /// Publish the saved project: a folder of web files and a SCORM 1.2 zip, written beside each other in `folder`.
 #[tauri::command]
-async fn publish_project(dir: String, folder: String, video: Option<bool>) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || publish_blocking(Path::new(&dir), Path::new(&folder), video.unwrap_or(false)))
+async fn publish_project(dir: String, folder: String, video: Option<bool>, name: Option<String>, headings: Option<String>, font: Option<String>) -> Result<String, String> {
+    let extra = review_flags(headings.as_deref(), font.as_deref())?;
+    tauri::async_runtime::spawn_blocking(move || publish_blocking(Path::new(&dir), Path::new(&folder), video.unwrap_or(false), name.as_deref(), &extra))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -2232,6 +2323,112 @@ fn examples_folder() -> String {
         .and_then(|file| file.parent().map(Path::to_path_buf))
         .map(|dir| dir.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+/// The folder the examples that came with the program are in, if there is one.
+fn examples_dir() -> Option<PathBuf> {
+    find_repo_file("examples/minimal.osproj/project.json").and_then(|file| file.parent().and_then(Path::parent).map(Path::to_path_buf))
+}
+
+/// A folder name that can only be one of the examples: lower-case letters, digits and hyphens, then .osproj. Nothing else is copied.
+fn is_example_name(name: &str) -> bool {
+    name.strip_suffix(".osproj").is_some_and(|stem| !stem.is_empty() && stem.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'))
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+struct ExampleInfo {
+    name: String,
+    title: String,
+    slides: usize,
+}
+
+/// The examples in a folder: each one's folder name, its course title and how many slides it has (each slide counted once).
+fn list_examples_in(dir: &Path) -> Vec<ExampleInfo> {
+    let mut out = Vec::new();
+    let Ok(entries) = fs::read_dir(dir) else { return out };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !is_example_name(&name) {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(entry.path().join("project.json")) else { continue };
+        let Ok(project) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+        let title = project["meta"]["title"].as_str().unwrap_or("").to_string();
+        let mut ids: Vec<&str> = Vec::new();
+        for scene in project["scenes"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+            for id in scene["slides"].as_array().map(Vec::as_slice).unwrap_or(&[]).iter().filter_map(|s| s.as_str()) {
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+        let slides = ids.len();
+        out.push(ExampleInfo { name, title, slides });
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// The example projects that came with the program, for the welcome page.
+#[tauri::command]
+fn examples_list() -> String {
+    let list = examples_dir().map(|dir| list_examples_in(&dir)).unwrap_or_default();
+    serde_json::to_string(&list).unwrap_or_else(|_| "[]".into())
+}
+
+/// Copy an example into an empty folder (which may not exist yet), so the author opens a copy of their own and the example stays as
+/// it came. Like New project, it refuses a folder that already has anything in it.
+fn copy_example_from(examples: &Path, name: &str, dir: &Path) -> Result<(), String> {
+    if !is_example_name(name) {
+        return Err("That is not one of the examples.".into());
+    }
+    let source = examples.join(name);
+    if !source.join("project.json").is_file() {
+        return Err("That example did not come with this copy of the program.".into());
+    }
+    if dir.exists() {
+        if !dir.is_dir() {
+            return Err("That path is a file, not a folder.".into());
+        }
+        if fs::read_dir(dir).map_err(|e| e.to_string())?.next().is_some() {
+            return Err("That folder is not empty. Choose an empty folder, or make a new one.".into());
+        }
+    }
+    copy_example_tree(&source, dir)
+}
+
+/// Copy a folder and everything in it, leaving out the backup an update keeps. The copies can be changed even if the originals could not.
+#[allow(clippy::permissions_set_readonly_false)]
+fn copy_example_tree(from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(|e| format!("Could not make the folder {}: {e}", to.display()))?;
+    for entry in fs::read_dir(from).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name();
+        if name == ".openstage-backup" {
+            continue;
+        }
+        let kind = entry.file_type().map_err(|e| e.to_string())?;
+        let target = to.join(&name);
+        if kind.is_dir() {
+            copy_example_tree(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            fs::copy(entry.path(), &target).map_err(|e| format!("Could not copy {}: {e}", name.to_string_lossy()))?;
+            if let Ok(meta) = fs::metadata(&target) {
+                let mut perms = meta.permissions();
+                if perms.readonly() {
+                    perms.set_readonly(false);
+                    let _ = fs::set_permissions(&target, perms);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn copy_example(name: String, dir: String) -> Result<(), String> {
+    let examples = examples_dir().ok_or("The examples did not come with this copy of the program.")?;
+    copy_example_from(&examples, &name, Path::new(&dir))
 }
 
 #[tauri::command]
@@ -3432,7 +3629,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, mcp_info, examples_folder, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3447,6 +3644,49 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_example_folders_can_be_named() {
+        for good in ["minimal.osproj", "question-types.osproj", "a1.osproj"] {
+            assert!(is_example_name(good), "{good}");
+        }
+        for bad in [".osproj", "minimal", "Minimal.osproj", "../minimal.osproj", "a/b.osproj", "a\\b.osproj", "a b.osproj", "minimal.osproj.zip"] {
+            assert!(!is_example_name(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn examples_are_listed_with_their_titles_and_slides_and_copied_into_an_empty_folder_only() {
+        let root = std::env::temp_dir().join(format!("openstage-test-examples-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let examples = root.join("examples");
+        let one = examples.join("one.osproj");
+        fs::create_dir_all(one.join("slides")).unwrap();
+        fs::create_dir_all(one.join("assets/images")).unwrap();
+        fs::create_dir_all(one.join(".openstage-backup")).unwrap();
+        fs::write(one.join("project.json"), r#"{ "meta": { "title": "One" }, "scenes": [ { "slides": ["s1", "s2", "s1"] }, { "slides": ["s3"] } ] }"#).unwrap();
+        fs::write(one.join("slides/s1.json"), "{}").unwrap();
+        fs::write(one.join("assets/images/a.png"), [1u8, 2, 3]).unwrap();
+        fs::write(one.join(".openstage-backup/old.json"), "{}").unwrap();
+        fs::create_dir_all(examples.join("not-a-project.osproj")).unwrap();
+        fs::create_dir_all(examples.join("plugins")).unwrap();
+
+        assert_eq!(list_examples_in(&examples), vec![ExampleInfo { name: "one.osproj".into(), title: "One".into(), slides: 3 }]);
+
+        let copy = root.join("mine");
+        copy_example_from(&examples, "one.osproj", &copy).unwrap();
+        assert!(copy.join("project.json").is_file());
+        assert!(copy.join("slides/s1.json").is_file());
+        assert_eq!(fs::read(copy.join("assets/images/a.png")).unwrap(), vec![1u8, 2, 3]);
+        assert!(!copy.join(".openstage-backup").exists(), "an update's backup is not copied");
+
+        let again = copy_example_from(&examples, "one.osproj", &copy).unwrap_err();
+        assert!(again.contains("not empty"), "{again}");
+        assert!(copy_example_from(&examples, "../one.osproj", &root.join("x")).is_err());
+        assert!(copy_example_from(&examples, "missing.osproj", &root.join("y")).unwrap_err().contains("did not come"));
+        assert!(!root.join("y").exists(), "nothing is made for an example that is not there");
+        let _ = fs::remove_dir_all(&root);
+    }
 
     fn temp_project(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("openstage-test-{name}-{}", std::process::id()));
@@ -3714,9 +3954,9 @@ mod tests {
         }
         let report: serde_json::Value = serde_json::from_str(&migrate_blocking(&dir).unwrap()).unwrap();
         assert_eq!(report["status"], "updated");
-        assert_eq!(report["to"], "0.48.0");
+        assert_eq!(report["to"], "0.49.0");
         let opened = open_project_at(&dir).unwrap();
-        assert!(opened.project.contains("\"0.48.0\""));
+        assert!(opened.project.contains("\"0.49.0\""));
         assert!(opened.theme.is_some(), "the updated project has a theme");
         assert!(dir.join(".openstage-backup").join("0.1.0").join("project.json").is_file());
         // A second update has nothing to do.
@@ -5304,10 +5544,69 @@ Colour,100,MC,Why?,x
 
     #[test]
     fn the_publishing_tool_is_told_about_the_video_only_in_a_real_publish_that_asked_for_one() {
+        assert_eq!(review_flags(None, None).unwrap(), Vec::<String>::new());
+        assert_eq!(review_flags(Some("slide"), Some("Calibri")).unwrap(), Vec::<String>::new(), "the usual style passes nothing, so publishing is as it was");
+        assert_eq!(review_flags(Some("outline"), Some("Times New Roman")).unwrap(), vec!["--review-headings=outline".to_string(), "--review-font=Times New Roman".to_string()]);
+        assert!(review_flags(Some("fancy"), None).is_err());
+        assert!(review_flags(None, Some("Comic Sans MS")).is_err());
+        assert!(review_flags(None, Some("Arial --targets=mp4")).is_err(), "nothing but a font on the list gets through");
         assert_eq!(publish_flags(false, false), vec!["--json"]);
         assert_eq!(publish_flags(false, true), vec!["--json", "--targets=scorm12,scorm2004,xapi,review,mp4"]);
         // A preview is a quick look at the page: it never makes a video, whatever was asked.
         assert_eq!(publish_flags(true, true), vec!["--json", "--preview"]);
         assert_eq!(publish_flags(true, false), vec!["--json", "--preview"]);
+    }
+
+    #[test]
+    fn a_publishing_style_name_is_made_safe_and_used_for_the_published_folder() {
+        assert_eq!(safe_publish_name("CMM-360_Introduction-to-Communication_v2.1").as_deref(), Some("CMM-360_Introduction-to-Communication_v2.1"));
+        assert_eq!(safe_publish_name("CMM 360 / Intro: v2.1").as_deref(), Some("CMM-360-Intro-v2.1"));
+        assert_eq!(safe_publish_name("..\\..\\escape").as_deref(), Some("escape"), "no way out of the folder");
+        assert_eq!(safe_publish_name("../../escape").as_deref(), Some("escape"));
+        assert_eq!(safe_publish_name("___"), None);
+        assert_eq!(safe_publish_name("con"), None, "a name Windows keeps for itself");
+        assert_eq!(safe_publish_name("COM1.v2"), None);
+        assert_eq!(safe_publish_name("Console").as_deref(), Some("Console"));
+        assert!(safe_publish_name(&"a".repeat(200)).unwrap().len() <= 80);
+
+        let base = std::env::temp_dir().join(format!("os-style-name-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let project = base.join("course.osproj");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("project.json"), "{}").unwrap();
+        let elsewhere = base.join("published");
+        let out = publish_target_named(&project, &elsewhere, Some("CMM 360_Intro_v2.1")).unwrap();
+        assert_eq!(out.file_name().unwrap().to_str().unwrap(), "CMM-360_Intro_v2.1");
+        assert_eq!(publish_target(&project, &elsewhere).unwrap().file_name().unwrap().to_str().unwrap(), "course", "no style: the folder's name, as always");
+        assert!(publish_target_named(&project, &elsewhere, Some("///")).is_err());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn a_new_version_is_a_copy_of_the_project_in_an_empty_folder_outside_it() {
+        let base = std::env::temp_dir().join(format!("os-copy-project-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let project = base.join("course.osproj");
+        fs::create_dir_all(project.join("slides")).unwrap();
+        fs::create_dir_all(project.join(".openstage-backup").join("0.1.0")).unwrap();
+        fs::create_dir_all(project.join(".cache").join("narration")).unwrap();
+        fs::write(project.join("project.json"), "{\"v\":1}").unwrap();
+        fs::write(project.join("slides").join("slide-001.json"), "{}").unwrap();
+        fs::write(project.join(".cache").join("narration").join("a.wav"), "sound").unwrap();
+        fs::write(project.join(".openstage-backup").join("0.1.0").join("project.json"), "old").unwrap();
+
+        let copy = base.join("course-v2.osproj");
+        copy_project_blocking(&project, &copy).unwrap();
+        assert_eq!(fs::read_to_string(copy.join("project.json")).unwrap(), "{\"v\":1}");
+        assert!(copy.join("slides").join("slide-001.json").is_file());
+        assert!(copy.join(".cache").join("narration").join("a.wav").is_file(), "the narration audio comes along, so it need not be made again");
+        assert!(!copy.join(".openstage-backup").exists(), "the backup an update keeps does not");
+
+        assert!(copy_project_blocking(&project, &copy).is_err(), "never over a folder that is not empty");
+        assert!(copy_project_blocking(&project, &project.join("inside")).is_err(), "never inside the project");
+        assert!(copy_project_blocking(&project, &base).is_err(), "never into a folder that holds it");
+        assert!(copy_project_blocking(&base.join("nothing"), &base.join("x")).is_err(), "only a project");
+        assert!(copy_project_blocking(&project, Path::new("relative")).is_err());
+        let _ = fs::remove_dir_all(&base);
     }
 }

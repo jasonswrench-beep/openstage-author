@@ -9,7 +9,7 @@ language (`Intro.osproj` into French is `Intro-fr-FR.osproj`).
 
 ## In the editor
 
-1. Open the course and choose **Translate** in the toolbar. The project is saved first, because the file is made from what is on disk.
+1. Open the course and choose **Translate...** in the **File** menu. The project is saved first, because the file is made from what is on disk.
 2. Type the language to translate into as a language tag (`fr-FR`, `es-MX`, `de`, `en-GB`), or pick one from the list.
 3. Choose **Make the translation file...** and say where to save it. It is named `Intro-fr-FR.xlf`. The dialog says how many pieces of
    text and words it holds. Give the file to the translator.

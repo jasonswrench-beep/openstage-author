@@ -19,7 +19,7 @@ test("a new course has no words of its own for the player, and says which format
   const files = newProjectFiles({ title: "T", author: "", language: "en-US", today: "2026-10-31" });
   const project = JSON.parse(files[0]!.text) as { playerText?: unknown; schemaVersion: string };
   assert.equal(project.playerText, undefined);
-  assert.equal(project.schemaVersion, "0.48.0");
+  assert.equal(project.schemaVersion, "0.49.0");
 });
 
 test("a course's own words for the player survive opening, a change and saving", () => {
