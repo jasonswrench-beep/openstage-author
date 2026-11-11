@@ -32,15 +32,15 @@ Every pairing below was measured (WCAG contrast ratio). Words need 4.5:1, the ed
 
 **Each product has its own colour.** The pale colour of the logo is only for the logo, the navy bar and decoration: it is too faint to read on white (lavender 2.8:1, coral 2.5:1). Anything you press or read uses the deeper colour.
 
-| | Author | Recorder |
-|---|---|---|
-| Buttons you press, links, the chosen tab | `#6656B7` (white words on it 5.9:1) | `#A83653` (6.3:1) |
-| The same, under the pointer | `#54459E` | `#8E2A45` |
-| Background of a chosen item | `#EEEAFB` (violet words on it 5.0:1) | `#FBEBEF` (5.5:1) |
-| Product colour on the navy bar | `#C9B6FA` (9.5:1) | `#F7A9B6` (9.3:1) |
-| Logo only | `#AA88F4` | `#F47F90` |
+| | Author | Recorder | OpenExplainer (OpenCapture) |
+|---|---|---|---|
+| Buttons you press, links, the chosen tab | `#6656B7` (white words on it 5.9:1) | `#A83653` (6.3:1) | `#7D5E00` (6.1:1) |
+| The same, under the pointer | `#54459E` | `#8E2A45` | `#664C00` |
+| Background of a chosen item | `#EEEAFB` (violet words on it 5.0:1) | `#FBEBEF` (5.5:1) | `#FBF4DC` (5.5:1) |
+| Product colour on the navy bar | `#C9B6FA` (9.5:1) | `#F7A9B6` (9.3:1) | `#FFCD28` (11.5:1) |
+| Logo only | `#AA88F4` | `#F47F90` | `#FFCD28` (the gold of its icon) |
 
-Capture Express, OpenCapture and Assess get their own pair the same way when their turn comes (logo colour for the logo, a deeper, measured colour for controls).
+OpenExplainer's pair (2026-11-11) comes from its icon, a gold viewfinder on a navy tile named "OpenCapture". Its deeper gold is near the warning colour, so a warning always carries words or a symbol too. It lives in OpenExplainer's own `src/style.css` (as `--oe-*`), not in this file, so the products' copies of version 1 stay the same. Capture Express and Assess get their own pair the same way when their turn comes (logo colour for the logo, a deeper, measured colour for controls).
 
 The colours of the programs never change a course. Author's look is the editor around the slide; what a learner sees is the course's own theme.
 
@@ -102,4 +102,4 @@ Menus are for everyone, including people who never use a mouse:
 ## 7. Not yet decided
 
 * Dark mode (the colours above are for the light look; Windows high-contrast mode already works and must keep working).
-* The colours for Capture Express, OpenCapture and Assess.
+* The colours for Capture Express and Assess.

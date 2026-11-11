@@ -43,6 +43,19 @@ class TheIconList(unittest.TestCase):
         self.assertIn("ISC License", text)
         self.assertIn("do not edit by hand", text)
 
+    def test_a_product_with_its_own_repository_gets_its_icons_and_a_drawing_function_named_for_it(self):
+        self.assertGreater(len(self.plan["products"]["explainer"]), 40)
+        for product in m.OWN_FILES:
+            text = m.make_own_ts(self.plan, self.lucide, product)
+            names = set(re.findall(r'^  "([a-z0-9-]+)": \[', text, re.M))
+            self.assertEqual(names, {r["icon"] for r in self.plan["products"][product]}, product)
+            self.assertIn(f"run the tool there with {m.OWN_FILES[product]['flag']} pointing at this file", text)
+            self.assertIn("export function uiIcon(doc: Document, name: UiIconName): SVGSVGElement", text)
+            self.assertIn("ISC License", text)
+        # The Recorder's file is the same as before the tool learnt about other products.
+        self.assertEqual(m.make_recorder_ts(self.plan, self.lucide), m.make_own_ts(self.plan, self.lucide, "recorder"))
+        self.assertIn("the Recorder's own buttons, tabs and menus", m.make_recorder_ts(self.plan, self.lucide))
+
     def test_the_table_for_people_names_every_command_and_every_colour(self):
         text = m.OUT_MD.read_text(encoding="utf-8")
         for rows in self.plan["products"].values():

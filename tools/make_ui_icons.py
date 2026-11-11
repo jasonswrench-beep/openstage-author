@@ -6,6 +6,7 @@ Usage:  python tools/make_ui_icons.py          write editor/src/uiicons.gen.ts a
         add  --recorder PATH  to write (or check) OpenStage Recorder's own icon file too, in its repository
                               (app/src/uiicons.gen.ts there): its icons as drawn shapes, with a small drawing function,
                               because the Recorder has no copy of Author's player.
+        add  --explainer PATH the same for OpenExplainer (src/ui/uiicons.gen.ts in its repository).
 
 design/icons.json names, for each product, the Lucide icon of each command. Every name is checked against the Lucide set Author
 already ships (editor/web/icons/lucide.json), so a misspelt or renamed icon stops the run instead of drawing nothing. Author's icons
@@ -24,7 +25,13 @@ LUCIDE = ROOT / "editor" / "web" / "icons" / "lucide.json"
 OUT_TS = ROOT / "editor" / "src" / "uiicons.gen.ts"
 OUT_MD = ROOT / "design" / "ICONS.md"
 
-PRODUCT_NAMES = {"author": "OpenStage Author", "recorder": "OpenStage Recorder"}
+PRODUCT_NAMES = {"author": "OpenStage Author", "recorder": "OpenStage Recorder", "explainer": "OpenExplainer"}
+
+# The products whose icon file is written into their own repository, with the words their file's heading uses.
+OWN_FILES = {
+    "recorder": {"flag": "--recorder", "whose": "the Recorder's own buttons, tabs and menus", "why": "the Recorder has no copy of Author's player/src/icon.ts"},
+    "explainer": {"flag": "--explainer", "whose": "OpenExplainer's own buttons, menus and panes", "why": "OpenExplainer has no copy of Author's player/src/icon.ts"},
+}
 
 
 class IconError(Exception):
@@ -74,12 +81,18 @@ def make_ts(plan, lucide):
 
 def make_recorder_ts(plan, lucide):
     """OpenStage Recorder's icons, with the function that draws them (the Recorder has no copy of Author's player/src/icon.ts)."""
-    names = sorted({row["icon"] for row in plan["products"]["recorder"]})
+    return make_own_ts(plan, lucide, "recorder")
+
+
+def make_own_ts(plan, lucide, product):
+    """A product's icons for its own repository, with the function that draws them (OWN_FILES says why it needs one)."""
+    own = OWN_FILES[product]
+    names = sorted({row["icon"] for row in plan["products"][product]})
     lines = [
         "// SPDX-License-Identifier: Apache-2.0 AND ISC",
         "// Made by tools/make_ui_icons.py in the OpenStage Author repository, from its design/icons.json (the suite's one list of icons):",
-        "// do not edit by hand. Change that list and run the tool there with --recorder pointing at this file.",
-        f"// The icons of the Recorder's own buttons, tabs and menus: Lucide {lucide['version']}, kept as their drawn shapes, drawn as lines in the",
+        f"// do not edit by hand. Change that list and run the tool there with {own['flag']} pointing at this file.",
+        f"// The icons of {own['whose']}: Lucide {lucide['version']}, kept as their drawn shapes, drawn as lines in the",
         "// colour of the words around them, and hidden from screen readers (the words beside an icon, or a button's name, say what it is).",
         "//",
     ]
@@ -153,12 +166,14 @@ def main(argv):
         print(f"Stopped: {err}")
         return 1
     files = {OUT_TS: make_ts(plan, lucide), OUT_MD: make_md(plan, lucide)}
-    if "--recorder" in argv:
-        at = argv.index("--recorder") + 1
+    for product, own in OWN_FILES.items():
+        if own["flag"] not in argv:
+            continue
+        at = argv.index(own["flag"]) + 1
         if at >= len(argv):
-            print("Stopped: --recorder needs the path of the Recorder's icon file.")
+            print(f"Stopped: {own['flag']} needs the path of {PRODUCT_NAMES[product]}'s icon file.")
             return 1
-        files[pathlib.Path(argv[at]).resolve()] = make_recorder_ts(plan, lucide)
+        files[pathlib.Path(argv[at]).resolve()] = make_own_ts(plan, lucide, product)
     if "--check" in argv:
         stale = [str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p) for p, text in files.items() if not same(p, text)]
         if stale:

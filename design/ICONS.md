@@ -348,3 +348,75 @@ with a spoken name and a tooltip. See `DESIGN-GUIDE.md` for the rules and what e
 | Everywhere | More actions | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
 | Everywhere | Open a menu | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
 | Everywhere | Close | [x](https://lucide.dev/icons/x) |  |
+
+## OpenExplainer
+
+| Where | Command | Icon | Shortcut |
+|---|---|---|---|
+| File menu | New project... | [file-plus](https://lucide.dev/icons/file-plus) |  |
+| File menu | Open project... | [folder-open](https://lucide.dev/icons/folder-open) |  |
+| File menu | Save | [save](https://lucide.dev/icons/save) | Ctrl+S |
+| File menu | Save as... | [save-all](https://lucide.dev/icons/save-all) |  |
+| File menu | Import an export... | [package-open](https://lucide.dev/icons/package-open) |  |
+| File menu | Import from Word... | [file-input](https://lucide.dev/icons/file-input) |  |
+| File menu | Bring in review comments... | [message-square-plus](https://lucide.dev/icons/message-square-plus) |  |
+| File menu | Import a translation... | [languages](https://lucide.dev/icons/languages) |  |
+| File menu | Export... | [file-output](https://lucide.dev/icons/file-output) |  |
+| File menu | History... | [clock](https://lucide.dev/icons/clock) |  |
+| Chapters menu | Add chapter | [folder-plus](https://lucide.dev/icons/folder-plus) |  |
+| Chapters menu | Add topic under selected | [list-plus](https://lucide.dev/icons/list-plus) |  |
+| Chapters menu | Rename | [pencil](https://lucide.dev/icons/pencil) | F2 |
+| Chapters menu | Move up | [arrow-up](https://lucide.dev/icons/arrow-up) | Alt+Up |
+| Chapters menu | Move down | [arrow-down](https://lucide.dev/icons/arrow-down) | Alt+Down |
+| Chapters menu | Indent | [list-indent-increase](https://lucide.dev/icons/list-indent-increase) | Alt+Right |
+| Chapters menu | Outdent | [list-indent-decrease](https://lucide.dev/icons/list-indent-decrease) | Alt+Left |
+| Chapters menu | Find and replace in titles... | [replace](https://lucide.dev/icons/replace) |  |
+| Chapters menu | Delete | [trash](https://lucide.dev/icons/trash) | Delete |
+| Insert menu | Import pictures... | [image-plus](https://lucide.dev/icons/image-plus) |  |
+| Insert menu | Capture... | [camera](https://lucide.dev/icons/camera) |  |
+| Insert menu | Paragraph | [pilcrow](https://lucide.dev/icons/pilcrow) |  |
+| Insert menu | Heading | [heading](https://lucide.dev/icons/heading) |  |
+| Insert menu | Picture | [image](https://lucide.dev/icons/image) |  |
+| Insert menu | Numbered procedure | [list-ordered](https://lucide.dev/icons/list-ordered) |  |
+| Insert menu | Callout box | [message-square-text](https://lucide.dev/icons/message-square-text) |  |
+| Insert menu | Snippet | [text-quote](https://lucide.dev/icons/text-quote) |  |
+| Write menu | Drafts... | [inbox](https://lucide.dev/icons/inbox) |  |
+| Write menu | Draft callout text for this topic | [wand-sparkles](https://lucide.dev/icons/wand-sparkles) |  |
+| Write menu | Draft a procedure from the clicks | [list-checks](https://lucide.dev/icons/list-checks) |  |
+| Write menu | Draft an opener for this chapter | [book-open-text](https://lucide.dev/icons/book-open-text) |  |
+| Write menu | Draft a chapter summary here | [text-align-start](https://lucide.dev/icons/text-align-start) |  |
+| Write menu | Suggest boxed notes for this topic | [message-square-plus](https://lucide.dev/icons/message-square-plus) |  |
+| Write menu | Writing style... | [pen-line](https://lucide.dev/icons/pen-line) |  |
+| Book menu | Project variables... | [variable](https://lucide.dev/icons/variable) |  |
+| Book menu | Look of the book... | [palette](https://lucide.dev/icons/palette) |  |
+| Book menu | Reuse... | [recycle](https://lucide.dev/icons/recycle) |  |
+| Book menu | Index... | [book-a](https://lucide.dev/icons/book-a) |  |
+| Book menu | Guides... | [book-open-check](https://lucide.dev/icons/book-open-check) |  |
+| Book menu | Click circle settings... | [circle-dot](https://lucide.dev/icons/circle-dot) |  |
+| Book menu | Zoom settings... | [zoom-in](https://lucide.dev/icons/zoom-in) |  |
+| Review menu | Check the book... | [clipboard-check](https://lucide.dev/icons/clipboard-check) |  |
+| Review menu | Unresolved comments... | [messages-square](https://lucide.dev/icons/messages-square) |  |
+| View menu | Edit | [pencil-line](https://lucide.dev/icons/pencil-line) |  |
+| View menu | Print preview | [printer](https://lucide.dev/icons/printer) |  |
+| View menu | Help site preview | [globe](https://lucide.dev/icons/globe) |  |
+| View menu | Guide preview | [book-open](https://lucide.dev/icons/book-open) |  |
+| Tools menu | AI help... | [sparkles](https://lucide.dev/icons/sparkles) |  |
+| Tools menu | MCP access... | [plug](https://lucide.dev/icons/plug) |  |
+| Help menu | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
+| Help menu | Keyboard keys | [keyboard](https://lucide.dev/icons/keyboard) | Ctrl+/ |
+| Everywhere | Open a menu | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
+| Everywhere | Ticked in a menu | [check](https://lucide.dev/icons/check) |  |
+| Everywhere | Close | [x](https://lucide.dev/icons/x) |  |
+| Everywhere | Add | [plus](https://lucide.dev/icons/plus) |  |
+| Everywhere | More actions | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
+| Command search | Search box | [search](https://lucide.dev/icons/search) |  |
+| Properties | Section: Topic | [file-text](https://lucide.dev/icons/file-text) |  |
+| Properties | Section: Index terms | [book-a](https://lucide.dev/icons/book-a) |  |
+| Properties | Section: See also | [link](https://lucide.dev/icons/link) |  |
+| Properties | Section: Conditions | [funnel](https://lucide.dev/icons/funnel) |  |
+| Properties | Section: The block | [square-pen](https://lucide.dev/icons/square-pen) |  |
+| Each picture | More for this picture | [ellipsis](https://lucide.dev/icons/ellipsis) |  |
+| Each picture | Picture view... | [crop](https://lucide.dev/icons/crop) |  |
+| Each picture | Draft callout text | [wand-sparkles](https://lucide.dev/icons/wand-sparkles) |  |
+| Each picture | Replace the picture file... | [image-up](https://lucide.dev/icons/image-up) |  |
+| Each picture | Remove picture | [trash](https://lucide.dev/icons/trash) |  |

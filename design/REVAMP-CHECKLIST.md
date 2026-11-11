@@ -2,7 +2,7 @@
 
 One line per piece of work, ticked when it is built, checked, shown to Jason and agreed. Products are done one at a time, in this order. Nothing is committed or pushed without Jason's yes (the repositories are public). The rules are in `DESIGN-GUIDE.md`.
 
-In: OpenStage Author, OpenStage Recorder, OpenStage Capture Express, OpenCapture, OpenStage Assess. Out (they stay as they are): OpenStage Guide, PDFRemediator, OpenScroll.
+In: OpenStage Author, OpenStage Recorder, OpenStage Capture Express, OpenCapture (which is OpenExplainer: Jason, 2026-11-11, "the OpenStage-Explainer (capture)"), OpenStage Assess. Out (they stay as they are): OpenStage Guide, PDFRemediator, OpenScroll.
 
 ## Shared (this folder)
 
@@ -10,7 +10,7 @@ In: OpenStage Author, OpenStage Recorder, OpenStage Capture Express, OpenCapture
 - [x] Icon for every Author and Recorder command (`icons.json`, `ICONS.md`, `tools/make_ui_icons.py`)
 - [x] Jason's look at the icon list: Lucide icons agreed for buttons and menus (2026-11-10); ChatGPT only reviews them or draws larger pictures
 - [ ] Dark mode colours
-- [ ] Colours and icon lists for Capture Express, OpenCapture and Assess
+- [ ] Colours and icon lists for Capture Express and Assess (OpenExplainer's done, 2026-11-11: the gold of its icon; its icons are the "explainer" list in `icons.json`, written into its repository by `tools/make_ui_icons.py --explainer`)
 
 ## OpenStage Author
 
@@ -34,6 +34,17 @@ Started 2026-11-10, after Author's steps 1 to 5 (Author's step 6 waits). The wor
 
 Recorder checks at the end (2026-11-10, uncommitted in the clone): type check clean, 144 unit tests, 60 of 61 browser checks (the one left is the preview-sound check, which cannot pass with the browser muted). Pictures in `D:\Claude Audio Test\revamp-screens\recorder-r5`. Not run on Windows, no screen reader.
 
-## OpenStage Capture Express, OpenCapture, OpenStage Assess
+## OpenExplainer (OpenCapture)
 
-- [ ] Each in turn, once Author and Recorder are agreed
+Started and built 2026-11-11, in `C:\Users\Jason\OpenExplainer` (its own repository, uncommitted), at Jason's "Start in on the new look for Open Explainer ... keep using the same basic theme". The same steps as Author, in one go. Tried in a browser with a stand-in for the desktop shell (no window on Jason's screen): a 42-step check, OpenStage Author's accessibility audit (nothing found), its 569 tests (the 2 that fail are the old `python3` ones) and `npm run build`. Not tried in the program's own window or with a screen reader. Pictures in `D:\Claude Audio Test\revamp-screens\explainer-before` (as it was) and `explainer-e1`.
+
+- [ ] E1. The navy bar (icon, OpenExplainer in gold, the project and whether it is saved, Search, Save, Capture, Check the book, Export filled) and nine menus (File, Chapters, Insert, Write, Book, View, Review, Tools, Help) holding all 51 commands with icons and keys. The twenty buttons across the top are gone. **Built, waiting for Jason's look.**
+- [ ] E2. The panes: Add and "..." on the chapters, the page (Add: the six kinds of block) and the pictures; each picture keeps Edit description, Callouts and Drawing and a "..." for the rest; Find and replace in titles hidden until asked for. **Built, waiting for Jason's look.**
+- [ ] E3. Ctrl+K command search (the suite's, copied from Author) and Help > Keyboard keys (Ctrl+/), in place of the paragraphs about keys. **Built, waiting for Jason's look.**
+- [ ] E4. Properties as sections that open and close (Topic, Index terms, See also, Conditions, Selected block). **Built, waiting for Jason's look.**
+- [ ] E5. Dialogs in the suite's look: rounded panel over a navy veil, a Close button that does what Escape does, the row of buttons kept in sight with the main one in gold (added in one place, `open()` in `src/dialogs.ts`). **Built, waiting for Jason's look.**
+- Not done: a welcome page (OpenExplainer opens on an empty project and keeps no list of recent projects), dark mode (as in Author), new pictures for its user guide. The name in the bar is still OpenExplainer (Jason's call).
+
+## OpenStage Capture Express, OpenStage Assess
+
+- [ ] Each in turn
