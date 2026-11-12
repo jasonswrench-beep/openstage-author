@@ -7,6 +7,14 @@
                                              to try it touches none of the real program's settings, models or shortcuts
   python tools/build_installer.py --stage-only   only gather the files, into dist/installer-staging/payload (no installer)
   python tools/build_installer.py --version 0.1.1   a different version number, to try installing one version over another
+  python tools/build_installer.py --sign     the same, signed and timestamped with Azure Artifact Signing (tools/sign_windows.py says what it needs);
+                                             with --stage-only it signs the gathered files and stops
+  python tools/build_installer.py --check-signatures SETUP.exe   only check a setup file that was built already: it and every program inside it
+
+Signing (--sign): the programs in the payload that nobody has signed are signed first (the recorder, the speech recogniser, esbuild, a compiled
+Python library), apart from the few left unsigned on purpose (LEAVE_UNSIGNED). Files their makers signed (Python, Node) keep those signatures. Tauri's
+bundler then signs the editor program, its installer plugins, the uninstaller and the setup file through the same script, and the finished setup is
+unpacked with 7-Zip and every program inside it checked. Its SHA-256 is worked out after all of that, so it is the hash of the signed file.
 
 What goes into the installer is described in docs/decisions/0004-packaging-and-narration.md. In short: the editor program, the recorder, the speech
 recogniser (built earlier by BUILD SPEECH RECOGNISER.bat), the course tools, the player, a copy of Python with jsonschema, a copy of Node, and the
@@ -23,9 +31,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sign_windows  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 EDITOR = ROOT / "editor"
@@ -53,6 +65,29 @@ PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 # The file the MCP server is shipped as, beside the player. The editor looks for it by this name.
 MCP_SERVER = "openstage-mcp.mjs"
 TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenStage Author Trial"}
+
+# The program name written into each signature (Windows shows it, for example, in a prompt that asks to run a signed program).
+SIGN_DESCRIPTION = "OpenStage Author"
+# Program files in the payload that stay unsigned on purpose, by their exact place in it. Anything else that nobody has signed is signed by --sign.
+LEAVE_UNSIGNED = {
+    # pip's launcher templates. pip copies one each time it installs a package that has commands of its own, and installing the narration voice does
+    # (pip install --target with tools/narration-requirements.txt), so they must stay in the installer. What runs is pip's copy with a command added,
+    # which would not carry a valid signature anyway, so they are not signed.
+    "python/Lib/site-packages/pip/_vendor/distlib/t32.exe",
+    "python/Lib/site-packages/pip/_vendor/distlib/t64.exe",
+    "python/Lib/site-packages/pip/_vendor/distlib/t64-arm.exe",
+    "python/Lib/site-packages/pip/_vendor/distlib/w32.exe",
+    "python/Lib/site-packages/pip/_vendor/distlib/w64.exe",
+    "python/Lib/site-packages/pip/_vendor/distlib/w64-arm.exe",
+    # The wrappers pip made while this build installed jsonschema and pip. The program never runs them (it runs python -m pip). They may be left out
+    # of the installer later, but only once installing the narration voice from an installer without them has been tried (Jason, 2026-11-11).
+    "python/Lib/site-packages/bin/jsonschema.exe",
+    "python/Lib/site-packages/bin/pip.exe",
+    "python/Lib/site-packages/bin/pip3.exe",
+    "python/Lib/site-packages/bin/pip3.11.exe",
+}
+SEVEN_ZIP = Path(os.environ.get("OPENSTAGE_7ZIP", r"C:\Program Files\7-Zip\7z.exe"))
+LEAVE_LIST = DIST / "signing" / "leave-unsigned.txt"
 
 
 def say(message=""):
@@ -249,14 +284,119 @@ def resources():
     return {os.path.relpath(PAYLOAD, TAURI).replace("\\", "/") + "/": ""}
 
 
-def build(trial, version=None):
-    say("Building the installer (the first time, Tauri downloads its installer maker)...")
+def program_files(folder):
+    """Every Windows program file under a folder: programs and the libraries they load (a .pyd is a library for Python)."""
+    return sorted(p for p in Path(folder).rglob("*") if p.is_file() and p.suffix.lower() in sign_windows.PROGRAM_FILES)
+
+
+def left_unsigned_on_purpose(place):
+    """Whether a file's place (in the payload, or in the unpacked installer, where it may sit one folder deeper) is one of LEAVE_UNSIGNED."""
+    place = place.replace("\\", "/")
+    return any(place == kept or place.endswith("/" + kept) for kept in LEAVE_UNSIGNED)
+
+
+def sign_payload():
+    """Signs every program file in the payload that nobody has signed, apart from LEAVE_UNSIGNED. Files their makers signed are left as they are."""
+    say("Signing the programs in the payload...")
+    files = program_files(PAYLOAD)
+    places = {str(f.resolve()): f.relative_to(PAYLOAD).as_posix() for f in files}
+    gone = sorted(kept for kept in LEAVE_UNSIGNED if not (PAYLOAD / kept).is_file())
+    if gone:
+        fail("the list of files left unsigned on purpose (LEAVE_UNSIGNED) names files that are not in the payload any more: " + ", ".join(gone) +
+             ". Look at what took their place, and update the list.")
+    try:
+        found = sign_windows.signatures(files)
+    except sign_windows.SignError as e:
+        fail(str(e))
+    unsigned = [Path(info["path"]) for info in found if info["status"] != "Valid" and not left_unsigned_on_purpose(places[info["path"]])]
+    makers = [info for info in found if info["status"] == "Valid"]
+    say(f"  {len(files)} program files: {len(makers)} signed by their makers, {len(LEAVE_UNSIGNED)} left unsigned on purpose, {len(unsigned)} to sign")
+    try:
+        signtool, dlib, metadata = sign_windows.find_signtool(), sign_windows.find_dlib(), sign_windows.write_metadata()
+        publisher = os.environ.get("OPENSTAGE_SIGN_PUBLISHER") or None
+        for f in unsigned:
+            say(f"  {places[str(f)]}: " + sign_windows.sign_one(f, signtool, dlib, metadata, SIGN_DESCRIPTION, publisher))
+    except sign_windows.SignError as e:
+        fail(str(e))
+
+
+def installer_config(trial, version=None, sign=False):
+    """The Tauri configuration the installer is built with: the installer settings, the payload, and (when signing) the command that signs."""
     base = json.loads((TAURI / "tauri.installer.conf.json").read_text(encoding="utf-8"))
     base["bundle"]["resources"] = resources()
     if trial:
         base.update(TRIAL)
     if version:
         base["version"] = version
+    if sign:
+        # The object form, so a space in a path or in the description cannot split an argument. Tauri puts the file's path in place of %1.
+        # Tauri offers every unsigned program among the bundled files, pip's launchers too: the list makes the script decline LEAVE_UNSIGNED.
+        base["bundle"]["windows"]["signCommand"] = {"cmd": sys.executable, "args": [
+            str(ROOT / "tools" / "sign_windows.py"), "--description", SIGN_DESCRIPTION, "--leave-list", str(LEAVE_LIST), "%1"]}
+    return base
+
+
+def write_leave_list():
+    """The list sign_windows.py reads (--leave-list): one place per line."""
+    LEAVE_LIST.parent.mkdir(parents=True, exist_ok=True)
+    LEAVE_LIST.write_text("# Left unsigned on purpose (LEAVE_UNSIGNED in tools/build_installer.py)\n" + "\n".join(sorted(LEAVE_UNSIGNED)) + "\n", encoding="utf-8")
+
+
+def check_installer(setup):
+    """Checks a setup file and every program inside it (unpacked with 7-Zip into a temporary folder). Returns the problems, in words; none means it passed.
+
+    "Ours" means signed by OPENSTAGE_SIGN_PUBLISHER, or, when that is not set, by whoever signed the setup file itself. Ours must be signed and
+    timestamped; a file its maker signed (Python, Node, Microsoft) must have a valid signature and is otherwise not ours to change; LEAVE_UNSIGNED may
+    stay unsigned. The uninstaller is only written out when the program is installed, so it may not be among the unpacked files: it is then checked
+    after a trial install."""
+    setup = Path(setup).resolve()
+    if not SEVEN_ZIP.is_file():
+        return [f"7-Zip is not at {SEVEN_ZIP}, so the programs inside the setup cannot be checked (set OPENSTAGE_7ZIP)."]
+    problems = []
+    with tempfile.TemporaryDirectory(prefix="openstage-signcheck-") as unpacked:
+        unpacked = Path(unpacked).resolve()
+        done = subprocess.run([str(SEVEN_ZIP), "x", "-y", f"-o{unpacked}", str(setup)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if done.returncode != 0:
+            return ["7-Zip could not unpack the setup:\n" + done.stdout + done.stderr]
+        inside = program_files(unpacked)
+        try:
+            found = sign_windows.signatures([setup, *inside])
+        except sign_windows.SignError as e:
+            return [str(e)]
+        publisher = os.environ.get("OPENSTAGE_SIGN_PUBLISHER") or found[0]["signer"]
+        why = sign_windows.problem(found[0], publisher)
+        if why:
+            problems.append(f"the setup file: {why}")
+        ours, makers, kept = 0, {}, []
+        for info in found[1:]:
+            place = Path(info["path"]).relative_to(unpacked).as_posix()
+            if left_unsigned_on_purpose(place):
+                kept.append(place)
+                if info["status"] == "Valid":
+                    problems.append(f"{place}: meant to stay unsigned (LEAVE_UNSIGNED), but it was signed")
+                continue
+            if info["status"] == "Valid" and info["signer"] != publisher:
+                makers[info["signer"]] = makers.get(info["signer"], 0) + 1
+                continue
+            why = sign_windows.problem(info, publisher)
+            if why:
+                problems.append(f"{place}: {why}")
+            else:
+                ours += 1
+        uninstaller = any(p.name.lower().startswith("uninstall") for p in inside)
+        say(f"Checked the setup file and the {len(inside)} program files inside it. Signer of the setup: {found[0]['signer'] or 'nobody'}.")
+        say(f"  {ours} inside signed and timestamped by {publisher or 'nobody'}; " + "".join(f"{n} by {name}; " for name, n in sorted(makers.items())) +
+            f"{len(kept)} left unsigned on purpose")
+        if not uninstaller:
+            say("  The uninstaller is not among the unpacked files (it is written out when the program is installed): check it after a trial install.")
+    return problems
+
+
+def build(trial, version=None, sign=False):
+    say("Building the installer (the first time, Tauri downloads its installer maker)...")
+    base = installer_config(trial, version, sign)
+    if sign:
+        write_leave_list()
     config = STAGING / "tauri.build.conf.json"
     config.write_text(json.dumps(base, indent=2), encoding="utf-8")
     say("  web side")
@@ -273,6 +413,10 @@ def build(trial, version=None):
     done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_imports.py"), str(TAURI / "target" / "release" / "openstage-editor.exe")], capture_output=True, text=True, encoding="utf-8")
     if done.returncode != 0:
         fail("the editor program asks for Microsoft's Visual C++ runtime:" + chr(10) + done.stdout + done.stderr)
+    if sign:
+        problems = check_installer(found[-1])
+        if problems:
+            fail("the setup was built, but these are not signed as they should be:\n  " + "\n  ".join(problems))
     OUT.mkdir(parents=True, exist_ok=True)
     result = OUT / (found[-1].name if not trial else found[-1].name.replace("-setup", "-trial-setup"))
     shutil.copy2(found[-1], result)
@@ -283,13 +427,30 @@ def build(trial, version=None):
 
 
 def main():
+    if "--check-signatures" in sys.argv:
+        at = sys.argv.index("--check-signatures")
+        if at + 1 >= len(sys.argv) or not Path(sys.argv[at + 1]).is_file():
+            fail("--check-signatures needs the setup file after it.")
+        problems = check_installer(sys.argv[at + 1])
+        for p in problems:
+            say("  " + p)
+        say("Every file that should be signed is signed and timestamped." if not problems else f"{len(problems)} problems.")
+        return 1 if problems else 0
     trial = "--trial" in sys.argv
     version = sys.argv[sys.argv.index("--version") + 1] if "--version" in sys.argv else None
+    sign = "--sign" in sys.argv
+    if sign:
+        # Before the long build: everything signing needs must be here (it asks Azure nothing yet).
+        ok, lines = sign_windows.ready()
+        if not ok:
+            fail("signing cannot start:\n" + "\n".join(lines))
     stage()
+    if sign:
+        sign_payload()
     if "--stage-only" in sys.argv:
         say(f"\nThe files are in {PAYLOAD}")
         return 0
-    build(trial, version)
+    build(trial, version, sign)
     return 0
 
 

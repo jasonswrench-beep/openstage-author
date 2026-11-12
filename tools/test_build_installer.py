@@ -4,10 +4,12 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import build_installer as b  # noqa: E402
+import sign_windows  # noqa: E402
 
 
 class Pieces(unittest.TestCase):
@@ -81,6 +83,64 @@ class Pieces(unittest.TestCase):
         packages = " ".join(b.PIP_PACKAGES).lower()
         for word in ("espeak", "phonemizer", "piper", "kokoro", "torch", "misaki"):
             self.assertNotIn(word, packages, word)
+
+
+class Signing(unittest.TestCase):
+    def test_only_pips_launchers_and_wrappers_are_left_unsigned_on_purpose(self):
+        site = "python/Lib/site-packages/"
+        templates = {site + "pip/_vendor/distlib/" + n for n in ("t32.exe", "t64.exe", "t64-arm.exe", "w32.exe", "w64.exe", "w64-arm.exe")}
+        wrappers = {site + "bin/" + n for n in ("jsonschema.exe", "pip.exe", "pip3.exe", "pip3.11.exe")}
+        self.assertEqual(b.LEAVE_UNSIGNED, templates | wrappers)
+
+    def test_the_templates_stay_because_the_narration_install_uses_pip(self):
+        # pip copies a launcher template for each package with commands of its own that it installs. If the narration install ever stops using pip, the
+        # reason for keeping the templates (LEAVE_UNSIGNED) should be looked at again.
+        engine = (b.TAURI / "src" / "engine.rs").read_text(encoding="utf-8")
+        self.assertIn('"-m", "pip", "install"', engine)
+        self.assertIn('"--target"', engine)
+
+    def test_a_file_left_unsigned_is_found_by_its_exact_place_also_one_folder_deeper(self):
+        kept = "python/Lib/site-packages/pip/_vendor/distlib/t64.exe"
+        self.assertTrue(b.left_unsigned_on_purpose(kept))
+        self.assertTrue(b.left_unsigned_on_purpose("$INSTDIR/" + kept))
+        self.assertTrue(b.left_unsigned_on_purpose(kept.replace("/", "\\")))
+        self.assertFalse(b.left_unsigned_on_purpose("t64.exe"))
+        self.assertFalse(b.left_unsigned_on_purpose("speech/t64.exe"))
+        self.assertFalse(b.left_unsigned_on_purpose("python/Lib/site-packages/rpds/rpds.cp311-win_amd64.pyd"))
+        self.assertFalse(b.left_unsigned_on_purpose("x" + kept))
+
+    def test_program_files_are_programs_and_libraries_including_pyd(self):
+        # A .pyd is a library for Python; Tauri's own signing of resource DLLs may not count it, so the payload step must.
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("a.exe", "B.DLL", "c.pyd", "d.txt", "e.json", "sub/f.Exe"):
+                p = pathlib.Path(d) / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"")
+            self.assertEqual(sorted(p.name for p in b.program_files(d)), ["B.DLL", "a.exe", "c.pyd", "f.Exe"])
+
+    def test_signing_adds_the_sign_command_and_an_unsigned_build_has_none(self):
+        plain = b.installer_config(trial=False)
+        self.assertNotIn("signCommand", plain["bundle"]["windows"])
+        signed = b.installer_config(trial=True, sign=True)
+        command = signed["bundle"]["windows"]["signCommand"]
+        self.assertEqual(command["cmd"], sys.executable)
+        self.assertTrue(pathlib.Path(command["args"][0]).is_file())
+        self.assertEqual(pathlib.Path(command["args"][0]).name, "sign_windows.py")
+        self.assertEqual(command["args"][-1], "%1")
+        self.assertEqual(command["args"][1:3], ["--description", b.SIGN_DESCRIPTION])
+        # Tauri offers pip's launchers too (it signs every unsigned program among the bundled files), so the script is told what to decline.
+        self.assertEqual(command["args"][3:5], ["--leave-list", str(b.LEAVE_LIST)])
+        self.assertEqual(signed["identifier"], b.TRIAL["identifier"])
+        self.assertEqual(signed["bundle"]["resources"], b.resources())
+
+    def test_the_list_the_sign_command_reads_names_every_file_left_unsigned(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(b, "LEAVE_LIST", pathlib.Path(d) / "signing" / "leave-unsigned.txt"):
+            b.write_leave_list()
+            entries = sign_windows.read_leave_list(b.LEAVE_LIST)
+        self.assertEqual(set(entries), b.LEAVE_UNSIGNED)
+        staged = b.PAYLOAD / "python" / "Lib" / "site-packages" / "pip" / "_vendor" / "distlib" / "t64.exe"
+        self.assertTrue(sign_windows.left_on_purpose(staged, entries))
+        self.assertFalse(sign_windows.left_on_purpose(b.PAYLOAD / "openstage-capture.exe", entries))
 
 
 if __name__ == "__main__":
