@@ -3,6 +3,7 @@
 
 import { aboutLines, aboutText, parseAbout, type AboutInfo } from "./about.ts";
 import { errorText, type Backend } from "./backend.ts";
+import { pageButtonText } from "./updates.ts";
 
 type Attrs = Record<string, string | boolean | number>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -20,6 +21,8 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
 export interface AboutDialogOptions {
   backend: Backend;
   announce: (message: string) => void;
+  /** Check for updates as soon as the window opens (Help > Check for updates). */
+  checkNow?: boolean;
 }
 
 export function openAbout(opts: AboutDialogOptions): Promise<void> {
@@ -35,6 +38,31 @@ export function openAbout(opts: AboutDialogOptions): Promise<void> {
     const guides = h("button", { type: "button", id: "ab-guides", text: "Show the guides" });
     const data = h("button", { type: "button", id: "ab-data", text: "Show the data folder" });
     const close = h("button", { type: "button", id: "ab-close", text: "Close" });
+    // Check for updates: only when pressed, and it only says what is published (updates.ts). The answer is read out as it arrives.
+    const check = h("button", { type: "button", id: "ab-check", text: "Check for updates" });
+    const answer = h("p", { id: "ab-update", class: "note", "aria-live": "polite" });
+    const openPage = h("button", { type: "button", id: "ab-update-page", text: "Open the releases page", hidden: true });
+    let pageUrl = "";
+    const runCheck = async () => {
+      check.disabled = true;
+      openPage.hidden = true;
+      answer.textContent = "Checking for a newer version...";
+      try {
+        const a = await b.checkForUpdates();
+        answer.textContent = a.message;
+        pageUrl = a.url ?? "";
+        openPage.textContent = pageButtonText(a);
+        openPage.hidden = pageUrl === "";
+      } catch (err) {
+        answer.textContent = `Could not check for updates. ${errorText(err)}`;
+      } finally {
+        check.disabled = false;
+      }
+    };
+    check.addEventListener("click", () => void runCheck());
+    openPage.addEventListener("click", () => {
+      if (pageUrl !== "") void b.openUrl(pageUrl);
+    });
 
     const render = () => {
       facts.replaceChildren(...aboutLines(info).flatMap((l) => [h("dt", { text: l.label }), h("dd", { text: l.value })]));
@@ -88,12 +116,18 @@ export function openAbout(opts: AboutDialogOptions): Promise<void> {
       h("div", { class: "field" }, h("label", { for: "ab-text", text: "The same, as text" }), copyable),
       status,
       failure,
+      h("div", { class: "field" }, h("div", { class: "btn-row" }, check, openPage), answer),
       h("div", { class: "dialog-actions" }, copy, guides, data, close),
     );
     document.body.appendChild(dialog);
     render();
     dialog.showModal();
-    copy.focus();
+    if (opts.checkNow) {
+      check.focus();
+      void runCheck();
+    } else {
+      copy.focus();
+    }
     void b
       .aboutInfo()
       .then((found) => {

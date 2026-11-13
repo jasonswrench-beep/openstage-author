@@ -154,6 +154,12 @@ def resolve_command(plugin, env=None):
     return out
 
 
+def plugin_environment(env):
+    """What a plugin is given of the environment: everything but the keys of the services (OPENSTAGE_KEY_...). A plugin is someone else's
+    program, and a key the author gave for one service is not for it."""
+    return {name: value for name, value in env.items() if not name.upper().startswith("OPENSTAGE_KEY_")}
+
+
 class Session:
     """A running plugin. One request at a time; the answer to each is one line of JSON."""
 
@@ -163,7 +169,7 @@ class Session:
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         try:
             self.process = subprocess.Popen(command, cwd=str(plugin.folder), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.PIPE, creationflags=flags, env=dict(os.environ if env is None else env))
+                                            stderr=subprocess.PIPE, creationflags=flags, env=plugin_environment(os.environ if env is None else env))
         except OSError as err:
             raise EngineError(f"The plugin '{plugin.name}' could not be started: {err}") from None
         self.lines = queue.Queue()

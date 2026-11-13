@@ -41,6 +41,22 @@ SAMPLE_RATE = 24000
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
+def kokoro_voices():
+    """The names of Kokoro's voices (tools/kokoro-voices.json)."""
+    return set(json.loads(pathlib.Path(__file__).with_name("kokoro-voices.json").read_text(encoding="utf-8"))["voices"])
+
+
+def checked_kokoro_voice(voice):
+    """The voice, if it is exactly one of Kokoro's names; otherwise an error, before Kokoro is even loaded.
+
+    Kokoro reads a voice it does not know as a place to load a voice file from (a path, a network share, or several joined with
+    commas), and loading such a file can run code. A course can come from anyone, so only a listed name ever reaches it. No blends."""
+    if not isinstance(voice, str) or voice not in kokoro_voices():
+        shown = voice if isinstance(voice, str) and len(voice) <= 60 else "(not a voice name)"
+        raise engine_common.EngineError(f"\"{shown}\" is not one of Kokoro's voices. Choose a voice from the list, then make the audio again.")
+    return voice
+
+
 # ---------------------------------------------------------------- captions
 
 def split_sentences(script):
@@ -162,17 +178,18 @@ _pipelines = {}
 
 def synthesise(narration):
     """Run Kokoro. Returns (samples as float32 numpy array, token tuples)."""
+    voice = checked_kokoro_voice(narration.get("voice"))  # before anything of Kokoro is imported or read
     import numpy as np
     from kokoro import KPipeline
 
-    lang_code = narration["voice"][0]  # Kokoro voice ids begin with their language letter
+    lang_code = voice[0]  # Kokoro voice ids begin with their language letter
     if lang_code not in _pipelines:
         _pipelines[lang_code] = KPipeline(lang_code=lang_code, repo_id="hexgrad/Kokoro-82M")
     pipeline = _pipelines[lang_code]
 
     text = apply_pronunciations(narration["script"], narration["pronunciations"])
     audio, tokens, offset = [], [], 0.0
-    for result in pipeline(text, voice=narration["voice"], speed=float(narration["speed"]), split_pattern=None):
+    for result in pipeline(text, voice=voice, speed=float(narration["speed"]), split_pattern=None):
         samples = result.audio.detach().cpu().numpy() if hasattr(result.audio, "detach") else np.asarray(result.audio)
         for t in result.tokens or []:
             start = None if t.start_ts is None else offset + t.start_ts

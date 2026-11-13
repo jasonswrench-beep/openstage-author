@@ -21,7 +21,7 @@
     "resources": {},
     "windows": {
       "webviewInstallMode": {
-        "type": "downloadBootstrapper"
+        "type": "embedBootstrapper"
       },
       "nsis": {
         "installerIcon": "icons/icon.ico",
@@ -30,6 +30,7 @@
           "English"
         ],
         "displayLanguageSelector": false,
+        "installerHooks": "installer/hooks.nsh",
         "customLanguageFiles": {
           "English": "installer/English.nsh"
         }

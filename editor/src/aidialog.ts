@@ -13,6 +13,7 @@ import {
   type AiSettings, type PluginList, type ServiceInfo, type Work,
 } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
+import { SAVED_KEY_HIDDEN, isSavedKey } from "./savedkeys.ts";
 import { parseSettings, serializeSettings, type Settings } from "./stock.ts";
 
 type Attrs = Record<string, string | boolean>;
@@ -114,7 +115,10 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
       const prefix = `ai-${svc.id}`;
       const key = h("input", { id: `${prefix}-key`, type: "password", autocomplete: "off", spellcheck: "false" });
       const show = h("button", { type: "button", class: "small", text: "Show", "aria-label": `Show the ${svc.name} key`, "aria-pressed": "false" });
-      show.addEventListener("click", () => { const shown = key.type === "text"; key.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide"; show.setAttribute("aria-pressed", String(!shown)); });
+      show.addEventListener("click", () => {
+        if (key.type === "password" && isSavedKey(key.value)) return say(SAVED_KEY_HIDDEN);
+        const shown = key.type === "text"; key.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide"; show.setAttribute("aria-pressed", String(!shown));
+      });
       const get = h("button", { type: "button", class: "small", text: `Get your ${svc.name} key` });
       get.addEventListener("click", () => void b.openUrl(svc.keyUrl));
       const works = svc.works.map((w) => (w === "voice" ? "voices" : "pictures")).join(", ");

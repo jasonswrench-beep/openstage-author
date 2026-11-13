@@ -149,7 +149,9 @@ export function createProjectFolder(dir: string, files: readonly FileText[]): vo
   }
 }
 
-const PICTURES = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]);
+// Not SVG: an SVG file can carry a script that runs when a learner opens the picture's own address in the LMS. The editor cleans one when it is
+// added there (svgclean.rs); this server has nothing that can, so it does not take one.
+const PICTURES = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 const MAX_PICTURE = 25 * 1024 * 1024;
 
 /**
@@ -158,7 +160,8 @@ const MAX_PICTURE = 25 * 1024 * 1024;
  */
 export function importPicture(projectDir: string, source: string): { src: string; width: number; height: number } {
   const ext = path.extname(source).toLowerCase();
-  if (!PICTURES.has(ext)) throw new ToolError(`${path.basename(source)} is not a kind of picture that can be used. Use PNG, JPEG, GIF, WebP or SVG.`);
+  if (ext === ".svg") throw new ToolError(`${path.basename(source)} is an SVG picture, which can carry a script, so it is not added from here. Use a PNG or WebP copy of it, or add it in the editor, which cleans it.`);
+  if (!PICTURES.has(ext)) throw new ToolError(`${path.basename(source)} is not a kind of picture that can be used. Use PNG, JPEG, GIF or WebP.`);
   if (!existsSync(source) || !statSync(source).isFile()) throw new ToolError(`There is no file ${path.basename(source)}.`);
   if (statSync(source).size > MAX_PICTURE) throw new ToolError(`${path.basename(source)} is over 25 MB, which is too big for a slide.`);
   const bytes = readFileSync(source);

@@ -26,7 +26,7 @@ if not errorlevel 1 (
   if not exist "%~dp0player\node_modules" (
     echo Installing the build tools that Preview and Publish use. This takes a minute.
     pushd "%~dp0player"
-    call npm install
+    call npm ci
     popd
     echo.
   )
@@ -64,7 +64,7 @@ if errorlevel 1 (
 
 echo First run: building the editor. This takes a few minutes.
 pushd editor
-if not exist node_modules call npm install
+if not exist node_modules call npm ci
 if errorlevel 1 goto :failed
 call npm run build
 if errorlevel 1 goto :failed

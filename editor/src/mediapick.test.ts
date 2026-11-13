@@ -18,7 +18,7 @@ function backend(picked: string | null, imported = "assets/images/logo.png"): Pi
 }
 
 test("names are made from file names", () => {
-  assert.equal(friendlyName("C:\\Users\\Jason\\Pictures\\course-logo_v2.PNG"), "Course logo v2");
+  assert.equal(friendlyName("C:\\Users\\Example\\Pictures\\course-logo_v2.PNG"), "Course logo v2");
   assert.equal(friendlyName("/tmp/x.mp4"), "X");
   assert.equal(extensionOf("D:\\a b\\Clip.MP4"), "mp4");
   assert.equal(extensionOf("noextension"), "");

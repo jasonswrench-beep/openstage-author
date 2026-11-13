@@ -82,7 +82,7 @@
       }
     },
     "sourceExclude": {
-      "description": "Optional. Files and folders left out of the source/ copy of the project that a published package carries. A name with no slash matches that name at any depth; a path with a slash is relative to the project folder.",
+      "description": "Optional. Files and folders left out of the editable source/ copy of the project, which a published package carries only when the author asks for it (and which holds only the project's own files). A name with no slash matches that name at any depth; a path with a slash is relative to the project folder.",
       "type": "array",
       "maxItems": 100,
       "items": {

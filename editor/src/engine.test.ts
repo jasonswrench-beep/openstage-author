@@ -14,16 +14,22 @@ test("the shell's status is read, and nonsense is no engine that cannot be insta
   assert.equal(parseEngineStatus(JSON.stringify({ state: "none", size: -5 })).size, 0);
   assert.equal(parseEngineStatus(JSON.stringify({ state: "none", runtimeMissing: true })).runtimeMissing, true);
   assert.equal(parseEngineStatus(JSON.stringify({ state: "none", runtimeMissing: "yes" })).runtimeMissing, false, "only a real yes counts");
+  assert.equal(parseEngineStatus(JSON.stringify({ state: "none", outdated: true })).outdated, true);
+  assert.equal(parseEngineStatus(JSON.stringify({ state: "none", outdated: 1 })).outdated, false);
 });
 
 test("each state says what it is and which button makes sense", () => {
   const none = engineLine({ state: "none", canInstall: true, problem: "", runtimeMissing: false, folder: "", size: 0 });
-  assert.match(none.text, /not installed on this computer, so audio cannot be made with it\. You can install it here: about 670 MB/);
+  assert.match(none.text, new RegExp(`not installed on this computer, so audio cannot be made with it\\. You can install it here: about ${DOWNLOAD_MEGABYTES} MB`));
   assert.match(none.text, /Voices from a service or a plugin do not need it\./);
   assert.deepEqual([none.canInstall, none.canRemove], [true, false]);
   const half = engineLine({ state: "none", canInstall: true, problem: "", runtimeMissing: false, folder: "", size: 800_000_000 });
   assert.match(half.text, new RegExp(`A half-finished install is using ${formatBytes(800_000_000).replace(".", "\\.")}: installing again replaces it, or you can remove it\\.$`));
   assert.deepEqual([half.canInstall, half.canRemove], [true, true], "a half-finished install can be removed to free the room");
+  const older = engineLine({ state: "none", canInstall: true, problem: "", runtimeMissing: false, outdated: true, folder: "", size: 2_000_000_000 });
+  assert.match(older.text, /installed by an earlier version of OpenStage Author and has to be installed again/);
+  assert.match(older.text, /Audio already made for your courses is kept\.$/);
+  assert.deepEqual([older.canInstall, older.canRemove], [true, true]);
   const installed = engineLine({ state: "installed", canInstall: false, problem: "", runtimeMissing: false, folder: "", size: 1_234_000_000 });
   assert.equal(installed.text, `The narration voice (Kokoro) is installed on this computer, and takes ${formatBytes(1_234_000_000)}.`);
   assert.deepEqual([installed.canInstall, installed.canRemove], [false, true]);

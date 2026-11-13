@@ -29,12 +29,12 @@ if errorlevel 1 (
 )
 if not exist "%~dp0editor\node_modules" (
   pushd editor
-  call npm install
+  call npm ci
   popd
 )
 if not exist "%~dp0player\node_modules" (
   pushd player
-  call npm install
+  call npm ci
   popd
 )
 

@@ -376,7 +376,7 @@ export function courseTools(s: Session, e: Environment): Tool[] {
 
     tool(
       "add_picture",
-      "Put a picture on a slide. The picture file must be inside the folder you may use (PNG, JPEG, GIF, WebP or SVG, up to 25 MB); it is copied into the project. A picture needs alt text that says what it shows, or decorative: true if it only decorates.",
+      "Put a picture on a slide. The picture file must be inside the folder you may use (PNG, JPEG, GIF or WebP, up to 25 MB; not SVG); it is copied into the project. A picture needs alt text that says what it shows, or decorative: true if it only decorates.",
       {
         slide: slideRef("The slide's number, id or name."),
         layer: text("The layer to put it on, by name or id. The slide's base layer if left out.", { maxLength: 120 }),

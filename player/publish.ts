@@ -13,8 +13,7 @@
 //   --preview  A quick look, not a release: no problem check, no narration is generated (audio that
 //              already exists is used), and no package zip or stand-in LMS page is written.
 //   --targets  Which packages to make, as a comma-separated list. All three if left out, and the Word review
-//              document too. Each zip carries the project source as well, so a project with a lot of video may
-//              want only the one it needs. "review" is the Word document, which is not a package: it is made
+//              document too. "review" is the Word document, which is not a package: it is made
 //              only when it is named or when --targets is left out. "mp4" is a video of the course, with its captions beside it
 //              (OUT_DIR.mp4 and OUT_DIR.vtt). It takes minutes and needs Windows and Edge or Chrome, so it is made only when it is named.
 //   --video-size=WxH       The video's size in pixels (both even), if not the stage's own. A wide stage is made at most 1920 wide.
@@ -23,6 +22,9 @@
 //   --review-headings=slide|number|outline|name  How the Word review document heads each slide (the author's publishing style;
 //                          tools/review_doc.py). "slide" if left out.
 //   --review-font=NAME     The Word review document's font, one of review_doc.py's FONTS. Calibri if left out.
+//   --include-source       Each zip also carries an editable copy of the course (source/), so someone with the package can open
+//                          and change it. Off if left out. The copy holds only the project's own files and the assets they name
+//                          (src/sourcecopy.ts): never a hidden folder such as .git, a backup, the cache, a recording or OS files.
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -36,6 +38,8 @@ import { courseActivityId } from "./src/xapi.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
 import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
+import { editableCopyFiles, mayBePublished } from "./src/sourcecopy.ts";
+import { publishedPackage } from "./src/published.ts";
 import { setPlayerText, t } from "./src/playertext.ts";
 import { makeVideo, type VideoResult } from "./src/video.ts";
 
@@ -52,8 +56,9 @@ const MP4 = "mp4";
 const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
+const includeSource = flags.includes("--include-source");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME] [--include-source]";
 if (!projectArg || !outArg) {
   console.error(usage);
   process.exit(2);
@@ -217,15 +222,20 @@ for (const slide of slides) {
     }
   }
 }
-const pkg: CoursePackage = { project, theme, slides, narration, credits, fileSizes };
+// What goes into the page is what the player reads: not who wrote the course, the decks it came from or how a picture was made (src/published.ts).
+const pkg: CoursePackage = publishedPackage({ project, theme, slides, narration, credits, fileSizes });
 
 // 4. Write the output folder.
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 if (existsSync(path.join(projectDir, "assets"))) {
+  // Hidden files and folders, recordings and the files operating systems leave in folders stay out, as do the empty .gitkeep placeholders.
   cpSync(path.join(projectDir, "assets"), path.join(outDir, "assets"), {
     recursive: true,
-    filter: (src) => path.basename(src) !== ".gitkeep",
+    filter: (src) => {
+      const rel = path.relative(projectDir, src).split(path.sep).join("/");
+      return rel === "assets" || mayBePublished(rel);
+    },
   });
 }
 for (const info of Object.values(narrationInfo)) {
@@ -285,8 +295,8 @@ let video: VideoResult | null = null;
 let videoError: string | null = null;
 
 if (!preview) {
-  // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and the
-  // editable project source alongside (not listed in the description, so the LMS ignores it).
+  // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and, only when the
+  // author asks for it, the editable copy of the course alongside (not listed in the description, so the LMS ignores it).
   function walk(dir: string, base = dir): string[] {
     return readdirSync(dir).flatMap((name) => {
       const full = path.join(dir, name);
@@ -305,11 +315,13 @@ if (!preview) {
   // The files every package holds are read once.
   const shared: Record<string, Uint8Array> = {};
   for (const f of courseFiles) shared[f] = readFileSync(path.join(outDir, f));
-  // The cache is never carried, and neither are the empty .gitkeep placeholders (the course folder leaves them out too, and an LMS may
-  // not like empty hidden files). Whatever the project lists in sourceExclude stays out too (raw recordings, for instance).
-  const exclude = project.sourceExclude ?? [];
-  for (const f of walk(projectDir).filter((f) => !f.startsWith(".cache/") && path.basename(f) !== ".gitkeep" && !isExcluded(f, exclude))) {
-    shared[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
+  // The editable copy: only the project's own files and the assets they name (src/sourcecopy.ts), and only when it is asked for.
+  // Whatever the project lists in sourceExclude stays out of it too.
+  if (includeSource) {
+    const exclude = project.sourceExclude ?? [];
+    for (const f of editableCopyFiles(projectDir, project.theme?.ref).filter((f) => !isExcluded(f, exclude))) {
+      shared[`source/${path.basename(projectDir)}/${f}`] = readFileSync(path.join(projectDir, f));
+    }
   }
   for (const target of targets) {
     const zipPath = `${outDir}-${target}.zip`;

@@ -1,0 +1,104 @@
+# What the narration voice (Kokoro) is to have, as asked for. tools/lock_python_packages.py turns it into tools/narration-requirements.txt, the
+# locked list (every package at one version, with the SHA-256 of its file) that the editor installs with pip --require-hashes. It is locked with the
+# narration voice's own Python (3.12, the newest Kokoro and its English text tools run on), on 64-bit Windows. docs/narration-setup.md says how.
+#
+# Some of it (phonemizer-fork, espeakng-loader) is under the GNU General Public License: the editor says so before it installs, and none of it is part
+# of OpenStage Author's own installer.
+kokoro==0.9.4
+misaki[en]==0.9.4
+# torch 2.6.0 and later fix the flaw that let a crafted model file run code (CVE-2025-32434); later ones fix more (CVE-2026-24747).
+torch==2.15.0
+transformers==5.23.0
+# The English model that misaki asks spaCy for, from its publisher's release page. Its publisher lists no checksum: this one is of the file fetched on
+# 2026-11-13, whose every file matched pip's record of the copy installed on 2026-10-22.
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
+# Published as source only. Its built copy travels beside the list (docopt-0.6.2-py2.py3-none-any.whl), so nothing is built on the author's computer.
+docopt==0.6.2
+# Named so they stay in even if what needs them stops saying so: a newer typer once stopped bringing in click, which spaCy needs, and the voice broke.
+addict
+annotated-doc
+annotated-types
+anyio
+attrs
+babel
+blis
+catalogue
+certifi
+cffi
+charset-normalizer
+click
+cloudpathlib
+cloudpickle
+colorama
+confection
+csvw
+curated-tokenizers
+curated-transformers
+cymem
+dlinfo
+espeakng-loader
+filelock
+fsspec
+h11
+httpcore
+httpx
+huggingface_hub
+idna
+isodate
+Jinja2
+joblib
+jsonschema
+jsonschema-specifications
+language-tags
+loguru
+markdown-it-py
+MarkupSafe
+mdurl
+mpmath
+murmurhash
+networkx
+num2words
+numpy
+packaging
+phonemizer-fork
+preshed
+pycparser
+pydantic
+pydantic_core
+Pygments
+pyparsing
+python-dateutil
+PyYAML
+rdflib
+referencing
+regex
+requests
+rfc3986
+rich
+rpds-py
+safetensors
+segments
+setuptools
+shellingham
+six
+smart_open
+soundfile
+spacy
+spacy-curated-transformers
+spacy-legacy
+spacy-loggers
+srsly
+sympy
+termcolor
+thinc
+tokenizers
+tqdm
+typer
+typing-inspection
+typing_extensions
+uritemplate
+urllib3
+wasabi
+weasel
+win32_setctime
+wrapt

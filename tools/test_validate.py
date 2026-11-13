@@ -1899,6 +1899,34 @@ class CaptureProvenance(unittest.TestCase):
             self.assertEqual(on_slide_1(p.run()), [])
 
 
+class UnsafeSvg(unittest.TestCase):
+    """An SVG picture that can run something when opened on its own stops the publish; a plain drawing does not."""
+
+    def put(self, p, rel, text):
+        path = p.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def test_a_plain_drawing_is_fine(self):
+        with MutatedProject() as p:
+            self.put(p, "assets/images/plain.svg", '<svg xmlns="http://www.w3.org/2000/svg"><text x="1">Step one = two</text><a href="#x"><rect width="2" opacity="0.5"/></a></svg>')
+            self.assertEqual(rules(p.run(), "unsafe-svg"), [])
+
+    def test_a_script_a_handler_a_script_address_or_a_link_changing_animation_is_an_error(self):
+        for body in ("<script>alert(1)</script>", '<rect onclick="alert(1)"/>', '<rect ONLOAD = "x"/>', '<a href="javascript:alert(1)"><rect/></a>',
+                     "<foreignObject><div/></foreignObject>", '<set attributeName="href" to="x"/>', '<animate attributeName="xlink:href" values="x"/>'):
+            with MutatedProject() as p:
+                self.put(p, "assets/images/bad.SVG", f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>')
+                hit = rules(p.run(), "unsafe-svg", severity="error")
+                self.assertEqual(len(hit), 1, body)
+                self.assertEqual(hit[0].object_id, "assets/images/bad.SVG")
+
+    def test_a_hidden_folder_is_not_published_so_it_is_not_looked_in(self):
+        with MutatedProject() as p:
+            self.put(p, "assets/.trash/bad.svg", '<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>')
+            self.assertEqual(rules(p.run(), "unsafe-svg"), [])
+
+
 class CaptureMaterial(unittest.TestCase):
     """Raw recording material in the project would be handed to every learner, so it is flagged, and a project can leave things out."""
 
@@ -1934,11 +1962,11 @@ class CaptureMaterial(unittest.TestCase):
             self.assertEqual(rules(found, "capture-material-in-project"), [])
             self.assertEqual([f for f in found if f.severity == "error"], [])
 
-    def test_under_assets_it_is_published_with_the_course_so_excluding_it_is_not_enough(self):
+    def test_under_assets_it_is_published_with_the_course_so_it_is_an_error_even_when_excluded(self):
         with MutatedProject() as p:
             self.put(p, "assets/capture/events.jsonl")
             p.edit("project.json", lambda d: d.__setitem__("sourceExclude", ["capture"]))
-            hit = rules(p.run(), "capture-material-in-project", severity="warning")
+            hit = rules(p.run(), "capture-material-in-project", severity="error")
             self.assertEqual(len(hit), 1)
             self.assertIn("published with the course", hit[0].detail)
 

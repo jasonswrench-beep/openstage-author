@@ -50,7 +50,7 @@ echo.
 pushd player
 if not exist node_modules (
   echo First run: installing the player's build tools. This takes a minute.
-  call npm install
+  call npm ci
   echo.
 )
 

@@ -543,14 +543,19 @@ impl ScreenMedia {
     }
 
     /// Make and throw away a small video file, so the encoder is awake when the real one is made. Any
-    /// trouble is ignored: this only saves time, and the real file reports its own problems.
+    /// trouble is ignored: this only saves time, and the real file reports its own problems. The picture in it is blank, not the
+    /// screen, so nothing of the screen is left behind if the recorder is stopped before the file is removed; and it is made in the
+    /// editor's own working folder when the editor names one (OPENSTAGE_WORK_DIR), which the editor clears.
     fn warm_encoder(&self, prepared: &Prepared) {
         let started = Instant::now();
-        let path = std::env::temp_dir().join(format!("openstage-capture-warmup-{}.mp4", std::process::id()));
+        let folder = std::env::var_os("OPENSTAGE_WORK_DIR").map(std::path::PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(std::env::temp_dir);
+        let path = folder.join(format!("openstage-capture-warmup-{}.mp4", std::process::id()));
+        let first = &prepared.first;
+        let blank = Frame { width: first.width, height: first.height, t_ms: 0, captured_100ns: None, arrived_100ns: None, bgra: vec![0u8; first.bgra.len()] };
         let spec = SinkSpec {
             path: path.clone(),
-            width: prepared.first.width,
-            height: prepared.first.height,
+            width: blank.width,
+            height: blank.height,
             fps: self.fps,
             bitrate_kbps: self.bitrate_kbps,
             fragmented: true,
@@ -563,7 +568,7 @@ impl ScreenMedia {
         match self.video.create_sink(&spec) {
             Ok(mut sink) => {
                 let step = Pacer::new(self.fps);
-                let _ = sink.write(&prepared.first, 0, step.duration_100ns(0));
+                let _ = sink.write(&blank, 0, step.duration_100ns(0));
                 if spec.audio.is_some() {
                     let _ = sink.write_audio(&vec![0i16; (SAMPLE_RATE as usize / 50) * CHANNELS as usize], 0);
                 }

@@ -1519,8 +1519,9 @@ CAPTURE_FOLDERS = ("capture", "captures")
 
 
 def _capture_material(project, project_dir, add):
-    """Raw recording material (an interaction log, footage) must not sit in the project: the package carries the whole project folder
-    in source/, and assets/ is published with the course, so every learner could download it."""
+    """Raw recording material (an interaction log, footage) must not be published. assets/ goes out with the course, so material there is
+    an error: every learner could download it. Elsewhere in the project it is never published (the editable copy a package can carry
+    holds only the project's own files; player/src/sourcecopy.ts), but it is still better kept outside the project folder."""
     patterns = project.get("sourceExclude", [])
     for folder, dirs, files in os.walk(project_dir):
         rel_folder = pathlib.Path(folder).relative_to(project_dir).as_posix()
@@ -1532,14 +1533,43 @@ def _capture_material(project, project_dir, add):
             rel = f"{rel_folder}/{name}" if rel_folder else name
             published = rel.split("/")[0] == "assets"
             if published:
-                add(WARNING, "project.json", rel, "capture-material-in-project", "Raw recording material is in the published assets",
+                add(ERROR, "project.json", rel, "capture-material-in-project", "Raw recording material is in the published assets",
                     f"'{rel}' looks like raw recording material (an interaction log or footage). Everything under assets/ is published with the course, "
-                    "so every learner could download it. Keep recordings outside the project folder.")
+                    "so every learner could download it, and an interaction log can hold window titles and what was typed. Move it out of the "
+                    "project folder.")
             elif not source_excluded(rel, patterns):
                 add(WARNING, "project.json", rel, "capture-material-in-project", "Raw recording material is inside the project",
-                    f"'{rel}' looks like raw recording material (an interaction log or footage). Everything in the project folder goes into the "
-                    "source/ folder of a published package, so every learner could download it. Keep it outside the project folder, "
-                    "or list it in sourceExclude in project.json.")
+                    f"'{rel}' looks like raw recording material (an interaction log or footage). It is not published, but it is safer kept "
+                    "outside the project folder, or listed in sourceExclude in project.json.")
+
+
+# What in an SVG picture can run when the picture is opened on its own: a script, an event handler, a script address, a piece of a web page,
+# or an animation that changes a link. The editor rebuilds every SVG it takes in without them (editor/src-tauri/src/svgclean.rs). One that came
+# into the project another way (copied into the folder, or in a course from someone else) is caught here, because a learner can open any
+# published picture's own address in the LMS, and there it would run.
+UNSAFE_SVG = re.compile(
+    r"<\s*script\b|<\s*foreignObject\b|<\s*(?:iframe|embed|object)\b|<[^>]*?\son[a-z]+\s*=|(?:java|vb)script\s*:"
+    r"|<\s*(?:set|animate)\b[^>]*attributeName\s*=\s*[\"']?(?:xlink:)?href",
+    re.IGNORECASE,
+)
+
+
+def _unsafe_svg(asset_root, add):
+    folder = pathlib.Path(asset_root) / "assets"
+    if not folder.is_dir():
+        return
+    for path in sorted(folder.rglob("*")):
+        if path.suffix.lower() != ".svg" or not path.is_file() or any(part.startswith(".") for part in path.relative_to(folder).parts):
+            continue
+        rel = path.relative_to(asset_root).as_posix()
+        try:
+            text = path.read_bytes().decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        if UNSAFE_SVG.search(text):
+            add(ERROR, "project.json", rel, "unsafe-svg", "An SVG picture holds something that can run",
+                f"'{rel}' holds a script, an event handler or something like them, which would run if a learner opened the picture on its own. "
+                "Remove it from the project and add the picture again in the editor, which keeps only the drawing.")
 
 
 def validate_project(project_dir, asset_root=None):
@@ -1663,6 +1693,7 @@ def validate_project(project_dir, asset_root=None):
                     f"Capture '{capture}' step {step} is the source of {len(where)} slides.")
 
     _capture_material(project, project_dir, add)
+    _unsafe_svg(asset_root, add)
     _characters(project, asset_root, add)
     _icon_credit(project, slides, add)
     _voice_credit(project, slides, add)

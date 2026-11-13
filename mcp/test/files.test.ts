@@ -228,6 +228,9 @@ test("only pictures are taken, nothing too big, and a missing file is said", () 
     writeFileSync(path.join(folder, "notes.txt"), "x");
     writeFileSync(path.join(folder, "run.exe"), "x");
     assert.throws(() => importPicture(dir, path.join(folder, "notes.txt")), /not a kind of picture/);
+    writeFileSync(path.join(folder, "drawing.svg"), '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>');
+    assert.throws(() => importPicture(dir, path.join(folder, "drawing.svg")), /SVG picture, which can carry a script/);
+    assert.ok(!existsSync(path.join(dir, "assets", "images", "drawing.svg")), "nothing was copied");
     assert.throws(() => importPicture(dir, path.join(folder, "run.exe")), /not a kind of picture/);
     assert.throws(() => importPicture(dir, path.join(folder, "missing.png")), /There is no file missing\.png/);
     const big = path.join(folder, "big.png");

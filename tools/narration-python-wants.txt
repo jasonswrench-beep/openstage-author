@@ -1,0 +1,3 @@
+# What the narration voice's own Python (3.12) carries in the installer: only pip, which installs the voice later from tools/narration-requirements.txt.
+# tools/lock_python_packages.py turns it into tools/narration-python-requirements.txt.
+pip==26.2.1

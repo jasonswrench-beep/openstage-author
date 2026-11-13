@@ -1,0 +1,3 @@
+# What the tools' own Python (the one the installer carries for the checker, the migrations and the other course tools) is to have.
+# tools/lock_python_packages.py turns it into tools/python-requirements.txt, locked with that Python (3.14) on 64-bit Windows.
+jsonschema==4.26.0

@@ -11,6 +11,7 @@ when something new appears that nobody has looked at. OpenStage Capture has its 
   python tools/check_licences.py --texts      also write editor/THIRD-PARTY-LICENSES.txt: the licence texts of every crate and
                                               package, which an installer must carry (ignored by git: made when a package is built)
   --python <site-packages>                    also check (and list) the Python packages in that folder, as the installer's own Python has them
+                                              (several folders: separate them with ; as in PATH)
   --out <folder>                              write the list and the texts there instead of into editor/ (the installer build does, so what it carries includes the Python packages)
 
 The one licence on the list that is not simply permissive is MPL-2.0, which applies file by file. Five crates that come with Tauri's
@@ -21,6 +22,7 @@ Exit code: 0 if every check passes, 1 if any fails, 2 if a tool needed for the c
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -255,11 +257,12 @@ def option(name):
 def main():
     rust = rust_crates()
     js, missing = js_packages()
-    site = option("--python")
-    python = python_packages(site) if site else []
+    # One or more site-packages folders, separated as in PATH (the installer carries two Pythons: the tools' one and the narration voice's).
+    sites = [s for s in (option("--python") or "").split(os.pathsep) if s]
+    python = [p for site in sites for p in python_packages(site)]
     out = option("--out")
     problems = check(rust, js, python)
-    print(f"{len(rust)} Rust crates, {len(js)} JavaScript packages" + (f" and {len(python)} Python packages" if site else "") + " checked.")
+    print(f"{len(rust)} Rust crates, {len(js)} JavaScript packages" + (f" and {len(python)} Python packages" if sites else "") + " checked.")
     for m in missing:
         print("Not installed, so not checked:", m)
     if problems:

@@ -11,23 +11,30 @@
                                              with --stage-only it signs the gathered files and stops
   python tools/build_installer.py --check-signatures SETUP.exe   only check a setup file that was built already: it and every program inside it
 
+Paths: the editor and the recorder are built here with --remap-path-prefix (remap_rustflags), so the folders they were built in (the builder's user
+folder, Rust's own folders and the repository) are not written into them, and the build stops if a program in the installer still names the user folder.
+
 Signing (--sign): the programs in the payload that nobody has signed are signed first (the recorder, the speech recogniser, esbuild, a compiled
 Python library), apart from the few left unsigned on purpose (LEAVE_UNSIGNED). Files their makers signed (Python, Node) keep those signatures. Tauri's
 bundler then signs the editor program, its installer plugins, the uninstaller and the setup file through the same script, and the finished setup is
 unpacked with 7-Zip and every program inside it checked. Its SHA-256 is worked out after all of that, so it is the hash of the signed file.
 
 What goes into the installer is described in docs/decisions/0004-packaging-and-narration.md. In short: the editor program, the recorder, the speech
-recogniser (built earlier by BUILD SPEECH RECOGNISER.bat), the course tools, the player, a copy of Python with jsonschema, a copy of Node, and the
-licence texts. Nothing from the GPL family goes in: the narration engine is installed on the user's own computer, afterwards.
+recogniser (built earlier by BUILD SPEECH RECOGNISER.bat), the course tools, the player, two copies of Python (one for the course tools, with
+jsonschema; one for the narration voice, with pip only), a copy of Node, and the licence texts. Nothing from the GPL family goes in: the narration
+engine is installed on the user's own computer, afterwards.
 
-It downloads, once, into dist/installer-cache (checked against the sizes and checksums the publishers list, and kept for next time): the 64-bit
-embeddable Python from python.org, Node from nodejs.org, and (through pip) jsonschema and what it needs. The first run of Tauri's bundler also
-downloads the installer maker (NSIS) into its own cache. Needs Node, npm, Rust and Python on the computer that builds it, as building from source always has.
+It downloads, once, into dist/installer-cache (checked against the SHA-256 the publishers list, and kept for next time): the two 64-bit embeddable
+Pythons from python.org, Node from nodejs.org, and (through pip) the Python packages, each checked against its SHA-256 in the locked lists
+(tools/python-requirements.txt and tools/narration-python-requirements.txt, made by tools/lock_python_packages.py). The first run of Tauri's
+bundler also downloads the installer maker (NSIS) into its own cache. Needs Node, npm, Rust and Python on the computer that builds it, as building
+from source always has.
 """
 
 import hashlib
 import json
 import os
+import tomllib
 import shutil
 import subprocess
 import sys
@@ -48,19 +55,36 @@ STAGING = DIST / "installer-staging"
 PAYLOAD = STAGING / "payload"
 OUT = DIST / "installer"
 
-PYTHON_VERSION = "3.11.9"  # the version the checker, the migrations and Kokoro are known to work with (the last 3.11 that python.org built for Windows)
+# The exact release this build is, as its tag on GitHub has it without the v. Raise it for every release: the program shows it in About, and
+# Check for updates compares it with the newest published tag (editor/src-tauri/src/updates.rs, docs/UPDATE-CHECK.md).
+RELEASE = "0.1.0-alpha.5"
+
+# The course tools' Python (the checker, the migrations, the Word review document and the rest): a version python.org still looks after.
+PYTHON_VERSION = "3.14.10"
 PYTHON_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
-PYTHON_MD5 = "6d9aa08531d48fcc261ba667e2df17c4"  # as listed on https://www.python.org/downloads/release/python-3119/
-NODE_VERSION = "24.21.0"  # the version on the main computer
+PYTHON_SHA256 = "90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159"  # as python.org lists it (https://www.python.org/downloads/release/python-31410/)
+# The narration voice's own Python. Kokoro and its English text tools do not run on Python 3.13 or later yet, so the voice gets the last 3.12 that
+# python.org built for Windows. Only pip goes in it: the voice's packages are installed later, from tools/narration-requirements.txt, each checked.
+NARRATION_PYTHON_VERSION = "3.12.10"
+NARRATION_PYTHON_URL = f"https://www.python.org/ftp/python/{NARRATION_PYTHON_VERSION}/python-{NARRATION_PYTHON_VERSION}-embed-amd64.zip"
+NARRATION_PYTHON_MD5 = "fe8ef205f2e9c3ba44d0cf9954e1abd3"  # as python.org lists it: it lists no SHA-256 for this release
+# Worked out on 2026-11-13 from the download that matched python.org's MD5 and size, and whose python.exe and python312.dll carry the Python Software
+# Foundation's valid signature. Both are checked.
+NARRATION_PYTHON_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+NODE_VERSION = "24.22.3"
 NODE_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
 NODE_SUMS_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/SHASUMS256.txt"
-PIP_PACKAGES = ["jsonschema==4.26.0", "pip==26.2.1"]  # jsonschema is what tools/validate.py needs (pip adds attrs, referencing, rpds-py and jsonschema-specifications); pip is what installs the narration voice later
+# The Python packages, locked with their hashes: jsonschema and what it needs for the tools' Python, pip for the narration voice's (it installs the voice later).
+PYTHON_REQUIREMENTS = ROOT / "tools" / "python-requirements.txt"
+NARRATION_PYTHON_REQUIREMENTS = ROOT / "tools" / "narration-python-requirements.txt"
+# Put in each Python as sitecustomize.py: it keeps another installed Python's folders off the search path (see the file).
+SITECUSTOMIZE = ROOT / "tools" / "bundled_sitecustomize.py"
 
 # Only these example courses go in (the others are test material).
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj",
             # Every ready-made game, finished, so there is something to play at once (Jason, 2026-11-10).
             "quiz-board.osproj", "prize-ladder.osproj", "escape-room.osproj", "order-challenge.osproj"]
-TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "quiztext.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json"]
+TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "quiztext.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "kokoro_model.py", "kokoro-model.json", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 # The file the MCP server is shipped as, beside the player. The editor looks for it by this name.
 MCP_SERVER = "openstage-mcp.mjs"
@@ -70,23 +94,21 @@ TRIAL = {"identifier": "com.openstageauthor.editor.trial", "productName": "OpenS
 SIGN_DESCRIPTION = "OpenStage Author"
 # Program files in the payload that stay unsigned on purpose, by their exact place in it. Anything else that nobody has signed is signed by --sign.
 LEAVE_UNSIGNED = {
-    # pip's launcher templates. pip copies one each time it installs a package that has commands of its own, and installing the narration voice does
-    # (pip install --target with tools/narration-requirements.txt), so they must stay in the installer. What runs is pip's copy with a command added,
-    # which would not carry a valid signature anyway, so they are not signed.
-    "python/Lib/site-packages/pip/_vendor/distlib/t32.exe",
-    "python/Lib/site-packages/pip/_vendor/distlib/t64.exe",
-    "python/Lib/site-packages/pip/_vendor/distlib/t64-arm.exe",
-    "python/Lib/site-packages/pip/_vendor/distlib/w32.exe",
-    "python/Lib/site-packages/pip/_vendor/distlib/w64.exe",
-    "python/Lib/site-packages/pip/_vendor/distlib/w64-arm.exe",
-    # The wrappers pip made while this build installed jsonschema and pip. The program never runs them (it runs python -m pip). They may be left out
-    # of the installer later, but only once installing the narration voice from an installer without them has been tried (Jason, 2026-11-11).
-    "python/Lib/site-packages/bin/jsonschema.exe",
-    "python/Lib/site-packages/bin/pip.exe",
-    "python/Lib/site-packages/bin/pip3.exe",
-    "python/Lib/site-packages/bin/pip3.11.exe",
+    # pip's launcher templates, in the narration voice's Python. pip copies one each time it installs a package that has commands of its own, and
+    # installing the narration voice does (pip install --target with tools/narration-requirements.txt), so they must stay in the installer. What
+    # runs is pip's copy with a command added, which would not carry a valid signature anyway, so they are not signed.
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/t32.exe",
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/t64.exe",
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/t64-arm.exe",
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/w32.exe",
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/w64.exe",
+    "python-narration/Lib/site-packages/pip/_vendor/distlib/w64-arm.exe",
 }
 SEVEN_ZIP = Path(os.environ.get("OPENSTAGE_7ZIP", r"C:\Program Files\7-Zip\7z.exe"))
+# The recorder is built here, with the same path settings as the editor, into a folder of the installer build's own (the everyday build in
+# capture/target is left alone).
+CAPTURE = ROOT / "capture"
+CAPTURE_TARGET = DIST / "installer-build" / "capture-target"
 LEAVE_LIST = DIST / "signing" / "leave-unsigned.txt"
 
 
@@ -124,14 +146,53 @@ def fetch(url, dest):
     dest.with_suffix(dest.suffix + ".part").replace(dest)
 
 
-def cached_python():
-    zip_path = CACHE / f"python-{PYTHON_VERSION}-embed-amd64.zip"
+def cached_embed(version, url, wanted_sha256, wanted_md5=None):
+    """One embeddable Python from python.org, from the cache or fetched, checked against its SHA-256 (and MD5, where that is all python.org lists)."""
+    zip_path = CACHE / f"python-{version}-embed-amd64.zip"
     if not zip_path.is_file():
-        fetch(PYTHON_URL, zip_path)
-    if md5(zip_path) != PYTHON_MD5:
+        fetch(url, zip_path)
+    if sha256(zip_path) != wanted_sha256 or (wanted_md5 and md5(zip_path) != wanted_md5):
         zip_path.unlink()
-        fail(f"the Python download did not match the checksum python.org lists ({PYTHON_MD5}). It was deleted; run this again, and if it happens again, stop and look.")
+        fail(f"the Python {version} download did not match its checksum ({wanted_sha256}). It was deleted; run this again, and if it happens again, stop and look.")
     return zip_path
+
+
+def cached_python():
+    return cached_embed(PYTHON_VERSION, PYTHON_URL, PYTHON_SHA256)
+
+
+def cached_narration_python():
+    return cached_embed(NARRATION_PYTHON_VERSION, NARRATION_PYTHON_URL, NARRATION_PYTHON_SHA256, NARRATION_PYTHON_MD5)
+
+
+def stage_python(folder, archive, version, requirements):
+    """Unpack an embeddable Python into `folder`, ready to travel with the program: its packages from a locked list (each file checked against its
+    hash) and the sitecustomize that keeps another Python's folders out. Returns its site-packages folder. The list was worked out with that Python
+    itself (tools/lock_python_packages.py) and is complete, so exactly it is installed (--no-deps): pip run by the build's own Python would judge
+    the packages' conditions for that Python instead (it asked for typing-extensions, which Python 3.14 does not need)."""
+    with zipfile.ZipFile(archive) as z:
+        z.extractall(folder)
+    for p in folder.glob("python*._pth"):
+        p.unlink()  # without it Python looks beside the script and honours PYTHONPATH, as an ordinary Python does
+    site = folder / "Lib" / "site-packages"
+    site.mkdir(parents=True)
+    short = ".".join(version.split(".")[:2])
+    pip = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--quiet", "--no-warn-script-location", "--disable-pip-version-check", "--no-cache-dir", "--only-binary=:all:",
+         "--require-hashes", "--no-deps", "--platform", "win_amd64", "--python-version", short, "--implementation", "cp", "--target", str(site), "-r", str(requirements)],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    if pip.returncode != 0:
+        fail(f"pip could not fetch the packages for Python {version}:\n" + pip.stdout + pip.stderr)
+    # The wrappers pip makes for the commands of what it installs (bin/jsonschema.exe, bin/pip.exe and the like) name the Python that ran this build,
+    # in the build computer's user folder, so they cannot run anywhere else and would carry that folder's name. The program never runs them (it runs
+    # python -m pip), so they are left out. Left out first on 2026-11-13, after installing the narration voice with this build's own Python without
+    # them was tried and worked (Jason had asked for that try first, 2026-11-11).
+    shutil.rmtree(site / "bin", ignore_errors=True)
+    shutil.copy2(SITECUSTOMIZE, site / "sitecustomize.py")
+    for cache in site.rglob("__pycache__"):
+        shutil.rmtree(cache, ignore_errors=True)
+    return site
 
 
 def cached_node():
@@ -154,6 +215,58 @@ def cached_node():
     return zip_path
 
 
+def remap_rustflags(crate):
+    """The flags a Rust build here is given: the crate's own (its .cargo/config.toml, which an environment setting would otherwise replace) and one
+    --remap-path-prefix for each folder whose name should not be written into the program. When several match, rustc takes the last, so the
+    broadest (the user folder) comes first and the repository last. Passed as CARGO_ENCODED_RUSTFLAGS, which keeps a space in a path whole."""
+    flags = []
+    config = Path(crate) / ".cargo" / "config.toml"
+    if config.is_file():
+        settings = tomllib.loads(config.read_text(encoding="utf-8"))
+        flags += settings.get("target", {}).get("x86_64-pc-windows-msvc", {}).get("rustflags", []) or settings.get("build", {}).get("rustflags", [])
+    home = Path.home()
+    folders = [
+        (home, "/home"),
+        (Path(os.environ.get("CARGO_HOME") or home / ".cargo"), "/cargo"),
+        (Path(os.environ.get("RUSTUP_HOME") or home / ".rustup"), "/rustup"),
+        (ROOT, "/openstage"),
+    ]
+    for folder, name in folders:
+        flags.append(f"--remap-path-prefix={folder}={name}")
+    return flags
+
+
+def rust_environment(crate, **more):
+    env = {k: v for k, v in os.environ.items() if k not in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS")}
+    env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(remap_rustflags(crate))
+    env.update(more)
+    return env
+
+
+def personal_paths(files):
+    """The programs among `files` that name the builder's user folder (as text or as UTF-16, either kind of slash, any case), with what was found."""
+    home = str(Path.home())
+    needles = {home.lower(), home.replace("\\", "/").lower()}
+    found = []
+    for f in files:
+        data = Path(f).read_bytes().lower()
+        hits = [n for n in needles if n.encode("utf-8") in data or n.encode("utf-16-le") in data]
+        if hits:
+            found.append((Path(f), hits[0]))
+    return found
+
+
+def build_recorder():
+    """The recorder, built here so that it gets the same path settings as the editor. Returns the program."""
+    say("  the recorder (built here, so the folders it was built in are not written into it)")
+    done = subprocess.run(["cargo", "build", "--release", "--offline", "-p", "openstage-capture-cli"], cwd=CAPTURE,
+                          env=rust_environment(CAPTURE, CARGO_TARGET_DIR=str(CAPTURE_TARGET)))
+    built = CAPTURE_TARGET / "release" / "openstage-capture.exe"
+    if done.returncode != 0 or not built.is_file():
+        fail("the recorder did not build. Run OPEN EDITOR.bat once (it fetches what the recorder is built from), then try again.")
+    return built
+
+
 def copy_tree(src, dst, skip=()):
     def ignore(_dir, names):
         return [n for n in names if n in ("__pycache__", ".cache", "node_modules") or n.endswith(".pyc") or any(n == s for s in skip)]
@@ -166,11 +279,8 @@ def stage():
         shutil.rmtree(STAGING)
     PAYLOAD.mkdir(parents=True)
 
-    # The recorder and the speech recogniser were built earlier; they are not rebuilt here.
-    capture = ROOT / "capture" / "target" / "release" / "openstage-capture.exe"
-    if not capture.is_file():
-        fail("the recorder is not built. Run OPEN EDITOR.bat once, which builds it.")
-    shutil.copy2(capture, PAYLOAD / "openstage-capture.exe")
+    # The recorder is built here; the speech recogniser was built earlier (BUILD SPEECH RECOGNISER.bat) and is not rebuilt.
+    shutil.copy2(build_recorder(), PAYLOAD / "openstage-capture.exe")
     speech = ROOT / "speech"
     if not (speech / "whisper-cli.exe").is_file():
         fail("the speech recogniser is not built. Run BUILD SPEECH RECOGNISER.bat first.")
@@ -221,25 +331,11 @@ def stage():
     for name in ("LICENSE", "NOTICE"):
         shutil.copy2(ROOT / name, PAYLOAD / name)
 
-    # Python, with jsonschema.
+    # The two Pythons: the course tools' one with jsonschema, and the narration voice's with pip (the folder name is engine::PYTHON_FOLDER in engine.rs).
     say("  Python")
-    py = PAYLOAD / "python"
-    with zipfile.ZipFile(cached_python()) as z:
-        z.extractall(py)
-    pth = list(py.glob("python*._pth"))
-    for p in pth:
-        p.unlink()  # without it Python looks beside the script and honours PYTHONPATH, as an ordinary Python does
-    site = py / "Lib" / "site-packages"
-    site.mkdir(parents=True)
-    pip = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", "--no-warn-script-location", "--disable-pip-version-check", "--only-binary=:all:",
-         "--platform", "win_amd64", "--python-version", "3.11", "--implementation", "cp", "--target", str(site), *PIP_PACKAGES],
-        capture_output=True, text=True, encoding="utf-8",
-    )
-    if pip.returncode != 0:
-        fail("pip could not fetch the Python packages:\n" + pip.stdout + pip.stderr)
-    for cache in site.rglob("__pycache__"):
-        shutil.rmtree(cache, ignore_errors=True)
+    site = stage_python(PAYLOAD / "python", cached_python(), PYTHON_VERSION, PYTHON_REQUIREMENTS)
+    say("  the narration voice's Python")
+    narration_site = stage_python(PAYLOAD / "python-narration", cached_narration_python(), NARRATION_PYTHON_VERSION, NARRATION_PYTHON_REQUIREMENTS)
 
     # Node.
     say("  Node")
@@ -265,10 +361,15 @@ def stage():
     if done.returncode != 0:
         fail("a program asks for Microsoft's Visual C++ runtime:" + chr(10) + done.stdout + done.stderr)
 
+    # No program that goes in may name the builder's user folder (the editor is checked the same way once it is built).
+    named = personal_paths(program_files(PAYLOAD))
+    if named:
+        fail("these programs name the user folder of the computer that built them:\n  " + "\n  ".join(f"{p.relative_to(PAYLOAD)} ({hit})" for p, hit in named))
+
     # Licences and the lists of what is inside, written last so they include the Python packages that were just put in.
     say("  writing the licence texts")
     done = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "check_licences.py"), "--write", "--texts", "--python", str(site), "--out", str(PAYLOAD)],
+        [sys.executable, str(ROOT / "tools" / "check_licences.py"), "--write", "--texts", "--python", os.pathsep.join([str(site), str(narration_site)]), "--out", str(PAYLOAD)],
         capture_output=True, text=True, encoding="utf-8",
     )
     if done.returncode != 0:
@@ -404,15 +505,18 @@ def build(trial, version=None, sign=False):
     if done.returncode != 0:
         fail("the editor's web side did not build.")
     npx = "npx.cmd" if os.name == "nt" else "npx"
-    done = subprocess.run([npx, "tauri", "build", "--bundles", "nsis", "--config", str(config)], cwd=EDITOR)
+    done = subprocess.run([npx, "tauri", "build", "--bundles", "nsis", "--config", str(config)], cwd=EDITOR, env=rust_environment(TAURI, OPENSTAGE_RELEASE=RELEASE))
     if done.returncode != 0:
         fail("Tauri could not build the installer. Scroll up to see why.")
     found = sorted((TAURI / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe"), key=lambda p: p.stat().st_mtime)
     if not found:
         fail("the installer maker finished, but no setup file was made.")
-    done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_imports.py"), str(TAURI / "target" / "release" / "openstage-editor.exe")], capture_output=True, text=True, encoding="utf-8")
+    editor = TAURI / "target" / "release" / "openstage-editor.exe"
+    done = subprocess.run([sys.executable, str(ROOT / "tools" / "check_imports.py"), str(editor)], capture_output=True, text=True, encoding="utf-8")
     if done.returncode != 0:
         fail("the editor program asks for Microsoft's Visual C++ runtime:" + chr(10) + done.stdout + done.stderr)
+    if personal_paths([editor]):
+        fail("the editor program names the user folder of the computer that built it, although it was built with --remap-path-prefix.")
     if sign:
         problems = check_installer(found[-1])
         if problems:

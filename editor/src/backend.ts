@@ -18,6 +18,7 @@ import type { CaptureCheck, HotkeyBinding, HotkeyResult, StreamExit, StreamState
 import { parseSpeechStatus, type SpeechStatus } from "./recognition.ts";
 import { NO_ENGINE_STATUS, parseEngineStatus, type EngineStatus } from "./engine.ts";
 import { UNKNOWN_ABOUT, parseAbout, type AboutInfo } from "./about.ts";
+import { RELEASES_PAGE, parseUpdateAnswer, type UpdateAnswer } from "./updates.ts";
 import { parseMcpInfo, type McpInfo } from "./mcpsettings.ts";
 import { NO_PACKS, parsePackAnswer, parsePackList, type PackAnswer, type PackList, type PackSource } from "./packs.ts";
 import { parseSetMade, parseSetRead, type SetAnswer, type SetMade, type SetRead } from "./slidesets.ts";
@@ -100,7 +101,7 @@ export interface Backend {
   /** Publish the saved project: the course as web files and a SCORM 1.2 zip, both inside `folder`. */
   /** Make the packages, and with `video` an MP4 of the course too (Windows only; it takes minutes). */
   /** `name` is the publishing style's name for the files (none: the project folder's); `headings` and `font` style the Word review document. */
-  publish(dir: string, folder: string, options?: { video?: boolean; name?: string; headings?: string; font?: string }): Promise<PublishResult>;
+  publish(dir: string, folder: string, options?: { video?: boolean; name?: string; headings?: string; font?: string; source?: boolean }): Promise<PublishResult>;
   /** Copy a whole project into an empty folder, for a new version of the course. */
   copyProject(from: string, to: string): Promise<void>;
   /** Stop the preview or publish that is running. Returns whether there was one. */
@@ -113,6 +114,8 @@ export interface Backend {
   narrationEngine(): Promise<boolean>;
   /** The version, and where things are on this computer, for the About window. */
   aboutInfo(): Promise<AboutInfo>;
+  /** Whether a newer version is published (asked only when the author presses the button). Nothing is installed. */
+  checkForUpdates(): Promise<UpdateAnswer>;
   /** What an AI assistant needs to start OpenStage Author's MCP server: the Node, the script, the settings file, and what the narration voice needs. */
   mcpInfo(): Promise<McpInfo>;
   /** The folder of one of the example projects that came with the program (to show the folder by), or "" if there are none. */
@@ -362,7 +365,7 @@ const tauriBackend: Backend = {
     return parsePublishResult(await invoke<string>("preview_project", { dir, files }));
   },
   async publish(dir, folder, options) {
-    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true, name: options?.name ?? null, headings: options?.headings ?? null, font: options?.font ?? null }));
+    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true, name: options?.name ?? null, headings: options?.headings ?? null, font: options?.font ?? null, source: options?.source === true }));
   },
   copyProject: (from, to) => invoke<void>("copy_project", { from, to }),
   cancelJob: () => invoke<boolean>("cancel_job"),
@@ -371,6 +374,9 @@ const tauriBackend: Backend = {
   narrationEngine: () => invoke<boolean>("narration_engine"),
   async aboutInfo() {
     return parseAbout(await invoke<string>("about_info"));
+  },
+  async checkForUpdates() {
+    return parseUpdateAnswer(await invoke<string>("check_for_updates"));
   },
   async mcpInfo() {
     return parseMcpInfo(await invoke<string>("mcp_info"));
@@ -635,6 +641,9 @@ const previewBackend: Backend = {
   },
   async aboutInfo() {
     return { ...UNKNOWN_ABOUT, version: "(the page shown in a web browser, not the desktop program)" };
+  },
+  async checkForUpdates() {
+    return { state: "unknown", message: `This page is not the desktop program, so it has no version to compare. The releases are at ${RELEASES_PAGE}.`, url: RELEASES_PAGE };
   },
   async mcpInfo() {
     return parseMcpInfo(JSON.stringify(await post<unknown>("/api/mcp-info", {})));

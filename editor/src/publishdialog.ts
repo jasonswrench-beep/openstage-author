@@ -71,6 +71,9 @@ export function openPublish(opts: PublishOptions): Promise<void> {
     const view = h("button", { type: "button", text: "Open the course in my browser" });
     const after = h("div", { class: "dialog-actions pb-after", hidden: true }, reveal, revealReview, revealVideo, view);
     const videoBox = h("input", { id: "pb-video", type: "checkbox", "aria-describedby": "pb-video-note" });
+    // Off unless the author asks: the copy is for someone who should be able to open and change the course, not for every learner.
+    const sourceBox = h("input", { id: "pb-source", type: "checkbox", "aria-describedby": "pb-source-note" });
+    const sourceNote = h("p", { id: "pb-source-note", class: "note", text: "Puts the course's own files in each zip too, so someone who has the package can open and change it in OpenStage Author. Only the project, its slides, its theme and the assets the course uses go in: nothing else from the project folder. Anyone who can download the package from your LMS could get them, so leave this off unless you mean to share the course itself." });
     const videoNote = h("p", { id: "pb-video-note", class: "note", text: "The video shows each slide as it opens, in order, with its narration, the things that arrive on their own and captions in a file beside it. It cannot be answered or clicked, so a question is shown as it opens. It takes a few minutes, needs Windows with Microsoft Edge or Google Chrome, and is made with the OpenStage recorder's video tools." });
     const nameNote = h("p", { id: "pb-name-note", class: "note" });
     const styleBtn = h("button", { type: "button", text: "Publishing style..." });
@@ -95,6 +98,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
         else b2.removeAttribute("aria-disabled");
       }
       videoBox.disabled = running;
+      sourceBox.disabled = running;
       closeBtn.textContent = running ? "Cancel publishing" : "Close";
     };
 
@@ -124,6 +128,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
         const name = styledName(style, opts.values());
         const result = await b.publish(opts.dir, folder, {
           video,
+          ...(sourceBox.checked ? { source: true } : {}),
           ...(name !== null ? { name } : {}),
           ...(style.headings !== DEFAULT_STYLE.headings ? { headings: style.headings } : {}),
           ...(style.font !== DEFAULT_STYLE.font ? { font: style.font } : {}),
@@ -203,6 +208,8 @@ export function openPublish(opts: PublishOptions): Promise<void> {
       h("div", { class: "btn-row" }, styleBtn),
       h("div", { class: "field check" }, videoBox, h("label", { for: "pb-video", text: "Also make a video (MP4) of the course, with captions" })),
       videoNote,
+      h("div", { class: "field check" }, sourceBox, h("label", { for: "pb-source", text: "Include an editable copy of the course" })),
+      sourceNote,
       status, failure, problems, after,
       h("div", { class: "dialog-actions" }, go, closeBtn),
     );

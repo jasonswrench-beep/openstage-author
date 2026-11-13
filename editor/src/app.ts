@@ -510,6 +510,7 @@ export class App {
       mcp: cmd({ label: "MCP access...", icon: "plug", title: "Let an AI assistant such as Claude build, check and publish courses with this program, and get the lines that connect it", run: () => void this.mcpAccess() }),
       search: cmd({ label: "Search for a command...", icon: "search", keys: "Ctrl+K", title: "Find any command by its name, so you do not need to know which menu holds it", run: () => this.openSearch() }),
       keys: cmd({ label: "Keyboard keys...", icon: "keyboard", keys: "Ctrl+/", title: "Every keyboard shortcut the editor has, in one list", run: () => void this.showKeys() }),
+      updates: cmd({ label: "Check for updates...", icon: "refresh-cw", title: "Whether a newer version of OpenStage Author is published. It asks GitHub only when you choose this, and installs nothing", run: () => void this.openAboutDialog(true) }),
       about: cmd({ label: "About OpenStage Author...", icon: "info", title: "The version of OpenStage Author, and where things are on this computer (for asking for help)", run: () => void this.openAboutDialog() }),
     };
   }
@@ -535,7 +536,7 @@ export class App {
       { id: "narration", label: "Narration", items: [c.narration, "-", c.timing, c.timeline, "-", c.recordScreen] },
       { id: "review", label: "Review", items: [c.problems, "-", c.preview, c.publish] },
       { id: "tools", label: "Tools", items: [c.ai, c.mcp] },
-      { id: "help", label: "Help", items: [c.search, c.keys, "-", c.about] },
+      { id: "help", label: "Help", items: [c.search, c.keys, "-", c.updates, c.about] },
     ];
   }
 
@@ -1186,8 +1187,8 @@ export class App {
   }
 
   /** The About window: the version, and where things are on this computer. */
-  private async openAboutDialog(): Promise<void> {
-    await openAbout({ backend, announce: (msg) => this.announce(msg) });
+  private async openAboutDialog(checkNow = false): Promise<void> {
+    await openAbout({ backend, announce: (msg) => this.announce(msg), checkNow });
     this.afterDialog("help");
   }
 

@@ -604,6 +604,23 @@ test("publishing makes the packages in Published courses, refuses a course with 
   }
 });
 
+test("a published zip carries an editable copy of the course only when source is asked for", { skip: !havePython }, async () => {
+  const w = await started();
+  try {
+    // File names sit unpacked in a zip's directory, so reading the bytes as text is enough to see what is in it.
+    const names = () => readFileSync(path.join(w.folder, "Published courses", "Course-scorm12.zip")).toString("latin1");
+    writeFileSync(path.join(w.folder, "Course.osproj", "notes.txt"), "mine");
+    assert.ok((await w.call("publish_course", { targets: ["scorm12"] })).ok);
+    assert.ok(!names().includes("source/"), "off unless asked for");
+    const r = await w.call("publish_course", { targets: ["scorm12"], source: true });
+    assert.ok(r.ok, r.text);
+    assert.ok(names().includes("source/Course.osproj/project.json"), "asked for, the project travels");
+    assert.ok(!names().includes("notes.txt"), "but only its own files");
+  } finally {
+    w.done();
+  }
+});
+
 test("the Word copy is made inside the folder", { skip: !havePython }, async () => {
   const w = await started();
   try {

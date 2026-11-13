@@ -11,6 +11,7 @@ import { errorText } from "./backend.ts";
 import { creditForMade, hasKey, nowStamp, PROMPT_LIMIT, promptProblem, QUALITIES, SHAPES, serviceById, titleFromPrompt, type ServiceId, type Work } from "./aiservices.ts";
 import { updateSettings } from "./aidialog.ts";
 import type { Model } from "./model.ts";
+import { SAVED_KEY_HIDDEN, isSavedKey } from "./savedkeys.ts";
 import { clock, creditFor, KEYED, KINDS, LINK_SOURCES, nameFor, parseSettings, searchStock, SOURCES, sourceById, sourcesFor, trackDownload, type KeyedProvider, type MediaKind, type Provider, type Settings, type StockHit } from "./stock.ts";
 
 export interface AssetsContext {
@@ -505,7 +506,10 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
       const src = sourceById(id);
       const input = h("input", { id: `se-${id}`, type: "password", autocomplete: "off", spellcheck: "false" });
       const show = h("button", { type: "button", class: "small", text: "Show" });
-      show.addEventListener("click", () => { const shown = input.type === "text"; input.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide"; });
+      show.addEventListener("click", () => {
+        if (input.type === "password" && isSavedKey(input.value)) return say(SAVED_KEY_HIDDEN);
+        const shown = input.type === "text"; input.type = shown ? "password" : "text"; show.textContent = shown ? "Show" : "Hide";
+      });
       const getKey = h("button", { type: "button", class: "small", text: `Get a free ${src.name} key` });
       getKey.addEventListener("click", () => void b.openUrl(src.keyUrl));
       const what = src.kinds.map((k) => (k === "image" ? "images" : k)).join(", ");
@@ -527,7 +531,7 @@ export function openAssets(ctx: AssetsContext): Promise<void> {
       h("p", { text: `To search a library from here you need that library's own free key. Each has a page where you sign up and copy it: ${SOURCES.map((x) => x.name).join(", ")}.` }),
       ...keyFields.map((k) => k.row),
       h("div", { class: "btn-row" }, save),
-      h("p", { class: "note", text: "The keys are kept on this computer only, in OpenStage's own settings. They are never saved in a project, so they are not shared when you share one." }),
+      h("p", { class: "note", text: "The keys are kept on this computer only, in Windows Credential Manager, not in OpenStage's settings file. They are never saved in a project, so they are not shared when you share one." }),
     );
 
     // ================================================================ the dialog

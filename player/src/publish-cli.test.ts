@@ -255,33 +255,97 @@ test("it will not empty the project folder, a folder that holds it, or one insid
   }
 });
 
-test("what the project lists in sourceExclude stays out of the package's source copy, and the cache always does", { skip: !havePython }, () => {
+test("asked for, the editable copy holds the project's own files and nothing else: not what sourceExclude lists, not the cache, not other files", { skip: !havePython }, () => {
   const dir = scratch();
   try {
     const project = path.join(dir, "project.osproj");
     cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
     mkdirSync(path.join(project, "recording"), { recursive: true });
     writeFileSync(path.join(project, "recording", "events.jsonl"), "{}");
-    writeFileSync(path.join(project, "notes.txt"), "Keep me.");
+    writeFileSync(path.join(project, "notes.txt"), "Mine, not the course's.");
     const pj = JSON.parse(readFileSync(path.join(project, "project.json"), "utf-8")) as Record<string, unknown>;
     pj["sourceExclude"] = ["recording"];
     writeFileSync(path.join(project, "project.json"), JSON.stringify(pj, null, 2));
 
-    const { result, status } = run(project, path.join(dir, "course"));
+    const { result, status } = run(project, path.join(dir, "course"), "--include-source");
     assert.equal(status, 0, JSON.stringify(result));
     assert.equal(result.ok, true);
     assert.ok(!result.findings.some((f) => f.rule === "capture-material-in-project"), "listed, so no warning");
     const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, "course-scorm12.zip")))));
-    const source = entries.filter((e) => e.startsWith("source/project.osproj/"));
-    assert.ok(source.includes("source/project.osproj/project.json") && source.includes("source/project.osproj/notes.txt"), "the project itself travels");
-    assert.ok(!source.some((e) => e.includes("events.jsonl") || e.includes("/recording")), "the listed folder does not");
-    assert.ok(!source.some((e) => e.includes("/.cache/")), "and neither does the cache");
+    const source = entries.filter((e) => e.startsWith("source/project.osproj/")).sort();
+    assert.deepEqual(source, [
+      "source/project.osproj/project.json",
+      "source/project.osproj/slides/slide-001.json",
+      "source/project.osproj/slides/slide-002.json",
+      "source/project.osproj/theme.json",
+    ], "the project's own files travel, and nothing else");
+    assert.ok(!entries.some((e) => e.endsWith("notes.txt")), "an author's own file in the folder does not");
+    assert.ok(!entries.some((e) => e.includes("events.jsonl") || e.includes("/recording")), "the listed folder does not");
+    assert.ok(!entries.some((e) => e.includes(".cache/")), "and neither does the cache");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("the empty .gitkeep placeholders stay out of the package, in the course folder and in the source copy", { skip: !havePython }, () => {
+test("a folder holding .git, a recording take and desktop.ini publishes none of them, and no editable copy unless it is asked for", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    const put = (rel: string, text: string) => {
+      const full = path.join(project, ...rel.split("/"));
+      mkdirSync(path.dirname(full), { recursive: true });
+      writeFileSync(full, text);
+    };
+    put(".git/config", "[remote \"origin\"]\n");
+    put(".git/HEAD", "ref: refs/heads/main\n");
+    put("captures/take-1/events.jsonl", "{\"window\":\"Private window title\"}\n");
+    put("desktop.ini", "[.ShellClassInfo]\n");
+    put("assets/desktop.ini", "[.ShellClassInfo]\n");
+    put("assets/images/Thumbs.db", "thumbs");
+    put("assets/.hidden/secret.txt", "hidden");
+
+    const plain = run(project, path.join(dir, "plain"));
+    assert.equal(plain.status, 0, JSON.stringify(plain.result));
+    assert.ok(plain.result.findings.some((f) => f.rule === "capture-material-in-project" && f.severity === "warning"), "the take outside assets/ is warned about");
+    const asked = run(project, path.join(dir, "asked"), "--include-source");
+    assert.equal(asked.status, 0, JSON.stringify(asked.result));
+
+    for (const [name, wantSource] of [["plain", false], ["asked", true]] as const) {
+      for (const zip of [`${name}-scorm12.zip`, `${name}-scorm2004.zip`, `${name}-xapi.zip`]) {
+        const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, zip)))));
+        const bad = entries.filter((e) => /(^|\/)\.git\//.test(e) || /(^|\/)captures\//.test(e) || e.includes("events.jsonl")
+          || /(^|\/)desktop\.ini$/i.test(e) || /(^|\/)thumbs\.db$/i.test(e) || e.includes("/.hidden/"));
+        assert.deepEqual(bad, [], `${zip} carries none of them`);
+        assert.equal(entries.some((e) => e.startsWith("source/")), wantSource, `${zip}: an editable copy only when asked for`);
+      }
+      assert.ok(!existsSync(path.join(dir, name, "assets", "desktop.ini")) && !existsSync(path.join(dir, name, "assets", "images", "Thumbs.db")),
+        "and none is left in the course folder");
+      assert.ok(!existsSync(path.join(dir, name, "assets", ".hidden")), "nor a hidden folder");
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("recording material inside assets/ stops the publish: everything there goes to every learner", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true });
+    mkdirSync(path.join(project, "assets", "captures", "take-1"), { recursive: true });
+    writeFileSync(path.join(project, "assets", "captures", "take-1", "events.jsonl"), "{}");
+    const { result, status } = run(project, path.join(dir, "course"));
+    assert.equal(status, 1);
+    assert.equal(result.ok, false);
+    assert.ok(result.findings.some((f) => f.rule === "capture-material-in-project" && f.severity === "error"));
+    assert.ok(!existsSync(path.join(dir, "course-scorm12.zip")), "nothing was packaged");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the empty .gitkeep placeholders stay out of the package and the course folder", { skip: !havePython }, () => {
   const dir = scratch();
   try {
     const project = path.join(dir, "project.osproj");
@@ -294,7 +358,7 @@ test("the empty .gitkeep placeholders stay out of the package, in the course fol
     assert.equal(status, 0, JSON.stringify(result));
     const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, "course-scorm12.zip")))));
     assert.deepEqual(entries.filter((e) => e.endsWith(".gitkeep")), [], "no placeholder travels in the zip");
-    assert.ok(entries.includes("source/project.osproj/project.json"), "the project itself still travels");
+    assert.ok(!entries.some((e) => e.startsWith("source/")), "and a plain publish carries no editable copy");
     assert.ok(!existsSync(path.join(dir, "course", "assets", "audio", ".gitkeep")), "and none is left in the course folder");
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -311,6 +375,33 @@ test("a project with raw recording material that is not listed is warned about b
     const { result, status } = run(project, path.join(dir, "course"));
     assert.equal(status, 0);
     assert.ok(result.findings.some((f) => f.rule === "capture-material-in-project" && f.severity === "warning"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a published page names no imported deck file, no picture prompt and no author, and still credits the picture", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "project.osproj");
+    cpSync(path.join(examples, "scenario.osproj"), project, { recursive: true });
+    const pj = JSON.parse(readFileSync(path.join(project, "project.json"), "utf-8")) as Record<string, any>;
+    pj["meta"]["author"] = "Jo Unlikely-Name";
+    pj["sources"] = [{ id: "deck-abc", name: "Private lecture notes.pptx", importedAt: "2026-11-01T10:00:00Z", slideWidth: 9144000, slideHeight: 5143500, pixelsPerInch: 96, offsetX: 0, offsetY: 0 }];
+    pj["sourceExclude"] = ["private-recordings"];
+    writeFileSync(path.join(project, "project.json"), JSON.stringify(pj, null, 2));
+    const assets = JSON.parse(readFileSync(path.join(project, "assets.json"), "utf-8")) as { assets: Record<string, any>[] };
+    assets.assets[0]!["source"] = { ...assets.assets[0]!["source"], provider: "generated", generated: { service: "openai", model: "image-model-unlikely", prompt: "an unlikely private prompt", madeAt: "2026-11-13T10:00:00Z" } };
+    writeFileSync(path.join(project, "assets.json"), JSON.stringify(assets, null, 2));
+
+    const { result, status } = run(project, path.join(dir, "site"), "--preview");
+    assert.equal(status, 0, JSON.stringify(result));
+    const page = readFileSync(path.join(dir, "site", "index.html"), "utf-8");
+    for (const kept of ["Private lecture notes.pptx", "an unlikely private prompt", "image-model-unlikely", "Jo Unlikely-Name", "private-recordings", "deck-abc"]) {
+      assert.equal(page.includes(kept), false, `the page does not carry ${kept}`);
+    }
+    assert.ok(page.includes("Maya Reyes (character picture)"), "the picture is still credited");
+    assert.ok(page.includes(String(pj["meta"]["title"])), "and the course still has its title");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

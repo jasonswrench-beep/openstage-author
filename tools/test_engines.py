@@ -266,6 +266,11 @@ class Choosing(unittest.TestCase):
 
 
 class Plugins(unittest.TestCase):
+    def test_a_plugin_is_given_no_service_key(self):
+        from engines import plugins as p
+        env = {"PATH": "x", "OPENSTAGE_KEY_OPENAI": "sk-1", "openstage_key_other": "k", "OPENSTAGE_MODEL_OPENAI_SPEECH": "m", "PYTHONUTF8": "1"}
+        self.assertEqual(p.plugin_environment(env), {"PATH": "x", "OPENSTAGE_MODEL_OPENAI_SPEECH": "m", "PYTHONUTF8": "1"})
+
     def setUp(self):
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="openstage-plugins-test-"))
         self.addCleanup(shutil.rmtree, self.tmp, True)

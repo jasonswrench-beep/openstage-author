@@ -188,3 +188,26 @@ Four small things were finished after the first installer, because they would ha
    Uninstalling removed everything the installer put there, including `uninstall.exe`, the Start menu entry and the list entry; a file that was not the installer's (a stand-in I added) was left, as it should be. The author's settings and speech models were kept by a silent uninstall. The uninstall screen's check box (it only shows in an interactive uninstall) now reads "Also delete my settings, models, narration voice and character packs" (the last four words were added on 2026-10-20) instead of "Delete the application data", because that is what it removes:
    the settings file (with any service keys), the speech models and the narration voice, all in the program's data folders. Python's compiled copies of modules now go to the data folder too (`PYTHONPYCACHEPREFIX`), not into the install folder, so nothing is written there that the uninstaller does not know.
    **Slips found on the way:** a custom language file for the installer must not start with a byte order mark (Tauri adds its own, and two make the installer maker stop with "Invalid command"); and my own shell sets `PYTHONDONTWRITEBYTECODE`, which hid whether the compiled copies were written until I cleared it.
+
+## 2026-11-13: the voice gets its own Python, and every download is checked
+
+After a security review. What changed, and why:
+
+* **Its own Python.** The installer now carries two embeddable Pythons: 3.14 for the course tools (3.11 no longer gets security fixes from python.org) and
+  3.12 for the narration voice, in a `python-narration` folder, with only pip in it. Kokoro 0.9.4 and misaki 0.9.4 say they need a Python older than 3.13,
+  so the voice cannot move to 3.14 yet. An engine installed by an earlier editor was made for Python 3.11; its marker has no `engine` number, so it is not
+  used, the Narration window says it has to be installed again, and installing clears its packages first.
+* **Newer packages.** torch 2.5.1 had a published flaw that let a crafted model file run code (fixed in 2.6.0), and transformers 4.57.1 had several 2026
+  advisories. The voice now installs torch 2.15.0 and transformers 5.23.0; the rest of the set moved to the newest versions that go with them. Installed and
+  tried on 2026-11-13: it speaks, with exact word timings, offline.
+* **Every file checked.** pip installs from a locked list with the SHA-256 of every file (`--require-hashes`), made by `tools/lock_python_packages.py` with
+  the Python the list is for. The spaCy English model has no checksum from its publisher; its hash is of the file fetched on 2026-11-13, whose every file
+  matched pip's record of the copy installed on 2026-10-22. The voice model is one fixed commit of its repository, and `tools/kokoro_model.py` checks the size
+  and SHA-256 of every file against `tools/kokoro-model.json`, deletes one that differs, and stops. The engine then runs with `HF_HUB_OFFLINE=1`.
+* **Another Python on the computer.** Without the `._pth` file, an embeddable Python also adds to its search path the folders the registry lists for an
+  installed Python of the same version. On a computer that had its own Python 3.12, the voice's Python loaded that one's compiled modules and pip crashed.
+  Each bundled Python now carries a `sitecustomize.py` (`tools/bundled_sitecustomize.py`) that takes those folders, and the user's own site-packages folder,
+  off the path before anything is imported.
+
+**Measured on 2026-11-13:** the 97 packages are 243 MB on PyPI (torch 2.15.0 is 127 MB), the model files 340 MB, so about 590 MB to download. The finished
+engine folder is 1.4 GB after it has spoken once. The packages took about 4 minutes to fetch and install, the model half a minute, the first speech a minute.

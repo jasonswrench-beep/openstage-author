@@ -15,6 +15,9 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
 mod engine;
+mod secrets;
+mod svgclean;
+mod updates;
 mod speech;
 mod stream;
 
@@ -188,7 +191,8 @@ fn unique_name(folder: &Path, stem: &str, ext: &str) -> String {
 }
 
 /// Copy a file into the right folder under the project's assets and return its project-relative path.
-/// The name is made safe, the type and size are checked, and an existing file is never overwritten.
+/// The name is made safe, the type and size are checked, and an existing file is never overwritten. An SVG picture is not copied as it is:
+/// it is rebuilt from its drawing only (svgclean.rs), so a script or an outside link in it never reaches the project or a course.
 fn import_asset_at(dir: &Path, source: &Path, kind: &str) -> Result<String, String> {
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
@@ -209,7 +213,13 @@ fn import_asset_at(dir: &Path, source: &Path, kind: &str) -> Result<String, Stri
     let folder = dir.join("assets").join(k.folder);
     fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     let name = unique_name(&folder, &stem, &ext);
-    fs::copy(source, folder.join(&name)).map_err(|e| format!("Could not copy the file: {e}"))?;
+    if ext == "svg" {
+        let bytes = fs::read(source).map_err(|e| format!("Could not read the file: {e}"))?;
+        let clean = svgclean::clean_svg(&bytes).map_err(|why| format!("That SVG picture could not be used: {why}"))?;
+        fs::write(folder.join(&name), clean).map_err(|e| format!("Could not copy the file: {e}"))?;
+    } else {
+        fs::copy(source, folder.join(&name)).map_err(|e| format!("Could not copy the file: {e}"))?;
+    }
     Ok(format!("assets/{}/{name}", k.folder))
 }
 
@@ -374,7 +384,7 @@ fn fetch(url: &str, headers: &[(String, String)]) -> Result<ureq::Response, Stri
         match req.call() {
             Ok(resp) => return Ok(resp),
             Err(ureq::Error::Status(429, resp)) if attempt < 3 => {
-                if std::env::var("OPENSTAGE_DEBUG_HTTP").is_ok() { eprintln!("429 attempt {attempt} for {url}: retry-after {:?}", resp.header("Retry-After")); }
+                if std::env::var("OPENSTAGE_DEBUG_HTTP").is_ok() { eprintln!("429 attempt {attempt} for {}: retry-after {:?}", secrets::without_query(url), resp.header("Retry-After")); }
                 let wait = resp.header("Retry-After").and_then(|v| v.trim().parse::<u64>().ok()).unwrap_or(2);
                 if wait > 10 {
                     return Err(format!("The service says there have been too many requests, and asks you to wait about {}.{}", human_wait(wait), detail_of(resp)));
@@ -391,7 +401,8 @@ fn fetch(url: &str, headers: &[(String, String)]) -> Result<ureq::Response, Stri
                     _ => format!("The service answered with an error ({code}).{more}"),
                 });
             }
-            Err(other) => return Err(format!("Could not reach the service. Check the internet connection. ({other})")),
+            // The error names the address; what follows ? in it can hold a key, so that is left out.
+            Err(other) => return Err(format!("Could not reach the service. Check the internet connection. ({})", other.to_string().replace(url, secrets::without_query(url)))),
         }
     }
 }
@@ -471,6 +482,15 @@ fn download_asset_at(dir: &Path, url: &str, name_hint: &str, kind: &str) -> Resu
         }
         Ok(())
     })();
+    // A downloaded SVG picture is rebuilt from its drawing only, as an imported one is (svgclean.rs).
+    let written = written.and_then(|()| {
+        if ext != "svg" {
+            return Ok(());
+        }
+        let bytes = fs::read(&part).map_err(|e| format!("Could not read the {noun}: {e}"))?;
+        let clean = svgclean::clean_svg(&bytes).map_err(|why| format!("That SVG picture could not be used: {why}"))?;
+        fs::write(&part, clean).map_err(|e| format!("Could not save the {noun}: {e}"))
+    });
     if let Err(e) = written {
         let _ = fs::remove_file(&part);
         return Err(e);
@@ -554,7 +574,7 @@ fn validate_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let temp = std::env::temp_dir().join(format!("openstage-validate-{}-{stamp}", std::process::id()));
+    let temp = work_dir().join(format!("openstage-validate-{}-{stamp}", std::process::id()));
     fs::create_dir_all(temp.join("slides")).map_err(|e| e.to_string())?;
 
     let result = (|| {
@@ -1111,7 +1131,7 @@ fn prepare_preview(dir: &Path, files: &[FileText], root: &Path) -> Result<(PathB
 }
 
 fn preview_blocking(dir: &Path, files: &[FileText]) -> Result<String, String> {
-    let root = std::env::temp_dir().join("openstage-author-preview");
+    let root = work_dir().join("openstage-author-preview");
     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     let (project, out) = prepare_preview(dir, files, &root)?;
     let result = run_publish_tool(&project, &out, true, false, &[]);
@@ -1145,12 +1165,92 @@ fn bundled_python() -> Option<PathBuf> {
     bundled_helper_in(exe.parent()?, "python", "python.exe")
 }
 
+/// The narration voice's own Python (3.12), which travels with an installed editor beside the other one: Kokoro does not run on the newer Python
+/// the course tools use.
+fn bundled_narration_python() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    bundled_helper_in(exe.parent()?, engine::PYTHON_FOLDER, "python.exe")
+}
+
 /// The Python the author named for Kokoro (OPENSTAGE_KOKORO_PYTHON), if it is there. It wins over everything else.
 fn engine_setting() -> Option<PathBuf> {
     std::env::var("OPENSTAGE_KOKORO_PYTHON").ok().map(PathBuf::from).filter(|p| p.is_file())
 }
 
-/// The engine the editor installed itself: the Python that came with it, and where the packages and the model are. None if the author has named their own, or none is installed.
+/// The folder, inside the editor's data folder, for what it makes while it works: a copy of unsaved work to check or to narrate, a picture
+/// being made, sound to be recognised, a set being taken in, a preview. Kept out of the computer's temporary folder, where other programs look,
+/// because these hold a course's words, a voice or a picture of the screen.
+const WORK_FOLDER: &str = "work";
+/// What a stopped editor left in the working folder (or an earlier version in the temporary folder) is cleared when the editor starts, once it is
+/// this old: anything younger may belong to another copy of the editor that is still open.
+const LEFTOVER_AGE: Duration = Duration::from_secs(60 * 60);
+/// What earlier versions put in the computer's temporary folder: a name, or the start of one (ending with -).
+const OLD_TEMP_NAMES: &[&str] = &["openstage-author-preview", "openstage-speech", "openstage-set-import", "openstage-validate-", "openstage-author-narrate-", "openstage-author-make-", "openstage-capture-warmup-"];
+/// Folders of the working folder that hold things of more than one task: what is in them is cleared item by item.
+const SHARED_WORK: &[&str] = &["openstage-author-preview", "openstage-speech", "openstage-set-import"];
+
+/// The working folder (see WORK_FOLDER), made if need be. Before the data folder is known (and in tests), the computer's temporary folder.
+fn work_dir() -> PathBuf {
+    match DATA_DIR.get() {
+        Some(dir) => {
+            let work = dir.join(WORK_FOLDER);
+            let _ = fs::create_dir_all(&work);
+            work
+        }
+        None => std::env::temp_dir(),
+    }
+}
+
+fn remove_path(p: &Path) {
+    if p.is_dir() {
+        let _ = fs::remove_dir_all(p);
+    } else {
+        let _ = fs::remove_file(p);
+    }
+}
+
+/// Clear leftovers that are at least LEFTOVER_AGE old at `now`: in the working folder everything (in its shared folders, item by item), and in the
+/// temporary folder only what bears one of OLD_TEMP_NAMES.
+fn sweep_leftovers(work: &Path, temp: &Path, now: std::time::SystemTime) {
+    let old = |p: &Path| fs::metadata(p).and_then(|m| m.modified()).ok().and_then(|t| now.duration_since(t).ok()).is_some_and(|age| age >= LEFTOVER_AGE);
+    let sweep = |dir: &Path, shared: &dyn Fn(&str) -> bool| {
+        for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
+            let (p, name) = (entry.path(), entry.file_name().to_string_lossy().into_owned());
+            if shared(&name) && p.is_dir() {
+                for item in fs::read_dir(&p).into_iter().flatten().flatten() {
+                    if old(&item.path()) {
+                        remove_path(&item.path());
+                    }
+                }
+            } else if old(&p) {
+                remove_path(&p);
+            }
+        }
+    };
+    sweep(work, &|name| SHARED_WORK.contains(&name));
+    if work != temp {
+        for entry in fs::read_dir(temp).into_iter().flatten().flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let ours = OLD_TEMP_NAMES.iter().any(|n| if n.ends_with('-') { name.starts_with(n) } else { name == *n });
+            if ours && old(&entry.path()) {
+                remove_path(&entry.path());
+            }
+        }
+    }
+}
+
+/// What this copy of the editor made in the working folder for one task (its names carry the process number), removed when it closes.
+fn remove_own_work(work: &Path, pid: u32) {
+    let (inside, last) = (format!("-{pid}-"), format!("-{pid}."));
+    for entry in fs::read_dir(work).into_iter().flatten().flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("openstage-") && (name.contains(&inside) || name.contains(&last)) {
+            remove_path(&entry.path());
+        }
+    }
+}
+
+/// The engine the editor installed itself: the voice's Python that came with it, and where the packages and the model are. None if the author has named their own, or none is installed.
 fn managed_engine() -> Option<(PathBuf, engine::Layout)> {
     if engine_setting().is_some() {
         return None;
@@ -1159,7 +1259,7 @@ fn managed_engine() -> Option<(PathBuf, engine::Layout)> {
     if !engine::installed(&layout) {
         return None;
     }
-    Some((bundled_python()?, layout))
+    Some((bundled_narration_python()?, layout))
 }
 
 /// The speech engine's Python, if one is set up: the author's own (OPENSTAGE_KOKORO_PYTHON), or the one the editor installed.
@@ -1329,6 +1429,53 @@ fn make_narration_blocking(engine: &Path, dir: &Path, files: &[FileText], ids: &
     make_narration_with(engine, true, dir, files, ids, &AiSettings::default(), None)
 }
 
+/// Every voice the course names, checked before any audio is made: one of Kokoro's names exactly (`kokoro_list` is
+/// tools/kokoro-voices.json), or another engine's voice written `engine:name` (docs/format-spec.md, "Voices"). Kokoro reads a voice it
+/// does not know as a voice file to load (a path, a network share, several joined with commas), and a course can come from anyone.
+/// tools/narrate.py makes the same check; this one says so in the editor before anything starts.
+fn narration_voices_ok(files: &[FileText], kokoro_list: &str) -> Result<(), String> {
+    let listed: std::collections::HashSet<String> = serde_json::from_str::<serde_json::Value>(kokoro_list)
+        .ok()
+        .and_then(|v| v.get("voices").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()))
+        .ok_or("tools/kokoro-voices.json could not be read.")?;
+    fn other_engine(voice: &str) -> bool {
+        let Some((engine, name)) = voice.split_once(':') else { return false };
+        let mut first = engine.chars();
+        (2..=31).contains(&engine.len())
+            && first.next().is_some_and(|c| c.is_ascii_lowercase())
+            && first.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            && (1..=60).contains(&name.len())
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-')
+            && !name.contains("..")
+    }
+    fn walk(value: &serde_json::Value, listed: &std::collections::HashSet<String>) -> Result<(), String> {
+        match value {
+            serde_json::Value::Object(map) => {
+                for (key, item) in map {
+                    if key == "voice" {
+                        if let Some(voice) = item.as_str() {
+                            if !listed.contains(voice) && !other_engine(voice) {
+                                let shown: String = voice.chars().take(60).collect();
+                                return Err(format!("The voice \"{shown}\" in this course is not one of the narration voices, so no audio was made. Choose a voice from the list in Properties, then make the audio again."));
+                            }
+                        }
+                    }
+                    walk(item, listed)?;
+                }
+                Ok(())
+            }
+            serde_json::Value::Array(items) => items.iter().try_for_each(|item| walk(item, listed)),
+            _ => Ok(()),
+        }
+    }
+    for file in files {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&file.text) {
+            walk(&value, &listed)?;
+        }
+    }
+    Ok(())
+}
+
 /// The same, with the services and plugins the author has allowed. `kokoro_ready` says whether `engine` is a Python set up for Kokoro
 /// (OPENSTAGE_KOKORO_PYTHON) or only an ordinary Python, which can still make audio with a service or a plugin.
 fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[FileText], ids: &[String], ai: &AiSettings, plugins: Option<&Path>) -> Result<String, String> {
@@ -1338,10 +1485,12 @@ fn make_narration_with(engine: &Path, kokoro_ready: bool, dir: &Path, files: &[F
     if !ids.iter().all(|id| narration_key_ok(id)) {
         return Err("Not an object that can be narrated.".into());
     }
+    let kokoro = find_tool("kokoro-voices.json").and_then(|p| std::fs::read_to_string(p).ok()).ok_or("Could not find tools/kokoro-voices.json.")?;
+    narration_voices_ok(files, &kokoro)?;
     let _slot = JobSlot::take()?;
     let tool = find_tool("narrate.py").ok_or("Could not find tools/narrate.py.")?;
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
-    let temp = std::env::temp_dir().join(format!("openstage-author-narrate-{}-{stamp}", std::process::id()));
+    let temp = work_dir().join(format!("openstage-author-narrate-{}-{stamp}", std::process::id()));
     let result = (|| {
         write_project_files(&temp, files)?;
         let mut cmd = Command::new(engine);
@@ -1472,8 +1621,17 @@ fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("plugins"))
 }
 
+/// The AI settings, with each service's key from Windows Credential Manager (secrets.rs): the settings file holds none.
 fn ai_settings(app: &tauri::AppHandle) -> AiSettings {
-    settings_file(app).ok().and_then(|f| fs::read_to_string(f).ok()).map(|t| AiSettings::parse(&t)).unwrap_or_default()
+    use secrets::Vault;
+    let mut ai = settings_file(app).ok().and_then(|f| fs::read_to_string(f).ok()).map(|t| AiSettings::parse(&t)).unwrap_or_default();
+    ai.keys.retain(|_, k| !k.starts_with(secrets::MARK_PREFIX));
+    for service in AI_SERVICES {
+        if let Some(key) = secrets::CredentialManager.get(service) {
+            ai.keys.insert(service.to_string(), key);
+        }
+    }
+    ai
 }
 
 /// The Python that runs the tools that need only the standard library.
@@ -1543,7 +1701,7 @@ fn ai_make_blocking(python: &Path, dir: &Path, kind: &str, request: &serde_json:
         _ => return Err("Only a picture can be made.".into()),
     };
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
-    let temp = std::env::temp_dir().join(format!("openstage-author-make-{}-{stamp}", std::process::id()));
+    let temp = work_dir().join(format!("openstage-author-make-{}-{stamp}", std::process::id()));
     fs::create_dir_all(&temp).map_err(|e| e.to_string())?;
     let result = (|| {
         let out = temp.join(format!("made.{suffix}"));
@@ -1907,7 +2065,7 @@ fn pack_use_picture(dir: String, source: String, folder: String, path: String, n
 
 /// Where a set that is being taken in is unpacked while the author looks at it. Each one gets a folder of its own, and it is emptied when the author has chosen.
 fn sets_stage_root() -> PathBuf {
-    std::env::temp_dir().join("openstage-set-import")
+    work_dir().join("openstage-set-import")
 }
 
 /// A folder of an unpacked set: it must be a folder made by `set_read`, directly inside `sets_stage_root()`, and nothing else.
@@ -2088,6 +2246,8 @@ fn delete_asset(dir: String, path: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn http_get(url: String, headers: Vec<(String, String)>) -> Result<String, String> {
+    // The page writes a saved key's stand-in where the key goes; it becomes the key here, and only on the way to that key's own service.
+    let (url, headers) = secrets::fill_marks(&url, &headers, &secrets::CredentialManager)?;
     tauri::async_runtime::spawn_blocking(move || http_get_text(&url, &headers)).await.map_err(|e| e.to_string())?
 }
 
@@ -2098,25 +2258,35 @@ async fn download_asset(dir: String, url: String, name_hint: String, kind: Strin
         .map_err(|e| e.to_string())?
 }
 
-/// The editor's own settings (such as stock-library keys) live with the program, never in a project.
+/// The editor's own settings live with the program, never in a project. The keys for the stock libraries and the AI services are not in this
+/// file: they are in Windows Credential Manager (secrets.rs).
 fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     Ok(dir.join("settings.json"))
 }
 
+/// The settings as the page sees them: a saved key shows as its stand-in, never as the key. A key an earlier version left in the file is moved
+/// into Windows Credential Manager first, and the file written again without it.
 #[tauri::command]
 fn read_settings(app: tauri::AppHandle) -> Result<String, String> {
     let file = settings_file(&app)?;
-    Ok(fs::read_to_string(file).unwrap_or_default())
+    let text = fs::read_to_string(&file).unwrap_or_default();
+    let (page, rewrite) = secrets::for_page(if text.trim().is_empty() { "{}" } else { &text }, &secrets::CredentialManager);
+    if let Some(clean) = rewrite {
+        let _ = fs::write(&file, clean);
+    }
+    Ok(page)
 }
 
+/// Save what the page sends. Its keys go to Windows Credential Manager (a stand-in keeps the saved key, an empty one removes it); the file gets none.
 #[tauri::command]
 fn write_settings(app: tauri::AppHandle, text: String) -> Result<(), String> {
     let file = settings_file(&app)?;
     if let Some(parent) = file.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::write(file, text).map_err(|e| format!("Could not save the settings: {e}"))
+    let clean = secrets::from_page(&text, &secrets::CredentialManager)?;
+    fs::write(file, clean).map_err(|e| format!("Could not save the settings: {e}"))
 }
 
 #[tauri::command]
@@ -2160,10 +2330,14 @@ async fn preview_project(dir: String, files: Vec<FileText>) -> Result<String, St
         .map_err(|e| e.to_string())?
 }
 
-/// Publish the saved project: a folder of web files and a SCORM 1.2 zip, written beside each other in `folder`.
+/// Publish the saved project: a folder of web files and a SCORM 1.2 zip, written beside each other in `folder`. With `source`, each zip
+/// also carries an editable copy of the course (only the project's own files; player/src/sourcecopy.ts); without it, none.
 #[tauri::command]
-async fn publish_project(dir: String, folder: String, video: Option<bool>, name: Option<String>, headings: Option<String>, font: Option<String>) -> Result<String, String> {
-    let extra = review_flags(headings.as_deref(), font.as_deref())?;
+async fn publish_project(dir: String, folder: String, video: Option<bool>, name: Option<String>, headings: Option<String>, font: Option<String>, source: Option<bool>) -> Result<String, String> {
+    let mut extra = review_flags(headings.as_deref(), font.as_deref())?;
+    if source.unwrap_or(false) {
+        extra.push("--include-source".into());
+    }
     tauri::async_runtime::spawn_blocking(move || publish_blocking(Path::new(&dir), Path::new(&folder), video.unwrap_or(false), name.as_deref(), &extra))
         .await
         .map_err(|e| e.to_string())?
@@ -2251,6 +2425,8 @@ struct EngineStatus {
     /// Microsoft's Visual C++ runtime, which the voice needs, is not on this computer (the page offers to open Microsoft's download).
     #[serde(rename = "runtimeMissing")]
     runtime_missing: bool,
+    /// An engine an earlier version of the editor installed is there, made for another Python: it is not used, and installing again replaces it.
+    outdated: bool,
     folder: String,
     /// The bytes the installed engine takes (0 if none).
     size: u64,
@@ -2262,19 +2438,22 @@ fn system_dir() -> PathBuf {
 }
 
 fn engine_install_problem() -> String {
-    let Some(python) = bundled_python() else { return NO_BUNDLED_PYTHON.to_string() };
+    let Some(python) = bundled_narration_python() else { return NO_BUNDLED_PYTHON.to_string() };
     if !engine::runtime_missing(&system_dir()).is_empty() {
         return format!("The narration voice needs Microsoft's Visual C++ runtime, which is not on this computer. Install it from Microsoft ({}), then try again.", engine::RUNTIME_URL);
     }
     let pip = python.parent().map(|p| p.join("Lib").join("site-packages").join("pip")).filter(|p| p.is_dir());
     if pip.is_none() {
-        return "The Python that came with this copy has no pip, so the narration voice cannot be installed from here.".to_string();
+        return "The narration voice's Python that came with this copy has no pip, so the voice cannot be installed from here.".to_string();
     }
     if engine_layout().is_none() {
         return "The editor has no data folder to install the narration voice into.".to_string();
     }
     if find_tool("narration-requirements.txt").is_none() {
         return "The list of what the narration voice needs (tools/narration-requirements.txt) is missing from this copy.".to_string();
+    }
+    if find_tool("kokoro_model.py").is_none() || find_tool("kokoro-model.json").is_none() {
+        return "What fetches and checks the voice model (tools/kokoro_model.py and tools/kokoro-model.json) is missing from this copy.".to_string();
     }
     String::new()
 }
@@ -2445,7 +2624,8 @@ fn about_info(app: tauri::AppHandle) -> Result<String, String> {
         "Not installed".to_string()
     };
     let info = AboutInfo {
-        version: app.package_info().version.to_string(),
+        // The exact release when the installer built this copy (such as 0.1.0-alpha.5), or the program's version number.
+        version: if updates::release().is_empty() { app.package_info().version.to_string() } else { updates::release().to_string() },
         installed: bundled_python().is_some(),
         program: about_where(program, "unknown"),
         guides_file: guides.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
@@ -2461,6 +2641,13 @@ fn about_info(app: tauri::AppHandle) -> Result<String, String> {
         arch: std::env::consts::ARCH.to_string(),
     };
     serde_json::to_string(&info).map_err(|e| e.to_string())
+}
+
+/// Check for updates, when the author asks (updates.rs): whether a newer version is published, in words, with its page. Nothing is installed.
+#[tauri::command]
+async fn check_for_updates() -> Result<String, String> {
+    let program_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_path_buf));
+    tauri::async_runtime::spawn_blocking(move || updates::check(program_dir.as_deref()).to_string()).await.map_err(|e| e.to_string())
 }
 
 /// What an AI assistant needs to start the MCP server (mcp/), for the MCP access dialog to show as lines to copy.
@@ -2525,7 +2712,8 @@ fn engine_status() -> Result<String, String> {
     serde_json::to_string(&EngineStatus {
         state,
         can_install: problem.is_empty(),
-        runtime_missing: bundled_python().is_some() && !engine::runtime_missing(&system_dir()).is_empty(),
+        runtime_missing: bundled_narration_python().is_some() && !engine::runtime_missing(&system_dir()).is_empty(),
+        outdated: engine_setting().is_none() && layout.as_ref().is_some_and(engine::outdated),
         problem,
         folder: layout.map(|l| l.root.to_string_lossy().into_owned()).unwrap_or_default(),
         size,
@@ -2534,19 +2722,25 @@ fn engine_status() -> Result<String, String> {
 }
 
 /// Run the install steps one after another. `progress(step, steps, label, line)` hears what each prints (not more than a few times a second). Returns the lines of the last step on failure.
-fn engine_install_blocking(python: &Path, layout: &engine::Layout, requirements: &Path, mut progress: impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+fn engine_install_blocking(python: &Path, layout: &engine::Layout, requirements: &Path, model_tool: &Path, mut progress: impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    let _ = fs::remove_file(layout.marker()); // until it has all gone well, it is not installed
+    // The packages are installed afresh every time, so nothing is left of an earlier install (an older engine's were made for another Python). The model is
+    // kept: what is there already is checked file by file, and only what is missing or wrong is fetched again.
+    if layout.site.exists() {
+        engine::remove_tree(&layout.site).map_err(|e| format!("Could not clear the narration voice's earlier packages. {e} If something is using them, close it and try again."))?;
+    }
+    let _ = fs::remove_dir_all(layout.root.join("pycache"));
     fs::create_dir_all(&layout.site).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
     fs::create_dir_all(&layout.home).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
     let _ = fs::remove_dir_all(&layout.tmp);
     fs::create_dir_all(&layout.tmp).map_err(|e| format!("Could not make a folder for the narration voice: {e}"))?;
-    let _ = fs::remove_file(layout.marker()); // until it has all gone well, it is not installed
-    let result = engine_install_steps(python, layout, requirements, &mut progress);
+    let result = engine_install_steps(python, layout, requirements, model_tool, &mut progress);
     let _ = fs::remove_dir_all(&layout.tmp); // pip's workings, whether it finished, failed or was stopped
     result
 }
 
-fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &Path, progress: &mut impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
-    let steps = engine::steps(layout, requirements);
+fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &Path, model_tool: &Path, progress: &mut impl FnMut(usize, usize, &str, &str)) -> Result<(), String> {
+    let steps = engine::steps(layout, requirements, model_tool);
     // Everything the commands print goes to a file as well, since the screen has room for the last lines only. Failing to keep it never stops the install.
     let mut log = fs::File::create(layout.log()).ok();
     for (i, step) in steps.iter().enumerate() {
@@ -2597,7 +2791,7 @@ fn engine_install_steps(python: &Path, layout: &engine::Layout, requirements: &P
     Ok(())
 }
 
-/// Install the narration engine into the editor's own folder: the packages from PyPI and the voice model from Hugging Face, with the Python that came with the editor. Progress
+/// Install the narration engine into the editor's own folder: the packages from PyPI and the voice model from Hugging Face, with the voice's Python that came with the editor. Progress
 /// reaches the page as `engine-progress` events ({ step, steps, label, line }). It takes the one job slot (it does not run beside a preview, a publish or a recording), and Cancel stops it.
 #[tauri::command]
 async fn engine_install(app: tauri::AppHandle) -> Result<(), String> {
@@ -2608,10 +2802,11 @@ async fn engine_install(app: tauri::AppHandle) -> Result<(), String> {
     if !problem.is_empty() {
         return Err(problem);
     }
-    let (python, layout, requirements) = (bundled_python().ok_or(NO_BUNDLED_PYTHON)?, engine_layout().ok_or("No data folder.")?, find_tool("narration-requirements.txt").ok_or("No list of packages.")?);
+    let (python, layout, requirements) = (bundled_narration_python().ok_or(NO_BUNDLED_PYTHON)?, engine_layout().ok_or("No data folder.")?, find_tool("narration-requirements.txt").ok_or("No list of packages.")?);
+    let model_tool = find_tool("kokoro_model.py").ok_or("No tool to fetch the voice model.")?;
     tauri::async_runtime::spawn_blocking(move || {
         let _slot = JobSlot::take()?;
-        engine_install_blocking(&python, &layout, &requirements, |step, steps, label, line| {
+        engine_install_blocking(&python, &layout, &requirements, &model_tool, |step, steps, label, line| {
             let _ = app.emit("engine-progress", serde_json::json!({ "step": step, "steps": steps, "label": label, "line": line }));
         })
     })
@@ -3388,7 +3583,7 @@ fn speech_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 /// The folder the sound being listened to is kept in for as long as it takes.
 fn speech_temp_dir() -> PathBuf {
-    std::env::temp_dir().join("openstage-speech")
+    work_dir().join("openstage-speech")
 }
 
 static SPEECH_DOWNLOADING: AtomicBool = AtomicBool::new(false);
@@ -3623,13 +3818,16 @@ pub fn run() {
                     std::env::set_var("PYTHONPYCACHEPREFIX", dir.join("pycache"));
                 }
                 let _ = DATA_DIR.set(dir);
+                // The recorder makes its throwaway warm-up file here too.
+                std::env::set_var("OPENSTAGE_WORK_DIR", work_dir());
+                std::thread::spawn(|| sweep_leftovers(&work_dir(), &std::env::temp_dir(), std::time::SystemTime::now()));
             }
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, check_for_updates, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3637,8 +3835,13 @@ pub fn run() {
                 stream::shutdown();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the OpenStage Author editor");
+        .build(tauri::generate_context!())
+        .expect("error while running the OpenStage Author editor")
+        .run(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                remove_own_work(&work_dir(), std::process::id());
+            }
+        });
 }
 
 #[cfg(test)]
@@ -4043,6 +4246,59 @@ mod tests {
         assert!(import_asset_at(&dir, &wrong, "video").is_err(), "a picture is not a video");
         assert!(import_asset_at(&dir, &wrong, "nonsense").is_err());
         let _ = fs::remove_file(&wrong);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn leftovers_are_cleared_once_they_are_old_and_only_ours_in_the_temporary_folder() {
+        let base = std::env::temp_dir().join(format!("openstage-test-sweep-{}", std::process::id()));
+        let (work, temp) = (base.join("work"), base.join("temp"));
+        for d in [work.join("openstage-author-narrate-7-1"), work.join("openstage-speech"), temp.join("openstage-speech"), temp.join("openstage-author-make-7-1"), temp.join("someone-else")] {
+            fs::create_dir_all(&d).unwrap();
+        }
+        fs::write(work.join("openstage-speech").join("a.wav"), "x").unwrap();
+        fs::write(temp.join("openstage-capture-warmup-7.mp4"), "x").unwrap();
+        fs::write(temp.join("not-ours.txt"), "x").unwrap();
+        // Just made: nothing is old enough yet.
+        sweep_leftovers(&work, &temp, std::time::SystemTime::now());
+        assert!(work.join("openstage-author-narrate-7-1").exists() && work.join("openstage-speech").join("a.wav").exists() && temp.join("openstage-speech").exists());
+        // Two hours on: ours go, the shared folder stays (emptied), and what is not ours in the temporary folder stays.
+        sweep_leftovers(&work, &temp, std::time::SystemTime::now() + Duration::from_secs(2 * 60 * 60));
+        assert!(!work.join("openstage-author-narrate-7-1").exists());
+        assert!(work.join("openstage-speech").is_dir() && !work.join("openstage-speech").join("a.wav").exists());
+        for gone in ["openstage-speech", "openstage-author-make-7-1", "openstage-capture-warmup-7.mp4"] {
+            assert!(!temp.join(gone).exists(), "{gone}");
+        }
+        assert!(temp.join("someone-else").exists() && temp.join("not-ours.txt").exists());
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn closing_removes_only_what_this_copy_made_for_itself() {
+        let work = std::env::temp_dir().join(format!("openstage-test-own-{}", std::process::id()));
+        for d in ["openstage-author-narrate-41-99", "openstage-validate-41-5", "openstage-author-narrate-410-1", "openstage-author-preview", "openstage-speech"] {
+            fs::create_dir_all(work.join(d)).unwrap();
+        }
+        fs::write(work.join("openstage-capture-warmup-41.mp4"), "x").unwrap();
+        remove_own_work(&work, 41);
+        let left: std::collections::BTreeSet<String> = fs::read_dir(&work).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(left, ["openstage-author-narrate-410-1", "openstage-author-preview", "openstage-speech"].iter().map(|s| s.to_string()).collect());
+        let _ = fs::remove_dir_all(work);
+    }
+
+    #[test]
+    fn an_imported_svg_picture_is_saved_without_its_script_and_one_that_is_not_a_picture_is_refused() {
+        let dir = temp_project("svg");
+        let src = std::env::temp_dir().join(format!("{}-drawing.svg", std::process::id()));
+        fs::write(&src, br#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script><circle r="4" onclick="alert(3)"/></svg>"#).unwrap();
+        let got = import_asset_at(&dir, &src, "image").unwrap();
+        let saved = fs::read_to_string(dir.join(&got)).unwrap();
+        assert_eq!(saved, r#"<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>"#);
+        fs::write(&src, b"<html><script>alert(1)</script></html>").unwrap();
+        let err = import_asset_at(&dir, &src, "image").unwrap_err();
+        assert!(err.starts_with("That SVG picture could not be used"), "{err}");
+        assert_eq!(fs::read_dir(dir.join("assets/images")).unwrap().filter(|e| e.as_ref().unwrap().path().extension().is_some_and(|x| x == "svg")).count(), 1, "nothing was kept of the refused one");
+        let _ = fs::remove_file(&src);
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -4726,7 +4982,32 @@ mod tests {
         for bad in ["", "a,b", "a b", "../x", "a;b", "obj\"1", "a//b", "/a", "a/", "a/b/c", "a/../b", "a\\b"] {
             assert!(make_narration_blocking(engine, &project, &[], &[bad.to_string()]).is_err(), "{bad}");
         }
+        // A voice that is not a listed one is refused before any engine starts (this engine does not even exist).
+        let files: Vec<FileText> = narrated_slide_files("Hello.").into_iter().map(|mut f| { f.text = f.text.replace("af_heart", "\\\\\\\\server\\\\share\\\\voice.pt"); f }).collect();
+        let refused = make_narration_blocking(Path::new("no-such-python-anywhere"), &project, &files, &[]).unwrap_err();
+        assert!(refused.contains("is not one of the narration voices"), "{refused}");
         let _ = fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn only_listed_kokoro_voices_or_well_formed_engine_voices_are_narrated() {
+        let list = r#"{"voices": ["af_heart", "bm_george"]}"#;
+        let slide = |voice: &str| FileText {
+            path: "slides/s1.json".into(),
+            text: serde_json::json!({"baseLayer": {"objects": [{"id": "o", "narration": {"voice": voice, "script": "Hi"}}]}, "layers": []}).to_string(),
+        };
+        for voice in ["af_heart", "bm_george", "openai:alloy", "my-plugin:Voice_1.2"] {
+            assert!(narration_voices_ok(&[slide(voice)], list).is_ok(), "{voice}");
+        }
+        for voice in ["af_heart,bm_george", "C:\\x\\voice.pt", "\\\\server\\share\\v.pt", "//server/share/v.pt", "../v.pt", "af_heart.pt",
+                      "voices/af_heart", "AF_HEART", " af_heart", "", "openai:../x", "openai:a/b", "openai:a\\b", "Openai:alloy", ":alloy", "x:", "x:y", "openai:"] {
+            let refused = narration_voices_ok(&[slide(voice)], list).unwrap_err();
+            assert!(refused.contains("is not one of the narration voices"), "{voice}: {refused}");
+        }
+        // A cast member's voice counts too.
+        let cast = FileText { path: "project.json".into(), text: r#"{"characters":[{"name":"A","voice":"\\\\server\\v.pt"}]}"#.into() };
+        assert!(narration_voices_ok(&[cast], list).is_err());
+        assert!(narration_voices_ok(&[slide("af_heart")], "not json").is_err(), "an unreadable list refuses rather than lets through");
     }
 
     #[test]
@@ -4927,7 +5208,7 @@ mod tests {
 
     #[test]
     fn a_path_becomes_a_safe_file_address() {
-        assert_eq!(file_url(r"C:\Users\Jason\AppData\Local\Temp\openstage-author-preview\index.html"), "file:///C:/Users/Jason/AppData/Local/Temp/openstage-author-preview/index.html");
+        assert_eq!(file_url(r"C:\Users\Example\AppData\Local\Temp\openstage-author-preview\index.html"), "file:///C:/Users/Example/AppData/Local/Temp/openstage-author-preview/index.html");
         assert_eq!(file_url(r"D:\My Course & Notes #1\a%b.html"), "file:///D:/My%20Course%20%26%20Notes%20%231/a%25b.html");
         assert_eq!(file_url("C:\\caf\u{e9}\\x.html"), "file:///C:/caf%C3%A9/x.html");
         for hostile in ["a\"b", "a^b", "a|b", "a<b>", "a b", "a;b", "a'b"] {

@@ -211,5 +211,64 @@ class AnyLanguage(unittest.TestCase):
             self.assertIn(words, [item["script"] for item in said.values()])
 
 
+class VoiceNames(unittest.TestCase):
+    """Only an exact name from kokoro-voices.json ever reaches Kokoro, which would read anything else as a voice file to load."""
+
+    def setUp(self):
+        import types
+        self.made = []
+        fake = types.ModuleType("kokoro")
+
+        class KPipeline:  # stands in for Kokoro; it records what it was asked and reads nothing
+            def __init__(inner, lang_code, repo_id):
+                self.made.append(("pipeline", lang_code, repo_id))
+
+            def __call__(inner, text, voice, speed, split_pattern):
+                self.made.append(("voice", voice))
+                return iter(())
+
+        fake.KPipeline = KPipeline
+        self.saved = sys.modules.get("kokoro")
+        sys.modules["kokoro"] = fake
+        narrate._pipelines.clear()
+
+    def tearDown(self):
+        if self.saved is None:
+            sys.modules.pop("kokoro", None)
+        else:
+            sys.modules["kokoro"] = self.saved
+        narrate._pipelines.clear()
+
+    def narration(self, voice):
+        return {"voice": voice, "script": "Hello.", "pronunciations": [], "speed": 1.0}
+
+    def test_names_that_are_not_listed_voices_are_refused_before_kokoro(self):
+        for voice in ("af_heart,af_bella", "af_heart, am_adam", "C:\\Users\\someone\\voice.pt", "\\\\server\\share\\voice.pt",
+                      "//server/share/voice.pt", "../voices/af_heart.pt", "voices/af_heart", "af_heart.pt", "af_heart.bin",
+                      "https://example.org/voice.pt", "AF_HEART", " af_heart", "af_heart ", "", None, 7, ["af_heart"]):
+            with self.assertRaises(narrate.engine_common.EngineError, msg=repr(voice)) as raised:
+                narrate.synthesise(self.narration(voice))
+            self.assertIn("is not one of Kokoro's voices", str(raised.exception))
+        self.assertEqual(self.made, [], "Kokoro was never started for a refused voice")
+
+    def test_every_listed_voice_still_reaches_kokoro(self):
+        try:
+            import numpy  # noqa: F401  (synthesise joins the pieces with numpy)
+        except ImportError:
+            self.skipTest("numpy is not installed here")
+        listed = sorted(narrate.kokoro_voices())
+        self.assertGreater(len(listed), 50)
+        for voice in listed:
+            self.assertEqual(narrate.checked_kokoro_voice(voice), voice)
+        for voice in ("af_heart", "bm_george", listed[-1]):
+            self.made.clear()
+            try:
+                narrate.synthesise(self.narration(voice))
+            except ValueError:
+                pass  # the stand-in makes no audio to join; what matters is what Kokoro was asked
+            self.assertIn(("voice", voice), self.made)
+            self.assertEqual(self.made[0][1], voice[0], "the pipeline is the voice's own language")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

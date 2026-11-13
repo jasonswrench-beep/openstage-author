@@ -16,6 +16,14 @@ export const DOWNLOAD_EXTENSIONS: readonly string[] = fileTypes.types.map((t) =>
 export const DOWNLOAD_HELP = english("download.help");
 
 /** The extension of a file path, lower case, or an empty string if it has none. */
+/**
+ * Whether a download's file is a plain path inside the course's own assets folder, which is all a download may point at: not an address
+ * (javascript:, https:, data:), not a path that climbs out (..), not one that starts at the top of a drive or a server.
+ */
+export function isAssetPath(src: string): boolean {
+  return /^assets\/[^\\:?#]+$/.test(src) && !src.split("/").some((part) => part === "" || part === "." || part === "..");
+}
+
 export function fileExtension(path: string): string {
   const name = path.split("/").pop() ?? "";
   const dot = name.lastIndexOf(".");
@@ -77,7 +85,8 @@ export function buildDownload(doc: Document, obj: OSObject, options: DownloadOpt
 
   const label = t("download.link", { title: c.title });
   let link: HTMLElement;
-  if (options.editing) {
+  if (options.editing || !isAssetPath(c.src)) {
+    // In the editor the link does nothing; in a course, a file that is not in the course's assets is never linked to.
     link = make(doc, "span", "os-download-link", label);
   } else {
     // The download attribute keeps a PDF from opening in place of the course. The link has the title, the kind of file

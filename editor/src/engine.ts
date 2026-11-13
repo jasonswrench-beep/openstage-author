@@ -16,6 +16,8 @@ export interface EngineStatus {
   problem: string;
   /** Microsoft's Visual C++ runtime, which the voice needs, is not on this computer: the dialog offers Microsoft's download. */
   runtimeMissing: boolean;
+  /** An engine an earlier version of the editor installed is there, made for another Python: it is not used, and installing again replaces it. */
+  outdated?: boolean;
   folder: string;
   /** What the installed engine takes, in bytes. */
   size: number;
@@ -36,6 +38,7 @@ export function parseEngineStatus(raw: string): EngineStatus {
       canInstall: d["canInstall"] === true,
       problem: typeof d["problem"] === "string" ? d["problem"] : "",
       runtimeMissing: d["runtimeMissing"] === true,
+      outdated: d["outdated"] === true,
       folder: typeof d["folder"] === "string" ? d["folder"] : "",
       size: typeof d["size"] === "number" && d["size"] >= 0 ? d["size"] : 0,
     };
@@ -45,11 +48,12 @@ export function parseEngineStatus(raw: string): EngineStatus {
 }
 
 /**
- * How much is downloaded, and how much room it takes once it is unpacked, as said to the author before they agree. Measured on 2026-10-19: the 92 Python packages are 313 MB of files on PyPI and
- * the model files 355 MB on Hugging Face (so about 670 MB); the finished engine folder is 2.1 GB; while pip works it also builds the packages in a folder of its own beside them, about 1.5 GB more for a while.
+ * How much is downloaded, and how much room it takes once it is unpacked, as said to the author before they agree. Measured on 2026-11-13: the 97 Python packages are 243 MB of files on PyPI and
+ * the model files 340 MB on Hugging Face (so about 590 MB); the finished engine folder is 1.4 GB once it has spoken once (Python keeps compiled copies of its modules there); while pip works it also
+ * unpacks the packages in a folder of its own beside them, up to about 1.5 GB more for a while (measured on 2026-10-19 with the larger packages of then, so it is not less now).
  */
-export const DOWNLOAD_MEGABYTES = 670;
-export const DISK_MEGABYTES = 2100;
+export const DOWNLOAD_MEGABYTES = 590;
+export const DISK_MEGABYTES = 1500;
 export const TEMPORARY_MEGABYTES = 1500;
 
 export interface EngineLine {
@@ -66,6 +70,13 @@ export function engineLine(s: EngineStatus): EngineLine {
   }
   if (s.state === "installed") {
     return { text: `The narration voice (Kokoro) is installed on this computer${s.size > 0 ? `, and takes ${formatBytes(s.size)}` : ""}.`, canInstall: false, canRemove: true };
+  }
+  if (s.outdated && s.canInstall) {
+    return {
+      text: `The narration voice (Kokoro) on this computer was installed by an earlier version of OpenStage Author and has to be installed again: it now runs in its own copy of Python, and every file it downloads is checked first. Installing it again replaces it (about ${DOWNLOAD_MEGABYTES} MB to download, a few minutes). Audio already made for your courses is kept.`,
+      canInstall: true,
+      canRemove: true,
+    };
   }
   if (s.canInstall) {
     // An install that failed after its packages were in (the model, or the check that it speaks) leaves them: installing again replaces them, and they can be removed to free the room.

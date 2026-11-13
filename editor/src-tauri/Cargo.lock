@@ -2411,6 +2411,7 @@ name = "openstage-editor"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "quick-xml",
  "serde",
  "serde_json",
  "sha2",
@@ -2420,6 +2421,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
  "ureq",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

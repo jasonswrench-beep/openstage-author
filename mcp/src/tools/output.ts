@@ -73,6 +73,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
       {
         targets: list("Which to make, from scorm12, scorm2004, xapi, review (the Word copy) and mp4 (a video with captions). All the packages and the Word copy if left out.", text("One target.", { enum: TARGETS }), { minItems: 1, maxItems: TARGETS.length }),
         video: flag("True also makes the MP4 video (Windows only; it needs Microsoft Edge or Chrome)."),
+        source: flag("True also puts an editable copy of the course in each zip (only its own files: the project, slides, theme and the assets it uses). Off if left out."),
       },
       [],
       true,
@@ -84,7 +85,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
         }
         const asked = [...new Set([...((a["targets"] as string[] | undefined) ?? ["scorm12", "scorm2004", "xapi", "review"]), ...(a["video"] === true ? ["mp4"] : [])])];
         const player = path.join(e.root, "player");
-        const r = await run(process.execPath, [path.join(player, "publish.ts"), dir, out, "--json", `--targets=${asked.join(",")}`], e, player);
+        const r = await run(process.execPath, [path.join(player, "publish.ts"), dir, out, "--json", `--targets=${asked.join(",")}`, ...(a["source"] === true ? ["--include-source"] : [])], e, player);
         const answer = lastJson<{ ok: boolean; message?: string; findings: Finding[]; slides?: number; indexHtml?: string; zips?: Record<string, string>; review?: string | null; video?: { file: string; captions: string | null; seconds: number; notes: string[] } | null; videoError?: string | null }>(r.stdout);
         if (!answer) throw new ToolError(`The publishing tool stopped without a result. ${r.stderr.trim().split("\n").slice(-3).join(" ")}`.trim());
         if (!answer.ok) {

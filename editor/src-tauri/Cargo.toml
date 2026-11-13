@@ -20,5 +20,11 @@ serde_json = "1"
 base64 = "0.22"
 ureq = "2"
 sha2 = "0.10"
+# Reads an SVG picture so it can be rebuilt from its drawing only (src/svgclean.rs). MIT; already used by the program's other crates.
+quick-xml = "0.42"
 tauri-plugin-opener = "2.7.1"
 tauri-plugin-global-shortcut = "2"
+
+[target.'cfg(windows)'.dependencies]
+# Windows Credential Manager, where the stock-library and AI keys are kept (src/secrets.rs). Already used by the program's other crates.
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"] }

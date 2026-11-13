@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DOWNLOAD_EXTENSIONS, DOWNLOAD_HELP, buildDownload, fileDetails, fileExtension, fileName, fileTypeLabel, sizeText } from "./downloads.ts";
+import { DOWNLOAD_EXTENSIONS, DOWNLOAD_HELP, buildDownload, fileDetails, fileExtension, fileName, fileTypeLabel, sizeText, isAssetPath } from "./downloads.ts";
 import type { OSObject } from "./types.ts";
 
 test("a file's kind comes from its extension, in any case, and an unknown one is just a file", () => {
@@ -88,4 +88,10 @@ test("the editor's canvas draws the same but its link cannot go anywhere", () =>
 test("a decorative flag takes the group's name away, and the name is the author's own words", () => {
   assert.equal(draw(make({ decorative: true, altText: "" }), false).attrs.get("aria-label"), undefined);
   assert.equal(draw(make({ altText: "The syllabus" }), false).attrs.get("aria-label"), "The syllabus");
+});
+
+test("a download links only to a plain path inside the course's assets", () => {
+  for (const good of ["assets/documents/Guide.pdf", "assets/documents/sub/notes 2.docx"]) assert.equal(isAssetPath(good), true, good);
+  for (const bad of ["javascript:alert(1)", "https://example.org/x.pdf", "data:text/html,x", "../secret.pdf", "assets/../x.pdf", "assets//x.pdf", "/assets/x.pdf",
+    "C:/x.pdf", "assets\\..\\x.pdf", "assets/x.pdf?y", "documents/x.pdf", "assets/"]) assert.equal(isAssetPath(bad), false, bad);
 });
