@@ -75,6 +75,17 @@ export function delimiterOf(text: string): "," | ";" | "\t" {
   return count[";"] > count[","] ? ";" : ",";
 }
 
+/**
+ * A cell as it was before the program that wrote the file put an apostrophe in front of it so that a spreadsheet program would not
+ * read it as a formula: OpenAssess does this to a cell of the OpenStage question spreadsheet that begins with =, +, -, @, a tab or a
+ * carriage return, and to one that begins with apostrophes and then one of those, so that the two are exact inverses. One apostrophe
+ * is taken off a run of them at the start, and only when the run is in front of one of those characters; any other apostrophe is
+ * the author's. So a question such as "-3 + 4 = ?" comes in as it was written.
+ */
+export function unguardFormula(cell: string): string {
+  return /^'+[=+\-@\t\r]/.test(cell) ? cell.slice(1) : cell;
+}
+
 /** Split CSV text into rows of cells. Quotes hold a comma or a new line inside a cell, and two quotes in a row mean one. Rows with nothing in them are left out. */
 export function parseCsv(raw: string): string[][] {
   const text = raw.replace(/^﻿/, "");
@@ -166,7 +177,7 @@ export function readQuestions(text: string, opts: { columns?: ("category" | "val
   const unusedColumns = header ? table[0]!.filter((c, i) => c !== "" && order[i] === null) : [];
   const at = (cells: string[], col: Column): string => {
     const i = order.indexOf(col);
-    return i === -1 ? "" : (cells[i] ?? "");
+    return i === -1 ? "" : unguardFormula(cells[i] ?? "");
   };
   const first = header ? 1 : 0;
   const body = table.slice(first);

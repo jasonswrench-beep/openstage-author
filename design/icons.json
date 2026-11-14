@@ -506,6 +506,7 @@
 
       { "area": "Help menu", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
       { "area": "Help menu", "command": "Keyboard keys", "icon": "keyboard", "keys": "Ctrl+/" },
+      { "area": "Help menu", "command": "Check for updates...", "icon": "refresh-cw" },
 
       { "area": "Everywhere", "command": "Open a menu", "icon": "chevron-down" },
       { "area": "Everywhere", "command": "Ticked in a menu", "icon": "check" },

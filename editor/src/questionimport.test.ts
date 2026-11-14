@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { delimiterOf, describeRead, MAX_QUESTIONS, parseCsv, readQuestions, TEMPLATE_CSV } from "./questionimport.ts";
+import { delimiterOf, describeRead, MAX_QUESTIONS, parseCsv, readQuestions, TEMPLATE_CSV, unguardFormula } from "./questionimport.ts";
 
 test("a table is cut into cells, with quotes holding commas and new lines, and two quotes for one", () => {
   assert.deepEqual(parseCsv("a,b,c\n1,2,3"), [["a", "b", "c"], ["1", "2", "3"]]);
@@ -170,4 +170,19 @@ test("the template in the examples folder is the one the editor writes", () => {
   const file = readFileSync(fileURLToPath(new URL("../../examples/questions-template.csv", import.meta.url)));
   assert.deepEqual([...file.subarray(0, 3)], [0xef, 0xbb, 0xbf], "with the mark Excel looks for");
   assert.equal(file.subarray(3).toString("utf8"), TEMPLATE_CSV);
+});
+
+test("a cell OpenAssess guarded against a spreadsheet's formulas comes in as it was written", () => {
+  // OpenAssess writes "=1+1" as "'=1+1" and "'=x" as "''=x"; one apostrophe comes off a run of them in front of = + - @ tab or CR.
+  const r = read([HEAD, "MC,'=1+1,'=2,'-1,'+3,'@4,,A,,,", "MC,''=x,It's,'plain',,,,A,,,", "SA,'-3 + 4 = ?,1,,,,,,,,"]);
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.questions[0]?.question, "=1+1");
+  assert.deepEqual(r.questions[0]?.answers, ["=2", "-1", "+3", "@4"]);
+  assert.equal(r.questions[1]?.question, "'=x");
+  assert.deepEqual(r.questions[1]?.answers, ["It's", "'plain'"]);
+  assert.equal(r.questions[2]?.question, "-3 + 4 = ?");
+  assert.equal(unguardFormula("'''+x"), "''+x");
+  assert.equal(unguardFormula("'x"), "'x");
+  assert.equal(unguardFormula("x'=y"), "x'=y");
+  assert.equal(unguardFormula("'"), "'");
 });
