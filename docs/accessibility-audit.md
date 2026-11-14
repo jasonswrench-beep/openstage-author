@@ -1,13 +1,13 @@
 # Accessibility pass on the editor, without a screen reader
 
-Done 2026-10-13. **This is not the screen reader pass.** Nobody could run NVDA or VoiceOver, so nothing here says what a screen reader *speaks*. This pass checks what a screen
+Done 2026-10-13. **This is not the screen reader pass.** Nobody could run NVDA or the Mac's screen reader, so nothing here says what a screen reader *speaks*. This pass checks what a screen
 reader is *given*: names, roles, structure, focus and keyboard behaviour, sizes, contrast and how the layout behaves when the window is narrow or the page is zoomed. The
 script for a person with a screen reader, `docs/screen-reader-pass.md`, is still the way to find out what it says, and it is still unrun.
 
 ## How it was done
 
 1. **The accessibility tree.** Chromium's accessibility tree, which is what NVDA reads on Windows (the app's window is Chromium), was read for the whole screen, a dialog and the
-   Properties panel of a question. VoiceOver reads WebKit's tree, which was not looked at, and the macOS app has not been built.
+   Properties panel of a question. The Mac's screen reader reads WebKit's tree, which was not looked at, and the macOS app has not been built.
 2. **A script** (`editor/audit/a11y-audit.js`, see below) that checks every control on screen: it has a name, the name contains the words that can be seen on it (WCAG 2.5.3), nothing
    points at an id that is not there, no id is used twice, no tab index is above 0, nothing focusable is hidden from assistive technology, headings do not skip, landmarks have names,
    text meets its contrast, controls are at least 24 by 24 pixels (WCAG 2.2, 2.5.8), and the table, slider and dialog rules. It visited **every slide and every object** of seven
@@ -48,7 +48,7 @@ Properties boxes, the Timing list). The slide canvas is hidden from assistive te
 - **The long descriptions** (`title`) on the buttons are read as descriptions after the name. Too wordy, or helpful? Only listening can say.
 - **Keyboard shortcuts** are only in the descriptions and `docs/editor.md`. An in-app list (a Keyboard help dialog) would help someone who does not know them; not built, because it is a new feature.
 - **The recorded patterns 1 to 10** in `docs/screen-reader-pass.md`, with the expected results updated for this pass.
-- **VoiceOver / macOS**, and **touch**.
+- **The Mac's screen reader / macOS**, and **touch**.
 
 ## The learner's accessibility panel (2026-10-18)
 

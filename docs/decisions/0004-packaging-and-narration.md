@@ -102,7 +102,7 @@ the downloading and OpenStage hands out nothing. *For:* no obligations from the 
 not technical; I have not tried an installation from a clean computer.
 
 **B. A Kokoro without the GPL parts, English only.** Kokoro would have to be changed (its imports) or loaded with stand-ins for the two GPL packages, since it will not load without them.
-The English voices would then skip any word not in the dictionary, which for a course means names, places and terms such as *SCORM* or *Brightspace*. The pronunciation list in the editor
+The English voices would then skip any word not in the dictionary, which for a course means names, places and terms such as *SCORM* or an LMS's product name. The pronunciation list in the editor
 could cover some. *For:* a bundle with no GPL, if it works. *Against:* a patched Apache program to maintain; quality unknown until tried (a trial like the Whisper one would settle it); English only.
 
 **C. Another local voice with no GPL parts.** Candidates were not looked at in this note; Piper is out (GPL). Needs a search and a trial, as the Whisper choice had.

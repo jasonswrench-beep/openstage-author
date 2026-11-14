@@ -65,7 +65,7 @@ test("the pack that comes with the program is read as a pack of 58 described bac
   const groups = backgroundGroups(pack);
   assert.equal(groups.length, 13);
   assert.equal(groups.reduce((n, g) => n + g.items.length, 0), 58);
-  assert.equal(pack.credit.licence, "Made with Ideogram (AI-generated), in the public domain");
+  assert.equal(pack.credit.licence, "AI-generated, Apache License 2.0");
 });
 
 test("a background's credit names who made it, where, and under what terms", () => {

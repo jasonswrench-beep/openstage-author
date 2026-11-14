@@ -8,7 +8,7 @@ This is a script for testing OpenStage Author with a screen reader, and the plac
 
 **What has already been checked without a screen reader.** A pass on 2026-10-13 checked names, structure, focus, sizes, contrast and how the editor reflows (see `docs/accessibility-audit.md`). It could not say what a screen reader speaks, which is what this script is for. It also lists the questions it could not answer and that need a listener: whether the slide canvas's arrow keys work in NVDA's browse mode, whether the sections of Properties should be headings, and whether the long button descriptions help or tire.
 
-**What this covers.** Windows only: NVDA (free, from nvaccess.org) and Narrator (built into Windows; Windows key + Ctrl + Enter turns it on or off). The editor is a desktop window that shows web content, so a screen reader treats it like a web page. VoiceOver on a Mac, touch devices and the published course player are not covered here (the player is tested with the real LMS plan).
+**What this covers.** Windows only: NVDA (free, from nvaccess.org) and Narrator (built into Windows; Windows key + Ctrl + Enter turns it on or off). The editor is a desktop window that shows web content, so a screen reader treats it like a web page. The Mac's screen reader, touch devices and the published course player are not covered here (the player is tested with the real LMS plan).
 
 ## Before you start
 
@@ -21,7 +21,7 @@ This is a script for testing OpenStage Author with a screen reader, and the plac
 | --- | --- | --- |
 | Version | 2026.2, portable copy (signed by NV Access), voice turned off and its log read instead | Not run |
 | Speech settings that matter (rate, punctuation level, "report" options) | The defaults of a new profile. Live regions, dialog descriptions and "report dynamic content changes" were on. | |
-| Date and tester | 2026-10-21, run by Claude (an AI) with keys sent through the debugging port. Not a person who uses NVDA every day. | |
+| Date and tester | 2026-10-21, run by the AI assistant with keys sent through the debugging port. Not a person who uses NVDA every day. | |
 
 ## How to record a result
 
@@ -208,7 +208,7 @@ Submit is read as unavailable and cannot be pressed; after Unlock Submit, "Submi
 | NVDA | In the course: Mark done said "Step 1 is marked as done" once; Not done yet said nothing; Submit was read as "unavailable"; Unlock Submit said "Submit is ready". The editor half (the Looks box) was not run. | works (course half) | A button that is really disabled is left out of the Tab order; the screen reader finds it by reading the slide. |
 | Narrator | Not run (only NVDA was available) | | |
 
-### 11. The PowerPoint dialog
+### 11. The .pptx dialog
 
 Use `examples/powerpoint/Introduction to Communication.pptx` and then `Introduction to Communication (edited).pptx`, with a project open.
 
@@ -222,7 +222,7 @@ Use `examples/powerpoint/Introduction to Communication.pptx` and then `Introduct
 
 | Screen reader | What it said | Verdict | Notes |
 | --- | --- | --- | --- |
-| NVDA | Not run: the PowerPoint dialog starts with a file chooser belonging to Windows, which could not be driven. | | |
+| NVDA | Not run: the .pptx dialog starts with a file chooser belonging to Windows, which could not be driven. | | |
 | Narrator | Not run (only NVDA was available) | | |
 
 ### 12. The learner accessibility panel in the published course
@@ -301,11 +301,11 @@ NVDA 2026.2 (a portable copy, signed by NV Access, downloaded with the author's 
 
 **What it could not tell.** The keys were not typed on a keyboard, so NVDA's echo of typed letters and its browse mode keys (for reading a page line by line) were not tried. Narrator was not tried. Reading a page with NVDA's own cursor was not tried: the pass moved focus with Tab, the arrow keys and F6 and listened to what came. A person who uses NVDA every day will find more.
 
-**Not covered.** Pattern 11 (the PowerPoint dialog: a Windows file chooser) and pattern 13 (captions from a voice: the model is not installed), the Publish dialog, the editor half of pattern 10 (the Looks box), Read aloud in the course, and the folder chooser of the New project dialog. The Share slides, Question banks and Questions from a file dialogs, the timer's Properties, a question that mixes its answers, and the timer, a bank and the feedback in a course page were covered, because they are new.
+**Not covered.** Pattern 11 (the .pptx dialog: a Windows file chooser) and pattern 13 (captions from a voice: the model is not installed), the Publish dialog, the editor half of pattern 10 (the Looks box), Read aloud in the course, and the folder chooser of the New project dialog. The Share slides, Question banks and Questions from a file dialogs, the timer's Properties, a question that mixes its answers, and the timer, a bank and the feedback in a course page were covered, because they are new.
 
 ## A second NVDA pass, on what was built on 2026-10-21 and 22 (run 2026-10-22)
 
-NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with the author's go, by the same method as above: keys sent through the debugging port, a line kept only if the program being tested was in front and every piece of it was NVDA's own wording or the page's. It covered the Edit text dialog, the text's new looks, timing that waits for the learner, leaving out Back and Next, the grey picture box, a quiz board filled from a spreadsheet, and, in Edge, a PowerPoint deck's slide with a title off the slide and the Show next item button.
+NVDA 2026.2 (the same portable copy, voice off, log read), run by the AI assistant with the author's go, by the same method as above: keys sent through the debugging port, a line kept only if the program being tested was in front and every piece of it was NVDA's own wording or the page's. It covered the Edit text dialog, the text's new looks, timing that waits for the learner, leaving out Back and Next, the grey picture box, a quiz board filled from a spreadsheet, and, in Edge, a .pptx slide deck's slide with a title off the slide and the Show next item button.
 
 **How it went.** The first editor run had other programs (a recorder test window, a browser and two other tools) take the front of the screen again and again, so a third of its lines were thrown away and two steps went wrong; it was run again until none were. The first run also sent the letter S where a script meant Space (a mistake in the script, found because a probe after the key said nothing had changed), and a text-decoding mistake in the harness stopped the first Edge run before it started. None of these is the editor's. The speech below is from the runs where the front was held the whole way.
 
@@ -325,7 +325,7 @@ NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with th
 | Timing: Appears, Item number | "Appears, combo box, When the learner shows the next item, collapsed"; "Item number, spin button editable, The learner has a button, Show next item... 2"; Up: "Picture 7: Appears when the learner shows item 3, then stays" | works |
 | Leave out Back and Next, Space | "Leave out Back and Next on this slide, check box, checked // Back and Next are left out of this slide. Nothing on it goes to another slide yet, so a learner would be stuck: add a button with a rule that goes to a slide. // Problems: 79 errors"; again: "not checked // Back and Next are shown on this slide again." | works |
 | The grey picture box | "Picture box, grouping, A person from your cast..., button, Put one of the people in the cast, with their pose, in this box"; Enter: "Which picture, grouping, Maya Reyes, Team lead. Their own picture., radio button, checked, 1 of 3"; Down: "Alex Kim, Analyst on Maya's team..., radio button, checked, 2 of 3"; "Use this picture, button"; Enter: "Alex Kim is in the box. Read its alt text in the Properties panel, and change it if it is not right.", then focus on "Alt text, edit multi line, Required unless the object is decorative..." | works |
-| A quiz board from a spreadsheet | The game's dialog says its name and "...You can also fill it from a spreadsheet of your questions."; focus starts on "Choose a spreadsheet (CSV)..., button" with the columns read as its description; Tab: "Save a sample spreadsheet..., button"; Enter: "Saved the sample spreadsheet as ...sr-sample.csv. Open it in Excel or Google Sheets, replace the example rows..."; choosing the file: "This adds 11 slides... // Quiz board questions: this fills the game: 3 categories with 3 questions each, so 9 tiles: Colour, Keyboard and Words."; Tab: the title (read with its words, "Quiz board questions", selected); Tab: "Add game, button" (the greyed sizes are skipped); Enter: "Added Quiz board: 11 slides... filled from your table..."; Undo: "Undone" | works |
+| A quiz board from a spreadsheet | The game's dialog says its name and "...You can also fill it from a spreadsheet of your questions."; focus starts on "Choose a spreadsheet (CSV)..., button" with the columns read as its description; Tab: "Save a sample spreadsheet..., button"; Enter: "Saved the sample spreadsheet as ...sr-sample.csv. Open it in a spreadsheet program, replace the example rows..."; choosing the file: "This adds 11 slides... // Quiz board questions: this fills the game: 3 categories with 3 questions each, so 9 tiles: Colour, Keyboard and Words."; Tab: the title (read with its words, "Quiz board questions", selected); Tab: "Add game, button" (the greyed sizes are skipped); Enter: "Added Quiz board: 11 slides... filled from your table..."; Undo: "Undone" | works |
 | In Edge: a slide whose title is off the slide | Opening the slide says "A Quick Disclaimer, region, A Quick Disclaimer, heading level 1, A Quick Disclaimer, graphic, list, The opinions expressed..." (the title first, then the picture, then the words); focus on the title: "A Quick Disclaimer, heading level 1"; on the picture: "A Quick Disclaimer, graphic" | works: a screen reader has the heading, and the picture keeps its alt text |
 | In Edge: Show next item | "Timing, region, Show next item (1 of 7), button"; each Enter: "Item 1 of 7 is showing: Dow Jones Headline..." to "Item 6 of 7..."; the last: "unavailable // Item 7 of 7 is showing: Unilad... That was the last."; one more Enter: nothing said; Tab on: "Pause timing, toggle button, not pressed" | works |
 
@@ -342,7 +342,7 @@ NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with th
 
 ## A third NVDA pass, on text that comes one paragraph at a time and on Show next item beside Next (run 2026-10-23)
 
-NVDA 2026.2 (the same portable copy, voice off, log read), run by Claude with the author away, by the same method as before and the same filter, on the published Chapter 2 deck in a copy of Edge with its own profile folder. The raw log was deleted when each run ended.
+NVDA 2026.2 (the same portable copy, voice off, log read), run by the AI assistant with the author away, by the same method as before and the same filter, on the published Chapter 2 deck in a copy of Edge with its own profile folder. The raw log was deleted when each run ended.
 
 | What was done | What NVDA said | Verdict |
 | --- | --- | --- |

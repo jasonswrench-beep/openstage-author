@@ -1,7 +1,7 @@
 # Question types: test plan
 
-This course has one slide for each kind of question, and a results slide. Upload `question-types-scorm12.zip` to Brightspace as a SCORM 1.2 package,
-the way you did the lesson. What I most need to know is what **Brightspace** does with it (see the end for what I have already checked).
+This course has one slide for each kind of question, and a results slide. Upload `question-types-scorm12.zip` to the institution's LMS as a SCORM 1.2 package,
+the way you did the lesson. What I most need to know is what **the institution's LMS** does with it (see the end for what I have already checked).
 
 For each slide, do the steps and compare with **Expect**. Partial credit is on: a question with several parts earns a share of its 10 points for the
 parts that are right, the best attempt counts, and every question in this course has two attempts.
@@ -51,8 +51,8 @@ the hotspot picture shrinks to fit.
 
 ## What to send back
 
-For each slide: the result Brightspace shows. The questions I most want answered: **(1)** what score and status does Brightspace show after you finish, and does
-it match the results slide, **(2)** does Brightspace's own report list the questions, and with the right answers for each kind (it should show fill-in,
+For each slide: the result the institution's LMS shows. The questions I most want answered: **(1)** what score and status does the institution's LMS show after you finish, and does
+it match the results slide, **(2)** does the institution's LMS's own report list the questions, and with the right answers for each kind (it should show fill-in,
 matching, sequencing and numeric answers), **(3)** can you drag on a touch screen or tablet, and **(4)** is anything cut off or hard to use in the frame?
 
 ## What I have already checked

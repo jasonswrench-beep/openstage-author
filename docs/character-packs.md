@@ -34,7 +34,7 @@ A pose is decoration: it is drawn beside the person's name, so a screen reader s
 A background is a picture to go behind everything on a slide. On a slide with nothing chosen, the **Design** box in the Properties panel has **Background picture...**. It opens the packs of backgrounds, with each picture beside the words that describe it, in groups (open-plan offices, meeting rooms, corridors and so on); choose one and it is put behind the slide.
 
 * The picture is copied into the project (`assets/images`), as a person is, so the course does not depend on the pack afterwards. The same picture chosen on another slide is the same file, not a second copy.
-* On the slide it is an ordinary **decorative** picture named *Background picture*, the size of the stage, at the very back and **locked** (so clicking the slide does not move it). It needs no alt text because it is decoration; the words in the pack say what it shows for someone choosing. Unlock it in the Objects list to move or resize it. There is no new format for it: the PowerPoint import draws a slide's background picture the same way.
+* On the slide it is an ordinary **decorative** picture named *Background picture*, the size of the stage, at the very back and **locked** (so clicking the slide does not move it). It needs no alt text because it is decoration; the words in the pack say what it shows for someone choosing. Unlock it in the Objects list to move or resize it. There is no new format for it: the .pptx import draws a slide's background picture the same way.
 * The checker cannot see a picture, so the slide's own background is set to the picture's **average colour**, and text that follows the theme takes the colour that suits it. Text on a busy picture can still be hard to read in places, so put words on a picture in a text bubble or on a panel.
 * The credits page names who made the picture and the licence, once however many slides use it.
 * **Remove background picture** takes it off that slide and puts the slide's background back to the theme's. Both are one step to undo.
@@ -90,7 +90,7 @@ openstage-people-1/
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
-    "licence": "Made with Ideogram (AI-generated), in the public domain",
+    "licence": "AI-generated, Apache License 2.0",
     "url": "https://openstageauthor.com"
   },
   "people": [
@@ -211,4 +211,4 @@ The address the editor opens is `https://openstageauthor.com/apps/openstage/pack
 
 The pictures in a pack are not part of OpenStage Author's Apache-2.0 licence unless the pack says so. Each pack says who made its pictures and what you may do with them, and that is what the credits page tells your learners. A person who makes a pack decides its licence.
 
-The packs that come with the program, OpenStage people, set 1 and OpenStage offices and workplaces, set 1, were made by Jason S. Wrench with Ideogram, from written descriptions. Jason S. Wrench states that the pictures were created using Ideogram and remain in the public domain, so anyone may use them for any purpose, and they are not under Apache-2.0. A course that uses one still says on its credits page who made it and that it is AI-generated ("Made with Ideogram (AI-generated), in the public domain"), so a learner is not left to guess; this is the same honesty the credits page keeps for AI narration, and it is why the entry still asks for the credits page to be on.
+The packs that come with the program, OpenStage people, set 1 and OpenStage offices and workplaces, set 1, were made by Jason S. Wrench with an AI picture service, from written descriptions. Jason S. Wrench releases them under the Apache License 2.0, as the rest of OpenStage Author is (decided 2026-11-13; before that they were stated to be in the public domain). A course that uses one still says on its credits page who made it and that it is AI-generated ("AI-generated, Apache License 2.0"), so a learner is not left to guess; this is the same honesty the credits page keeps for AI narration, and it is why the entry still asks for the credits page to be on.

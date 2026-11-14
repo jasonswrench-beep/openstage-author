@@ -40,12 +40,12 @@ The type-check of the Windows-only code says it compiles. It says nothing about 
 
 Do not read more into the above than it says.
 
-- **No screen reader has ever spoken any of the editing screens.** The clip list, the timeline and the preview were checked by scripts and by a script that reads what a screen reader would be given in a real browser. Not NVDA, not Narrator, not JAWS, not VoiceOver. The timeline must not ship until this is done (story C3). `capture-timeline/README.md` has a "Please listen to this with a screen reader" list of what to listen for.
+- **No screen reader has ever spoken any of the editing screens.** The clip list, the timeline and the preview were checked by scripts and by a script that reads what a screen reader would be given in a real browser. Not NVDA, not Narrator, not a paid Windows screen reader, not the Mac's screen reader. The timeline must not ship until this is done (story C3). `capture-timeline/README.md` has a "Please listen to this with a screen reader" list of what to listen for.
 - **The recorder's own screens (the region picker and the window list)**: no screen reader result has been recorded for them either.
 - **The browser's real file and folder pickers** (Edge and Chrome) have not been used with the demo page. The checks reach the fallback ("choose a folder" box), and a fake folder handle stands in for the real one.
 - **Playing a real recording's `screen.mp4` in a browser** has not been seen. The browser used for the checks cannot play H.264, so those checks used WebM.
 - **No result has been reported from opening the editing screens' demo on Windows** (`OPEN TIMELINE DEMO.bat`). It was run here on Linux only.
-- **Moodle, Canvas, Brightspace, NVDA and VoiceOver** (OS-16 and OS-17 in `openstage-session-handoff.md`) are OpenStage's own open items, not Capture's, and nothing here changes them.
+- **The second LMS, the third LMS, the institution's LMS, NVDA and the Mac's screen reader** (OS-16 and OS-17 in `openstage-session-handoff.md`) are OpenStage's own open items, not Capture's, and nothing here changes them.
 - What has been run on a Windows computer, and what the owner saw, is in `capture/README.md` ("What tested means here" and the table at the top). Read that rather than a summary of it.
 
 ## Things in the copied documents that need knowing

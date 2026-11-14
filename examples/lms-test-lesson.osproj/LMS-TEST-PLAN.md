@@ -1,4 +1,4 @@
-# Brightspace test plan: "Choosing the Right Channel at Work"
+# Your LMS test plan: "Choosing the Right Channel at Work"
 
 **Start with `LMS-START-HERE.md`**: it gives the order of the rounds, what a correct LMS shows, and what to send back. This page is the detailed list of tests.
 
@@ -12,7 +12,7 @@ from the project's own pretend LMS (`TEST WITH STAND-IN LMS.bat`) and pretend LR
 
 24 slides, about 15 minutes, 30 narrated objects (with captions and a transcript), and 21 more narrations inside the
 interactions: every flip card, tab, step, accordion heading and glossary term has its own voice. One original diagram with
-a credit, one embedded YouTube video, a results page, a certificate and two files to download (a PDF and a Word document). Every slide opens with a voice except slide 12,
+a credit, one embedded YouTube video, a results page, a certificate and two files to download (a PDF and a .docx document). Every slide opens with a voice except slide 12,
 which is silent on purpose so it does not talk over the video. The course counts as complete when the learner has seen **every
 slide** and finished every quiz (that is the lesson's "Complete when" course setting).
 
@@ -56,13 +56,13 @@ Answer by choosing an option and pressing **Check answer**.
 
 ## Before you start
 
-* Upload the zip to your Brightspace course as a SCORM package. The menu names differ between Brightspace versions
+* Upload the zip to your LMS course as a SCORM package. The menu names differ between LMS versions
   (look under Content, or under Course Admin and Import). If you cannot find it, ask whoever manages the LMS, or look in its help.
 * **Use a test student, not instructor preview.** Most LMSs record nothing in preview, so a missing score may just be that.
-* Each test below needs a fresh attempt. How you get one depends on how Brightspace is set up: a second test student is
+* Each test below needs a fresh attempt. How you get one depends on how your LMS is set up: a second test student is
   easiest, or ask whoever manages the course to clear the attempt. Three attempts in all cover everything: tests 2, 3 and 4.
 * The video on slide 12 needs the computer to be online, and the school network has to allow YouTube.
-* Write down what Brightspace shows after each test. Screenshots of the learner's result are the most useful thing you can send.
+* Write down what your LMS shows after each test. Screenshots of the learner's result are the most useful thing you can send.
 
 ## The tests
 
@@ -86,8 +86,8 @@ Answer by choosing an option and pressing **Check answer**.
 4. On slide 20. **Expect:** no way to make a certificate, and a sentence saying it is for learners who pass.
 5. Go on to the end, slide 24, so every slide has been seen.
 
-**Expect in Brightspace:** the attempt is **failed**, the score is **60** (30 of 50 points). Write down exactly how
-Brightspace words completion, success and the score. SCORM 1.2 has only one status, so a learner who finishes but fails
+**Expect in your LMS:** the attempt is **failed**, the score is **60** (30 of 50 points). Write down exactly how
+Your LMS words completion, success and the score. SCORM 1.2 has only one status, so a learner who finishes but fails
 is reported as *failed*, never as *completed*. That is how SCORM 1.2 works, not a fault.
 
 ### Test 3. A passing attempt at the edge, and the certificate (about 8 minutes)
@@ -105,7 +105,7 @@ is reported as *failed*, never as *completed*. That is how SCORM 1.2 works, not 
 7. Go on to slide 24.
 
 **Expect:** **passed** with a score of **80** (4 of 5), because Question 1 earned full points on its second try.
-If Brightspace shows something else for 80 percent exactly, that is an important finding: say so.
+If your LMS shows something else for 80 percent exactly, that is an important finding: say so.
 
 ### Test 4. Resume (the one most likely to go wrong)
 
@@ -130,7 +130,7 @@ Only if you have attempts to spare. On slide 4, **Agree** and **In an office** s
 
 Do Test 1 again without the mouse. Tab to move, Enter or Space to choose, arrow keys inside the tabs, and Check answer
 by keyboard. Also type your name and make the certificate by keyboard. **Expect:** you can reach and use everything, you
-always see where you are, and focus never gets stuck. Brightspace puts the lesson in a frame, so note whether Tab can
+always see where you are, and focus never gets stuck. Your LMS puts the lesson in a frame, so note whether Tab can
 get **out** of the lesson and back into the page.
 
 ### Test 7. Screen reader (optional, if you have NVDA)
@@ -143,7 +143,7 @@ region with the score first. On slide 20 the name box should be labelled, and "Y
 
 This slide is only here to test an embed. The video has nothing to do with channels. In your first run it loaded and played.
 
-1. Go to slide 12. **Expect:** a YouTube player with a picture of the video's title ("The New Claude Motion Is Awesome"),
+1. Go to slide 12. **Expect:** a YouTube player with a picture of the video's title,
    and a **Transcript** line under it that opens a short text description.
 2. If you see a grey or blank box, or a message such as "Video unavailable" or "Error 153" or "refused to connect", **write
    down exactly what it says.** That is a real result: some LMSs and school networks block videos from other sites.
@@ -182,7 +182,7 @@ Learners are told what a file is before they download it, and nothing opens in a
 
 1. Go to slide 22. **Expect:** a voice introduces the slide, then reads each file's name, what it is, its kind and how to
    save it, with captions. Two boxes show the same: a name, a description, the kind of file and its size ("PDF document,
-   60 KB" and "Word document, 4 KB"), a **Download** button, and one sentence about saving the file.
+   60 KB" and ".docx document, 4 KB"), a **Download** button, and one sentence about saving the file.
 2. Press **Download Channel checklist**. **Expect:** the PDF is **saved** to your computer (look in your Downloads folder, or
    wherever the browser keeps files). **Expect no pop-up window**, and the lesson stays where it is. If instead the PDF opens
    inside the lesson frame, or a blocked-pop-up message appears, **write down exactly what happened.**
@@ -191,7 +191,7 @@ Learners are told what a file is before they download it, and nothing opens in a
 4. **Keyboard only.** Tab to a Download button and press Enter. **Expect:** the same as with a click.
 5. **Screen reader (optional).** Each box is a group named "Channel checklist, a PDF to download". On the button the reader
    should say what the file is and its kind after the button's name.
-6. Note whether Brightspace asks anything before saving, and whether it saves with the same file name.
+6. Note whether your LMS asks anything before saving, and whether it saves with the same file name.
 
 These two files were made for this test. The PDF was checked for a tagged structure, a language and a title, and the
 Word file for real heading styles, a numbered list and a table with a header row. The Word file was written by hand and has not
@@ -239,14 +239,14 @@ Motion is a barrier for some learners, so it is small, short and optional. Try i
 Learners use phones, small windows and zoom. When the room is narrow the lesson should become one column, in reading order, and
 never need sideways scrolling.
 
-1. Open the lesson in Brightspace on a computer and **zoom the page in** with Ctrl and the plus key until it reads 300 or 400
+1. Open the lesson in your LMS on a computer and **zoom the page in** with Ctrl and the plus key until it reads 300 or 400
    percent (or drag the window narrow, to about 400 pixels wide). **Expect:** each slide becomes one column, text wraps and is
    larger than a shrunken picture of the slide would be, and **there is no sideways scroll bar** on the page. Back and Next are still
-   there. Brightspace shows the lesson in a frame, so also try making that frame narrow if you can.
+   there. Your LMS shows the lesson in a frame, so also try making that frame narrow if you can.
 2. Go through slides 1 to 11 and 22 to 24. **Expect:** slide 1's title and sub-title sit in their dark panel; slide 5's flip cards stand
    one under another; slide 6's tabs and slide 9's steps still work; slide 11's glossary shows its list above the definition.
 3. Zoom back to 100 percent. **Expect:** the fixed slide comes back, as it was.
-4. **A phone, if you have one.** Open the lesson from Brightspace in a mobile browser, held upright. **Expect:** the same one-column
+4. **A phone, if you have one.** Open the lesson from your LMS in a mobile browser, held upright. **Expect:** the same one-column
    layout, buttons big enough to press, and the sound controls still reachable.
 5. **A screen reader or the keyboard** (optional). **Expect:** Tab and the reading order are the same in one column as at full size.
 6. Note anything that is cut off, overlaps, or is hard to read at the large sizes.
@@ -272,7 +272,7 @@ The published package was run through the project's stand-in SCORM 1.2 system. A
 | Slide 12 in an ordinary browser | the YouTube player appeared with its picture. It was not played |
 | Slide 23 effects, in an ordinary browser | each step slid in over 0.6 seconds from 40 pixels to the left of its place and the tip faded in over 0.8; nothing was left running afterwards; Turn off animation stopped the effects on the next visit and announced itself; with the device set to reduced motion no effect ran and the button was not offered |
 | Slide 23 in an ordinary browser | steps hidden at first and shown as their narration started (at the moments their sounds began); the tip at 4 seconds; Pause froze it for as long as it was left and Resume finished the time that was left; Show everything showed all and greyed its button; the buttons were gone on the next slide; with the sound refused, the three steps showed at once |
-| Reflow, in an ordinary browser 320 pixels wide | all 24 slides of this lesson, and all 23 slides of the interactions example, show as one column; none needed sideways scrolling; widening the window to 1280 brought the fixed slide back with no leftover changes. The title slide, flip cards, glossary, timeline, process circle, pyramid, Likert and semantic differential slides and the embedded video were looked at. A real phone and Brightspace's frame were not tried |
+| Reflow, in an ordinary browser 320 pixels wide | all 24 slides of this lesson, and all 23 slides of the interactions example, show as one column; none needed sideways scrolling; widening the window to 1280 brought the fixed slide back with no leftover changes. The title slide, flip cards, glossary, timeline, process circle, pyramid, Likert and semantic differential slides and the embedded video were looked at. A real phone and your LMS's frame were not tried |
 | Slide 22 in an ordinary browser | both files listed with their kind and size, links to `assets/documents/...` with a `download` name and no new window; both files fetch with the right type. Download was not pressed |
 | Items on slides 5, 6, 9, 10, 11 (an ordinary browser, with the real audio) | opening an item played its file; Listen played it again; closing an accordion heading, Flip back, and arrow keys between tabs played nothing; the transcript gained each item's words |
 
@@ -283,7 +283,7 @@ answers. Those were run just before the results and certificate slides were adde
 change nothing about them.)
 
 The certificate was also taken through a headless Edge: the page, then the print view, then a PDF. The print view shows only
-the certificate in black on white, and the PDF is one landscape page. That is Edge, not Brightspace's frame.
+the certificate in black on white, and the PDF is one landscape page. That is Edge, not your LMS's frame.
 
 ## The rehearsal: what a correct LMS holds for tests 1 to 4 (2026-11-01)
 
@@ -302,12 +302,12 @@ SCORM 2004 and xAPI keep "finished" and "passed" apart, so test 2 is *completed 
 
 ## What to send back
 
-For each test: the result Brightspace shows (status, score), anything that looked wrong, and a screenshot if you can.
-The questions that matter most: **(1)** does Brightspace record the score and a passed or failed result correctly,
+For each test: the result your LMS shows (status, score), anything that looked wrong, and a screenshot if you can.
+The questions that matter most: **(1)** does your LMS record the score and a passed or failed result correctly,
 **(2)** does resume land on the right slide with the answers kept, **(3)** is the lesson readable in the frame,
-**(4)** does the sound start without a click, **(5)** does the YouTube video show and play inside Brightspace, and
-**(6)** does Print or save as PDF work from the certificate inside Brightspace, **(7)** does an item's voice start
-when you open it inside Brightspace (Test 9), or only after you press its Listen button, and **(8)** do the Download
+**(4)** does the sound start without a click, **(5)** does the YouTube video show and play inside your LMS, and
+**(6)** does Print or save as PDF work from the certificate inside your LMS, **(7)** does an item's voice start
+when you open it inside your LMS (Test 9), or only after you press its Listen button, and **(8)** do the Download
 buttons on slide 22 save the files without a pop-up (Test 10), and **(9)** on slide 23 do the steps appear as they are spoken, and
 do the two timing buttons work (Test 11), and **(10)** do the steps slide in, does Turn off animation work, and does a computer set to
 reduced motion see none (Test 12), and **(11)** at 300 or 400 percent zoom, or in a narrow window or a phone, does every slide become
@@ -317,7 +317,7 @@ one column that reads in order with no sideways scrolling (Test 13)?
 
 * No table of contents or menu: the lesson is a straight line, with Back and Next.
 * The lesson reports each question, and the survey answers on slides 4 and 21, to the LMS as interactions.
-  Most LMSs, Brightspace included as far as is known, do not show these anywhere a learner or instructor can see.
+  Most LMSs, your LMS included as far as is known, do not show these anywhere a learner or instructor can see.
 * Sound that does not start by itself, until you press Play narration.
 * Arrow keys between tabs that change the tab but make no sound. Click, Enter or Listen plays it.
 * The item that is showing when a slide opens (the first tab, the first step, the first glossary term) is not read by
@@ -325,7 +325,7 @@ one column that reads in order with no sideways scrolling (Test 13)?
 * The video needs the internet. The lesson's own checker lists that as a warning for exactly this reason.
 * A video that someone else made is not under the lesson's control: it can be taken down, or blocked by a network.
 * The certificate asks for the name every time and does not remember it. Nothing about the learner is stored, and the
-  name is not taken from Brightspace.
+  name is not taken from your LMS.
 
 ## Rebuilding
 

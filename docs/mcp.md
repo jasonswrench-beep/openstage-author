@@ -1,6 +1,6 @@
 # MCP: letting an AI assistant use OpenStage Author
 
-MCP (the Model Context Protocol) is the way an AI assistant such as Claude uses a program's tools. With it on, an assistant can build an
+MCP (the Model Context Protocol) is the way an AI assistant uses a program's tools. With it on, an assistant can build an
 accessible course **while nobody is at the keyboard**: it makes a project, adds slides, text, pictures and questions, writes narration, checks
 the course for problems, and publishes it as packages for an LMS. It changes courses with the editor's own code, so every change means exactly
 what it means in the editor, with the same checks. The design follows the choices made for OpenExplainer's MCP server (2026-10-21): it runs with
@@ -29,7 +29,7 @@ with the Node that comes with it). The assistant starts it and talks to it on st
 the assistant closes the line, the program ends.
 
 Behind each tool is the editor's own `Model` (`editor/src/model.ts`), the code the editor's panels use, so an assistant cannot make a slide the
-editor could not. The program's other tools (the problem check, the publisher, the narration tool, the translation tool and the Word document) are
+editor could not. The program's other tools (the problem check, the publisher, the narration tool, the translation tool and the review document) are
 run as separate programs, exactly as the editor's buttons run them.
 
 Do not edit the same project in the editor's window while an assistant is working on it. The two do not see each other's changes.

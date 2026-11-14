@@ -3,11 +3,11 @@
   "id": "openstage-people-1",
   "title": "OpenStage people, set 1",
   "version": "1.0.0",
-  "description": "Fifteen people in everyday work and casual clothes, each in many poses: Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf. The pictures were made with Ideogram from written descriptions.",
+  "description": "Fifteen people in everyday work and casual clothes, each in many poses: Aisyah, Blayne, Daryl, David, Gerry, Harold, Jacob, Kathy, Ken, Lisa, Makoa, Malina, Mei, Salma and Yusuf. The pictures were made with an AI picture service from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
-    "licence": "Made with Ideogram (AI-generated), in the public domain",
+    "licence": "AI-generated, Apache License 2.0",
     "url": "https://openstageauthor.com"
   },
   "people": [

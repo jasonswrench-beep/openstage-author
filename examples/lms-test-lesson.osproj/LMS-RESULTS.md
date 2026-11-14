@@ -20,7 +20,7 @@ These match the four SCORM items in the release gate.
 
 SCORM 1.2 has one status, so a learner who finishes but fails is reported as failed, never as completed. That is how SCORM 1.2 works, not a fault in the lesson.
 
-## Brightspace
+## The institution's LMS
 
 LMS version: ______   Date: ______   Tester: ______   Account used (real test student / Preview / Impersonate): ______
 
@@ -39,7 +39,7 @@ Menu paths, settings to pick and where to read the result are in `BRIGHTSPACE-ST
 | 11 and 12 Timing and animation | | | |
 | 13 A narrow window | | | |
 
-## Brightspace, SCORM 2004 (`lms-test-lesson-scorm2004.zip`)
+## The institution's LMS, SCORM 2004 (`lms-test-lesson-scorm2004.zip`)
 
 LMS version: ______   Date: ______   Tester: ______
 
@@ -50,7 +50,7 @@ LMS version: ______   Date: ______   Tester: ______
 | 3 Passing at the edge (completed, passed, 80) | | | |
 | 4 Resume (Question 3, answers kept, completed, passed, 100) | | | |
 
-## xAPI (`lms-test-lesson-xapi.zip`), in Brightspace or in SCORM Cloud
+## xAPI (`lms-test-lesson-xapi.zip`), in the institution's LMS or in an online SCORM test service
 
 Where: ______   Version: ______   Date: ______   Tester: ______
 
@@ -60,7 +60,7 @@ Where: ______   Version: ______   Date: ______   Tester: ______
 | 3 Passing at the edge (a correct LRS holds `passed`, scaled 0.8) | | | |
 | 4 Resume (a `suspended` statement, then `resumed`, opens on Question 3) | | | |
 
-## SCORM Cloud (optional second opinion, free Trial plan)
+## An online SCORM test service (optional second opinion, free Trial plan)
 
 Version: ______   Date: ______   Tester: ______
 
@@ -80,7 +80,7 @@ This is the answer key for the tables above. It is also in `LMS-TEST-PLAN.md` ("
 | 3 Edge | passed, 80 | completed, passed, 80 (0.8) | `passed`, scaled 0.8 |
 | 4 Resume | Question 3, entry `resume`, passed, 100 | the same, 1 | `suspended`, `resumed`, passed, scaled 1 |
 
-## Moodle
+## The second LMS
 
 LMS version: ______   Date: ______   Tester: ______
 
@@ -97,7 +97,7 @@ LMS version: ______   Date: ______   Tester: ______
 | 11 and 12 Timing and animation | | | |
 | 13 A narrow window | | | |
 
-## Canvas
+## The third LMS
 
 LMS version: ______   Date: ______   Tester: ______
 
@@ -120,17 +120,17 @@ A second package, `dist\question-types-scorm12.zip`, has one slide for each kind
 
 | LMS | Result | What the LMS showed for the score and each question | Problems |
 | --- | --- | --- | --- |
-| Brightspace | | | |
-| Moodle | | | |
-| Canvas | | | |
+| The institution's LMS | | | |
+| The second LMS | | | |
+| The third LMS | | | |
 
-## Notes from the first Brightspace run
+## Notes from the first run in the institution's LMS
 
-The first run in Brightspace was recorded on video (2026-10-12) and is not in this file as results. What that recording showed: the package launched and worked, narration played with captions, the quiz and its feedback layers worked, the adaptive "Remote tip" note appeared, the flip cards, tabs, table, steps, accordion and glossary worked, and the embedded YouTube video played inside the lesson. It did not show what Brightspace recorded for the score and status, because an instructor cannot see a learner's record from there. Please add the real numbers from a test student here.
+The first run in the institution's LMS was recorded on video (2026-10-12) and is not in this file as results. What that recording showed: the package launched and worked, narration played with captions, the quiz and its feedback layers worked, the adaptive "Remote tip" note appeared, the flip cards, tabs, table, steps, accordion and glossary worked, and the embedded YouTube video played inside the lesson. It did not show what the institution's LMS recorded for the score and status, because an instructor cannot see a learner's record from there. Please add the real numbers from a test student here.
 
 ## Summary
 
-Which LMSs have passed tests 1 to 4: **Brightspace, as reported by Jason on 2026-11-01: "All three worked in Brightspace"** (read as the SCORM 1.2, SCORM 2004 and xAPI packages of the lesson). He then said he has **instructor access only** (no student account, and he cannot make a test student), so the run was done as the instructor. D2L's own "Preview your course" page says Role Switch creates no learner activity and that Impersonate should not be used to check reporting or completion data, so this shows that the packages launch and play in Brightspace's frame, **not what Brightspace recorded** (status, score, resume). He gave no status words, scores or screenshots, so the Brightspace tables above are still blank and the four required tests are not yet passed in any real LMS. It is not recorded which of tests 1 to 4 were run, whether resume landed on Question 3, or whether Brightspace showed any xAPI statements. Moodle, Canvas and SCORM Cloud have not been run.
+Which LMSs have passed tests 1 to 4: **the institution's LMS, as reported by Jason on 2026-11-01: "All three worked in the institution's LMS"** (read as the SCORM 1.2, SCORM 2004 and xAPI packages of the lesson). He then said he has **instructor access only** (no student account, and he cannot make a test student), so the run was done as the instructor. The LMS maker's own "Preview your course" page says Role Switch creates no learner activity and that Impersonate should not be used to check reporting or completion data, so this shows that the packages launch and play in the institution's LMS's frame, **not what the institution's LMS recorded** (status, score, resume). He gave no status words, scores or screenshots, so the institution's LMS tables above are still blank and the four required tests are not yet passed in any real LMS. It is not recorded which of tests 1 to 4 were run, whether resume landed on Question 3, or whether the institution's LMS showed any xAPI statements. The second LMS, the third LMS and an online SCORM test service have not been run.
 
 Faults found and where they were fixed: ______
 

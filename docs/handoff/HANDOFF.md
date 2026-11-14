@@ -1,6 +1,6 @@
-# Handoff for another Claude instance
+# Handoff for another AI assistant session
 
-Written 2026-10-15 by the Claude instance that has worked on this with Jason since 2026-10-10. Give this file to a new instance, then
+Written 2026-10-15 by the AI assistant session that has worked on this with Jason since 2026-10-10. Give this file to a new instance, then
 ask it to read `CLAUDE.md` and the top of `ROADMAP.md` too. Everything here is checked against the repository as of commit `36cd4c5`.
 If this file and the repository disagree, the repository is right; say so and fix this file.
 
@@ -47,7 +47,7 @@ voice; audio is a cache keyed by a content hash. Website planned: openstageautho
 ## Machine setup (Jason's main PC; a new computer needs the same)
 
 Node 24, Rust 1.99 (MSVC target, VS C++ tools, WebView2), system Python with `jsonschema` (installed with `pip install --user`). Kokoro (the
-local speech model) lives in the Audiobook Studio venv at `D:\Claude Audio Test\.venv`, reached through the environment variable
+local speech model) lives in the Audiobook Studio venv at a folder on the main computer, reached through the environment variable
 `OPENSTAGE_KOKORO_PYTHON`, which the `.bat` files set if that path exists. **Those paths will not exist on another computer.** Without Kokoro
 everything else works, and voices from OpenAI or a plugin still make audio. The `.bat` files hard-coding that path is a known item on the roadmap
 ("before the repository goes public").
@@ -77,8 +77,8 @@ driven either, so restart the app rather than opening a second project over unsa
 ## Standing rules from Jason (some are also in `CLAUDE.md`)
 
 - **Do not commit or push without Jason's explicit yes, each time.** A yes covers only what was described. Write the commit message to a file
-  and use `git commit -F`. End commit messages with the attribution line your session tells you to use (this instance used
-  `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`). Split commits by concern where the files allow.
+  and use `git commit -F`. Commit as the owner (the noreply address in git config) and add no co-author or attribution line
+  naming an assistant (Jason, 2026-11-13). Split commits by concern where the files allow.
 - **Downloads need explicit permission** (npm, cargo, pip, models). Use `CARGO_NET_OFFLINE=true` and `cargo test --offline`.
 - **Keys and tokens** never go in a project, on a command line, in a log, in an error message or in chat. Jason's OpenAI key is in the editor's
   settings on Jason's PC; do not spend it (a voice sample or picture costs money) without asking first. Changing who has access to the GitHub
@@ -89,7 +89,7 @@ driven either, so restart the app rather than opening a second project over unsa
 - Anything that needs running is a double-clickable `.bat`, not a command to copy. Keep `.bat` files CRLF.
 - **No em dashes in prose** written for this project (code, docs, messages, this file).
 - When a decision could go either way, say so and ask. Confirm anything beyond the agreed scope before building it.
-- Out of scope: voice cloning (fixed voice sets only), cloud features, a built-in LMS, bidirectional PowerPoint round-trip, unrestricted scripting.
+- Out of scope: voice cloning (fixed voice sets only), cloud features, a built-in LMS, bidirectional .pptx round-trip, unrestricted scripting.
 
 ## What exists (high level)
 
@@ -97,7 +97,7 @@ Format, validator, player, SCORM 1.2 wrapper; the Tauri editor with themes, layo
 twelve question types with partial credit, scenarios, icons, characters, looks (object states), timing, a timeline
 panel, entrance and exit animation, grouping, locking, snapping, copy and paste, multi-select and alignment, slide and layer duplication,
 results and certificate boxes, downloads, embeds, a project asset library with credits, media search (Pexels, Pixabay, Unsplash, Freesound with
-the author's own free keys), PowerPoint import with re-sync, a Narration panel, Preview and Publish buttons. See the "Phase" sections of
+the author's own free keys), .pptx import with re-sync, a Narration panel, Preview and Publish buttons. See the "Phase" sections of
 `ROADMAP.md` for the detail and the "Gaps in what is built" list for what is not.
 
 ### AI services and narration voices (worked on most recently; read before touching narration)
@@ -132,21 +132,21 @@ the author's own free keys), PowerPoint import with re-sync, a Narration panel, 
   own free key (`/apiv2/search/`; licences are names like "Attribution" and "Creative Commons 0"; only those two are offered).
 - Pass mark is fixed at 80 percent (making it a setting is a format change). What completes a course is a per-project setting (`all` slides or
   `last`).
-- PowerPoint support stays (one-directional import with provenance and re-sync).
+- .pptx support stays (one-directional import with provenance and re-sync).
 - **Real LMS testing is held** until Jason says everything is ready (2026-10-13). Rebuild the packages in `dist` with the latest player first.
   One question needs Jason's decision first: SCORM 1.2 cannot record completion and success as separate states, but a release gate says it must.
 
 ## What has and has not been seen working
 
 Seen working for real: the OpenAI key check, an OpenAI voice and picture (`TEST AI SERVICES.bat`), an OpenAI narration made from the Narration
-dialog and heard in a preview, a first Brightspace launch (2026-10-12: narration, quizzes, YouTube embed all worked), Hear this voice with real
+dialog and heard in a preview, a first the institution's LMS launch (2026-10-12: narration, quizzes, YouTube embed all worked), Hear this voice with real
 Kokoro in the real app (first sample about 11 seconds, then quick; cancel and stop work).
 
 **Not yet tried** (the "Try in the desktop app" list at the top of `ROADMAP.md`): the WebP picture from the real OpenAI service (rerun
 `TEST AI SERVICES.bat`); Clear unused audio in the window; a picture made from **Assets > Make with AI** in the window; Preview opening in
 Chrome rather than Notepad; `OPEN EDITOR.bat` rebuilding by double-click; a real Freesound search; Hear this voice with an OpenAI voice; and the
-editor features from the last weeks in the desktop window (they were checked in a browser and by tests). **No screen reader pass** (NVDA, VoiceOver)
-has been done on the editor or the player; `docs/screen-reader-pass.md` is the script for whoever does it. Moodle and Canvas are untried, as is a
+editor features from the last weeks in the desktop window (they were checked in a browser and by tests). **No screen reader pass** (NVDA, the Mac's screen reader)
+has been done on the editor or the player; `docs/screen-reader-pass.md` is the script for whoever does it. The second and third LMSs are untried, as is a
 real phone.
 
 ## The screen recorder (OpenStage Capture): waiting
@@ -178,7 +178,7 @@ programs). Any copy of the recorder on this PC (a scratch clone from an earlier 
 - Write script and patch files with a file-writing tool, **not bash heredocs**: they mangle backslashes and `\n`. Multi-line `Edit` matches can
   also fail on CRLF files; many tracked files are CRLF in the working tree (`.gitattributes` normalises to LF in git), so patch scripts should read
   with `newline=''`, replace on LF text and write back the original line endings. `.py` files are LF.
-- The PowerShell tool refuses `Remove-Item` when `D:\Claude Audio Test` appears anywhere in the command; delete with bash `rm -rf` in a separate
+- The PowerShell tool refuses `Remove-Item` when a folder on the main computer appears anywhere in the command; delete with bash `rm -rf` in a separate
   step. PowerShell 5.1 `Set-Content -Encoding utf8` adds a BOM.
 - On Jason's PC `.html` files open in **Notepad**, while `.htm` and web links open Chrome. Preview and Publish find the default browser in the
   registry and launch it with a `file://` address.

@@ -15,11 +15,11 @@ It costs nothing. It needs about 90 minutes in all, and you can stop after any r
 
 ## What you need
 
-* **Brightspace**, with a course where you can add content, and a **test student** account you can log in as. Preview and Impersonate may
-  record nothing, so they are not a stand-in. With instructor access only, Brightspace cannot show what it records: use SCORM Cloud (`SCORM-CLOUD-STEPS.md`) for that. Nothing to buy. **Read `BRIGHTSPACE-STEPS.md` first:** the menu paths, the settings to pick
+* **Your LMS**, with a course where you can add content, and a **test student** account you can log in as. Preview and Impersonate may
+  record nothing, so they are not a stand-in. With instructor access only, your LMS cannot show what it records: use an online SCORM test service (`SCORM-CLOUD-STEPS.md`) for that. Nothing to buy. **Read `BRIGHTSPACE-STEPS.md` first:** the menu paths, the settings to pick
   when adding a package, why each fresh attempt needs its own copy of the zip, and where to read the result.
-* **SCORM Cloud** (Rustici), the route if you have instructor access only, and the way to see xAPI statements (`SCORM-CLOUD-STEPS.md`). It has a **free Trial plan with no time limit**, limited to 10
-  registrations at a time (one third-party listing also says 3 courses and 5 GB; I could not confirm that on Rustici's own page). A paid
+* **An online SCORM test service**, the route if you have instructor access only, and the way to see xAPI statements (`SCORM-CLOUD-STEPS.md`). It has a **free Trial plan with no time limit**, limited to 10
+  registrations at a time (one third-party listing also says 3 courses and 5 GB; I could not confirm that on the test service's own page). A paid
   plan exists (about $40 a month on listings), and **you never need it for this test**. Signing up is your sign-in, not mine.
 * The files, in the `dist\lms-test-pack` folder of the project (double-click `PUBLISH LMS TEST LESSON.bat` to rebuild it). Nothing is uploaded anywhere until you do it.
 
@@ -28,21 +28,21 @@ It costs nothing. It needs about 90 minutes in all, and you can stop after any r
 Write what you see in `LMS-RESULTS.md` as you go (the status words and the score, in the LMS's own words), or just send screenshots of the
 learner's result and the instructor's report.
 
-**Round 1: SCORM 1.2 in Brightspace (about 30 minutes). The one that matters most.**
-Upload `lms-test-lesson-scorm12.zip`. Do tests 1 to 4 of `LMS-TEST-PLAN.md`. You need a fresh attempt for each of tests 2, 3 and 4, and Brightspace cannot reset
+**Round 1: SCORM 1.2 in your LMS (about 30 minutes). The one that matters most.**
+Upload `lms-test-lesson-scorm12.zip`. Do tests 1 to 4 of `LMS-TEST-PLAN.md`. You need a fresh attempt for each of tests 2, 3 and 4, and your LMS cannot reset
 SCORM statistics, so upload the zip three times under different names (see `BRIGHTSPACE-STEPS.md`) or use three test students.
 What a correct LMS shows: test 2 **failed, 60**; test 3 **passed, 80**; test 4 opens on **Question 3** with answers 1 and 2 kept and locked, and ends
 **passed, 100**. If it differs, that is a finding.
 
-**Round 2: SCORM 2004 in Brightspace (about 20 minutes).**
+**Round 2: SCORM 2004 in your LMS (about 20 minutes).**
 Upload `lms-test-lesson-scorm2004.zip` as a second item. Repeat tests 2, 3 and 4 (shorter: the answers are the same).
 SCORM 2004 keeps *finished* and *passed* apart, so a correct LMS shows test 2 as **completed and failed, 60%**, test 3 as **completed and passed, 80%**,
-and test 4 as above. If Brightspace shows one word only, write down which.
+and test 4 as above. If your LMS shows one word only, write down which.
 
 **Round 3: xAPI (about 15 minutes).**
-Brightspace's upload menu says "New SCORM/xAPI Object", so try `lms-test-lesson-xapi.zip` there first. I do not know whether Brightspace records xAPI
-or only launches it. Open it, do test 3, and see whether anything is recorded. If Brightspace shows nothing, that is expected for some setups: use
-SCORM Cloud (it has an LRS and lists the statements). What a correct LRS holds after test 3: one `initialized`, a stream of `experienced`, an
+Your LMS's upload menu says "New SCORM/xAPI Object", so try `lms-test-lesson-xapi.zip` there first. I do not know whether your LMS records xAPI
+or only launches it. Open it, do test 3, and see whether anything is recorded. If your LMS shows nothing, that is expected for some setups: use
+An online SCORM test service (it has an LRS and lists the statements). What a correct LRS holds after test 3: one `initialized`, a stream of `experienced`, an
 `answered` for each answer, one `completed` and one `passed` whose result has score 0.8 (80 of 100).
 
 **Round 4: the question types (about 20 minutes).**
@@ -61,4 +61,4 @@ what is mine.
 
 ## Things I cannot do for you
 
-Sign in to Brightspace or SCORM Cloud, upload to them, or act as a test student. Those are yours. I will not start NVDA or play any sound on your PC.
+Sign in to your LMS or an online SCORM test service, upload to them, or act as a test student. Those are yours. I will not start NVDA or play any sound on your PC.

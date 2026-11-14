@@ -55,7 +55,7 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
    **Decided (2026-10-18, Jason, on being asked which of the two to use for Practice, answered "Yes" to the recommendation):** Practice uses hotspot objects over the
    picture, as above, and Assessment uses the quiz kinds because only they score. If Jason meant otherwise, Practice is the only part that changes, and it is not built yet.
 8. **Provenance on every slide made from a step** (`sourceCapture` is the recording's folder name; `stepId` the step's id), and a regenerated lesson keeps
-   what the author changed, the way a PowerPoint re-sync does. Not built.
+   what the author changed, the way a .pptx re-sync does. Not built.
 9. **Typed words and window titles are private.** The recorder writes keys only when it is sure the field is an ordinary text field. The typed words
    appear in a step's words for the author to check, and the dialog says so. Nothing reaches a course the author did not read and approve.
 
@@ -103,7 +103,7 @@ So Phase 7 needs **no new course format** to start. The one place a new format f
 - **Bringing a lesson up to date** (built in two steps on 2026-10-18; the second needed format 0.27.0, at Jason's request). Pressing the button again makes the slides that are missing, each in its own place among
   the lesson's slides (after the slide of the step before it, or before the first step that has one), and brings the others up to date. A slide made from a step records what was made in `provenance.base`: its name,
   the picture's take and moment, and for each part (its role, such as `words` or `layer-hint/message`) the object's id, layer and a fingerprint of each field. Bringing up to date makes the slide again in memory
-  from the new step, with the same ids for the same parts (so rules still name the right objects), and compares each field three ways, as the PowerPoint re-sync does for a deck: the field as it was made (`base`), as it is
+  from the new step, with the same ids for the same parts (so rules still name the right objects), and compares each field three ways, as the .pptx re-sync does for a deck: the field as it was made (`base`), as it is
   now, and as it would be made now. A field the step does not change is left alone; one the step changes and the author did not is replaced; one both changed stays the author's and is reported; a part the author
   deleted stays deleted; a part the author added is never touched; a part the step no longer makes goes only if the author never changed it. A slide for a step that is gone is removed only if it is exactly as made
   (nothing changed, nothing added), and only after the dialog has said so and been told to go on. The editor does this in `editor/src/stepbase.ts`, called by `Model.planStepLesson` (what would change, in words,

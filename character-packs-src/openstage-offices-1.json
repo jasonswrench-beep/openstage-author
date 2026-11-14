@@ -2,11 +2,11 @@
   "id": "openstage-offices-1",
   "title": "OpenStage offices and workplaces, set 1",
   "version": "1.0.0",
-  "description": "Fifty-eight empty places to set a scene in: open-plan offices, private offices, meeting and training rooms, reception areas, lobbies, corridors, kitchens, supply rooms, server rooms, parking garages and outdoor entrances. None has anyone in it, so the people from the character packs can stand in them. The pictures were made with Ideogram from written descriptions.",
+  "description": "Fifty-eight empty places to set a scene in: open-plan offices, private offices, meeting and training rooms, reception areas, lobbies, corridors, kitchens, supply rooms, server rooms, parking garages and outdoor entrances. None has anyone in it, so the people from the character packs can stand in them. The pictures were made with an AI picture service from written descriptions.",
   "credit": {
     "creator": "Jason S. Wrench",
     "creatorUrl": "https://openstageauthor.com",
-    "licence": "Made with Ideogram (AI-generated), in the public domain",
+    "licence": "AI-generated, Apache License 2.0",
     "url": "https://openstageauthor.com"
   },
   "size": [

@@ -20,7 +20,7 @@ What goes into the file:
 * **The pictures, sounds, video and captions** the slides use, and the record of where each came from (its credit), so the credits page can still name the maker.
 * **The course setting a game needs**: a set made from a course that counts as complete at the last slide says so.
 
-What is left out: your theme (the set uses the colours and fonts of the course it is added to; a slide that names a theme colour follows that course's theme), your narration audio (the scripts are kept, and the audio is made again where the set is used), anything about where a slide came from (a recording, a PowerPoint deck), and a rule that leads to a slide you did not choose (it would go nowhere; the editor says how many it left out).
+What is left out: your theme (the set uses the colours and fonts of the course it is added to; a slide that names a theme colour follows that course's theme), your narration audio (the scripts are kept, and the audio is made again where the set is used), anything about where a slide came from (a recording, a .pptx slide deck), and a rule that leads to a slide you did not choose (it would go nowhere; the editor says how many it left out).
 
 Your project is saved first, because the file is made from what is saved. Nothing in your project changes.
 

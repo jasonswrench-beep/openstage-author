@@ -6,12 +6,12 @@ What to do with this folder, in order.
 
 Unzip it to a folder you will keep, for example `D:\Documents\OpenStage`. Not Downloads.
 
-## 2. Open it in Claude Code
+## 2. Open it with the AI assistant
 
-Open the Claude desktop app, go to the Code tab, choose Local mode, and point it at this
+Open the AI assistant's desktop app, go to the Code tab, choose Local mode, and point it at this
 folder. No GitHub account and no terminal needed for this step.
 
-Claude Code reads `CLAUDE.md` at the start of every session, so it will already know what
+The AI assistant reads `CLAUDE.md` at the start of every session, so it will already know what
 this project is, what is in scope, and what is permanently out of scope, without you
 re-explaining.
 
@@ -74,7 +74,7 @@ reviewers: the slide text, alt text, narration scripts, quiz answers and the pro
 `docs/video.md`).
 Both need Node.js installed, and Publish needs Python.
 
-An AI assistant such as Claude can also build, check and publish courses with the program, with nobody at the keyboard: press **MCP access** in the
+An AI assistant can also build, check and publish courses with the program, with nobody at the keyboard: press **MCP access** in the
 editor, turn it on, choose the one folder it may use, and copy the lines it gives into your assistant (`docs/mcp.md`). It is off until you do. `TEST MCP SERVER.bat` tests it.
 `PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
 without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and

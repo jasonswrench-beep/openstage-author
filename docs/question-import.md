@@ -8,7 +8,7 @@ It changes no part of the course format. Each row becomes what **Add > Question*
 
 1. In the Slides panel, press **Add**, then **Quiz from a spreadsheet...** (or **Add**, then **New slide...**, then **Quiz from a spreadsheet** or **Test bank from a spreadsheet** under Quizzes and test banks). A quiz gives every learner every question in order, so the test bank box starts unticked; a test bank starts it ticked.
 2. Press **Save a blank table to start from...** if you need a table to begin with. It is a CSV file with the columns named and one example of each kind of question (`examples/questions-template.csv` is the same file).
-3. Fill the table in Excel, Google Sheets or any spreadsheet program. Save it as **CSV**. In Excel choose **Save As, then CSV UTF-8 (Comma delimited)**; plain "CSV (Comma delimited)" works too.
+3. Fill the table in any spreadsheet program. Save it as **CSV**. In a spreadsheet program choose **Save As, then CSV UTF-8 (Comma delimited)**; plain "CSV (Comma delimited)" works too.
 4. Press **Choose a table of questions...** and choose the file. The dialog says how many questions can be added and lists every row that has a problem, with the row number, in words.
 5. Choose how to add them (below) and press **Add**. One Undo takes all the slides away.
 
@@ -53,7 +53,7 @@ A quiz board and a prize ladder can also be made from a table, and their size di
 
 ## Files it can read
 
-A `.csv` file, or a `.tsv` or `.txt` table. It works out the separator (commas, semicolons, which some countries' Excel uses, or tabs) and the way the text was saved: UTF-8, UTF-16 (Excel's "Unicode Text"), or the Windows Western code page that Excel's plain CSV uses. An Excel file (`.xlsx`) is not read: open it and save it as CSV. A file larger than 2 MB is refused.
+A `.csv` file, or a `.tsv` or `.txt` table. It works out the separator (commas, semicolons, which spreadsheet programs in some countries use, or tabs) and the way the text was saved: UTF-8, UTF-16 (a spreadsheet program's "Unicode Text"), or the Windows Western code page that a spreadsheet program's plain CSV uses. A spreadsheet file (`.xlsx`) is not read: open it and save it as CSV. A file larger than 2 MB is refused.
 
 ## Not built
 

@@ -32,7 +32,7 @@ and look at it), with `live-test-results.txt`, which has no key in it. If a step
 | OpenAI | its 13 ready-made voices, in many languages | yes (a GPT image model) |
 | A plugin you install | the voices it lists | no |
 
-Midjourney is not here: it has no official programming interface.
+Picture services that have no official programming interface are not here.
 
 **Voices are always ready-made.** OpenStage never makes a voice from a recording of a person. OpenAI voices made from a sample are not
 offered, and a plugin has no way to be handed a recording (voice cloning is out of scope, CLAUDE.md).
@@ -41,7 +41,7 @@ offered, and a plugin has no way to be handed a recording (voice cloning is out 
 
 1. Choose **AI services...** in the **Tools** menu.
 2. Paste your OpenAI key. The **Get your OpenAI key** button opens the page where you sign up and copy it. The key is from OpenAI's developer
-   platform, billed separately from a ChatGPT subscription. You pay OpenAI for what you make; OpenStage does not charge anything and cannot
+   platform, billed separately from a chat subscription. You pay OpenAI for what you make; OpenStage does not charge anything and cannot
    see what it costs.
 3. Tick **Allow OpenStage to send OpenAI ...**. This is your yes. Until it is ticked, nothing is sent. (If you first try to make something
    before saying yes, a question asks you the same thing, once.)
