@@ -16,11 +16,12 @@ tools out of pocket.
 
 ## Status
 
-Early. There is no editor yet. The project is building the file format, a validator, and
-the player first, on the principle that the published course has to be right before the
-thing that authors it is worth building.
+Early, and available for testing. [OpenStage Author 0.1.0 alpha 5](https://github.com/jasonswrench-beep/openstage-author/releases/tag/v0.1.0-alpha.5)
+is a pre-release for Windows: a signed installer with the editor, the player and what publishing needs. Download
+`OpenStage-Author-0.1.0-alpha.5-Setup.exe` from that page and check it against the SHA-256 given there.
 
-Nothing here is usable for real coursework yet.
+It is a pre-release, so expect rough edges and changes between versions. Keep copies of what you make with it, and try a
+published course in your own LMS before students see it. It is not yet ready for courses that students depend on.
 
 ## Why this exists
 
@@ -35,9 +36,11 @@ and that the tool is usable by an author with a disability.
 A blind instructional designer should be able to do this job. ATAG Part A conformance is
 a design constraint here from the first commit, not an audit before release.
 
-**You own the file.** The project format is open, documented and plain text. The
-published package contains the editable source by default. Nothing expires, because
-there is nothing to expire. Anyone can write a converter.
+**You own the file.** The project format is open, documented and plain text. A published
+package can carry the editable source too: tick "Include an editable copy of the course"
+when you publish, and anyone with the package can open and change it in OpenStage Author.
+It is off unless you choose it. Nothing expires, because there is nothing to expire.
+Anyone can write a converter.
 
 Plain text also means version history, diffs and rollback work through tools that
 already exist.
