@@ -437,6 +437,7 @@
 
       { "area": "Help menu", "command": "Search for a command", "icon": "search", "keys": "Ctrl+K" },
       { "area": "Help menu", "command": "Keyboard keys", "icon": "keyboard", "keys": "Ctrl+/" },
+      { "area": "Help menu", "command": "Check for updates...", "icon": "refresh-cw" },
       { "area": "Help menu", "command": "About and licences", "icon": "info" },
 
       { "area": "Everywhere", "command": "Open a menu", "icon": "chevron-down" },

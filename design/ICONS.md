@@ -471,6 +471,7 @@ with a spoken name and a tooltip. See `DESIGN-GUIDE.md` for the rules and what e
 | Tools menu | Settings... | [settings](https://lucide.dev/icons/settings) |  |
 | Help menu | Search for a command | [search](https://lucide.dev/icons/search) | Ctrl+K |
 | Help menu | Keyboard keys | [keyboard](https://lucide.dev/icons/keyboard) | Ctrl+/ |
+| Help menu | Check for updates... | [refresh-cw](https://lucide.dev/icons/refresh-cw) |  |
 | Help menu | About and licences | [info](https://lucide.dev/icons/info) |  |
 | Everywhere | Open a menu | [chevron-down](https://lucide.dev/icons/chevron-down) |  |
 | Everywhere | Ticked in a menu | [check](https://lucide.dev/icons/check) |  |
