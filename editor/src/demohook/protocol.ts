@@ -46,6 +46,12 @@ export interface ControlInfo {
   rect: [number, number, number, number];
   visible: boolean;
   enabled: boolean;
+  /** For a box: the words in it now (a drop-down list: its choice). Never a password box's. (Hook version 3.) */
+  value?: string;
+  /** Whether the box takes several lines of text, where typing adds a line rather than replacing. (Hook version 3.) */
+  multiline?: boolean;
+  /** Whether it has the keyboard focus. (Hook version 3.) */
+  focused?: boolean;
 }
 
 export interface Hello {
@@ -62,8 +68,9 @@ export interface TextOnScreen {
   rect: [number, number, number, number];
 }
 
-/** Version 2 added the `text` command. */
-export const HOOK_VERSION = 2;
+/** Version 2 added the `text` command. Version 3 added a box's words, whether it takes several lines and whether it
+ * has the focus to each control's report, and made Ctrl+A select a box's words. */
+export const HOOK_VERSION = 3;
 
 /** Whether an endpoint is on this computer only. The hook never talks to anything else. */
 export function isLoopback(endpoint: string): boolean {

@@ -94,7 +94,21 @@ function info(el: HTMLElement): ControlInfo {
     rect: [r.left, r.top, r.width, r.height],
     visible,
     enabled: !(el as HTMLButtonElement).disabled && el.getAttribute("aria-disabled") !== "true",
+    ...boxFacts(el),
+    focused: focused() === el,
   };
+}
+
+/** For a box: the words in it now, and whether it takes several lines. A password box's words are never reported. */
+function boxFacts(el: HTMLElement): { value?: string; multiline?: boolean } {
+  if (el instanceof HTMLSelectElement) return { value: el.selectedOptions[0]?.text ?? "", multiline: false };
+  if (el instanceof HTMLTextAreaElement) return { value: el.value, multiline: true };
+  if (el instanceof HTMLInputElement) {
+    if (["checkbox", "radio", "range", "color", "file", "hidden", "button", "submit", "reset"].includes(el.type)) return {};
+    return el.type === "password" ? { multiline: false } : { value: el.value, multiline: false };
+  }
+  if (el.isContentEditable) return { value: el.innerText, multiline: true };
+  return {};
 }
 
 /** The control that has the keyboard focus, as the hook keeps it. When the program's window is not the active one, the page
@@ -224,6 +238,9 @@ function pressKey(target: HTMLElement, key: string, modifiers: string[]) {
       target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
     } else if (key === "Enter" && target instanceof HTMLTextAreaElement) {
       typeInto(target, "\n");
+    } else if (key === "A" && init.ctrlKey && !init.altKey && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+      // Select all of the box's words, so the next typing replaces them.
+      target.select();
     }
   }
   target.dispatchEvent(new KeyboardEvent("keyup", init));
