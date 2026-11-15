@@ -25,7 +25,8 @@ export type Command =
   | { cmd: "scroll"; id?: string; axis: "x" | "y"; amount: number }
   | { cmd: "loadDemo"; name: string }
   | { cmd: "reset" }
-  | { cmd: "settle" };
+  | { cmd: "settle" }
+  | { cmd: "text" };
 
 /** A command as sent, with the number its reply carries. */
 export type Envelope = Command & { seq: number };
@@ -55,7 +56,14 @@ export interface Hello {
   controls: number;
 }
 
-export const HOOK_VERSION = 1;
+/** A piece of text on screen, as the `text` command reports it (for the frame scan). The rectangle is in CSS pixels. */
+export interface TextOnScreen {
+  text: string;
+  rect: [number, number, number, number];
+}
+
+/** Version 2 added the `text` command. */
+export const HOOK_VERSION = 2;
 
 /** Whether an endpoint is on this computer only. The hook never talks to anything else. */
 export function isLoopback(endpoint: string): boolean {

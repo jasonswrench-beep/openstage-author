@@ -14,6 +14,7 @@
 
 import {
   HOOK_VERSION, readSettings, steadySelector, type Command, type ControlInfo, type Envelope, type Hello, type HookSettings, type Reply,
+  type TextOnScreen,
 } from "./protocol.ts";
 
 export interface DemoHookOptions {
@@ -303,7 +304,88 @@ async function perform(command: Command, options: DemoHookOptions): Promise<unkn
       await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
       await frames(2);
       return null;
+    case "text":
+      return { viewport: [innerWidth, innerHeight], items: textOnScreen() };
   }
+}
+
+/** Elements whose text never shows as it is (or shows only when opened, such as a drop-down list's choices). */
+const NO_TEXT = new Set(["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT", "SELECT", "OPTION", "OPTGROUP", "DATALIST", "TEXTAREA"]);
+
+/** The part of the page an element can show through: the window, cut down by every scrolling or clipping box around it. */
+function clipOf(el: Element): DOMRect | null {
+  let [left, top, right, bottom] = [0, 0, innerWidth, innerHeight];
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (s.overflowX !== "visible" || s.overflowY !== "visible") {
+      const r = p.getBoundingClientRect();
+      left = Math.max(left, r.left);
+      top = Math.max(top, r.top);
+      right = Math.min(right, r.right);
+      bottom = Math.min(bottom, r.bottom);
+    }
+  }
+  return right > left && bottom > top ? new DOMRect(left, top, right - left, bottom - top) : null;
+}
+
+function shows(el: Element): boolean {
+  for (let p: Element | null = el; p; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (s.display === "none" || s.visibility === "hidden" || s.opacity === "0") return false;
+  }
+  return true;
+}
+
+/** The visible part of a rectangle, or null if none of it shows. */
+function within(r: DOMRect, clip: DOMRect): [number, number, number, number] | null {
+  const left = Math.max(r.left, clip.left), top = Math.max(r.top, clip.top);
+  const right = Math.min(r.right, clip.right), bottom = Math.min(r.bottom, clip.bottom);
+  return right - left >= 1 && bottom - top >= 1 ? [left, top, right - left, bottom - top] : null;
+}
+
+/** Every piece of text the viewer can see, with where it is: the page's words, what is typed in fields (or their
+ * placeholder when empty), and the choice showing in each drop-down list. Used by the frame scan, never by the take. */
+function textOnScreen(): TextOnScreen[] {
+  const out: TextOnScreen[] = [];
+  const clips = new Map<Element, DOMRect | null>();
+  const clip = (el: Element) => {
+    if (!clips.has(el)) clips.set(el, shows(el) ? clipOf(el) : null);
+    return clips.get(el)!;
+  };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => {
+      for (let p = n.parentElement; p; p = p.parentElement) if (NO_TEXT.has(p.tagName)) return NodeFilter.FILTER_REJECT;
+      return n.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement!;
+    const c = clip(el);
+    if (!c) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    // One piece per line the text wraps onto, so each has its own place.
+    const lines = [...range.getClientRects()].map((r) => within(r, c)).filter((r): r is [number, number, number, number] => r !== null);
+    if (!lines.length) continue;
+    const text = n.textContent!.replace(/\s+/g, " ").trim();
+    const left = Math.min(...lines.map((r) => r[0])), top = Math.min(...lines.map((r) => r[1]));
+    const right = Math.max(...lines.map((r) => r[0] + r[2])), bottom = Math.max(...lines.map((r) => r[1] + r[3]));
+    out.push({ text, rect: [left, top, right - left, bottom - top] });
+  }
+  for (const el of document.querySelectorAll<HTMLElement>("input, textarea, select")) {
+    let text = "";
+    if (el instanceof HTMLSelectElement) text = el.selectedOptions[0]?.text ?? "";
+    else if (el instanceof HTMLInputElement && ["checkbox", "radio", "range", "color", "file", "hidden"].includes(el.type)) continue;
+    else {
+      const field = el as HTMLInputElement | HTMLTextAreaElement;
+      text = field.type === "password" ? "" : field.value || field.placeholder;
+    }
+    if (!text.trim()) continue;
+    const c = clip(el);
+    const r = c && within(el.getBoundingClientRect(), c);
+    if (r) out.push({ text: text.replace(/\s+/g, " ").trim(), rect: r });
+  }
+  return out;
 }
 
 /** Start the hook if the program was launched in demo mode. Returns null (and does nothing) otherwise. */
