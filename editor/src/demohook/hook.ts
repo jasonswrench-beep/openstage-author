@@ -13,7 +13,7 @@
 // program's demo-project loader. See docs/demo-hook.md.
 
 import {
-  HOOK_VERSION, readSettings, type Command, type ControlInfo, type Envelope, type Hello, type HookSettings, type Reply,
+  HOOK_VERSION, readSettings, steadySelector, type Command, type ControlInfo, type Envelope, type Hello, type HookSettings, type Reply,
 } from "./protocol.ts";
 
 export interface DemoHookOptions {
@@ -35,7 +35,14 @@ export interface DemoHook {
 // its hover look, and a stray click cannot spoil the take. The hook's own clicks are unaffected.
 const STEADY_CSS = `
 *, *::before, *::after { transition: none !important; animation: none !important; caret-color: transparent !important; scroll-behavior: auto !important; pointer-events: none !important; }
+:focus-visible { outline-style: none; }
+select { will-change: transform; appearance: none !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%23444' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: right 0.7em center !important; background-size: 1em !important; padding-right: 2.2em !important; }
 `;
+// Windows draws some controls itself and draws them differently when the program's window is not the active one. A
+// drop-down list is the one that shows in pictures, so in demo mode it is drawn by the page instead (the same box and
+// colours, with a plain arrow), and its look no longer depends on which window is active.
+// Each list is also drawn on a layer of its own (will-change), which fixes how its words are smoothed: otherwise the browser
+// chose between plain grey and coloured fringes by itself, which made two takes differ.
 
 export function controlLabel(el: Element): string {
   const aria = el.getAttribute("aria-label");
@@ -50,7 +57,7 @@ export function controlLabel(el: Element): string {
     // The label’s own words, without the words of a control inside it (a list’s choices, say).
     const copy = label.cloneNode(true) as HTMLElement;
     copy.querySelectorAll("input, select, textarea, button").forEach((n) => n.remove());
-    const text = copy.textContent?.replace(/s+/g, " ").trim();
+    const text = copy.textContent?.replace(/\s+/g, " ").trim();
     if (text) return text;
   }
   const text = (el as HTMLElement).innerText?.trim() || el.textContent?.trim();
@@ -87,6 +94,80 @@ function info(el: HTMLElement): ControlInfo {
     visible,
     enabled: !(el as HTMLButtonElement).disabled && el.getAttribute("aria-disabled") !== "true",
   };
+}
+
+/** The control that has the keyboard focus, as the hook keeps it. When the program's window is not the active one, the page
+ * does not record focus given to a control (by the hook or by the program itself), so in demo mode the hook keeps it:
+ * every call to focus() and blur() is noted (see watchFocus), and nothing else counts. That way a take looks the same
+ * whether or not its window is in front. */
+let lastFocus: HTMLElement | null = null;
+
+/** In demo mode, note every focus() and blur() call the page makes. */
+function watchFocus() {
+  const realFocus = HTMLElement.prototype.focus;
+  const realBlur = HTMLElement.prototype.blur;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    lastFocus = this;
+    return realFocus.call(this, options);
+  };
+  HTMLElement.prototype.blur = function (this: HTMLElement) {
+    if (lastFocus === this) lastFocus = null;
+    return realBlur.call(this);
+  };
+}
+
+/** Give a control the keyboard focus, and remember it. */
+function focusOn(el: HTMLElement, byKey = false) {
+  el.focus({ preventScroll: true });
+  lastFocus = el;
+  focusByKey = byKey;
+}
+
+/** What has the keyboard focus now, as the hook keeps it (a control that has left the page has lost it). */
+function focused(): HTMLElement | null {
+  return lastFocus && lastFocus.isConnected ? lastFocus : null;
+}
+
+/** Whether the last focus came from a key (Tab), which shows a focus ring on any control, or from a click, which shows one
+ * only on fields you type in. */
+let focusByKey = false;
+const STATE_MARKS = ["data-demo-focus", "data-demo-focus-visible", "data-demo-focus-within"];
+
+/** Rewrite the page's style rules so focus and hover follow the hook's markers (see steadySelector). Rules added since the
+ * last time are rewritten too; rules from other sites cannot be read and are left as they are. */
+function steadySheets() {
+  const rewrite = (rules: CSSRuleList) => {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSStyleRule) {
+        const next = steadySelector(rule.selectorText);
+        if (next !== rule.selectorText) rule.selectorText = next;
+      }
+      if ("cssRules" in rule && (rule as CSSGroupingRule).cssRules) rewrite((rule as CSSGroupingRule).cssRules);
+    }
+  };
+  for (const sheet of [...Array.from(document.styleSheets), ...(document.adoptedStyleSheets ?? [])]) {
+    try {
+      rewrite(sheet.cssRules);
+    } catch {
+      // A sheet from another site cannot be read.
+    }
+  }
+}
+
+/** Put the focus markers on the control that has the focus and on what holds it. */
+function markFocus() {
+  for (const name of STATE_MARKS) document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
+  const el = focused();
+  if (!el) return;
+  el.setAttribute("data-demo-focus", "");
+  if (focusByKey || takesText(el)) el.setAttribute("data-demo-focus-visible", "");
+  for (let p: Element | null = el; p; p = p.parentElement) p.setAttribute("data-demo-focus-within", "");
+}
+
+/** Whether typing can go into this control. */
+function takesText(el: HTMLElement): boolean {
+  return el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || el.isContentEditable ||
+    (el instanceof HTMLInputElement && !["button", "checkbox", "radio", "submit", "reset", "file", "image", "range", "color"].includes(el.type));
 }
 
 const frames = (n: number) => new Promise<void>((done) => {
@@ -169,7 +250,7 @@ async function perform(command: Command, options: DemoHookOptions): Promise<unkn
       const el = find(command.id);
       if (!info(el).enabled) throw new Error(`The control "${command.id}" is switched off and cannot be clicked.`);
       document.querySelectorAll("[data-demo-hover]").forEach((h) => h.removeAttribute("data-demo-hover"));
-      el.focus({ preventScroll: true });
+      focusOn(el);
       for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
         el.dispatchEvent(new (type.startsWith("pointer") ? PointerEvent : MouseEvent)(type, { bubbles: true, cancelable: true, button: 0 }));
       }
@@ -177,12 +258,13 @@ async function perform(command: Command, options: DemoHookOptions): Promise<unkn
       return null;
     }
     case "focus":
-      find(command.id).focus({ preventScroll: true });
+      focusOn(find(command.id));
       return null;
     case "type": {
-      const el = command.id ? find(command.id) : (document.activeElement as HTMLElement | null);
-      if (!el || el === document.body) throw new Error("Nothing has the keyboard focus to type into. Give the step a target.");
-      if (command.id) el.focus({ preventScroll: true });
+      const el = command.id ? find(command.id) : focused();
+      if (!el) throw new Error("Nothing has the keyboard focus to type into. Give the step a target.");
+      if (!takesText(el)) throw new Error(`The control with the keyboard focus (${el.dataset.demoId ?? el.tagName.toLowerCase()}) cannot take typing. Give the step a target.`);
+      if (command.id || document.activeElement !== el) focusOn(el);
       if (el instanceof HTMLSelectElement) {
         // A drop-down list: typing its option's words chooses it, as typing does on a focused list.
         const wanted = command.text.trim().toLowerCase();
@@ -197,9 +279,10 @@ async function perform(command: Command, options: DemoHookOptions): Promise<unkn
       return null;
     }
     case "key": {
-      const el = command.id ? find(command.id) : ((document.activeElement as HTMLElement | null) ?? document.body);
-      if (command.id) el.focus({ preventScroll: true });
+      const el = command.id ? find(command.id) : (focused() ?? document.body);
+      if (command.id) focusOn(el);
       pressKey(el, command.key, command.modifiers);
+      if (command.key === "Tab") focusByKey = true;
       return null;
     }
     case "scroll": {
@@ -214,6 +297,8 @@ async function perform(command: Command, options: DemoHookOptions): Promise<unkn
       await options.reset();
       return null;
     case "settle":
+      steadySheets();
+      markFocus();
       await document.fonts.ready;
       await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
       await frames(2);
@@ -230,6 +315,8 @@ export function startDemoHook(options: DemoHookOptions): DemoHook | null {
   style.textContent = STEADY_CSS;
   document.head.append(style);
   document.documentElement.dataset.demoMode = "on";
+  steadySheets();
+  watchFocus();
 
   let stopped = false;
   const url = (path: string) => `${settings.endpoint}/hook/${path}?token=${encodeURIComponent(settings.token)}`;

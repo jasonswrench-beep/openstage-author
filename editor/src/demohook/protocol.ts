@@ -87,3 +87,16 @@ export function toFrame(rect: [number, number, number, number], viewport: [numbe
   const sy = frame[1] / viewport[1];
   return [Math.round(rect[0] * sx), Math.round(rect[1] * sy), Math.round(rect[2] * sx), Math.round(rect[3] * sy)];
 }
+
+/** In demo mode the page's look must not depend on whether its window is in front or where the real mouse rests, so the
+ * hook rewrites the page's own style rules: focus and hover follow markers the hook sets, not the browser's state. */
+const STATE_PSEUDOS: [RegExp, string][] = [
+  [/:focus-visible(?![\w-])/g, "[data-demo-focus-visible]"],
+  [/:focus-within(?![\w-])/g, "[data-demo-focus-within]"],
+  [/:focus(?![\w-])/g, "[data-demo-focus]"],
+  [/:hover(?![\w-])/g, "[data-demo-hover]"],
+];
+
+export function steadySelector(selector: string): string {
+  return STATE_PSEUDOS.reduce((sel, [re, attr]) => sel.replace(re, attr), selector);
+}
