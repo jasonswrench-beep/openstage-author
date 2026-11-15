@@ -17,6 +17,10 @@ limitations under the License.
 
 Third-party components:
 
+Code copied from OpenStage Studio (https://github.com/jasonswrench-beep/OpenStage_Studio), Apache License 2.0,
+  Copyright 2026 Jason S. Wrench, the same owner: editor/src/demohook/ (the demo-mode hook that lets Studio
+  record tutorial videos in the editor), an exact copy of demo-hook/ there.
+
 Kokoro-82M (text to speech model weights)
   https://huggingface.co/hexgrad/Kokoro-82M
   Apache License 2.0

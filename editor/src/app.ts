@@ -181,6 +181,16 @@ function scenarioShape(o: OSObject, m: Model, selected: string): string {
 /** The count of problems is said at least this long after anything else was said, so it never talks over what an edit just did. */
 const PROBLEMS_AFTER_MS = 2500;
 
+/** Gives every command a stable name from its key in the command table, so OpenStage Studio's tutorial scripts can find it in
+ * demo mode (src/demohook). A command that already has one keeps it. */
+function withDemoIds<T extends object>(table: T): T {
+  for (const [key, value] of Object.entries(table)) {
+    const list: unknown[] = Array.isArray(value) ? value : [value];
+    for (const c of list) if (c && typeof c === "object" && "run" in c && !(c as MenuCommand).demoId) (c as MenuCommand).demoId = key;
+  }
+  return table;
+}
+
 export class App {
   private model: Model | null = null;
   private readonly root: HTMLElement;
@@ -429,6 +439,10 @@ export class App {
    * command says the same thing, has the same icon and shortcut, and is dimmed for the same reason wherever it is.
    */
   private makeCommands() {
+    return withDemoIds(this.commandTable());
+  }
+
+  private commandTable() {
     const open = () => !!this.model;
     const free = () => !!this.model && !this.working;
     const one = () => this.model?.selected.length === 1;
@@ -472,7 +486,7 @@ export class App {
       editText: cmd({ label: "Edit text...", icon: "pencil", keys: "F2", title: "Edit the words with bold, italic, underline, lists, headings and links (F2 on the canvas, or double click the text)", run: () => void this.editText(), enabled: () => one() && this.model?.object?.type === "text" }),
 
       insertGallery: cmd({ label: "Find something to add...", icon: "layout-grid", title: "Everything you can add to a slide in one window, to search by name or by what it is for", run: () => void this.openInsertGallery(), enabled: open }),
-      addObjects: ADD_MENU.map((k): MenuCommand => ({ label: k.label, icon: insertIcons[k.value], title: "Add this to the layer being edited", run: () => void this.addObject(k.value), enabled: open })),
+      addObjects: ADD_MENU.map((k): MenuCommand => ({ demoId: `add-${k.value.replace(/[^a-z0-9]+/gi, "-")}`, label: k.label, icon: insertIcons[k.value], title: "Add this to the layer being edited", run: () => void this.addObject(k.value), enabled: open })),
       recordScreen: cmd({ label: "Record the screen (OpenScreen)...", icon: "video", title: "Record the screen, and check that this computer is ready to record", run: () => void this.openRecorderDialog() }),
       game: cmd({ label: "Game...", icon: "gamepad-2", title: "Add a ready-made game after this slide: a quiz board, a prize ladder, an escape room or an order challenge", run: () => void this.addSlide("games"), enabled: open }),
       quizFromFile: cmd({ label: "Quiz from a spreadsheet...", icon: "sheet", title: "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide. Tick the test bank box there to show each learner only some of them", run: () => void this.addQuestionsFromFile("quiz"), enabled: open }),
@@ -712,6 +726,8 @@ export class App {
    * after a save only its title and number of slides are brought up to date, and only if they changed.
    */
   private async rememberProject(dir: string, m: Model, opened: boolean): Promise<void> {
+    // A demo course opened for one of OpenStage Studio’s takes is not one of the author’s own projects.
+    if (this.demoOpened > 0) return;
     try {
       const s = parseSettings(await backend.readSettings().catch(() => ""));
       if (s.keepRecent === false) return;
@@ -811,6 +827,26 @@ export class App {
       back();
     }
   }
+
+  /** Demo mode (OpenStage Studio, src/demohook): open a fresh copy of an example in the demo workspace, with no dialogs.
+   * Each call makes a new numbered folder, so a take that opens the same example twice still starts clean. */
+  async demoOpen(name: string, workspace: string | undefined): Promise<void> {
+    if (!workspace) throw new Error("Demo mode was started without a demo workspace folder.");
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error(`"${name}" is not the name of an example.`);
+    this.demoOpened += 1;
+    const dir = `${workspace.replace(/[\\/]+$/, "")}/${String(this.demoOpened).padStart(2, "0")}-${name}`;
+    await backend.copyExample(`${name}.osproj`, dir);
+    this.model = null;
+    await this.load(dir);
+  }
+
+  /** Demo mode: back to a known state, with no menu or dialog open. */
+  demoReset(): void {
+    this.menuBar.close(false);
+    document.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((d) => d.close());
+  }
+
+  private demoOpened = 0;
 
   /** Close the project and go back to the welcome page. */
   private async closeProject(): Promise<void> {

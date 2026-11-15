@@ -14,7 +14,7 @@ openstage-capture-render = { path = "../openstage-capture-render" }
 serde_json.workspace = true
 thiserror.workspace = true
 
-# Only built on Windows. Microsoft's own Rust bindings, MIT OR Apache-2.0.
+# Only built on Windows. The operating system's own Rust bindings (the windows crate), MIT OR Apache-2.0.
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
     "Foundation",

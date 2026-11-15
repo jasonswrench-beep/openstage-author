@@ -144,7 +144,7 @@ impl VideoFile {
                 .GetUINT64(&MF_MT_FRAME_SIZE)
                 .map_err(|e| failed("Windows would not say how big the recording's pictures are", e))?;
             let display = ((packed >> 32) as u32, (packed & 0xFFFF_FFFF) as u32);
-            // Ask only for the kind of picture, as Microsoft's own examples do, and let Windows fill in the rest.
+            // Ask only for the kind of picture, as the operating system's own examples do, and let Windows fill in the rest.
             let wanted: IMFMediaType =
                 MFCreateMediaType().map_err(|e| failed("Could not describe the pictures wanted", e))?;
             let describe = |e| failed("Could not describe the pictures wanted", e);

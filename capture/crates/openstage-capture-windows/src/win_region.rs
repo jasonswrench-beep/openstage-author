@@ -12,7 +12,7 @@
 //!   screen readers (Tab between the boxes and buttons, Enter to use the region, Escape to cancel).
 //!   Nothing can only be done with the mouse.
 //!
-//! It has been type-checked on Linux and never run. Whether NVDA and Narrator read it well is not yet
+//! It has been type-checked on Linux and never run. Whether screen readers read it well is not yet
 //! known. Treat all of it as unproven until the owner runs it.
 
 use crate::region_editor::{Handle, PickOutcome, RegionEditor};

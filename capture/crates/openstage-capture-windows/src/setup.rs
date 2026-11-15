@@ -145,7 +145,7 @@ pub fn run_setup_check_with(
     }
 
     // The media parts an MP4 needs. Some "N" editions of Windows come without them.
-    let media_advice = "Some editions of Windows (the \"N\" editions) come without Windows' media parts. Microsoft's free Media Feature Pack adds them; search for \"Media Feature Pack\" in Windows Settings.";
+    let media_advice = "Some editions of Windows (the \"N\" editions) come without Windows' media parts. The free Media Feature Pack adds them; search for \"Media Feature Pack\" in Windows Settings.";
     match video.start_media().and_then(|_| video.h264_encoders()) {
         Ok(list) if !list.is_empty() => say(check(
             "video-encoder",

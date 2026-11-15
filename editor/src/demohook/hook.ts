@@ -1,0 +1,271 @@
+// The demo-mode hook: a small library a program includes so OpenStage Studio can perform scripts in it.
+//
+// * Off by default. It starts only when the program was launched with the demo flag (its shell then sets the settings
+//   global, see protocol.ts), and it only ever talks to this computer.
+// * Controls are found by stable names, never by their visible labels: mark each one with `data-demo-id`, as in
+//   `<button data-demo-id="toolbar.lesson.new">New lesson</button>`. Rewording a button does not break any script.
+// * It lists controls, reports where they are, clicks, types, presses keys, scrolls, loads a named demo project and
+//   resets to a known state.
+// * In demo mode the page holds still: the text caret does not blink and transitions are off, so a still picture of a
+//   step always looks the same.
+//
+// Adding it to a program: import { startDemoHook } from "<path>/demo-hook/hook.ts" and call it once at start-up with the
+// program's demo-project loader. See docs/demo-hook.md.
+
+import {
+  HOOK_VERSION, readSettings, type Command, type ControlInfo, type Envelope, type Hello, type HookSettings, type Reply,
+} from "./protocol.ts";
+
+export interface DemoHookOptions {
+  /** The program's name, for the player's log. */
+  program: string;
+  /** Open a demo project from the program's demo library, by name. */
+  loadDemo(name: string): void | Promise<void>;
+  /** Put the program back to a known state (no dialogs open, nothing selected). */
+  reset(): void | Promise<void>;
+  /** Settings to use instead of reading them from the page (for tests). */
+  settings?: HookSettings;
+}
+
+export interface DemoHook {
+  stop(): void;
+}
+
+// In demo mode the page holds still and ignores the real mouse: a pointer resting over the window cannot give a control
+// its hover look, and a stray click cannot spoil the take. The hook's own clicks are unaffected.
+const STEADY_CSS = `
+*, *::before, *::after { transition: none !important; animation: none !important; caret-color: transparent !important; scroll-behavior: auto !important; pointer-events: none !important; }
+`;
+
+export function controlLabel(el: Element): string {
+  const aria = el.getAttribute("aria-label");
+  if (aria) return aria.trim();
+  const labelledBy = el.getAttribute("aria-labelledby");
+  if (labelledBy) {
+    const text = labelledBy.split(/\s+/).map((id) => el.ownerDocument.getElementById(id)?.textContent?.trim() ?? "").join(" ").trim();
+    if (text) return text;
+  }
+  const label = (el as HTMLInputElement).labels?.[0];
+  if (label) {
+    // The label’s own words, without the words of a control inside it (a list’s choices, say).
+    const copy = label.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll("input, select, textarea, button").forEach((n) => n.remove());
+    const text = copy.textContent?.replace(/s+/g, " ").trim();
+    if (text) return text;
+  }
+  const text = (el as HTMLElement).innerText?.trim() || el.textContent?.trim();
+  if (text) return text.replace(/\s+/g, " ").slice(0, 80);
+  return el.getAttribute("title") ?? el.getAttribute("placeholder") ?? "";
+}
+
+function controlRole(el: Element): string {
+  const role = el.getAttribute("role");
+  if (role) return role;
+  const tag = el.tagName.toLowerCase();
+  if (tag === "input") return (el as HTMLInputElement).type === "checkbox" ? "checkbox" : "textbox";
+  if (tag === "textarea") return "textbox";
+  if (tag === "select") return "combobox";
+  if (tag === "a") return "link";
+  return tag === "button" ? "button" : tag;
+}
+
+function find(id: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-demo-id="${CSS.escape(id)}"]`);
+  if (!el) throw new Error(`There is no control called "${id}" on screen.`);
+  return el;
+}
+
+function info(el: HTMLElement): ControlInfo {
+  const r = el.getBoundingClientRect();
+  const style = getComputedStyle(el);
+  const visible = r.width > 0 && r.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+  return {
+    id: el.dataset.demoId!,
+    label: controlLabel(el),
+    role: controlRole(el),
+    rect: [r.left, r.top, r.width, r.height],
+    visible,
+    enabled: !(el as HTMLButtonElement).disabled && el.getAttribute("aria-disabled") !== "true",
+  };
+}
+
+const frames = (n: number) => new Promise<void>((done) => {
+  const tick = (k: number) => (k <= 0 ? done() : requestAnimationFrame(() => tick(k - 1)));
+  tick(n);
+});
+
+/** Put text into a text field or editable area as if typed: one character at a time, with the events a keyboard sends. */
+function typeInto(el: HTMLElement, text: string) {
+  for (const ch of text) {
+    const init = { key: ch, bubbles: true, cancelable: true };
+    const go = el.dispatchEvent(new KeyboardEvent("keydown", init));
+    if (go) {
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        el.setRangeText(ch, start, end, "end");
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: ch, inputType: "insertText" }));
+      } else if (el.isContentEditable) {
+        document.execCommand("insertText", false, ch);
+      }
+    }
+    el.dispatchEvent(new KeyboardEvent("keyup", init));
+  }
+}
+
+function focusables(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1']), [contenteditable='true']")]
+    .filter((el) => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0);
+}
+
+function pressKey(target: HTMLElement, key: string, modifiers: string[]) {
+  const name = key === "Space" ? " " : key.length === 1 ? key.toLowerCase() : key;
+  const init: KeyboardEventInit = {
+    key: name, bubbles: true, cancelable: true,
+    ctrlKey: modifiers.includes("Ctrl"), altKey: modifiers.includes("Alt"), shiftKey: modifiers.includes("Shift"),
+  };
+  const go = target.dispatchEvent(new KeyboardEvent("keydown", init));
+  if (go) {
+    // What the browser would do itself for these keys when nothing handled them.
+    if (key === "Tab") {
+      const list = focusables();
+      const i = list.indexOf(document.activeElement as HTMLElement);
+      const next = list[(i + (init.shiftKey ? -1 : 1) + list.length) % list.length];
+      next?.focus();
+    } else if ((key === "Enter" || key === "Space") && (target instanceof HTMLButtonElement || target.getAttribute("role") === "button")) {
+      target.click();
+    } else if (key === "Backspace" && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+      const s = target.selectionStart ?? 0;
+      const e = target.selectionEnd ?? 0;
+      if (s !== e) target.setRangeText("", s, e, "end");
+      else if (s > 0) target.setRangeText("", s - 1, s, "end");
+      target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+    } else if (key === "Enter" && target instanceof HTMLTextAreaElement) {
+      typeInto(target, "\n");
+    }
+  }
+  target.dispatchEvent(new KeyboardEvent("keyup", init));
+}
+
+async function perform(command: Command, options: DemoHookOptions): Promise<unknown> {
+  switch (command.cmd) {
+    case "hello": {
+      const hello: Hello = {
+        program: options.program, hookVersion: HOOK_VERSION, viewport: [innerWidth, innerHeight],
+        devicePixelRatio, controls: document.querySelectorAll("[data-demo-id]").length,
+      };
+      return hello;
+    }
+    case "list":
+      return { viewport: [innerWidth, innerHeight], controls: [...document.querySelectorAll<HTMLElement>("[data-demo-id]")].map(info) };
+    case "position":
+      return { viewport: [innerWidth, innerHeight], control: info(find(command.id)) };
+    case "hover": {
+      document.querySelectorAll("[data-demo-hover]").forEach((el) => el.removeAttribute("data-demo-hover"));
+      if (command.id) find(command.id).setAttribute("data-demo-hover", "");
+      return null;
+    }
+    case "click": {
+      const el = find(command.id);
+      if (!info(el).enabled) throw new Error(`The control "${command.id}" is switched off and cannot be clicked.`);
+      document.querySelectorAll("[data-demo-hover]").forEach((h) => h.removeAttribute("data-demo-hover"));
+      el.focus({ preventScroll: true });
+      for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
+        el.dispatchEvent(new (type.startsWith("pointer") ? PointerEvent : MouseEvent)(type, { bubbles: true, cancelable: true, button: 0 }));
+      }
+      el.click();
+      return null;
+    }
+    case "focus":
+      find(command.id).focus({ preventScroll: true });
+      return null;
+    case "type": {
+      const el = command.id ? find(command.id) : (document.activeElement as HTMLElement | null);
+      if (!el || el === document.body) throw new Error("Nothing has the keyboard focus to type into. Give the step a target.");
+      if (command.id) el.focus({ preventScroll: true });
+      if (el instanceof HTMLSelectElement) {
+        // A drop-down list: typing its option's words chooses it, as typing does on a focused list.
+        const wanted = command.text.trim().toLowerCase();
+        const option = [...el.options].find((o) => o.text.trim().toLowerCase() === wanted) ?? [...el.options].find((o) => o.text.trim().toLowerCase().startsWith(wanted));
+        if (!option) throw new Error(`The list "${el.dataset.demoId}" has no choice called "${command.text}".`);
+        el.value = option.value;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        return null;
+      }
+      typeInto(el, command.text);
+      return null;
+    }
+    case "key": {
+      const el = command.id ? find(command.id) : ((document.activeElement as HTMLElement | null) ?? document.body);
+      if (command.id) el.focus({ preventScroll: true });
+      pressKey(el, command.key, command.modifiers);
+      return null;
+    }
+    case "scroll": {
+      const el = command.id ? find(command.id) : (document.scrollingElement as HTMLElement);
+      el.scrollBy(command.axis === "y" ? { top: command.amount } : { left: command.amount });
+      return null;
+    }
+    case "loadDemo":
+      await options.loadDemo(command.name);
+      return null;
+    case "reset":
+      await options.reset();
+      return null;
+    case "settle":
+      await document.fonts.ready;
+      await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+      await frames(2);
+      return null;
+  }
+}
+
+/** Start the hook if the program was launched in demo mode. Returns null (and does nothing) otherwise. */
+export function startDemoHook(options: DemoHookOptions): DemoHook | null {
+  const settings = options.settings ?? readSettings(globalThis as unknown as Record<string, unknown>, location.search);
+  if (!settings) return null;
+  const style = document.createElement("style");
+  style.dataset.demoHook = "steady";
+  style.textContent = STEADY_CSS;
+  document.head.append(style);
+  document.documentElement.dataset.demoMode = "on";
+
+  let stopped = false;
+  const url = (path: string) => `${settings.endpoint}/hook/${path}?token=${encodeURIComponent(settings.token)}`;
+  const loop = async () => {
+    while (!stopped) {
+      let envelope: Envelope | null = null;
+      try {
+        const res = await fetch(url("next"), { cache: "no-store" });
+        if (res.status === 204) continue;
+        if (res.status === 410) break; // the take is over
+        if (!res.ok) throw new Error(`The player answered ${res.status}.`);
+        envelope = (await res.json()) as Envelope;
+      } catch {
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+      let reply: Reply;
+      try {
+        reply = { seq: envelope.seq, ok: true, result: await perform(envelope, options) };
+      } catch (e) {
+        reply = { seq: envelope.seq, ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+      try {
+        // Plain text, so the browser sends it without asking the player first.
+        await fetch(url("reply"), { method: "POST", body: JSON.stringify(reply), headers: { "Content-Type": "text/plain" } });
+      } catch {
+        // The player will time out and say so.
+      }
+    }
+  };
+  void loop();
+  return {
+    stop() {
+      stopped = true;
+      style.remove();
+      delete document.documentElement.dataset.demoMode;
+    },
+  };
+}

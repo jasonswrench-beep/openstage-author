@@ -305,7 +305,7 @@ pub fn run_video_test_with(
                 "media-foundation",
                 false,
                 format!(
-                    "Windows' video tools would not start: {e} On the \"N\" and \"KN\" editions of Windows, the free Media Feature Pack from Microsoft must be installed."
+                    "Windows' video tools would not start: {e} On the \"N\" and \"KN\" editions of Windows, the free Media Feature Pack must be installed."
                 ),
             ));
             return false;

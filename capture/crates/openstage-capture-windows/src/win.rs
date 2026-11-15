@@ -374,7 +374,7 @@ fn create_device() -> Result<(ID3D11Device, ID3D11DeviceContext), ScreenError> {
     match (device, context) {
         (Some(d), Some(c)) => {
             // Windows' capture service uses this device from its own threads too, so ask Direct3D
-            // to take turns between them. (Microsoft's capture samples do the same.)
+            // to take turns between them. (The operating system's own capture samples do the same.)
             if let Ok(multithread) = c.cast::<ID3D11Multithread>() {
                 unsafe {
                     let _ = multithread.SetMultithreadProtected(true);

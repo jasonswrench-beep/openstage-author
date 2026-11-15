@@ -14,6 +14,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
+mod demo;
 mod engine;
 mod secrets;
 mod svgclean;
@@ -3810,8 +3811,17 @@ fn use_bundled_helpers() {
 
 pub fn run() {
     use_bundled_helpers();
-    tauri::Builder::default()
-        .setup(|app| {
+    // Demo mode for OpenStage Studio's tutorial videos: off unless started with the demo flags (src/demo.rs).
+    let demo = demo::from_args();
+    let builder = match &demo {
+        Some(d) => tauri::Builder::default().plugin(demo::plugin(d)),
+        None => tauri::Builder::default(),
+    };
+    builder
+        .setup(move |app| {
+            if let Some(d) = &demo {
+                demo::arrange(app, d)?;
+            }
             if let Ok(dir) = app.path().app_local_data_dir() {
                 // The Python that travels with the editor keeps its compiled copies of modules in the editor's data folder, not in its own, so nothing is written into the install folder that the uninstaller does not know of.
                 if bundled_python().is_some() && std::env::var_os("PYTHONPYCACHEPREFIX").is_none() {

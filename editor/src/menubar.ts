@@ -33,6 +33,9 @@ export interface MenuCommand {
   labelNow?: () => string;
   /** The icon that goes with labelNow. */
   iconNow?: () => UiIconName;
+  /** A stable name for the command, never shown, so OpenStage Studio’s tutorial scripts can find it in demo mode
+   * (src/demohook). Rewording the label does not change it. */
+  demoId?: string;
 }
 
 export type MenuEntry = MenuCommand | "-";
@@ -238,6 +241,7 @@ export class MenuBar {
     const id = `menu-${def.id}`;
     const trigger = el(doc, "button", { type: "button", class: "menubar-item", id: `${id}-button`, role: "menuitem", "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": id, tabindex: "-1" },
       el(doc, "span", { text: def.label }), uiIcon(doc, "chevron-down"));
+    trigger.dataset.demoId = `menu.${def.id}`;
     const menu = el(doc, "div", { class: "menu", id, role: "menu", "aria-labelledby": `${id}-button`, hidden: true });
     const built: Built = { def, trigger, menu, items: [] };
     for (const entry of def.items) {
@@ -246,6 +250,7 @@ export class MenuBar {
         continue;
       }
       const button = newItem(doc, entry);
+      if (entry.demoId) button.dataset.demoId = `menu.${def.id}.${entry.demoId}`;
       button.addEventListener("click", () => this.choose(at, built.items.findIndex((x) => x.button === button)));
       button.addEventListener("pointermove", () => { if (this.doc.activeElement !== button) button.focus(); });
       built.items.push({ button, cmd: entry });
