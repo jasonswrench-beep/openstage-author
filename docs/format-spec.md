@@ -1807,7 +1807,7 @@ below is for the editor, so it can say that the clip is out of date and make it 
   as for any narrated object, and so the Narration dialog, the speech tool, the cache, the transcript on the page and the translation files treat it as they treat any narration.
 - **The clip carries the voice.** The player never plays the narration of a presenter clip beside the clip, and a publish does not copy its audio into the package: the speech is
   in the video. The narration's words still go into the page's transcript.
-- The video needs captions, as any video does. The editor writes them from the narration's script (times estimated from the length of the speech, and marked as not yet checked).
+- The video needs captions, as any video does. The editor writes them from the narration's script, timed from the narration's own timing when the speech engine gave word times (not marked as unchecked), and otherwise estimated from the length of the speech (marked as not yet checked).
 - **Credit.** The clip is in `assets.json` with the provider `generated` (service `openstage-presenter`, model the presenter's `id`) and `requiresCredit` true, so the credits page, when it is on,
   says that a program made the presenter and that the voice is synthetic (the same page that lists the narration engines).
 - The validator warns when a clip has no narration (`presenter-narration-missing`: it cannot be made again) and when its file has no `generated` entry in `assets.json`

@@ -1,9 +1,10 @@
-// Makes the video of a Lite presenter: the narration plays into a recorder while the presenter is drawn on a canvas, mouth shapes following the
-// speech, and the browser's own recorder writes the WebM file (the video and the speech together). It takes as long as the speech does, because
-// the recorder takes in sound and picture as they happen; the editor says how far it has got. The editor window has to stay in front while it
-// works, because a browser slows what it draws in a window nobody can see.
+// Makes the video of a Lite presenter, the presenter drawn frame by frame with the mouth shapes following the speech, and the speech in the clip with it.
+// Where the window has encoders for picture and sound (WebCodecs), the clip is encoded as fast as the computer can (fast.ts). Where it has not, the narration plays
+// into the window's own recorder while the presenter is drawn on a canvas, which takes as long as the speech does and needs the editor window to stay in front,
+// because a browser slows what it draws in a window nobody can see. Either way the result is a WebM file that says how long it is and can be jumped about in.
 
 import { drawFrame } from "./draw.ts";
+import { fastSupport, renderFast } from "./fast.ts";
 import { shapeAt, type Look, type MouthTrack } from "./look.ts";
 import { webmWithDuration } from "./webm.ts";
 
@@ -19,6 +20,8 @@ export interface ClipRequest {
   /** Called as the clip is made: how far (0 to 1) and how many seconds of it are done. */
   onProgress?: (fraction: number, seconds: number) => void;
   signal?: AbortSignal;
+  /** "realtime" to record in real time even where the faster way is there (a test, or a window whose encoders let it down). */
+  mode?: "auto" | "realtime";
 }
 
 export interface MadeClip {
@@ -27,15 +30,22 @@ export interface MadeClip {
   durationMs: number;
   /** How long the speech lasts, which is what the captions are spread over. */
   speechMs: number;
+  /** How far into the clip the speech starts, which is what the captions are shifted by. */
+  speechStartMs: number;
+  /** How it was made: encoded as fast as the computer could, or recorded as the speech played. */
+  mode: "fast" | "realtime";
 }
+
+/** How long after the recorder starts the speech begins (the recorder is started, then the speech is scheduled a moment ahead). */
+const REALTIME_LEAD_MS = 55;
 
 /** How long the picture goes on after the voice stops, so the clip does not end on the last sound. */
 const TAIL_MS = 400;
 
 const MIME_TYPES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
 
-/** Whether this window can make a clip: it has a recorder, a canvas that can be recorded, and a sound engine. */
-export function clipSupported(): boolean {
+/** Whether this window can record a clip in real time: it has a recorder, a canvas that can be recorded, and a sound engine. */
+export function realtimeSupported(): boolean {
   return (
     typeof MediaRecorder !== "undefined" &&
     typeof AudioContext !== "undefined" &&
@@ -47,8 +57,27 @@ export function clipSupported(): boolean {
 
 const aborted = (): Error => Object.assign(new Error("Stopped."), { name: "AbortError" });
 
+/** How a clip would be made here: "fast" (encoded as fast as the computer can), "realtime" (recorded as the speech plays), or null when this window can do neither. */
+export async function clipMode(size = 720, fps = 25): Promise<"fast" | "realtime" | null> {
+  if (await fastSupport(size, fps)) return "fast";
+  return realtimeSupported() ? "realtime" : null;
+}
+
+/** Make the clip the fastest way this window can. If the fast way fails for a reason that is not the author stopping it, the real-time way is tried. */
 export async function renderClip(req: ClipRequest): Promise<MadeClip> {
-  if (!clipSupported()) throw new Error("This window cannot record video, so the presenter clip cannot be made here.");
+  const how = req.mode === "realtime" ? null : await fastSupport(req.size ?? 720, req.fps ?? 25);
+  if (how) {
+    try {
+      return await renderFast(req, how);
+    } catch (e) {
+      if ((e instanceof Error && e.name === "AbortError") || !realtimeSupported()) throw e;
+    }
+  }
+  return renderRealtime(req);
+}
+
+async function renderRealtime(req: ClipRequest): Promise<MadeClip> {
+  if (!realtimeSupported()) throw new Error("This window cannot make video, so the presenter clip cannot be made here.");
   const size = req.size ?? 720;
   const fps = req.fps ?? 25;
   if (req.signal?.aborted) throw aborted();
@@ -125,7 +154,7 @@ export async function renderClip(req: ClipRequest): Promise<MadeClip> {
     const blob = new Blob(chunks, { type: "video/webm" });
     const bytes = new Uint8Array(await blob.arrayBuffer());
     if (bytes.length < 64) throw new Error("The recorder made nothing. Try again with the editor window in front.");
-    return { video: webmWithDuration(bytes, totalMs), durationMs: totalMs, speechMs: audioMs };
+    return { video: webmWithDuration(bytes, totalMs), durationMs: totalMs, speechMs: audioMs, speechStartMs: REALTIME_LEAD_MS, mode: "realtime" };
   } finally {
     void audio.close();
   }

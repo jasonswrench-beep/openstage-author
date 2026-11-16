@@ -18,6 +18,9 @@ const KNOWN_COMMANDS: &[&str] = &["presenter.hello", "presenter.check", "present
 const KNOWN_TIERS: &[&str] = &["lite", "standard", "studio"];
 /// The most a clip may weigh (the video folder allows 500 MB).
 const MAX_CLIP: usize = 500 * 1024 * 1024;
+/// The largest timing file read, and the most sentences taken from it.
+const MAX_TIMING: u64 = 4 * 1024 * 1024;
+const MAX_CUES: usize = 10_000;
 
 /// What the editor needs to know about an add-on it found.
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -268,6 +271,37 @@ pub fn save_presenter_clip(dir: String, name_hint: String, webm: String) -> Resu
     save_clip_at(Path::new(&dir), &name_hint, &bytes)
 }
 
+/// What the narration's own timing says: one cue for each sentence, from the first word spoken to the last, in seconds, and whether those times came from the
+/// words (the speech engine reported them) or were estimated from the length of each sentence. Read from the project's own cache; a cue that is not whole is left out.
+pub fn narration_cues_at(dir: &Path, key: &str) -> Result<Value, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !super::is_cache_key(key) {
+        return Err("That is not narration audio.".into());
+    }
+    let file = dir.join(".cache").join("narration").join(format!("{key}.json"));
+    let meta = fs::metadata(&file).map_err(|_| "The narration has no timing yet.".to_string())?;
+    if !meta.is_file() || meta.len() > MAX_TIMING {
+        return Err("The narration's timing is not a file of a sensible size.".into());
+    }
+    let raw = fs::read_to_string(&file).map_err(|e| format!("The narration's timing could not be read: {e}"))?;
+    let v: Value = serde_json::from_str(&raw).map_err(|_| "The narration's timing is not readable.".to_string())?;
+    let cues: Vec<Value> = v["cues"]
+        .as_array()
+        .map(|a| a.iter().take(MAX_CUES).filter_map(|c| {
+            let (start, end, text) = (c["start"].as_f64()?, c["end"].as_f64()?, c["text"].as_str()?);
+            (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !text.trim().is_empty() && text.len() <= 10_000).then(|| json!({ "start": start, "end": end, "text": text }))
+        }).collect())
+        .unwrap_or_default();
+    Ok(json!({ "exactTimings": v["exactTimings"].as_bool().unwrap_or(false), "duration": v["duration"].as_f64().unwrap_or(0.0), "cues": cues }))
+}
+
+#[tauri::command]
+pub fn narration_cues(dir: String, key: String) -> Result<Value, String> {
+    narration_cues_at(Path::new(&dir), &key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -391,6 +425,32 @@ mod tests {
         let t = Instant::now();
         let e = call_host(&slow, "presenter.hello", json!({}), Duration::from_millis(400)).unwrap_err();
         assert!(e.contains("did not answer in time") && t.elapsed() < Duration::from_secs(8), "{e}");
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn the_narrations_own_timing_is_read_and_a_cue_that_is_not_whole_is_left_out() {
+        let d = scratch("cues");
+        fs::write(d.join("project.json"), "{}").unwrap();
+        let key = "ab".repeat(32);
+        let cache = d.join(".cache").join("narration");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join(format!("{key}.json")), r#"{"hash":"x","duration":6.5,"exactTimings":true,"cues":[
+            {"start":0.2,"end":2.5,"text":"Welcome to the course."},{"start":2.9,"end":6.1,"text":"We look at how it moves."},
+            {"start":7,"end":6,"text":"backwards"},{"start":"1","end":2,"text":"text start"},{"start":1,"end":2,"text":"   "},{"start":1,"end":2},{"start":-1,"end":2,"text":"before"}]}"#).unwrap();
+        let r = narration_cues_at(&d, &key).unwrap();
+        assert_eq!(r["exactTimings"], true);
+        assert_eq!(r["duration"], 6.5);
+        assert_eq!(r["cues"].as_array().unwrap().len(), 2);
+        assert_eq!(r["cues"][1]["text"], "We look at how it moves.");
+        fs::write(cache.join(format!("{key}.json")), r#"{"duration":1,"cues":"no"}"#).unwrap();
+        let r = narration_cues_at(&d, &key).unwrap();
+        assert_eq!((r["exactTimings"].clone(), r["cues"].as_array().unwrap().len()), (json!(false), 0));
+        fs::write(cache.join(format!("{key}.json")), "not json").unwrap();
+        assert!(narration_cues_at(&d, &key).is_err());
+        assert!(narration_cues_at(&d, &"cd".repeat(32)).unwrap_err().contains("no timing"), "audio that was never made has none");
+        assert!(narration_cues_at(&d, "../../x").is_err(), "only a real key names a file");
+        assert!(narration_cues_at(&d.join("nope"), &key).is_err());
         let _ = fs::remove_dir_all(&d);
     }
 

@@ -202,6 +202,8 @@ export interface Backend {
   presenterMouthTrack(dir: string, key: string): Promise<unknown>;
   /** Save a presenter clip (a WebM file) in the project's videos and return its project-relative path. */
   savePresenterClip(dir: string, nameHint: string, webm: Uint8Array): Promise<string>;
+  /** What the narration's own timing says (a cue for each sentence), from the project's cache; presenter/cues.ts checks it. */
+  narrationCues(dir: string, key: string): Promise<unknown>;
   /** Delete narration audio by cache key. Returns how many were deleted. Only audio inside the project's own cache can be named. */
   deleteNarrationAudio(dir: string, keys: string[]): Promise<number>;
   /** Keep the audio made for one key under another key that names the same sound. Resolves with whether anything was copied. */
@@ -493,6 +495,7 @@ const tauriBackend: Backend = {
   narrationCache: (dir) => invoke<CachedAudio[]>("narration_cache", { dir }),
   deleteNarrationAudio: (dir, keys) => invoke<number>("delete_narration_audio", { dir, keys }),
   reuseNarrationAudio: (dir, from, to) => invoke<boolean>("reuse_narration_audio", { dir, from, to }),
+  narrationCues: (dir, key) => invoke<unknown>("narration_cues", { dir, key }),
   presenterAddon: () => invoke<PresenterAddon | null>("presenter_addon"),
   presenterAsk: (command) => invoke<unknown>("presenter_ask", { command }),
   presenterMouthTrack: (dir, key) => invoke<unknown>("presenter_mouth_track", { dir, key }),
@@ -764,6 +767,9 @@ const previewBackend: Backend = {
   },
   async narrationCache() {
     return [];
+  },
+  async narrationCues() {
+    throw new Error("The narration's timing needs the desktop app.");
   },
   async presenterAddon() {
     return null;

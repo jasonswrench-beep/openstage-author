@@ -8,11 +8,12 @@
 // (addPresenterClip, remakePresenterClip), each one undo step; this file asks, says, and runs the steps in order.
 
 import type { Backend } from "./backend.ts";
-import { cuesFromScript, formatVtt } from "./captions.ts";
+import { formatVtt } from "./captions.ts";
 import type { Model } from "./model.ts";
 import { excerpt, keyOf, type Narration } from "./narration.ts";
 import { nowStamp } from "./aiservices.ts";
-import { clipSupported, renderClip } from "./presenter/clip.ts";
+import { clipMode, renderClip } from "./presenter/clip.ts";
+import { captionsFromNarration, parseNarrationCues } from "./presenter/cues.ts";
 import { parsePresenters, parseTrack, type PresenterInfo } from "./presenter/look.ts";
 import { blockFor, clipStatus, creditForClip, FRAMINGS, fileHint, startingAltText, type Framing, type PresenterClipSpec } from "./presenter/status.ts";
 
@@ -30,7 +31,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
 }
 
 export interface PresenterHooks {
-  backend: Pick<Backend, "narrationCache" | "makeNarration" | "readNarrationAudio" | "presenterAsk" | "presenterMouthTrack" | "savePresenterClip" | "captionsWrite">;
+  backend: Pick<Backend, "narrationCache" | "makeNarration" | "readNarrationAudio" | "narrationCues" | "presenterAsk" | "presenterMouthTrack" | "savePresenterClip" | "captionsWrite">;
   announce: (message: string) => void;
 }
 
@@ -140,7 +141,10 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
         say("Listening to the speech to find the mouth shapes.");
         const track = parseTrack(await b.presenterMouthTrack(m.dir, key));
         const seconds = Math.ceil(track.durationMs / 1000);
-        say(`Drawing and recording the clip. It takes about ${seconds} seconds, as long as the speech. Keep this window in front until it is done.`);
+        const how = await clipMode();
+        say(how === "fast"
+          ? `Drawing and encoding the clip. It is ${seconds} seconds long and should take only a few.`
+          : `Drawing and recording the clip. This window has no faster way, so it takes about ${seconds} seconds, as long as the speech. Keep this window in front until it is done.`);
         let said = 0;
         const clip = await renderClip({
           wav, track, look: presenter.look, label: labelOn, signal: controller.signal,
@@ -153,8 +157,13 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
         say("Saving the clip.");
         const src = await b.savePresenterClip(m.dir, fileHint(presenter, narration.script), clip.video);
         let captions = String(selected?.content["captions"] ?? "");
+        let timed = "";
         if (!clipId || newCaptions?.checked || captions === "") {
-          captions = await b.captionsWrite(m.dir, stemOf(src), null, formatVtt(cuesFromScript(narration.script, clip.speechMs), { estimated: true }));
+          // Timed from the narration's own timing when it has some: when each sentence is spoken, as the speech engine reported it.
+          const timing = parseNarrationCues(await b.narrationCues(m.dir, key).catch(() => null));
+          const made = captionsFromNarration(timing, narration.script, clip.speechMs, clip.speechStartMs);
+          captions = await b.captionsWrite(m.dir, stemOf(src), null, formatVtt(made.cues, { estimated: made.estimated }));
+          timed = made.fromVoice ? "timed from the voice" : "with estimated times";
         }
         const block = blockFor(narration, { id: presenter.id, tier: "lite", framing: frame, label: labelOn });
         const spec: PresenterClipSpec = {
@@ -167,8 +176,8 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
         busy = false;
         controller = null;
         const msg = clipId
-          ? `The clip is made again and ${fileOf(src)} is in place of the old one. The captions were ${newCaptions?.checked ? "written from the words, with estimated times: play the clip and check them in Write captions" : "left as they were"}.`
-          : `The presenter is on the slide, a ${frame === "circle" ? "circle" : frame === "rounded" ? "rounded square" : "square"} you can move and resize. Its captions are written from the words with estimated times: play it and check them in Write captions. The narration of the text it spoke was taken off; undo puts everything back.`;
+          ? `The clip is made again and ${fileOf(src)} is in place of the old one. The captions were ${timed ? `written from the words, ${timed}${timed.startsWith("with") ? ": play the clip and check them in Write captions" : ""}` : "left as they were"}.`
+          : `The presenter is on the slide, a ${frame === "circle" ? "circle" : frame === "rounded" ? "rounded square" : "square"} you can move and resize. Its captions are written from the words, ${timed}${timed.startsWith("with") ? ": play it and check them in Write captions" : ""}. The narration of the text it spoke was taken off; undo puts everything back.`;
         hooks.announce(msg);
         resolve();
         dialog.close();
@@ -218,9 +227,10 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
       });
       const first = chosenPresenter();
       if (first) alt.value = startingAltText(first);
-      const ready = clipSupported() && (clipId !== null ? Boolean(selected?.narration) : speakable.length > 0);
+      const canMake = (await clipMode()) !== null;
+      const ready = canMake && (clipId !== null ? Boolean(selected?.narration) : speakable.length > 0);
       make.disabled = !ready;
-      show(!clipSupported() ? "This window cannot record video, so a clip cannot be made here." : ready ? "Choose who speaks, then press Make the clip." : status.textContent ?? "");
+      show(!canMake ? "This window cannot make video, so a clip cannot be made here." : ready ? "Choose who speaks, then press Make the clip." : status.textContent ?? "");
       if (ready) hooks.announce(`${presenters.length} presenters to choose from.`);
     })();
   });

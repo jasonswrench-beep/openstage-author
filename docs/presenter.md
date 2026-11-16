@@ -15,18 +15,23 @@ With the add-on installed, **Insert > Presenter...** opens a dialog. (Without it
 3. **The shape of the picture:** a square, a square with rounded corners, or a circle. This is the object's own rounding, so you can change it on the slide.
 4. **The "AI presenter" label** in the corner of the clip is on unless you turn it off for the clip.
 5. **Alt text** starts from the presenter described in words. It is yours to change.
-6. Press **Make the clip**. The editor makes the speech if it is not made yet, listens to it to find the mouth shapes, draws the presenter and records the clip, saves it,
-   writes captions from the words (their times are estimates, marked as not yet checked: play the clip and check them in Write captions), and puts it on the slide.
-   The text it spoke stops speaking, so the words are not said twice. One undo step takes all of it back.
+6. Press **Make the clip**. The editor makes the speech if it is not made yet, listens to it to find the mouth shapes, draws the presenter and encodes the clip, saves it,
+   writes captions from the words, timed from the voice, and puts it on the slide. The text it spoke stops speaking, so the words are not said twice. One undo step takes all of it back.
 
-**It takes as long as the speech does**, because the editor records the picture and the sound as they happen. **Keep the editor window in front** while it works:
-a window nobody can see is drawn more slowly, and the clip would stutter. Escape stops it.
+**It is quick:** the window encodes the picture and the sound as fast as the computer can, so a minute of speech takes a few seconds, and it does not matter whether the editor window
+is in front. A window that has no encoders (the dialog says so) records in real time instead: then it takes as long as the speech does, and **the editor window has to stay in front**,
+because a window nobody can see is drawn more slowly and the clip would stutter. Escape stops it either way.
+
+**The captions** are timed from the narration's own timing: the speech engine says when each sentence is spoken, from its first word to its last, and keeps that with the audio, so each
+caption comes in when its words are spoken. A long sentence is cut into captions of two lines at most, by their length, inside the time it is spoken. They are not marked as unchecked
+when the engine timed them from the words. A voice that gives no word times (some online voices) gives estimated times by sentence, and then the captions are marked as not yet checked,
+as everywhere else in the editor: play the clip and check them in Write captions.
 
 **Making it again.** Choose a presenter clip and open **Insert > Presenter...**. The dialog says whether the clip is up to date or **out of date** (the narration, the
 presenter, the shape or the label has changed since it was made) and offers **Make the clip again**: the same object, in the same place, with the same alt text, and a new
 file. It can write new captions from the words too (the old captions file is kept).
 
-**What it does not do (yet).** A presenter made from a photo, a voice of your own, and a faster-than-real-time clip are not in this version (`ROADMAP.md`). The mouth follows the
+**What it does not do (yet).** A presenter made from a photo and a voice of your own are not in this version (`ROADMAP.md`). The mouth follows the
 sound (how loud, and how high-pitched), not the words, so it is a good likeness of talking and not of any particular word.
 
 **Telling learners.** The clip is credited in `assets.json` as made by a program, so when the credits page is on it says that a program made the presenter and that the voice is
@@ -44,7 +49,7 @@ of the way. It has been driven by keyboard in a real browser; it has not yet bee
 | The add-on (a program, `openstage-presenter.exe`, and `addon.json`) | `presenter/` (Rust; its README says how to build it) |
 | Installing it for development | `presenter/INSTALL FOR DEVELOPMENT.bat`, then `presenter/OPEN EDITOR WITH PRESENTER.bat` |
 | The editor's side of the contract (finding it, asking it, saving the clip) | `editor/src-tauri/src/presenter.rs` |
-| Drawing the presenter and making the clip | `editor/src/presenter/` (`draw.ts`, `clip.ts`, `webm.ts`) |
+| Drawing the presenter and making the clip | `editor/src/presenter/` (`draw.ts` draws; `fast.ts` and `webmwriter.ts` encode and write the file; `clip.ts` chooses the way and has the real-time recorder; `webm.ts` writes a recorded file's length; `cues.ts` times the captions) |
 | The dialog | `editor/src/presenterdialog.ts` |
 | What a clip is in a project | `docs/format-spec.md`, "Presenter clips" (format 0.52.0) |
 
@@ -120,16 +125,19 @@ The spec's other commands (`presenter.createAvatar`, `presenter.speak`, `present
    with runs of shapes at 25 pictures a second. It needs no words, no language and no model. A better source for the same track (the speech engine's own phonemes) can replace it later.
 3. **The picture** is drawn on a canvas 720 pixels square, 25 times a second: a head and shoulders from the presenter's `look`, the mouth shape, a blink every few seconds, a little sway
    and breathing, and the label if it is on.
-4. **The recording** is the browser's own recorder (WebM, with the speech as the sound). The clip is as long as the speech and a moment of quiet. The file a recorder writes does not say how long it is, so
-   `webm.ts` writes the length in, which is what lets a player show it and jump about in it (and what `seekMedia` in an interactive video needs).
+4. **The encoding.** Where the window has encoders (WebCodecs: VP9 or VP8 for the picture, Opus for the sound), each picture is drawn and encoded at once, the speech is encoded in
+   20 millisecond pieces, and `webmwriter.ts` writes them into a WebM file that says how long it is and has a table of where its keyframes are, so a player can show its length and jump
+   about in it at once (what `seekMedia` in an interactive video needs). The speech starts at exactly 0, so the captions need no shifting. The clip is as long as the speech and a moment
+   of quiet (`fast.ts`). Where the window has no encoders, the browser's own recorder is used instead (`clip.ts`): the speech plays into it while the picture is drawn, in real time. The file
+   a recorder writes does not say how long it is, so `webm.ts` writes the length in, and the speech starts about 55 milliseconds in, which the captions allow for.
 5. **The framing** is not in the pixels: the clip is always a plain square, and a rounded square or a circle is the object's own `radius`.
-6. **The file and the captions** are saved, the object is added or replaced, and the credit is recorded; one undo step.
+6. **The file and the captions** are saved (the captions from the narration's own timing, `cues.ts`, read by the shell from the project's cache), the object is added or replaced, and the credit is recorded; one undo step.
 
-No FFmpeg is used (`CLAUDE.md`): the recorder is the window's own, and the add-on's rule checker (`presenter/tools/check_rules.py`) fails the build if one of its dependencies is not under a licence that can
+No FFmpeg is used (`CLAUDE.md`): the encoders and the recorder are the window's own, and the file is written by `webmwriter.ts`, and the add-on's rule checker (`presenter/tools/check_rules.py`) fails the build if one of its dependencies is not under a licence that can
 ship in an Apache 2.0 program, or looks like FFmpeg.
 
 ## Not built yet
 
 Phase 2 and later of the spec: a presenter made from a photo (the model manager and its licence gate, the hardware benchmark, ONNX), the Studio kind, the add-on's own voices (Kitten, Piper), a
-remote engine, a Mac build of the engine host, Presenter in OpenStage Scroll and Studio, the signed installer and update channel, and the **faster than real time** Lite clip the spec aims for
-(this version records in real time). Voice cloning is out of scope (`CLAUDE.md`).
+remote engine, a Mac build of the engine host, Presenter in OpenStage Scroll and Studio, and the signed installer and update channel. Mouth shapes from the speech engine's own phonemes,
+instead of from the sound, are a better source for the same track and are not built. Voice cloning is out of scope (`CLAUDE.md`).
