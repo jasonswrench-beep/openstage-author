@@ -562,6 +562,15 @@ export interface AltSuggestion {
   basis: string;
 }
 
+/** Optional (added in 0.52.0), only on a video: the clip was made by the Presenter add-on from this object's narration. The player ignores it. */
+export interface PresenterBlock {
+  id: string;
+  tier: "lite" | "standard" | "studio";
+  framing: "rectangle" | "rounded" | "circle";
+  label: boolean;
+  madeFrom: string;
+}
+
 export interface OSObject {
   id: string;
   type: "text" | "image" | "shape" | "button" | "hotspot" | "video" | "audio" | "quizQuestion" | "interaction" | "table" | "scrollingText" | "input" | "embed" | "results" | "certificate" | "download" | "scenario" | "icon" | "timer";
@@ -577,6 +586,8 @@ export interface OSObject {
   narration: unknown;
   provenance: unknown;
   simulation: unknown;
+  /** Only on a video: made by the Presenter add-on from this object's narration. */
+  presenter?: PresenterBlock;
   /** Editor only: the editor refuses to move, resize, rotate or delete a locked object. Absent means unlocked. The course ignores it. */
   locked?: boolean;
   /** Editor only: objects on one layer with the same group id are selected, moved, copied and deleted together. Absent means not in a group. The course ignores it. */

@@ -3271,7 +3271,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.51.0")
+        self.assertEqual(project["schemaVersion"], "0.52.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3888,3 +3888,72 @@ class InteractiveVideoPrimitives(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main(verbosity=1)
 
+
+
+class PresenterBlock(unittest.TestCase):
+    """A clip the Presenter add-on made (0.52.0): a video with a presenter block, the narration it was made from, and a credit that says a program made it."""
+
+    HASH = "sha256:" + "ab" * 32
+    SPEECH = {"script": "Welcome to the course.", "voice": "af_heart", "speed": 1.0, "lang": "en-US", "pronunciations": [], "audioCache": None}
+
+    def presenter(self, narration=True, block=None):
+        def make(d):
+            m = copy.deepcopy(d["baseLayer"]["objects"][0])
+            m.update({"id": "obj-9700", "name": "Presenter", "type": "video", "triggers": [], "narration": copy.deepcopy(self.SPEECH) if narration else None})
+            m["content"] = {"src": "assets/video/presenter-guide.webm", "captions": "assets/captions/presenter-guide.vtt"}
+            m["accessibility"].update({"altText": "An illustrated guide with short dark hair, speaking.", "role": "video", "tabOrder": 9, "decorative": False})
+            m["presenter"] = block if block is not None else {"id": "lite-guide", "tier": "lite", "framing": "rounded", "label": True, "madeFrom": self.HASH}
+            d["baseLayer"]["objects"].append(m)
+        return make
+
+    def credit(self, p, provider="generated"):
+        source = {"provider": provider, "url": "https://openstageauthor.com/", "creator": "OpenStage Presenter (lite-guide)", "creatorUrl": "",
+                  "licence": "Made by a program from the narration", "requiresCredit": True}
+        if provider == "generated":
+            source["generated"] = {"service": "openstage-presenter", "model": "lite-guide", "prompt": "Welcome to the course.", "madeAt": "2026-11-16T10:00:00Z"}
+        (p.root / "assets.json").write_text(json.dumps({"assets": [{"path": "assets/video/presenter-guide.webm", "title": "Presenter", "kind": "video", "source": source}]}), encoding="utf-8")
+
+    def found(self, p):
+        return [f for f in p.run() if f.rule not in ("asset-missing", "credit-asset-missing")]
+
+    def test_a_clip_with_its_words_and_its_credit_is_accepted(self):
+        with MutatedProject() as p:
+            p.slide1(self.presenter())
+            self.credit(p)
+            self.assertEqual([f for f in self.found(p) if f.rule.startswith("presenter") or f.rule == "schema"], [])
+            self.assertEqual([f for f in self.found(p) if f.severity == "error"], [])
+
+    def test_the_block_is_held_to_its_shape(self):
+        good = {"id": "lite-guide", "tier": "lite", "framing": "rounded", "label": True, "madeFrom": self.HASH}
+        for what, bad in (("tier", {**good, "tier": "ultra"}), ("framing", {**good, "framing": "star"}), ("label", {**good, "label": "yes"}),
+                          ("madeFrom", {**good, "madeFrom": "abc"}), ("id", {**good, "id": "Lite Guide"}), ("an extra field", {**good, "voice": "af_heart"}),
+                          ("a missing field", {k: v for k, v in good.items() if k != "madeFrom"})):
+            with MutatedProject() as p:
+                p.slide1(self.presenter(block=bad))
+                self.credit(p)
+                self.assertTrue(rules(p.run(), "schema"), f"a bad {what} is refused")
+
+    def test_only_a_video_can_have_one(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o.update(presenter={"id": "lite-guide", "tier": "lite", "framing": "rounded", "label": True, "madeFrom": self.HASH}))
+            self.assertTrue(rules(p.run(), "schema"), "a button is not a presenter clip")
+
+    def test_without_the_words_it_was_made_from_it_warns(self):
+        with MutatedProject() as p:
+            p.slide1(self.presenter(narration=False))
+            self.credit(p)
+            self.assertTrue(rules(self.found(p), "presenter-narration-missing", severity="warning"))
+            self.assertEqual([f for f in self.found(p) if f.severity == "error"], [])
+
+    def test_a_clip_that_is_not_credited_as_made_by_a_program_warns(self):
+        with MutatedProject() as p:
+            p.slide1(self.presenter())
+            self.assertTrue(rules(self.found(p), "presenter-not-credited", severity="warning"), "no assets.json at all")
+        with MutatedProject() as p:
+            p.slide1(self.presenter())
+            self.credit(p, provider="other")
+            self.assertTrue(rules(self.found(p), "presenter-not-credited", severity="warning"), "credited, but not as made by a program")
+        with MutatedProject() as p:
+            p.slide1(self.presenter())
+            self.credit(p)
+            self.assertEqual(rules(self.found(p), "presenter-not-credited"), [])

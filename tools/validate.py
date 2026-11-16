@@ -37,7 +37,7 @@ from quiztext import BROWSER_KEEPS, MAX_PASSAGE_WORDS, canonical_shortcut, read_
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 51, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 52, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -1286,6 +1286,21 @@ def _credits(project, assets_data, slides, asset_root, add):
                 f"{e['path']} requires credit. Switch the credits page on, or credit the creator another way.")
 
 
+def _presenters(slides, generated, add):
+    """A clip the Presenter add-on made says so (the presenter block), has the words it was made from, and is credited as made by a program."""
+    for rel, slide in slides.items():
+        for _, obj in _objects(slide):
+            if not obj.get("presenter"):
+                continue
+            if not obj["narration"]:
+                add(WARNING, rel, obj["id"], "presenter-narration-missing", "This presenter clip has no words it was made from",
+                    "A presenter clip is made from a narration script, and this video has none, so the clip cannot be made again when the words change. Put the narration back on the video.")
+            src = obj["content"].get("src")
+            if src and src not in generated:
+                add(WARNING, rel, obj["id"], "presenter-not-credited", "This presenter clip is not credited as made by a program",
+                    f"{src} was made by the Presenter add-on, and assets.json does not say so, so the credits page cannot tell learners that the presenter and its voice are synthetic. Make the clip again from Insert, Presenter, or give it an entry with the provider generated.")
+
+
 def _feedback_refs(rel, obj, layer_ids, add):
     refs = []
     if obj["type"] == "quizQuestion":
@@ -1746,6 +1761,7 @@ def validate_project(project_dir, asset_root=None, blockers=None):
     _hidden_navigation(slides, listed, add)
 
     # Where assets came from. The file is optional.
+    generated = set()
     if (project_dir / "assets.json").is_file():
         assets_data = _read_json(project_dir / "assets.json", "assets.json", findings)
         if assets_data is not None:
@@ -1753,6 +1769,7 @@ def validate_project(project_dir, asset_root=None, blockers=None):
             findings += a_findings
             if not a_hard:
                 _credits(project, assets_data, list(slides.values()), asset_root, add)
+                generated = {e["path"] for e in assets_data["assets"] if e["source"]["provider"] == "generated"}
 
     # Per-slide rules, and asset / cache checks that need the project folder.
     saved_by_inputs = input_values(list(slides.values()))
@@ -1764,6 +1781,7 @@ def validate_project(project_dir, asset_root=None, blockers=None):
                      {v["name"].strip().lower() for v in project["variables"]})
         for _, obj in _objects(slide):
             _assets(asset_root, rel, obj, add)
+    _presenters(slides, generated, add)
 
     return apply_accessibility_policy(findings, project, blockers)
 

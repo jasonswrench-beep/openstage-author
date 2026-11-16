@@ -187,9 +187,11 @@ const project = readJson<Project>(path.join(projectDir, "project.json"));
 setPlayerText(project.playerText);
 const slideIds = [...new Set(project.scenes.flatMap((s) => s.slides))];
 const slides = slideIds.map((id) => readJson<Slide>(path.join(projectDir, "slides", `${id}.json`)));
+// A video the Presenter add-on made speaks for itself: its narration stays in the page (the transcript reads it), but its audio is in the clip and is not shipped twice.
+const speaksItself = new Set(slides.flatMap((s) => [s.baseLayer, ...s.layers]).flatMap((l) => l.objects).filter((o) => o.presenter).map((o) => o.id));
 const narration: Record<string, NarrationAsset> = {};
 for (const [id, info] of Object.entries(narrationInfo)) {
-  narration[id] = { script: info.script, lang: info.lang, audio: info.audio ? `narration/${info.hash}.wav` : null, cues: info.cues };
+  narration[id] = { script: info.script, lang: info.lang, audio: info.audio && !speaksItself.has(id) ? `narration/${info.hash}.wav` : null, cues: info.cues };
 }
 // The project's own theme, or the built-in Classic one if it names none.
 const theme = project.theme ? readJson<Theme>(path.join(projectDir, project.theme.ref)) : readJson<Theme>(path.join(repoRoot, "themes", "classic.theme.json"));
@@ -239,8 +241,8 @@ if (existsSync(path.join(projectDir, "assets"))) {
     },
   });
 }
-for (const info of Object.values(narrationInfo)) {
-  if (!info.audio) continue;
+for (const [id, info] of Object.entries(narrationInfo)) {
+  if (!info.audio || speaksItself.has(id)) continue;
   mkdirSync(path.join(outDir, "narration"), { recursive: true });
   cpSync(path.join(projectDir, info.audio), path.join(outDir, "narration", `${info.hash}.wav`));
 }

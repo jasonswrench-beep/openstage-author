@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.51.0",
+  "schemaVersion": "0.52.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -1785,6 +1785,35 @@ one try, feedback layers that each end with a Continue that plays the clip), a h
 row of buttons under the video, each `seekMedia` then `playMedia`), and a choice (buttons that each `jumpToSlide`, at a time with the clip held, or when the video ends:
 a `mediaComplete` rule on the video shows a layer of choices). Each moment's objects share a `group` of the form `vm-<kind>-<number>`, which is how the editor finds them again.
 
+## Presenter clips
+
+A video can be a **presenter clip**: a presenter (an illustrated person; later a person made from a photo) speaking the object's own narration, made by the Presenter add-on
+(`docs/presenter.md`) and put on the slide as an ordinary video. The published course plays it as it plays any video, with its captions, and needs nothing extra. The block
+below is for the editor, so it can say that the clip is out of date and make it again (added in 0.52.0).
+
+```json
+"presenter": { "id": "lite-guide", "tier": "lite", "framing": "rounded", "label": true, "madeFrom": "sha256:4f3a…" }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Which presenter: 2 to 41 lowercase letters, digits and hyphens, starting with a letter, such as `lite-guide`. The add-on says what each one looks like. |
+| `tier` | `lite` (an illustrated presenter, drawn and recorded by the editor), `standard` or `studio` (a presenter made from a photo; not built yet). |
+| `framing` | The shape the presenter's picture is cut to: `rectangle`, `rounded` or `circle`. |
+| `label` | `true` if the clip carries a small "AI presenter" label in its corner. It is on unless the author turns it off for the clip. |
+| `madeFrom` | `sha256:` and the SHA-256 of the object's narration hash (the `sha256:` line the narration's cache key is made of, see The cache hash), the presenter's `id`, the `tier`, the `framing` and the word `true` or `false` for the label, joined by single newlines. The clip is **out of date** when the hash worked out now is another. |
+
+- The block is only on a `video` (a schema error on any other object). A presenter clip has `narration` too: that is where the words, the voice, the speed and the language live,
+  as for any narrated object, and so the Narration dialog, the speech tool, the cache, the transcript on the page and the translation files treat it as they treat any narration.
+- **The clip carries the voice.** The player never plays the narration of a presenter clip beside the clip, and a publish does not copy its audio into the package: the speech is
+  in the video. The narration's words still go into the page's transcript.
+- The video needs captions, as any video does. The editor writes them from the narration's script (times estimated from the length of the speech, and marked as not yet checked).
+- **Credit.** The clip is in `assets.json` with the provider `generated` (service `openstage-presenter`, model the presenter's `id`) and `requiresCredit` true, so the credits page, when it is on,
+  says that a program made the presenter and that the voice is synthetic (the same page that lists the narration engines).
+- The validator warns when a clip has no narration (`presenter-narration-missing`: it cannot be made again) and when its file has no `generated` entry in `assets.json`
+  (`presenter-not-credited`). It does not work out `madeFrom`: only the editor says a clip is out of date.
+- Nothing about a presenter is needed by the player, the renderer or a course with none, and a course that has one opens and plays without the add-on; it only cannot be made again.
+
 ## How the editor writes files
 
 The editor writes a file only if its content really changed. Opening a project and saving
@@ -1811,6 +1840,7 @@ updated.
 | 0.48.0 | 0.49.0 | Adds the optional `version` and `courseCode` of a project's `meta`: the course's own version and its code at the institution, used in the names of published files and in the Word review document. Nothing in an older course changes. |
 | 0.49.0 | 0.50.0 | Adds the optional `accessibilityBlockers` of a project: the accessibility rules the author has chosen to stop a publish with. Accessibility findings are warnings and never stop a publish unless a project names them here. Nothing in an existing project has to change, and a project that does not have the list is not stopped by any. |
 | 0.50.0 | 0.51.0 | Adds the `seekMedia` action (a rule moves a video or audio clip to a moment, `value` milliseconds) and the optional `pauseMedia` of a timing that follows a clip (the clip is held when the object comes in). They are what an interactive video is made of, with chapters and questions. Nothing in an existing project has to change. |
+| 0.51.0 | 0.52.0 | Adds the optional `presenter` block of a video: the clip was made by the Presenter add-on from the narration on the same object. Nothing in an existing project has to change. |
 | 0.47.0 | 0.48.0 | Adds one kind of input, `text`: a labelled box the learner types into (`lines`, `maxLength`, `hint`), saved in a string variable and, with `report`, told to the LMS as a `fill-in`. Nothing in an older course changes. |
 | 0.46.0 | 0.47.0 | Adds three kinds of quiz question: `essay` (`minWords`), `whichWord` (`passage`) and `shortcut` (`keys`). Nothing in an older course changes. |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |

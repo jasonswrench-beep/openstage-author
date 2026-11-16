@@ -14,6 +14,7 @@ import { attachTracker, courseResults } from "./scorm.ts";
 import { attachScorm2004 } from "./scorm2004.ts";
 import { attachXapi, readLaunch } from "./xapi.ts";
 import { attachCmi5, exitCourse, isCmi5Launch, readCmi5Launch } from "./cmi5.ts";
+import { narrationToPlay } from "./presenter.ts";
 import { creditParts } from "./credits.ts";
 import { shouldReflow } from "./reflow.ts";
 import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
@@ -323,10 +324,7 @@ export class Player implements Host {
     this.timeline.setAutoSteps(slide.autoSteps ?? null);
 
     this.narration.load(
-      readingOrder(slide.baseLayer.objects).flatMap((o) => {
-        const asset = this.pkg.narration[o.id];
-        return asset ? [{ id: o.id, asset }] : [];
-      }),
+      narrationToPlay(readingOrder(slide.baseLayer.objects), this.pkg.narration),
     );
 
     const idx = this.runtime.slideIndex;
@@ -416,12 +414,7 @@ export class Player implements Host {
     if (visible && narrate) {
       const slide = this.runtime.currentSlide;
       const layer = slide && [slide.baseLayer, ...slide.layers].find((l) => l.id === layerId);
-      this.narration.playNow(
-        (layer ? readingOrder(layer.objects) : []).flatMap((o) => {
-          const asset = this.pkg.narration[o.id];
-          return asset ? [{ id: o.id, asset }] : [];
-        }),
-      );
+      this.narration.playNow(narrationToPlay(layer ? readingOrder(layer.objects) : [], this.pkg.narration));
     }
   }
 

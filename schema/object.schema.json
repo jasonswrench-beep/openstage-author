@@ -61,6 +61,7 @@
     "timing": { "$ref": "#/$defs/timing" },
     "animation": { "$ref": "#/$defs/animation" },
     "group": { "$ref": "project.schema.json#/$defs/id", "description": "Editor only. Objects on one layer with the same group id are grouped: the editor selects, moves, copies and deletes them together. Absent means not in a group. The published course ignores it." },
+    "presenter": { "$ref": "#/$defs/presenter" },
     "locked": { "type": "boolean", "description": "Editor only. True means the editor refuses to move, resize, rotate or delete the object until it is unlocked. Absent means unlocked. The published course ignores it." },
     "narration": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/narration" }]
@@ -73,6 +74,11 @@
     }
   },
   "allOf": [
+    {
+      "$comment": "A presenter block is only on a video: it says that the clip was made by the Presenter add-on from this object's narration.",
+      "if": { "required": ["presenter"] },
+      "then": { "properties": { "type": { "const": "video" } } }
+    },
     {
       "$comment": "Non-decorative objects need real alt text.",
       "if": {
@@ -256,6 +262,19 @@
     }
   ],
   "$defs": {
+    "presenter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "tier", "framing", "label", "madeFrom"],
+      "description": "Optional, added in 0.52.0, only on a video. The clip was made by the Presenter add-on (docs/presenter.md): a presenter speaking this object's narration. The published course plays the clip as an ordinary video and ignores this block; the editor reads it to say that the clip is out of date when the narration or a setting has changed.",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,40}$", "description": "Which presenter: the id the add-on gives it, such as lite-guide." },
+        "tier": { "enum": ["lite", "standard", "studio"], "description": "How the clip was made: lite is an illustrated presenter drawn and recorded by the editor; standard and studio are for a presenter made from a photo (not built yet)." },
+        "framing": { "enum": ["rectangle", "rounded", "circle"], "description": "The shape the presenter's picture was cut to." },
+        "label": { "type": "boolean", "description": "Whether the clip carries a small AI presenter label in its corner." },
+        "madeFrom": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "The hash of what the clip was made from: this object's narration (its own hash), the presenter, the tier, the framing and the label, joined by newlines. The clip is out of date when the hash worked out now is another." }
+      }
+    },
     "ref": { "$ref": "project.schema.json#/$defs/id" },
     "assetPath": { "type": "string", "pattern": "^assets/.+" },
 
