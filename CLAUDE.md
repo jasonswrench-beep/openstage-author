@@ -109,9 +109,13 @@ Expand this list when an authoring need justifies the change.
 - Cloud collaboration, user accounts, hosting, SSO. There is no server.
 - A built-in LMS.
 - Voice cloning. Fixed voice sets only.
-- VR, AR, avatar systems, gamification economies (points shops, badges, coins, levelling, leaderboards, or anything kept beyond one
+- VR, AR, gamification economies (points shops, badges, coins, levelling, leaderboards, or anything kept beyond one
   activity). A score within one game is not an economy: ready-made games are allowed, built from the editor's own parts (`docs/game-templates.md`).
 - Unrestricted custom scripting in courses.
+
+Presenter avatars are **in scope** as an optional add-on (decided 2026-11-15, for consistency with the other tools in the suite; the
+"avatar systems" line used to be on the list above), with the Lite tier and voice first, as the add-on's own specification sets out. Nothing in the format, the
+renderer or the editor depends on one, a course with none is unchanged, and none works without the narration text and voice the course already has. 360 scenes and VR stay out.
 
 ## Acceptance tests that gate a release
 

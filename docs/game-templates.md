@@ -78,7 +78,7 @@ generic names, never a trademarked game or show name.
 
 - "Not a template tool" describes the authoring approach: a freeform canvas, not a fixed form. Ready-made starting slides sit inside that, as the lesson
   slides already do. No change proposed, but worth saying so in one line.
-- "VR, AR, avatar systems, gamification economies" is out of scope. This note reads that as: no points shop, badges, coins, levelling or
+- "VR, AR, gamification economies" is out of scope (the line also named avatar systems until 2026-11-15, when presenter avatars were put in scope as an optional add-on; see `CLAUDE.md`). This note reads that as: no points shop, badges, coins, levelling or
   leaderboards that outlast one activity, and nothing that needs a server. A score within one game, and the results box and certificate that already
   exist, stay in. **A leaderboard cannot be built without a server and is not proposed.** Please confirm that reading, or say where the line is.
 - "Unrestricted custom scripting" stays out: games are built from rules and existing objects, never from the author's own code.

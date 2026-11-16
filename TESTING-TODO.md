@@ -2,6 +2,16 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## The release gate, and what this round built (2026-11-16)
+
+**The release gate (development list item 1) is three things that only a person can do, in this order.** Everything that can be done without a person has been done: the player's and the
+editor's tests, the validator's, the pretend LMS, LRS and cmi5 LMS, and the stand-in rehearsal (`player/tools/lms-rehearsal.mjs`, which needs Playwright and was **not** run this round: no Playwright is
+installed on the machine this was built on). Rebuild the test pack first with `PUBLISH LMS TEST LESSON.bat`; it now holds eight packages (cmi5 too), and `LMS-START-HERE.md` has a round for cmi5.
+
+- [ ] **1. A real LMS run for score and resume** (the one that matters most: nothing below it matters until a score and a resume are proven). Follow `dist\lms-test-pack\LMS-START-HERE.md`, rounds 1 and 2: tests 1 to 4 of `examples/lms-test-lesson.osproj/LMS-TEST-PLAN.md` (launch, 3 of 5 right is failed 60, the edge is passed 80, leave on question 3 and come back to question 3 with answers 1 and 2 kept and locked, finished passed 100), with a **test student**, not instructor preview. Write what the LMS showed in `LMS-RESULTS.md`. Then SCORM 2004 (round 2), xAPI (round 3) and, if your LMS supports cmi5, round 3b.
+- [ ] **2. The recorder's Windows tests**, including the hour-long one: double-click the `.bat` files in `capture` (the list is in `capture/README.md`: `TEST EXPORT.bat`, `TEST WEBCAM.bat`, `TEST INTERACTIONS.bat`, `TEST LONG RECORDING.bat` (60 minutes), `TEST OUTPUT SWITCH.bat`, `TEST CUES.bat` (makes sounds on purpose), the region and window pickers, `OPEN TIMELINE DEMO.bat`) and say what you saw. The recorder's own automatic tests are silent and pass.
+- [ ] **3. A pass by someone who uses a screen reader every day**, over the editor and a published course: `docs/screen-reader-pass.md` has the script (NVDA and Narrator, eight patterns) with empty result lines; Capture's own pass is in `capture-timeline/README.md`. NVDA 2026.2 was run over the editor and the course pages by the assistant on 2026-10-21 and found ten problems, fixed; a daily user will find far more. This round added dialogs that no screen reader has met (below).
+
 ## Questions from a QTI file (2026-11-16; no format change)
 
 Built and covered by 12 tests (QTI 1.2, 2.1, 3.0, hostile files, the real checker on the slides) and a Rust test of the file reader. Not tried on a file written by a real system, or in the editor window.
@@ -38,6 +48,12 @@ Built and covered by 9 tests of the moments and the Model, 5 of the format, 1 of
 - [ ] **Look at how it is drawn.** A question or a choice is drawn over the picture in a light panel, sized to the video; the hotspot has a visible outline and a label under it. I only saw them on a small test video: is the panel too big, the label too small, the outline hard to see?
 - [ ] **A learner who skips ahead.** Use the video's own controls to go past a question, then back. The question should come up again and hold the video again.
 - [ ] **With NVDA and the keyboard.** The dialog's fields and status line; Tab to a hotspot and press Enter (it should pause the video and show the note), then **Close the note**; the chapter buttons by Tab; a question that holds the video: does the screen reader say that the question has come in?
+
+## Items that wait for the core, or for you (2026-11-16)
+
+- Items 5, 6, 7 and 9 (games from banks, reviewers' comments, the source ledger, several languages in one package) each need a piece the core has not published (C4, C9, C7, C6). What each needs is written in `CORE-REQUESTS.md` (R1, R3, R4, R5), and nothing was built of them. Item 2's reading of OpenAssess banks waits on C4 too (R1); its QTI half is built, above.
+- Item 10 (the presenter avatar add-on) and item 11 (AI writing help, then conversation practice): see the two entries at the top of the roadmap's "Decisions only you can make". The avatar add-on's specification was not found; the AI help waits for three answers (each has a default in the entry).
+- **Pre-existing, not from this round:** four tests fail on this machine because the example narration audio (`examples/minimal.osproj/.cache`) is not here: `narration.test.ts` (the key matches audio the generator made), `mcp/test/tools.test.ts` (a narration made before is seen as made), and the Rust test `audio_that_exists_is_found_without_the_speech_model`. They pass where the audio was made.
 
 ## Dialogs in the new look, and Find something to add (2026-11-11)
 
