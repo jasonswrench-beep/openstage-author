@@ -2,6 +2,14 @@
 
 Things that only a person can check, kept as work goes on. Everything else is tested by the suites and by trying the real tools here. Tick a line when you have done it, and write what you saw under it if it was not right.
 
+## Questions from a QTI file (2026-11-16; no format change)
+
+Built and covered by 12 tests (QTI 1.2, 2.1, 3.0, hostile files, the real checker on the slides) and a Rust test of the file reader. Not tried on a file written by a real system, or in the editor window.
+
+- [ ] **Read a file a real system wrote.** In **Slides > Add > Quiz from a spreadsheet...** choose a QTI file (`.xml` or the `.zip` a learning system or OpenAssess exports: QTI 1.2, 2.1 or 3.0). The dialog should say what kind it read, list the questions (a matching, ordering or hotspot question left out and named), and add the rest. Try one from Canvas, one from Brightspace and one from OpenAssess. Tell me which question kinds came out wrong, and what a real file holds that I did not expect (feedback is read from what the file ties to a right or a wrong answer; points from `points_possible` or the declared maximum).
+- [ ] **The picture and equation note.** A question with a picture should say, above the list, that the picture was not brought in. Add it on the slide with a description.
+- [ ] **With NVDA.** The new line of notes above the list, and the file chooser listing the QTI types.
+
 ## Dialogs in the new look, and Find something to add (2026-11-11)
 
 Step 6 of the new look. Built and covered by 10 editor tests, a 44-step check in the browser preview, a tour that opens each of the 37 dialogs the menus open at full size and in a phone-width window, and the editor's own accessibility audit on the new window and eleven others. Not tried in the desktop program's own window or with a screen reader.

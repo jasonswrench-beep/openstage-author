@@ -3,6 +3,7 @@
 // A native <dialog>, like the others: focus moves in, Tab stays inside, Escape closes it. The file work is passed in, so this file only draws.
 
 import { describeRead, MAX_QUESTIONS, readQuestions, TEMPLATE_CSV, type ImportedQuestion, type QuestionRead } from "./questionimport.ts";
+import { QTI_EXTENSIONS, readQti } from "./qtiimport.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -22,6 +23,8 @@ export interface QuestionImportHooks {
   pickFile(): Promise<string | null>;
   /** The words of the file. Throws with a message for the author if it cannot be read. */
   readFile(path: string): Promise<string>;
+  /** The bytes of a QTI file (.xml, .zip or .qti). Throws with a message for the author if it cannot be read. */
+  readBytes(path: string): Promise<Uint8Array>;
   /** Ask where to save the blank table. Null if the author cancelled. */
   pickTemplateSave(): Promise<string | null>;
   writeTemplate(dest: string, text: string): Promise<void>;
@@ -60,7 +63,7 @@ export function askQuestionImport(after: string, hooks: QuestionImportHooks, pre
       try { path = await hooks.pickFile(); } catch (err) { say(`Could not open the file chooser. ${err instanceof Error ? err.message : String(err)}`); return; }
       if (!path) return;
       try {
-        read = readQuestions(await hooks.readFile(path));
+        read = QTI_EXTENSIONS.test(path) ? readQti(await hooks.readBytes(path), path.split(/[\/]/).pop() ?? path) : readQuestions(await hooks.readFile(path));
         fileName = stem(path);
         say(`${describeRead(read)}`);
         render(true);
@@ -83,7 +86,7 @@ export function askQuestionImport(after: string, hooks: QuestionImportHooks, pre
       body.replaceChildren();
       addButton?.remove();
       addButton = null;
-      const intro = h("p", { class: "note", text: `Keep your questions in a spreadsheet, save it as a CSV file (in Excel: Save As, then CSV UTF-8), and each row becomes a question on a slide of its own, with its own feedback layers. The first row names the columns: Type (MC multiple choice, MR several right, TF true or false, SA short answer), Question, A to H (the answers), Correct (the letters of the right answers, or True or False), and, if you like, Points, Attempts, Feedback if right and Feedback if wrong. Up to ${MAX_QUESTIONS} questions at a time.` });
+      const intro = h("p", { class: "note", text: `Keep your questions in a spreadsheet, save it as a CSV file (in Excel: Save As, then CSV UTF-8), and each row becomes a question on a slide of its own, with its own feedback layers. A QTI file (a .xml file, or the .zip a learning system or a test program exports) can be chosen in the same way. The first row names the columns: Type (MC multiple choice, MR several right, TF true or false, SA short answer), Question, A to H (the answers), Correct (the letters of the right answers, or True or False), and, if you like, Points, Attempts, Feedback if right and Feedback if wrong. Up to ${MAX_QUESTIONS} questions at a time.` });
       const choose1 = h("button", { type: "button", text: read ? "Choose another file..." : "Choose a table of questions..." });
       const template = h("button", { type: "button", text: "Save a blank table to start from..." });
       choose1.addEventListener("click", () => void choose());
@@ -94,6 +97,7 @@ export function askQuestionImport(after: string, hooks: QuestionImportHooks, pre
       const n = read.questions.length;
       const summary = h("p", { class: "qi-summary", tabindex: "-1", text: `${fileName}: ${describeRead(read)}` });
       body.append(h("h3", { id: "qi-found", text: "What was found" }), summary);
+      for (const note of read.notes ?? []) body.append(h("p", { class: "note", text: note }));
       if (read.unusedColumns.length > 0) body.append(h("p", { class: "note", text: `${read.unusedColumns.length === 1 ? "A column was" : "Columns were"} not used because I do not know ${read.unusedColumns.length === 1 ? "its name" : "their names"}: ${read.unusedColumns.join(", ")}.` }));
       if (read.problems.length > 0) {
         body.append(h("h3", { id: "qi-problems-h", text: "Rows to look at" }),

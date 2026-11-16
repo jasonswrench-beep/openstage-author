@@ -5801,6 +5801,7 @@ ${errorText(err)}`);
     const choice = await askQuestionImport(m.slide?.name ?? "", {
       pickFile: () => backend.pickQuestionFile(),
       readFile: (path) => backend.questionFileRead(path),
+      readBytes: (path) => backend.qtiFileRead(path),
       pickTemplateSave: () => backend.pickQuestionTemplateSave(),
       writeTemplate: (dest, text) => backend.questionTemplateWrite(dest, text),
     }, preset);

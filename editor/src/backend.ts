@@ -156,6 +156,8 @@ export interface Backend {
   translationImport(dir: string, source: string, into: string): Promise<TranslationImported | TranslationFailed>;
   /** The words of a table of questions saved as CSV or text, whatever way the spreadsheet program saved them. */
   questionFileRead(source: string): Promise<string>;
+  /** The bytes of a QTI file (.xml, .zip or .qti) the author chose. */
+  qtiFileRead(source: string): Promise<Uint8Array>;
   /** Write the blank table of questions to a file the author chose. */
   questionTemplateWrite(dest: string, text: string): Promise<void>;
   /** Check a set of slides and unpack it into a folder of its own; the answer says what is in it, or why it cannot be used. */
@@ -408,7 +410,7 @@ const tauriBackend: Backend = {
   async pickQuestionFile() {
     const forced = testPick("questionfile");
     if (forced !== undefined) return forced;
-    const picked = await openDialog({ multiple: false, title: "Choose a table of questions", filters: [{ name: "Tables of questions (CSV)", extensions: ["csv", "tsv", "txt"] }] });
+    const picked = await openDialog({ multiple: false, title: "Choose a table of questions", filters: [{ name: "Questions: a table (CSV) or a QTI file", extensions: ["csv", "tsv", "txt", "xml", "zip", "qti"] }, { name: "Tables of questions (CSV)", extensions: ["csv", "tsv", "txt"] }, { name: "QTI files", extensions: ["xml", "zip", "qti"] }] });
     return typeof picked === "string" ? picked : null;
   },
   async pickQuestionTemplateSave(name) {
@@ -418,6 +420,7 @@ const tauriBackend: Backend = {
     return typeof picked === "string" ? picked : null;
   },
   questionFileRead: (source) => invoke<string>("question_file_read", { source }),
+  qtiFileRead: async (source) => new Uint8Array(await invoke<ArrayBuffer>("qti_file_read", { source })),
   questionTemplateWrite: (dest, text) => invoke<void>("question_template_write", { dest, text }),
   async pickTranslationSave(name) {
     const forced = testPick("translationsave");
@@ -683,6 +686,9 @@ const previewBackend: Backend = {
   },
   async questionFileRead() {
     throw new Error("Reading a table of questions needs the desktop app.");
+  },
+  async qtiFileRead() {
+    throw new Error("Reading a QTI file needs the desktop app.");
   },
   async questionTemplateWrite() {
     throw new Error("Saving the template needs the desktop app.");

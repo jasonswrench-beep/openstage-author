@@ -47,13 +47,35 @@ Things that are only **mentioned**, with the row still added: an empty answer be
 * **Mixing the answers:** tick **Show the answers of each multiple choice question in a different order to each learner**. True or false keeps True before False, and a short answer has nothing to mix.
 * **The words:** a question or feedback is plain text. Angle brackets and ampersands are kept as written. A line break inside a feedback cell starts a new paragraph. There are no pictures, bold or links: add them afterwards in the editor.
 
+## Questions from a QTI file
+
+The same dialog reads a **QTI file**, the format learning systems and test-making programs use to move questions: choose a `.xml` file, a `.qti` file or the `.zip` package a system exports, in place of a table. What is found is listed and added in the same way (row by row, a question with a mistake left out and named, the rest added with their feedback layers, one Undo for all of them), and the same choices are offered (a question bank, mixed answers). It was asked for on 2026-11-15 (development list, item 2).
+
+**What is read.** QTI 1.2 (one file holding the items, as Canvas and Brightspace write it), QTI 2.1 and 2.2 (a package with a file for each `assessmentItem`, in the order the package's manifest lists them) and QTI 3.0 (the same, with `qti-` names).
+
+| In the file | Becomes |
+| --- | --- |
+| One choice, with a right answer | Multiple choice |
+| One choice whose two answers are True and False | True or false |
+| Several choices allowed | Several right |
+| One typed answer | Short answer; the accepted answers are the ones the file declares, with the ones it scores |
+| An extended text answer, or a typed answer nothing in the file marks | Essay (not marked, as in the editor) |
+
+**What is left out, and named.** Matching, ordering, hotspots, picking a point, sliders, several blanks, drop-down blanks, numeric and calculated questions, file upload, and text with no question. Each is listed with its row and its kind, and the rest of the file is still added. A choice with no words (it was a picture), no stated right answer, or more right answers than a one-answer question allows is left out in the same way. More than 200 questions in one file are refused, as in a table.
+
+**What is not brought in, and said.** Pictures and equations in the words are counted and mentioned above the list; the words round them come in. Objectives, difficulty, Bloom level, tags and the history of a question are not kept: a slide has nowhere to hold them (see `CORE-REQUESTS.md`, R1). The points come from the file when it states them (`points_possible`, the declared maximum score).
+
+**Safety.** The file is read by a small reader of its own that follows no link, defines no entity (a document type is skipped, so nothing outside the file can be read into a question), refuses a file nested too deeply or with too many elements, and reads at most 60 MB; a zip is opened with the editor's usual limits.
+
+The code is `editor/src/qtiimport.ts` (12 tests in `qtiimport.test.ts`, including the real checker on the slides it makes) and, in the Rust side of the editor, `qti_file_read`.
+
 ## Tables for games
 
 A quiz board and a prize ladder can also be made from a table, and their size dialog offers it (see `docs/game-templates.md`, "Filled from a spreadsheet"). The columns are the same, and a quiz board adds **Category** and **Value**. Here, in Add questions from a spreadsheet, those two columns are not used and are named as columns that were not used. The sample files for the games are `examples/quiz-board-questions.csv` and `examples/prize-ladder-questions.csv`.
 
 ## Files it can read
 
-A `.csv` file, or a `.tsv` or `.txt` table. It works out the separator (commas, semicolons, which spreadsheet programs in some countries use, or tabs) and the way the text was saved: UTF-8, UTF-16 (a spreadsheet program's "Unicode Text"), or the Windows Western code page that a spreadsheet program's plain CSV uses. A spreadsheet file (`.xlsx`) is not read: open it and save it as CSV. A file larger than 2 MB is refused.
+A `.csv` file, or a `.tsv` or `.txt` table (a QTI file is covered above). It works out the separator (commas, semicolons, which spreadsheet programs in some countries use, or tabs) and the way the text was saved: UTF-8, UTF-16 (a spreadsheet program's "Unicode Text"), or the Windows Western code page that a spreadsheet program's plain CSV uses. A spreadsheet file (`.xlsx`) is not read: open it and save it as CSV. A file larger than 2 MB is refused.
 
 ## Not built
 

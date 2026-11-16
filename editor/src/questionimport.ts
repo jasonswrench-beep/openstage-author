@@ -54,6 +54,8 @@ export interface QuestionRead {
   unusedColumns: string[];
   /** How many rows of questions the file held, with or without problems. */
   rows: number;
+  /** Things worth saying about the file as a whole (what kind of file it was, what was not brought in), shown beside what was found. */
+  notes?: string[];
 }
 
 export const MAX_QUESTIONS = 200;
