@@ -1,6 +1,6 @@
 # ADR 0006: Presenters made from a photo (Phase 0 of the Presenter add-on)
 
-Status: Open. The audit below is done; the choice of route is the owner's (see "What is needed to go on").
+Status: Route (a) chosen by the owner on 2026-11-16 and tried the same day (see "The trial"). The LivePortrait weights are not to be listed in the model manager. How an author gets them is open (see "What is needed to go on").
 Date: 2026-11-16
 Applies to: the Standard and Studio kinds of the OpenStage Presenter add-on (`docs/avatar-addon-spec.md`, "Recommended tiered approach" and "Phased build plan", Phases 0 to 3).
 
@@ -44,13 +44,41 @@ that decide the most (the LivePortrait licence note, YuNet's MIT licence, JoyVAS
 3. **LivePortrait can be driven without JoyVASA.** The ONNX files include eye and lip retargeting (stitching) models: they take a number for how open the lips are and move the picture's keypoints to match. The mouth shapes the add-on already makes (from the speech engine's words, or from the sound) can supply that number for every picture of the clip, and the head's small sway the editor already draws can supply the pose. That needs no JoyVASA, no HuBERT, no PyTorch, no FFmpeg and no InsightFace, only the ONNX files above, a face detector, and a runtime. What it gives up: the lips open and close in time with the speech but do not take the rounded and spread shapes the Lite presenters do, and nothing moves the face by what is said. It has not been tried. **It is a design this record proposes, not one the specification chose.**
 4. Neither route is real time on a computer without a good graphics card, and neither is tried on this computer's card yet. This computer has an NVIDIA GeForce RTX 3050 with 8 GB, which is the specification's Phase 0 test machine.
 
+## The trial (2026-11-16, on the RTX 3050 computer)
+
+The owner chose route (a), said the LivePortrait weights are **not** to be listed in the model manager, and agreed to the trial download. The files were fetched from their publishers into a scratch folder outside the repository, each checked
+against the SHA-256 and size its publisher lists: the human-pipeline ONNX files of FasterLivePortrait (appearance feature extractor 3.4 MB, motion extractor 112.6 MB, the 203-point landmark model 114.7 MB, the three stitching models
+0.9 MB together, the warping and decoder model 421.2 MB), YuNet (0.23 MB), five of the LivePortrait repository's example photographs, and, in a throwaway Python environment, ONNX Runtime with DirectML, NumPy, OpenCV and Pillow. Nothing went
+into the repository; the scripts and files are in the session's scratch folder and can be deleted. InsightFace's files were never used.
+
+What was tried: a trimmed copy of FasterLivePortrait's own inference steps (its crop, landmarks, motion extractor, appearance features, lip and eye retargeting, and warping model), with YuNet as the face finder and no driving video:
+the picture of one photo is made from only a number for how open the lips are, a number for how open the eyes are, and (not used in the end) a small turn of the head.
+
+What it showed:
+
+1. **It works, and the mouth is controllable.** From one photo, the lip number alone opens and closes the mouth believably, with teeth and the inside of the mouth, on a painted portrait and on two photographs. A face finder
+   other than InsightFace (YuNet, with its five landmarks) is enough for the crop; the project's own 203-point landmark model gives the lip and eye ratios. A short stretch of the clip's real mouth track (from the Windows voice's phonemes)
+   mapped to these pictures reads as talking.
+2. **Per-frame animation is too slow, and the graphics card cannot help as the model is exported.** The warping model has two three-dimensional `GridSample` operators. DirectML cannot start the model (it fails when the session is made, with the
+   memory options DirectML asks for as well), and on the processor (32 threads) a picture takes 2 to 10 seconds, so a minute of video at 25 pictures a second would take hours. Running it on the graphics card would mean the CUDA provider
+   (with its several gigabytes of NVIDIA libraries) or cutting the graph around the two operators; neither was tried.
+3. **So a photo presenter does not need to be animated per frame: it can be a set of pictures, made once.** The mouth shapes the add-on already makes are six; six lip numbers and two eye states are twelve pictures of the photo (about 100 seconds on this
+   computer with the processor alone, about 1.9 GB of memory at the peak), and a clip is then made like an illustrated presenter's: the editor picks the picture for each moment of the mouth track, crossfades when it changes, and sways the whole picture a
+   little. That keeps the per-clip work in the editor's fast encoder, needs no graphics card and no DirectML (whose DLL is not open source), and makes the expensive step a one-time cost for each photo, which an author could leave to run.
+4. **Limits seen:** the six shapes come out as about four looks (closed, slightly open, open and a middle one; the rounded and the spread mouth are hard to tell apart); "eyes shut" came out as half shut on all three; where the lips are
+   hidden (a moustache) the mouth hardly moves; the head does not turn (the sway would be a movement of the flat picture); the pictures are the 512 by 512 crop LivePortrait works on, not the whole photograph (pasting back was not tried);
+   only five photographs were tried.
+
+Not tried: anything in Rust (ONNX Runtime has to be reached from the add-on, which is Rust: the CPU build of the library loads at run time and is MIT), the CUDA or the graph-cutting routes, paste-back, photographs of faces turned away or
+wearing glasses, and a computer with fewer cores (a laptop with 8 would take about three times as long).
+
 ## What is needed to go on
 
-- **Which route for a photo presenter:** (a) LivePortrait driven by the add-on's own mouth shapes (3 above), (b) JoyVASA and LivePortrait in PyTorch as the Studio pack, (c) no photo presenters for now, with the effort put into more illustrated ones.
-- **Whether LivePortrait's weights may be listed** in the model manager's catalogue, with their licence shown to the author who downloads them and the InsightFace models never used, given the open question above.
-- **Permission to download for a trial** on this computer (nothing is downloaded without it): for (a), the human-pipeline ONNX files of FasterLivePortrait (about 653 MB in all, from `huggingface.co/warmshao/FasterLivePortrait`), YuNet (230 KB, from `opencv/opencv_zoo`), and ONNX Runtime with its GPU provider (several hundred MB, from Microsoft or its package index). Each would be checked against the SHA-256 the publisher lists and removed afterwards if the trial is not kept.
+- **(answered: route (a).)** ~~Which route for a photo presenter:~~ (a) LivePortrait driven by the add-on's own mouth shapes (3 above), (b) JoyVASA and LivePortrait in PyTorch as the Studio pack, (c) no photo presenters for now, with the effort put into more illustrated ones.
+- **(answered: no.)** ~~Whether LivePortrait's weights may be listed~~ in the model manager's catalogue. Which leaves open **how an author gets them**: by putting the files in the models folder themselves (the add-on would check they are the right ones and tell them where they come from and what their licence says), or not at all.
+- **(answered: yes, and done.)** ~~Permission to download for a trial~~ on this computer (nothing is downloaded without it): for (a), the human-pipeline ONNX files of FasterLivePortrait (about 653 MB in all, from `huggingface.co/warmshao/FasterLivePortrait`), YuNet (230 KB, from `opencv/opencv_zoo`), and ONNX Runtime with its GPU provider (several hundred MB, from Microsoft or its package index). Each would be checked against the SHA-256 the publisher lists and removed afterwards if the trial is not kept.
 
 ## What was built meanwhile
 
 Only what does not depend on the answers: the hardware check of the specification (graphics cards by vendor, name and dedicated memory through DXGI, memory, free space where models are kept, whether an NVIDIA card can run CUDA) and its table of which kinds a computer is capable of. On this computer it says the Standard and Studio kinds are within reach and not offered, because no photo engine is installed.
-Not built, because they depend on the route: the model manager and its catalogue, the photo check, the `.osavatar` package and its consent record, the render queue, and the photo dialog.
+Not built, because they wait on the decision about the design and about how an author gets the weights: the model manager and its catalogue, the photo check, the `.osavatar` package and its consent record, the render queue, and the photo dialog.
