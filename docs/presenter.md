@@ -112,7 +112,7 @@ One request, then the program ends, so a crash or a slow job never takes the edi
 | Command | Params | Result |
 | --- | --- | --- |
 | `presenter.hello` | none | `{ "name", "version", "protocol": 1, "tiers": [...] }` |
-| `presenter.check` | none | `{ "os", "cpuThreads", "memoryMb", "tiers": [{ "id", "offered", "default", "reason" }] }`: what the computer can do, and why a kind is not offered |
+| `presenter.check` | none | `{ "os", "cpuThreads", "memoryMb", "diskFreeMb", "cuda", "gpus": [{ "name", "vendor", "dedicatedMb", "software" }], "capable": { "why" }, "tiers": [{ "id", "offered", "capable", "default", "reason" }] }`: the graphics cards (through DXGI), the memory, the free space where models are kept, whether an NVIDIA card can run CUDA, which kinds the computer is capable of (the specification's table: no card of its own and under 8 GB is Lite only; integrated graphics and 8 GB or more adds a slow Standard; a card with 4 to 6 GB makes Standard the default; an NVIDIA card with 8 GB or more adds Studio), and which are offered, which also needs the kind's engine installed, and why one is not |
 | `presenter.presenters` | none | `{ "presenters": [{ "id", "name", "tier": "lite", "description", "look": { "skin", "hair": { "style": "short" or "curly" or "long", "color" }, "shirt", "background", "glasses", "eyes" } }] }`. The editor draws each presenter from its `look`, so a new presenter is a new entry and nothing in the editor changes. |
 | `presenter.mouthTrack` | `{ "wav": path, "fps": 25, "words": [{ "start", "end", "phonemes" }] }`. The words are optional: each with when it began and ended in seconds and the phonemes it was said with. | `{ "durationMs", "fps", "shapes": [...], "source": "phonemes" or "sound", "runs": [[startMs, shape], ...] }`. The shape (`closed`, `small`, `open`, `wide`, `round` or `teeth`) showing from each start, and what they follow. |
 
@@ -146,5 +146,5 @@ ship in an Apache 2.0 program, or looks like FFmpeg.
 
 ## Not built yet
 
-Phase 2 and later of the spec: a presenter made from a photo (the model manager and its licence gate, the hardware benchmark, ONNX), the Studio kind, the add-on's own voices (Kitten, Piper), a
+Phase 2 and later of the spec: a presenter made from a photo (the model manager and its licence gate, the benchmark, the engine), which waits on a decision about how it is made (`docs/decisions/0006-presenter-photo-models.md`: the specification's plan does not hold as written), the Studio kind, the add-on's own voices (Kitten, Piper), a
 remote engine, a Mac build of the engine host, Presenter in OpenStage Scroll and Studio, and the signed installer and update channel. The time of each phoneme inside its word, which Kokoro predicts and the cache does not keep yet, instead of sharing the word's time by weight. Voice cloning is out of scope (`CLAUDE.md`).
