@@ -66,10 +66,11 @@ def split_sentences(script):
 
 
 def words_with_offsets(tokens):
-    """tokens: (text, whitespace, start, end) tuples, as Kokoro reports them.
+    """tokens: (text, whitespace, start, end) tuples, as Kokoro reports them (a fifth item, the word's phonemes, is allowed and ignored here).
     Returns (reconstructed text, [(char_start, char_end, start, end)])."""
     text, spans, pos = "", [], 0
-    for tok_text, ws, start, end in tokens:
+    for tok in tokens:
+        tok_text, ws, start, end = tok[0], tok[1], tok[2], tok[3]
         piece = tok_text or ""
         spans.append((pos, pos + len(piece), start, end))
         pos += len(piece)
@@ -78,6 +79,26 @@ def words_with_offsets(tokens):
         text += ws
         pos += len(ws)
     return text, spans
+
+
+def timed_words(tokens):
+    """The words Kokoro timed, each with the phonemes it said them with: [{"text", "start", "end", "phonemes"}], in seconds from the start of the audio.
+    This is what lets a presenter's mouth follow the words rather than only the sound (docs/presenter.md). A token with no time or no phonemes (punctuation,
+    and every word of a language Kokoro does not time) is left out, and so is one whose times are not in order; with none left, there is no list at all."""
+    words = []
+    for tok in tokens:
+        if len(tok) < 5:
+            continue
+        text, _, start, end, phonemes = tok[0], tok[1], tok[2], tok[3], tok[4]
+        if start is None or end is None or not isinstance(phonemes, str) or phonemes.strip() == "" or end < start or start < 0:
+            continue
+        words.append({"text": text or "", "start": round(float(start), 3), "end": round(float(end), 3), "phonemes": phonemes.strip()[:100]})
+        if len(words) >= MAX_WORDS:
+            break
+    return words
+
+
+MAX_WORDS = 20000
 
 
 def build_cues(script, spans, duration):
@@ -194,7 +215,7 @@ def synthesise(narration):
         for t in result.tokens or []:
             start = None if t.start_ts is None else offset + t.start_ts
             end = None if t.end_ts is None else offset + t.end_ts
-            tokens.append((t.text, t.whitespace, start, end))
+            tokens.append((t.text, t.whitespace, start, end, getattr(t, "phonemes", None)))
         audio.append(samples)
         offset += len(samples) / SAMPLE_RATE
     return np.concatenate(audio).astype("float32"), tokens
@@ -239,11 +260,13 @@ def generate(project_dir, narration):
     if rebuilt.strip() != narration["script"].strip():
         spans = []  # token text drifted from the script (for example an IPA override): estimate instead
     cues, exact = build_cues(narration["script"], spans, duration)
+    words = timed_words(tokens)
     wav.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(wav), samples, SAMPLE_RATE, subtype="PCM_16")
-    meta.write_text(json.dumps({"hash": "sha256:" + key, "duration": round(duration, 3),
-                                "exactTimings": exact, "cues": cues}, indent=2, ensure_ascii=False),
-                    encoding="utf-8")
+    made = {"hash": "sha256:" + key, "duration": round(duration, 3), "exactTimings": exact, "cues": cues}
+    if words:
+        made["words"] = words  # each word with the phonemes it was said with, for a presenter's mouth (an older file has none, and the mouth follows the sound)
+    meta.write_text(json.dumps(made, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ---------------------------------------------------------------- entry point

@@ -141,10 +141,11 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
         say("Listening to the speech to find the mouth shapes.");
         const track = parseTrack(await b.presenterMouthTrack(m.dir, key));
         const seconds = Math.ceil(track.durationMs / 1000);
+        const follows = track.source === "phonemes" ? "The mouth follows the words." : "The mouth follows the sound.";
         const how = await clipMode();
         say(how === "fast"
-          ? `Drawing and encoding the clip. It is ${seconds} seconds long and should take only a few.`
-          : `Drawing and recording the clip. This window has no faster way, so it takes about ${seconds} seconds, as long as the speech. Keep this window in front until it is done.`);
+          ? `${follows} Drawing and encoding the clip. It is ${seconds} seconds long and should take only a few.`
+          : `${follows} Drawing and recording the clip. This window has no faster way, so it takes about ${seconds} seconds, as long as the speech. Keep this window in front until it is done.`);
         let said = 0;
         const clip = await renderClip({
           wav, track, look: presenter.look, label: labelOn, signal: controller.signal,

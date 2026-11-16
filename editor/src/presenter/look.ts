@@ -67,6 +67,8 @@ export interface MouthTrack {
   durationMs: number;
   fps: number;
   runs: { atMs: number; shape: MouthShape }[];
+  /** What the shapes follow: the words the speech engine said with the sounds it said them with, or only how loud and how high the sound is. */
+  source: "phonemes" | "sound";
 }
 
 const MAX_RUNS = 200_000;
@@ -91,7 +93,7 @@ export function parseTrack(raw: unknown): MouthTrack {
     out.push({ atMs: r[0], shape: r[1] as MouthShape });
   }
   if (out[0]!.atMs !== 0) return bad();
-  return { durationMs, fps, runs: out };
+  return { durationMs, fps, runs: out, source: raw["source"] === "phonemes" ? "phonemes" : "sound" };
 }
 
 /** The shape showing at a moment (before the start and after the end, the first and the last). */

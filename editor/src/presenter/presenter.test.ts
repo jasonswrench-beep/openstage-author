@@ -29,6 +29,13 @@ test("a mouth track is read, and the shape at a moment is the one whose run it i
   assert.equal(shapeAt(t, -50), "closed");
 });
 
+test("a mouth track says what it follows: the words, or the sound when it does not say", () => {
+  assert.equal(parseTrack(raw).source, "sound");
+  assert.equal(parseTrack({ ...raw, source: "phonemes" }).source, "phonemes");
+  assert.equal(parseTrack({ ...raw, source: "sound" }).source, "sound");
+  assert.equal(parseTrack({ ...raw, source: "anything else" }).source, "sound");
+});
+
 test("a mouth track that cannot be used is refused with a sentence", () => {
   const bad: unknown[] = [null, "x", {}, { ...raw, durationMs: -1 }, { ...raw, durationMs: 9e9 }, { ...raw, fps: 0 }, { ...raw, fps: 500 }, { ...raw, runs: [] },
     { ...raw, runs: [[100, "closed"]] }, { ...raw, runs: [[0, "closed"], [0, "open"]] }, { ...raw, runs: [[0, "closed"], [300, "open"], [200, "wide"]] },

@@ -1250,6 +1250,9 @@ is spoken, and a cue spans the first to the last word of its sentence. If those 
 timings cannot be matched to the script (for example after an IPA override changes the
 token text) the times are estimated from sentence length and `exactTimings` is false.
 
+Audio from Kokoro also has `words`: each word it timed, `{text, start, end, phonemes}` in seconds, with the phonemes (Kokoro's IPA) it was said with, up to 20 000 of them. A presenter's mouth follows
+them (`docs/presenter.md`). Audio made before they were kept, and audio from a service or a plugin, has none; nothing else reads them and a file without them is as good as before.
+
 The generator does not write into `audioCache` in the slide files. That field is optional
 bookkeeping; the cache is found by recomputing the hash. This keeps generated paths out
 of version control diffs. The editor writes `audioCache` as `null` and works the hash out itself

@@ -21,6 +21,7 @@ const MAX_CLIP: usize = 500 * 1024 * 1024;
 /// The largest timing file read, and the most sentences taken from it.
 const MAX_TIMING: u64 = 4 * 1024 * 1024;
 const MAX_CUES: usize = 10_000;
+const MAX_WORDS: usize = 50_000;
 
 /// What the editor needs to know about an add-on it found.
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -235,7 +236,8 @@ pub async fn presenter_mouth_track(dir: String, key: String) -> Result<Value, St
         return Err("This version of the add-on does not do that.".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
-        call_host(&addon.host, "presenter.mouthTrack", json!({ "wav": wav.to_string_lossy(), "fps": 25 }), Duration::from_secs(120))
+        let words = narration_words_at(&dir, &key);
+        call_host(&addon.host, "presenter.mouthTrack", json!({ "wav": wav.to_string_lossy(), "fps": 25, "words": words }), Duration::from_secs(120))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -269,6 +271,33 @@ pub fn save_presenter_clip(dir: String, name_hint: String, webm: String) -> Resu
     }
     let bytes = base64::engine::general_purpose::STANDARD.decode(webm.as_bytes()).map_err(|_| "What was made could not be read.".to_string())?;
     save_clip_at(Path::new(&dir), &name_hint, &bytes)
+}
+
+/// The words the speech engine said, each with when it began and ended (seconds) and the phonemes it said it with, from the project's cache. Only Kokoro keeps them, and
+/// only for audio made since it did, so there are often none: the mouth then follows the sound. A word that is not whole is left out.
+pub fn narration_words_at(dir: &Path, key: &str) -> Vec<Value> {
+    if !super::is_cache_key(key) {
+        return Vec::new();
+    }
+    let file = dir.join(".cache").join("narration").join(format!("{key}.json"));
+    let Ok(meta) = fs::metadata(&file) else { return Vec::new() };
+    if !meta.is_file() || meta.len() > MAX_TIMING {
+        return Vec::new();
+    }
+    let Ok(v) = fs::read_to_string(&file).map_err(|_| ()).and_then(|r| serde_json::from_str::<Value>(&r).map_err(|_| ())) else { return Vec::new() };
+    v["words"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .take(MAX_WORDS)
+                .filter_map(|w| {
+                    let (start, end, phonemes) = (w["start"].as_f64()?, w["end"].as_f64()?, w["phonemes"].as_str()?);
+                    (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !phonemes.trim().is_empty() && phonemes.chars().count() <= 100)
+                        .then(|| json!({ "start": start, "end": end, "phonemes": phonemes }))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// What the narration's own timing says: one cue for each sentence, from the first word spoken to the last, in seconds, and whether those times came from the
@@ -451,6 +480,29 @@ mod tests {
         assert!(narration_cues_at(&d, &"cd".repeat(32)).unwrap_err().contains("no timing"), "audio that was never made has none");
         assert!(narration_cues_at(&d, "../../x").is_err(), "only a real key names a file");
         assert!(narration_cues_at(&d.join("nope"), &key).is_err());
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn the_words_with_their_phonemes_are_read_from_the_cache_and_a_word_that_is_not_whole_is_left_out() {
+        let d = scratch("words");
+        fs::write(d.join("project.json"), "{}").unwrap();
+        let key = "ab".repeat(32);
+        let cache = d.join(".cache").join("narration");
+        fs::create_dir_all(&cache).unwrap();
+        assert!(narration_words_at(&d, &key).is_empty(), "no file, no words");
+        fs::write(cache.join(format!("{key}.json")), r#"{"duration":2,"cues":[],"words":[
+            {"text":"Welcome","start":0.25,"end":0.7,"phonemes":"wˈɛlkəm"},{"text":"x","start":1,"end":0.5,"phonemes":"a"},{"start":0,"end":1,"phonemes":" "},
+            {"start":0,"end":1},{"start":"0","end":1,"phonemes":"a"},{"start":-1,"end":1,"phonemes":"a"},3]}"#).unwrap();
+        let w = narration_words_at(&d, &key);
+        assert_eq!(w.len(), 1);
+        assert_eq!(w[0]["phonemes"], "wˈɛlkəm");
+        assert!(w[0].get("text").is_none(), "only what the host uses is passed on");
+        fs::write(cache.join(format!("{key}.json")), r#"{"duration":2,"cues":[]}"#).unwrap();
+        assert!(narration_words_at(&d, &key).is_empty(), "audio made before phonemes were kept has none");
+        fs::write(cache.join(format!("{key}.json")), "nonsense").unwrap();
+        assert!(narration_words_at(&d, &key).is_empty());
+        assert!(narration_words_at(&d, "../../x").is_empty());
         let _ = fs::remove_dir_all(&d);
     }
 

@@ -12,6 +12,7 @@
 mod check;
 mod mouth;
 mod presenters;
+mod visemes;
 mod wav;
 
 use serde_json::{json, Value};
@@ -29,7 +30,26 @@ fn hello() -> Value {
     json!({ "name": "OpenStage Presenter", "version": VERSION, "protocol": 1, "tiers": ["lite"] })
 }
 
-/// The mouth shapes of a recording: `params.wav` is the path of a WAV file, `params.fps` how many pictures a second the clip will have.
+/// The most words taken from a request, and the longest string of phonemes for one.
+const MAX_WORDS: usize = 50_000;
+const MAX_PHONEMES: usize = 100;
+
+/// The words in a request, each with when it began and ended (in seconds) and the phonemes it was said with. One that is not whole is left out.
+fn words_of(params: &Value) -> Vec<visemes::Word> {
+    let Some(list) = params["words"].as_array() else { return Vec::new() };
+    list.iter()
+        .take(MAX_WORDS)
+        .filter_map(|w| {
+            let (start, end) = (w["start"].as_f64()? as f32, w["end"].as_f64()? as f32);
+            let phonemes = w["phonemes"].as_str()?;
+            (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !phonemes.trim().is_empty() && phonemes.chars().count() <= MAX_PHONEMES)
+                .then(|| visemes::Word { start, end, phonemes: phonemes.to_string() })
+        })
+        .collect()
+}
+
+/// The mouth shapes of a recording: `params.wav` is the path of a WAV file, `params.fps` how many pictures a second the clip will have, and `params.words` (optional) the
+/// words the speech engine said with the phonemes of each. With words that fit the sound, the shapes follow the words; without, they follow the sound.
 fn mouth_track(params: &Value) -> Result<Value, Value> {
     let path = params["wav"].as_str().ok_or_else(|| fail("bad-request", "Say which audio file to listen to (wav)."))?;
     let fps = params["fps"].as_u64().unwrap_or(25) as u32;
@@ -39,7 +59,9 @@ fn mouth_track(params: &Value) -> Result<Value, Value> {
     }
     let bytes = std::fs::read(path).map_err(|e| fail("no-audio", format!("The audio file could not be read: {e}")))?;
     let sound = wav::parse(&bytes).map_err(|why| fail("bad-audio", why))?;
-    Ok(mouth::track(&sound, fps).to_json())
+    let words = words_of(params);
+    let track = mouth::track_with_words(&sound, fps, &words).unwrap_or_else(|| mouth::track(&sound, fps));
+    Ok(track.to_json())
 }
 
 /// Answers one request as the JSON the editor reads.
@@ -114,6 +136,36 @@ mod tests {
             assert_eq!(r["id"], request["id"]);
             assert!(r["error"]["message"].as_str().unwrap().len() > 10);
         }
+    }
+
+    #[test]
+    fn words_in_the_request_are_read_and_a_word_that_is_not_whole_is_left_out() {
+        let p = json!({ "words": [
+            { "start": 0.0, "end": 0.5, "phonemes": "ma" }, { "start": 0.5, "end": 0.2, "phonemes": "a" }, { "start": -1, "end": 1, "phonemes": "a" },
+            { "start": 0, "end": 1, "phonemes": " " }, { "start": 0, "end": 1 }, { "start": "0", "end": 1, "phonemes": "a" }, { "start": 0, "end": 1, "phonemes": "a".repeat(101) }, 7, null ] });
+        let w = words_of(&p);
+        assert_eq!(w.len(), 1);
+        assert_eq!(w[0].phonemes, "ma");
+        assert!(words_of(&json!({})).is_empty());
+        assert!(words_of(&json!({ "words": "no" })).is_empty());
+    }
+
+    #[test]
+    fn a_request_with_words_that_fit_follows_the_words_and_one_with_words_that_do_not_follows_the_sound() {
+        let samples: Vec<f32> = (0..24000).map(|i| 0.5 * (2.0 * std::f32::consts::PI * 200.0 * i as f32 / 24000.0).sin()).collect();
+        let dir = std::env::temp_dir().join(format!("openstage-presenter-words-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("tone.wav");
+        std::fs::write(&file, wav::make_pcm16(24000, &samples)).unwrap();
+        let wav = file.to_string_lossy().to_string();
+        let fits = answer(&json!({ "id": 1, "command": "presenter.mouthTrack", "params": { "wav": wav, "words": [{ "start": 0.0, "end": 1.0, "phonemes": "ma" }] } }));
+        assert_eq!(fits["result"]["source"], "phonemes");
+        assert_eq!(fits["result"]["runs"][0][1], "closed", "it starts with the lips of the m");
+        let other = answer(&json!({ "id": 2, "command": "presenter.mouthTrack", "params": { "wav": wav, "words": [{ "start": 5.0, "end": 6.0, "phonemes": "ma" }] } }));
+        assert_eq!(other["result"]["source"], "sound");
+        let none = answer(&json!({ "id": 3, "command": "presenter.mouthTrack", "params": { "wav": wav } }));
+        assert_eq!(none["result"]["source"], "sound");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

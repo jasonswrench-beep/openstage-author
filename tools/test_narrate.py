@@ -211,6 +211,36 @@ class AnyLanguage(unittest.TestCase):
             self.assertIn(words, [item["script"] for item in said.values()])
 
 
+class WordsWithPhonemes(unittest.TestCase):
+    """What a presenter's mouth follows: each timed word with the phonemes it was said with."""
+
+    TOKENS = [("Welcome", " ", 0.25, 0.7, "wˈɛlkəm"), ("to", " ", 0.7, 0.8, "tə"), ("the", " ", 0.8, 0.9, "ðə"), ("course", "", 0.9, 1.3, "kˈɔɹs"), (".", " ", None, None, None)]
+
+    def test_each_timed_word_comes_with_its_phonemes_and_punctuation_is_left_out(self):
+        words = narrate.timed_words(self.TOKENS)
+        self.assertEqual([w["text"] for w in words], ["Welcome", "to", "the", "course"])
+        self.assertEqual(words[0], {"text": "Welcome", "start": 0.25, "end": 0.7, "phonemes": "wˈɛlkəm"})
+        self.assertTrue(all(set(w) == {"text", "start", "end", "phonemes"} for w in words))
+
+    def test_a_word_that_cannot_be_used_is_left_out_and_none_at_all_is_an_empty_list(self):
+        odd = [("a", " ", None, 1.0, "ə"), ("b", " ", 1.0, None, "b"), ("c", " ", 2.0, 1.0, "s"), ("d", " ", 1.0, 2.0, "  "), ("e", " ", 1.0, 2.0, None), ("f", " ", -1.0, 2.0, "f"), ("g", " ", 1.0, 2.0)]
+        self.assertEqual(narrate.timed_words(odd), [])
+        self.assertEqual(narrate.timed_words([]), [])
+
+    def test_a_long_run_of_phonemes_is_cut_and_the_list_has_a_limit(self):
+        self.assertEqual(len(narrate.timed_words([("x", " ", 0, 1, "a" * 500)])[0]["phonemes"]), 100)
+        many = [("w", " ", i * 0.01, i * 0.01 + 0.01, "w") for i in range(narrate.MAX_WORDS + 50)]
+        self.assertEqual(len(narrate.timed_words(many)), narrate.MAX_WORDS)
+
+    def test_the_captions_are_made_the_same_with_or_without_the_phonemes(self):
+        script = "Welcome to the course."
+        plain = [t[:4] for t in self.TOKENS]
+        a = narrate.words_with_offsets(plain)
+        b = narrate.words_with_offsets(self.TOKENS)
+        self.assertEqual(a, b)
+        self.assertEqual(narrate.build_cues(script, a[1], 1.5), narrate.build_cues(script, b[1], 1.5))
+
+
 class VoiceNames(unittest.TestCase):
     """Only an exact name from kokoro-voices.json ever reaches Kokoro, which would read anything else as a voice file to load."""
 
