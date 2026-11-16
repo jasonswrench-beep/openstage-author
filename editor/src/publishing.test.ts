@@ -70,6 +70,7 @@ test("a publish that made several packages names each one and says to upload the
     "The packages are intro-scorm12.zip (SCORM 1.2), intro-scorm2004.zip (SCORM 2004) and intro-xapi.zip (xAPI). Upload the one your LMS or learning record store asks for.",
   ]);
   // Two kinds, in the same fixed order whatever order the tool listed them in.
+  assert.match(publishSummary({ ok: true, findings: [], zips: { cmi5: "/a/x-cmi5.zip", xapi: "/a/x-xapi.zip" } })[1]!, /^The packages are x-xapi\.zip \(xAPI\) and x-cmi5\.zip \(cmi5\)\./, "cmi5 is named and comes after xAPI");
   assert.match(publishSummary({ ok: true, findings: [], zips: { xapi: "/a/x-xapi.zip", scorm2004: "/a/x-scorm2004.zip" } })[1]!, /^The packages are x-scorm2004\.zip \(SCORM 2004\) and x-xapi\.zip \(xAPI\)\./);
   // One kind is said the old way, and a result from before the packages were several still reads as before.
   assert.equal(publishSummary({ ok: true, findings: [], zip: "/a/x-xapi.zip", zips: { xapi: "/a/x-xapi.zip" } })[1], "The package to upload to your LMS is x-xapi.zip.");

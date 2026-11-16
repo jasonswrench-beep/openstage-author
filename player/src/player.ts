@@ -13,6 +13,7 @@ import { MediaFollower } from "./follow.ts";
 import { attachTracker, courseResults } from "./scorm.ts";
 import { attachScorm2004 } from "./scorm2004.ts";
 import { attachXapi, readLaunch } from "./xapi.ts";
+import { attachCmi5, exitCourse, isCmi5Launch, readCmi5Launch } from "./cmi5.ts";
 import { creditParts } from "./credits.ts";
 import { shouldReflow } from "./reflow.ts";
 import { needsReflow, pageSettings, type A11ySettings } from "./a11y.ts";
@@ -54,6 +55,9 @@ export class Player implements Host {
   /** The learner's own accessibility choices (a11y.ts): a button in the navigation bar opens a panel of them. */
   private a11y!: AccessibilityPanel;
   private viewportEl!: HTMLElement;
+  private readonly navEl: HTMLElement;
+  /** The Exit button, once a learning system has asked for one (see addExit). */
+  private exitBtn: HTMLButtonElement | null = null;
   /** The learner made the text bigger or more spaced, so the slide is shown in one column whatever the window's width. */
   private forceReflow = false;
 
@@ -81,6 +85,7 @@ export class Player implements Host {
     main.appendChild(viewport);
 
     const nav = el(doc, "nav", "os-nav");
+    this.navEl = nav;
     nav.setAttribute("aria-label", t("nav.label"));
     this.backBtn = button(doc, t("nav.back"), "os-nav-btn");
     this.nextBtn = button(doc, t("nav.next"), "os-nav-btn");
@@ -222,6 +227,17 @@ export class Player implements Host {
   }
 
   /** A button that opens the credits for the images and media in the course. It is a native dialog, so focus is kept inside it and Escape closes it. */
+  /**
+   * An Exit button at the end of the navigation bar, for a course that a learning system launched with somewhere to send the learner afterwards
+   * (cmi5 asks the course to take the learner's window there when the course ends). Pressing it ends the session first.
+   */
+  addExit(onExit: () => void): void {
+    if (this.exitBtn) return;
+    this.exitBtn = button(this.root.ownerDocument, t("nav.exit"), "os-nav-btn");
+    this.exitBtn.addEventListener("click", onExit);
+    this.navEl.appendChild(this.exitBtn);
+  }
+
   private creditsButton(doc: Document, credits: NonNullable<CoursePackage["credits"]>): HTMLElement {
     const open = button(doc, t("credits.title"), "os-nav-btn");
     const dialog = el(doc, "dialog", "os-credits") as HTMLDialogElement;
@@ -506,6 +522,26 @@ export function mount(): void {
   const lms = attachScorm2004(window, player.runtime) ?? attachTracker(window, player.runtime);
   if (lms) {
     player.start(lms.resume);
+    return;
+  }
+  // A cmi5 launch: the LMS gave the address of a learning record store and of a place to ask for a token. The token, the launch data and the
+  // learner's saved place are fetched first, so the course opens a moment later; if the LMS does not answer it opens at the start, untracked.
+  if (isCmi5Launch(window.location.search)) {
+    const cmi5 = readCmi5Launch(window.location.search);
+    if (!cmi5) {
+      player.start(null);
+      return;
+    }
+    root.setAttribute("aria-busy", "true");
+    void attachCmi5(window, player.runtime, cmi5)
+      .then((attached) => {
+        if (attached?.tracker.returnUrl) player.addExit(() => exitCourse(window, attached.tracker));
+        return attached?.resume ?? null;
+      }, () => null)
+      .then((resume) => {
+        root.removeAttribute("aria-busy");
+        player.start(resume);
+      });
     return;
   }
   // No LMS, but the course may have been launched with the address of a learning record store (xAPI). The learner's saved place is

@@ -44,12 +44,12 @@ if not exist node_modules (
 
 echo === Publishing the test lesson (SCORM 1.2, SCORM 2004, xAPI) ===
 echo Making narration audio can take a few minutes the first time.
-node publish.ts ..\examples\lms-test-lesson.osproj ..\dist\lms-test-lesson --targets=scorm12,scorm2004,xapi
+node publish.ts ..\examples\lms-test-lesson.osproj ..\dist\lms-test-lesson --targets=scorm12,scorm2004,xapi,cmi5
 if errorlevel 1 goto :failed
 
 echo.
 echo === Publishing the question-types course (SCORM 1.2, SCORM 2004, xAPI) ===
-node publish.ts ..\examples\question-types.osproj ..\dist\question-types --targets=scorm12,scorm2004,xapi
+node publish.ts ..\examples\question-types.osproj ..\dist\question-types --targets=scorm12,scorm2004,xapi,cmi5
 if errorlevel 1 goto :failed
 
 echo.

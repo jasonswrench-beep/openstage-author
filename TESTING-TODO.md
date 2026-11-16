@@ -10,6 +10,16 @@ Built and covered by 12 tests (QTI 1.2, 2.1, 3.0, hostile files, the real checke
 - [ ] **The picture and equation note.** A question with a picture should say, above the list, that the picture was not brought in. Add it on the slide with a description.
 - [ ] **With NVDA.** The new line of notes above the list, and the file chooser listing the QTI types.
 
+## cmi5, and a statement for every scenario choice (2026-11-16; formats unchanged, a new package)
+
+Built from the cmi5 specification (Quartz) and tried against the pretend cmi5 LMS in this repository, in a real browser (token fetch across two ports, the launch data, the statements, a scenario played through, Exit the course), and by 23 tests. Not tried in any real LMS or LRS.
+
+- [ ] **Import `<name>-cmi5.zip` into an LMS that supports cmi5** (round 3b of `LMS-START-HERE.md`). Check: it launches; after a pass the LMS shows completed **and** passed; a fail shows completed, not passed; a learner who leaves part-way and comes back opens at the saved place **if the LMS allows a state of the course's own** (cmi5 does not require it: write down what happens). If the LMS gave a way back (`returnURL`), **Exit the course** should appear at the end of the navigation bar and send the window there.
+- [ ] **Try it by hand first:** double-click `TEST WITH STAND-IN CMI5 LMS.bat` (after `PUBLISH EXAMPLE.bat`). It lists every statement and says at once if one breaks a rule of cmi5 ("Breaks of the cmi5 rules" should say none after a session).
+- [ ] **A scenario in a real LRS or LMS.** Play `examples/scenario.osproj` in an xAPI or cmi5 launch and look at what is recorded: an `answered` for each choice (the situation, the choices, which was taken, what it added, the path), an `interacted` when a choice is taken back. Say whether the record is useful to whoever reads it.
+- [ ] **cmi5's learner preferences** (language and audio) are read and not applied. Say if that matters.
+- [ ] **With NVDA.** **Exit the course** is a plain button in the navigation bar, shown only when the LMS asked for it.
+
 ## Dialogs in the new look, and Find something to add (2026-11-11)
 
 Step 6 of the new look. Built and covered by 10 editor tests, a 44-step check in the browser preview, a tour that opens each of the 37 dialogs the menus open at full size and in a phone-width window, and the editor's own accessibility audit on the new window and eleven others. Not tried in the desktop program's own window or with a screen reader.

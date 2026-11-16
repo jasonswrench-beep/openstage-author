@@ -8,7 +8,7 @@ import { ToolError, type Tool } from "../protocol.ts";
 import type { Session } from "../session.ts";
 import { flag, lastJson, list, pythonOf, run, text, tool, wholeJson, type Environment } from "./helpers.ts";
 
-const TARGETS = ["scorm12", "scorm2004", "xapi", "review", "mp4"] as const;
+const TARGETS = ["scorm12", "scorm2004", "xapi", "cmi5", "review", "mp4"] as const;
 const LANGUAGE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
 interface Finding {
@@ -71,7 +71,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
       "publish_course",
       "Publish the open course into the folder's \"Published courses\" folder: the packages for an LMS (SCORM 1.2, SCORM 2004 and xAPI), the same course as web files, and a Word copy for reviewers. It refuses if the course has errors (see check_course). Making a video takes minutes more.",
       {
-        targets: list("Which to make, from scorm12, scorm2004, xapi, review (the Word copy) and mp4 (a video with captions). All the packages and the Word copy if left out.", text("One target.", { enum: TARGETS }), { minItems: 1, maxItems: TARGETS.length }),
+        targets: list("Which to make, from scorm12, scorm2004, xapi, cmi5, review (the Word copy) and mp4 (a video with captions). All the packages and the Word copy if left out.", text("One target.", { enum: TARGETS }), { minItems: 1, maxItems: TARGETS.length }),
         video: flag("True also makes the MP4 video (Windows only; it needs Microsoft Edge or Chrome)."),
         source: flag("True also puts an editable copy of the course in each zip (only its own files: the project, slides, theme and the assets it uses). Off if left out."),
       },
@@ -83,7 +83,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
         if (existsSync(out) && readdirSync(out).length > 0 && !(existsSync(path.join(out, "index.html")) && existsSync(path.join(out, "player.js")))) {
           throw new ToolError(`There is already a folder called ${name} in Published courses with other things in it, so it was not replaced. Move it away first.`);
         }
-        const asked = [...new Set([...((a["targets"] as string[] | undefined) ?? ["scorm12", "scorm2004", "xapi", "review"]), ...(a["video"] === true ? ["mp4"] : [])])];
+        const asked = [...new Set([...((a["targets"] as string[] | undefined) ?? ["scorm12", "scorm2004", "xapi", "cmi5", "review"]), ...(a["video"] === true ? ["mp4"] : [])])];
         const player = path.join(e.root, "player");
         const r = await run(process.execPath, [path.join(player, "publish.ts"), dir, out, "--json", `--targets=${asked.join(",")}`, ...(a["source"] === true ? ["--include-source"] : [])], e, player);
         const answer = lastJson<{ ok: boolean; message?: string; findings: Finding[]; slides?: number; indexHtml?: string; zips?: Record<string, string>; review?: string | null; video?: { file: string; captions: string | null; seconds: number; notes: string[] } | null; videoError?: string | null }>(r.stdout);

@@ -1616,10 +1616,10 @@ under `source/` (not listed in the manifest, so the LMS ignores it). The ADL sch
 
 ## Which tracking the page uses
 
-One published course serves all three kinds of package (SCORM 1.2, SCORM 2004 and xAPI): the files are the same and only
+One published course serves all four kinds of package (SCORM 1.2, SCORM 2004, xAPI and cmi5): the files are the same and only
 the file that describes the package differs. When the page opens it looks, in this order, for a SCORM 2004 API
 (`window.API_1484_11`), then a SCORM 1.2 API (`window.API`), each in a parent frame or the opener, and then for the launch
-details of a learning record store in its own address (`endpoint` and `actor`). The first it finds reports for the course. With none, such as a
+details of a learning record store in its own address (`endpoint` and `actor`), or of a cmi5 learning system (those, with `fetch`, `registration` and `activityId`). The first it finds reports for the course. With none, such as a
 file opened from disk, the course runs untracked. What counts as complete, and what counts as passed, is the same under all
 three: the sections "Completion", "Score" and "Pass mark" of SCORM 1.2 tracking above are the one definition.
 
@@ -1690,8 +1690,19 @@ its details in the address (the "TinCan launch"): `endpoint`, `auth` (the Author
   | `completed` | the course | once, when the course is complete; `completion` true, `duration`, and the score |
   | `passed` or `failed` | the course | once, when the course is complete and the assessment is finished; `success`, and the score (`scaled`, `raw`, `min` 0, `max` 100) |
   | `suspended` or `terminated` | the course | the learner leaves: `terminated` if the course is complete, `suspended` if not; `duration` |
+  | `answered` | a situation of a scenario, as an interaction | the learner makes a choice (below) |
+  | `interacted` | a scenario | the learner takes choices back (below) |
 
   `completed` and the result are never sent before the course is complete, and never twice in one launch.
+- **Scenario choices.** Every choice a learner makes in a scenario is a statement, so a reader of the record sees the choices and not only that the course
+  was completed (`player/src/xapi.ts`, `noteScenario`). The object is the situation the learner was in, as an interaction of type `choice` (id
+  `<course id>/scenario/<object id>/situation/<situation id>`, its name the situation's title, `choices` the labels of what could be chosen, with the
+  numbers 0, 1, 2 as their ids); the result's `response` is the number of the choice taken. It carries no `success` and no `correctResponsesPattern`, because
+  a scenario has no right answer. The result's `extensions` hold, under `https://openstageauthor.com/xapi/extensions/scenario`: `scenario` (the object's
+  name), `situation`, `choice` (its label), `effects` (what it added to the course's number variables, `[{variable, add}]`), `path` (the learner's walk so far, as
+  in the saved place) and `ending` (true when the choice led to a situation with no choices). A learner who takes choices back (**Take back my last choice**, **Start
+  again**) sends `interacted` for the scenario (id `<course id>/scenario/<object id>`) with `tookBack` (how many) and the `path` they are back at. A learner who
+  comes back to a course is told from the place they were, not from the start. Under cmi5 these are allowed statements (see "cmi5 tracking").
 - **Position and resume.** The learner's place is kept in the State resource, under the state id `openstage-progress` for the
   course, the actor and the registration: `{"v":1,"suspend":"...","completed":false}`, where `suspend` is the same text as in
   SCORM. It has no size limit in xAPI, so nothing is dropped from it. It is saved when it changes. On a launch with a saved place
@@ -1702,8 +1713,52 @@ its details in the address (the "TinCan launch"): `endpoint`, `auth` (the Author
   four seconds, or answers that there is none, the course opens at the start and goes on sending statements as usual. While it waits the page is marked `aria-busy`.
 - **The credential.** `auth` is used only as the Authorization header of requests to the `endpoint` it came with. It is not put in a statement,
   a message, or storage.
-- **Not done.** cmi5 (a different launch and statement profile), statement signing and attachments. A learner who opens a finished
+- **Not done.** Statement signing and attachments. (cmi5 is the next section.) A learner who opens a finished
   course again starts it again, and sends new `completed` and result statements for that attempt.
+
+## cmi5 tracking
+
+The package is `<name>-cmi5.zip`: the course, a `cmi5.xml` at the root of the zip (the course structure), and the editable project under `source/` when asked for.
+cmi5 (Quartz, the first edition of 2016) is the profile of xAPI that a learning system uses to launch a course as an "assignable unit" and to learn from it
+whether the learner completed it and passed. It was asked for on 2026-11-15 (development list, item 3). It is built from the specification's text and tried
+only against the stand-in cmi5 learning system of this repository (`player/src/fake-cmi5.ts`), not yet in a real LMS.
+
+- **The course structure.** `cmi5.xml` holds one course and one unit (`au`), in the order `CourseStructure.xsd` asks for: `title` and `description` (a
+  `langstring` in the course's language), and `url` (`index.html`). The course's id is the same address the xAPI package uses
+  (`https://openstageauthor.com/xapi/course/<slug>-<created>`); the unit's is that with `/au/1` added. The unit asks to be launched in any window
+  (`launchMethod="AnyWindow"`). **What the learner must do** (`moveOn`): `Completed` for a course with no scored question, and `CompletedAndPassed` with
+  `masteryScore="0.8"` (the course's own pass mark) for one with a scored question.
+- **The launch.** The LMS opens `index.html` with `endpoint`, `fetch`, `actor`, `registration` and `activityId` in its address. The course takes them
+  only if all five are there and sound: the `endpoint` and the `fetch` address must be https (or the learner's own computer), the `registration` a UUID, the
+  `activityId` an address, the `actor` an account. A launch that has the `fetch` address is a cmi5 launch and is never taken for an xAPI one; with a part missing the
+  course runs untracked.
+- **The token.** The course asks the `fetch` address once, with a POST and no credentials, and is given `{"auth-token": "..."}`. It sends `Authorization: Basic
+  <token>` to the `endpoint` from then on, and nowhere else; the token is not put in a statement, a message or storage. An LMS that gives an error (`error-code`)
+  or no answer in six seconds means the course runs untracked, as an xAPI course does with an LRS that cannot be reached.
+- **The launch data.** The course reads the LMS's `LMS.LaunchData` from the State resource: the `contextTemplate` (it must hold the session id,
+  `https://w3id.org/xapi/cmi5/context/extensions/sessionid`, or the launch is refused), the `launchMode` (`Normal`, `Browse` or `Review`), the `masteryScore`
+  and the `returnURL`. It also reads the learner's `cmi5LearnerPreferences` from the Agent Profile, as cmi5 asks; **language and audio preferences are read
+  and not yet applied.**
+- **Statements.** The five that cmi5 defines are sent with the cmi5 category, the registration, the context template (nothing in it is overwritten) and
+  the unit's id as the grouping, and the object is the LMS's `activityId`; one that settles completion or success also carries the move-on category.
+
+  | Verb | When | What cmi5 asks of it |
+  | --- | --- | --- |
+  | `initialized` | the course opens | the first statement of the session |
+  | `completed` | once, when the course is complete | `result.completion` true and `duration`, and no score |
+  | `passed` or `failed` | once, when the course is complete and the assessment is finished | `result.success`, `duration`, and the score (`scaled`, a whole `raw`, `min`, `max`); the LMS's `masteryScore` decides which, and is in the context (`.../context/extensions/masteryscore`); with none, the course's own pass mark decides |
+  | `terminated` | the learner leaves, or presses **Exit the course** | the last statement of the session, always, with `duration`; there is no `suspended` and no `resumed` |
+
+  The others (`experienced` for a slide, `answered` for a question and for a scenario choice, `interacted` for taking choices back) are what cmi5 calls
+  allowed statements: they carry the context template and no cmi5 category, and come between `initialized` and `terminated`.
+- **Browse and review.** A course launched in `Browse` or `Review` mode sends `initialized` and `terminated` and nothing else, and keeps no place.
+- **Position and resume.** As in xAPI, in the State resource under the state id `openstage-progress` for the activity, the actor and the registration. cmi5 names
+  no state of the course's own, so an LMS may refuse it; the course then opens at the start each time. A returning learner is a new session of the same
+  registration, and no `resumed` is sent.
+- **The way out.** When the LMS gave a `returnURL`, an **Exit the course** button appears at the end of the navigation bar. It ends the session
+  (`terminated`) and sends the learner's window to the address. Nothing else in the course leaves the page.
+- **Not done.** Several units or a block structure in one package, a `launchParameters` or `entitlementKey`, applying the learner's language and audio
+  preferences (they are read only), objectives, and a run in a real LMS.
 
 ## How the editor writes files
 

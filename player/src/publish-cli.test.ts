@@ -68,21 +68,22 @@ test("a publish writes the folder, the SCORM zip and the manifest, and reports w
   }
 });
 
-test("a publish makes a SCORM 1.2, a SCORM 2004 and an xAPI package from the same files", { skip: !havePython }, () => {
+test("a publish makes a SCORM 1.2, a SCORM 2004, an xAPI and a cmi5 package from the same files", { skip: !havePython }, () => {
   const dir = scratch();
   try {
     const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
     assert.equal(status, 0);
     const zips = (result as unknown as { zips: Record<string, string> }).zips;
-    assert.deepEqual(Object.keys(zips).sort(), ["scorm12", "scorm2004", "xapi"]);
+    assert.deepEqual(Object.keys(zips).sort(), ["cmi5", "scorm12", "scorm2004", "xapi"]);
     assert.equal(zips["scorm12"], path.join(dir, "course-scorm12.zip"));
     assert.equal(zips["scorm2004"], path.join(dir, "course-scorm2004.zip"));
     assert.equal(zips["xapi"], path.join(dir, "course-xapi.zip"));
+    assert.equal(zips["cmi5"], path.join(dir, "course-cmi5.zip"));
     assert.equal(result.zip, zips["scorm12"], "the editor still reveals the SCORM 1.2 package");
 
     const read = (name: string) => unzipSync(new Uint8Array(readFileSync(zips[name]!)));
     const text = (entries: Record<string, Uint8Array>, name: string) => new TextDecoder().decode(entries[name]!);
-    const [s12, s2004, xapi] = [read("scorm12"), read("scorm2004"), read("xapi")];
+    const [s12, s2004, xapi, cmi5] = [read("scorm12"), read("scorm2004"), read("xapi"), read("cmi5")];
 
     assert.match(text(s12, "imsmanifest.xml"), /<schemaversion>1\.2<\/schemaversion>/);
     assert.match(text(s2004, "imsmanifest.xml"), /<schemaversion>2004 4th Edition<\/schemaversion>/);
@@ -90,11 +91,15 @@ test("a publish makes a SCORM 1.2, a SCORM 2004 and an xAPI package from the sam
     assert.ok(!("imsmanifest.xml" in xapi) && "tincan.xml" in xapi, "xAPI is described by tincan.xml, not a SCORM manifest");
     assert.ok(!("tincan.xml" in s12) && !("tincan.xml" in s2004));
     assert.match(text(xapi, "tincan.xml"), /<launch lang="[^"]+">index\.html<\/launch>/);
+    assert.ok("cmi5.xml" in cmi5 && !("imsmanifest.xml" in cmi5) && !("tincan.xml" in cmi5), "cmi5 is described by cmi5.xml at the root of the zip");
+    assert.match(text(cmi5, "cmi5.xml"), /<url>index\.html<\/url>/);
+    assert.match(text(cmi5, "cmi5.xml"), /moveOn="CompletedAndPassed"[^>]*masteryScore="0\.8"/, "the example is graded");
 
     // Everything but the description is the same in all three, and the SCORM ones list those files.
-    const rest = (e: Record<string, Uint8Array>) => Object.keys(e).filter((k) => k !== "imsmanifest.xml" && k !== "tincan.xml").sort();
+    const rest = (e: Record<string, Uint8Array>) => Object.keys(e).filter((k) => k !== "imsmanifest.xml" && k !== "tincan.xml" && k !== "cmi5.xml").sort();
     assert.deepEqual(rest(s2004), rest(s12));
     assert.deepEqual(rest(xapi), rest(s12));
+    assert.deepEqual(rest(cmi5), rest(s12));
     assert.ok(rest(s12).includes("index.html") && rest(s12).includes("player.js"));
     for (const f of ["index.html", "player.js"]) assert.ok(text(s2004, "imsmanifest.xml").includes(`<file href="${f}"/>`));
     assert.ok(Buffer.from(s2004["player.js"]!).equals(Buffer.from(s12["player.js"]!)), "one player serves every kind of package");
@@ -118,7 +123,7 @@ test("--targets makes only the packages asked for, and refuses one that does not
 
     const bad = spawnSync(process.execPath, ["publish.ts", path.join(examples, "minimal.osproj"), path.join(dir, "other"), "--targets=scorm12,flash"], { cwd: player, encoding: "utf-8" });
     assert.equal(bad.status, 2);
-    assert.match(bad.stderr, /targets can be scorm12, scorm2004, xapi, review/);
+    assert.match(bad.stderr, /targets can be scorm12, scorm2004, xapi, cmi5, review/);
     assert.ok(!existsSync(path.join(dir, "other")));
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -131,7 +136,7 @@ test("a publish also writes a Word copy for reviewers beside the packages, and -
     const { result, status } = run(path.join(examples, "minimal.osproj"), path.join(dir, "course"));
     assert.equal(status, 0);
     assert.equal(result.review, path.join(dir, "course-review.docx"));
-    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["scorm12", "scorm2004", "xapi"], "it is not a package");
+    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["cmi5", "scorm12", "scorm2004", "xapi"], "it is not a package");
     const parts = unzipSync(new Uint8Array(readFileSync(result.review!)));
     assert.ok("[Content_Types].xml" in parts && "word/document.xml" in parts && "word/styles.xml" in parts, "it is a Word document");
     const body = new TextDecoder().decode(parts["word/document.xml"]!);
@@ -165,7 +170,7 @@ test("a Word document that cannot be made says so and does not stop the packages
     assert.equal(result.ok, true);
     assert.equal(result.review, null);
     assert.match(stderr, /The Word review document could not be made: .*The packages were made\./);
-    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["scorm12", "scorm2004", "xapi"]);
+    assert.deepEqual(Object.keys(result.zips ?? {}).sort(), ["cmi5", "scorm12", "scorm2004", "xapi"]);
     assert.ok(existsSync(path.join(dir, "course-scorm12.zip")));
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -312,7 +317,7 @@ test("a folder holding .git, a recording take and desktop.ini publishes none of 
     assert.equal(asked.status, 0, JSON.stringify(asked.result));
 
     for (const [name, wantSource] of [["plain", false], ["asked", true]] as const) {
-      for (const zip of [`${name}-scorm12.zip`, `${name}-scorm2004.zip`, `${name}-xapi.zip`]) {
+      for (const zip of [`${name}-scorm12.zip`, `${name}-scorm2004.zip`, `${name}-xapi.zip`, `${name}-cmi5.zip`]) {
         const entries = Object.keys(unzipSync(new Uint8Array(readFileSync(path.join(dir, zip)))));
         const bad = entries.filter((e) => /(^|\/)\.git\//.test(e) || /(^|\/)captures\//.test(e) || e.includes("events.jsonl")
           || /(^|\/)desktop\.ini$/i.test(e) || /(^|\/)thumbs\.db$/i.test(e) || e.includes("/.hidden/"));

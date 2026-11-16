@@ -78,7 +78,7 @@ An AI assistant can also build, check and publish courses with the program, with
 editor, turn it on, choose the one folder it may use, and copy the lines it gives into your assistant (`docs/mcp.md`). It is off until you do. `TEST MCP SERVER.bat` tests it.
 `PUBLISH EXAMPLE.bat` does the same for the example project without opening the editor. To see what a course reports
 without an LMS, `TEST WITH STAND-IN LMS.bat` (SCORM; a link on its page switches between 1.2 and 2004) and
-`TEST WITH STAND-IN LRS.bat` (xAPI) open the published example against a pretend one. They are test aids, not the real thing.
+`TEST WITH STAND-IN LRS.bat` (xAPI) and `TEST WITH STAND-IN CMI5 LMS.bat` (cmi5) open the published example against a pretend one. They are test aids, not the real thing.
 
 ## Translating a course
 

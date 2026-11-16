@@ -1,10 +1,11 @@
-// Tests for the three package descriptions: imsmanifest.xml for SCORM 1.2 and for SCORM 2004, and tincan.xml for xAPI.
+// Tests for the four package descriptions: imsmanifest.xml for SCORM 1.2 and for SCORM 2004, tincan.xml for xAPI and cmi5.xml for cmi5.
 // There is no XML parser in Node, so a small check that the tags open and close properly stands in for one: it catches the
 // mistakes a template can make (an unclosed element, a title that is not escaped).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildManifest, buildManifest2004, manifestId } from "./scorm-manifest.ts";
 import { buildTincanXml } from "./xapi-manifest.ts";
+import { buildCmi5Xml, unitId } from "./cmi5-manifest.ts";
 import { courseActivityId } from "./xapi.ts";
 
 /** Returns an error message if the tags do not nest properly, otherwise null. */
@@ -79,4 +80,25 @@ test("xAPI: tincan.xml names the course, its identifier and its launch file", ()
   assert.ok(x.includes('<name lang="en-GB">Safety &amp; &quot;Health&quot; &lt;basics&gt;</name>'));
   assert.ok(x.includes('<launch lang="en-GB">index.html</launch>'));
   assert.ok(x.includes('xmlns="http://projecttincan.com/tincan.xsd"'));
+});
+
+test("cmi5: cmi5.xml holds one course and one unit, in the order the schema asks for, and says what the learner must do", () => {
+  const meta = { title: input.title, author: "A", language: "en-GB", created: "2026-10-31", modified: "2026-10-31" };
+  const id = courseActivityId(meta);
+  const graded = buildCmi5Xml({ title: meta.title, language: meta.language, courseId: id, graded: true });
+  assert.equal(wellFormed(graded), null);
+  assert.ok(graded.includes('<courseStructure xmlns="https://w3id.org/xapi/profiles/cmi5/v1/CourseStructure.xsd">'));
+  assert.ok(graded.includes(`<course id="${id}">`));
+  assert.ok(graded.includes(`<au id="${unitId(id)}" moveOn="CompletedAndPassed" launchMethod="AnyWindow" masteryScore="0.8">`), "pass and complete, at the same 80 percent as every package");
+  assert.ok(graded.includes("<url>index.html</url>"));
+  assert.ok(graded.includes('<langstring lang="en-GB">Safety &amp; &quot;Health&quot; &lt;basics&gt;</langstring>'), "the title is escaped");
+  // The schema's order: course, then au; inside each, title, then description (then, in au, url).
+  assert.ok(graded.indexOf("<course ") < graded.indexOf("<au "));
+  const au = graded.slice(graded.indexOf("<au "));
+  assert.ok(au.indexOf("<title>") < au.indexOf("<description>") && au.indexOf("<description>") < au.indexOf("<url>"));
+  assert.notEqual(unitId(id), id, "the unit has an id of its own");
+
+  const plain = buildCmi5Xml({ title: meta.title, language: meta.language, courseId: id, graded: false });
+  assert.equal(wellFormed(plain), null);
+  assert.ok(plain.includes('moveOn="Completed"') && !plain.includes("masteryScore"), "a course with no scored question asks only to be completed");
 });

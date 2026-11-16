@@ -789,11 +789,11 @@ it is the order a screen reader reads that decides what comes first (see Reflow 
 
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then
 checks it for problems with the same checker as the Problems list. Errors stop it, and are listed in the
-dialog; warnings do not. It makes the course as a folder of web files and as three packages beside it: SCORM 1.2
-(`<name>-scorm12.zip`), SCORM 2004 (`<name>-scorm2004.zip`) and xAPI (`<name>-xapi.zip`). Each is a zip that also carries
-the editable project in a `source` folder the LMS ignores, and all three hold the same course files; only the file that
-describes them differs. The author uploads the one the LMS or learning record store asks for (see "SCORM 2004 tracking"
-and "xAPI tracking" in the format spec). They go in the folder you
+dialog; warnings do not. It makes the course as a folder of web files and as four packages beside it: SCORM 1.2
+(`<name>-scorm12.zip`), SCORM 2004 (`<name>-scorm2004.zip`), xAPI (`<name>-xapi.zip`) and cmi5 (`<name>-cmi5.zip`). Each is a zip that also carries
+the editable project in a `source` folder the LMS ignores, and all four hold the same course files; only the file that
+describes them differs. The author uploads the one the LMS or learning record store asks for (see "SCORM 2004 tracking",
+"xAPI tracking" and "cmi5 tracking" in the format spec). They go in the folder you
 choose with "Choose folder...". Until you choose, that is a "Published courses" folder beside the project, and
 the folder you choose is remembered for next time. The folder and the packages are named after the project.
 Publishing again replaces them, and it refuses a place that is inside the project, holds the project, or

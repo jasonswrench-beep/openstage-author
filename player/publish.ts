@@ -1,10 +1,10 @@
 // Publishes a project folder as a folder of static web files and as packages for an LMS or an LRS: SCORM 1.2,
-// SCORM 2004 (4th edition) and xAPI. The three packages hold the same course files; they differ only in the file that
-// describes them (imsmanifest.xml, or tincan.xml). The course finds out at run time which one it is running under.
+// SCORM 2004 (4th edition), xAPI and cmi5. The four packages hold the same course files; they differ only in the file that
+// describes them (imsmanifest.xml, tincan.xml or cmi5.xml). The course finds out at run time which one it is running under.
 // Beside them goes a Word copy of the course for colleagues and accessibility reviewers (tools/review_doc.py), and, when it is asked
 // for, an MP4 of the course with captions (src/video.ts; docs/video.md).
 //
-//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4]
+//   node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,cmi5,review,mp4]
 //
 // Runs the validator first and refuses to publish if it reports errors.
 //
@@ -12,7 +12,7 @@
 //              standard error instead, so standard output is only that result.
 //   --preview  A quick look, not a release: no problem check, no narration is generated (audio that
 //              already exists is used), and no package zip or stand-in LMS page is written.
-//   --targets  Which packages to make, as a comma-separated list. All three if left out, and the Word review
+//   --targets  Which packages to make, as a comma-separated list. All four if left out, and the Word review
 //              document too. "review" is the Word document, which is not a package: it is made
 //              only when it is named or when --targets is left out. "mp4" is a video of the course, with its captions beside it
 //              (OUT_DIR.mp4 and OUT_DIR.vtt). It takes minutes and needs Windows and Edge or Chrome, so it is made only when it is named.
@@ -34,6 +34,7 @@ import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { buildManifest, buildManifest2004, manifestId } from "./src/scorm-manifest.ts";
 import { buildTincanXml } from "./src/xapi-manifest.ts";
+import { buildCmi5Xml } from "./src/cmi5-manifest.ts";
 import { courseActivityId } from "./src/xapi.ts";
 import type { CoursePackage, NarrationAsset, Project, Slide, Theme } from "./src/types.ts";
 import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
@@ -46,7 +47,7 @@ import { makeVideo, type VideoResult } from "./src/video.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 
-const TARGETS = ["scorm12", "scorm2004", "xapi"] as const;
+const TARGETS = ["scorm12", "scorm2004", "xapi", "cmi5"] as const;
 type Target = (typeof TARGETS)[number];
 /** The Word copy for reviewers. Named in --targets like a package, but it has no zip and no manifest. */
 const REVIEW = "review";
@@ -58,7 +59,7 @@ const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const includeSource = flags.includes("--include-source");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME] [--include-source]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,cmi5,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME] [--include-source]";
 if (!projectArg || !outArg) {
   console.error(usage);
   process.exit(2);
@@ -295,7 +296,7 @@ let video: VideoResult | null = null;
 let videoError: string | null = null;
 
 if (!preview) {
-  // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI), and, only when the
+  // 5. The packages: the course plus the file that describes it (imsmanifest.xml for SCORM, tincan.xml for xAPI, cmi5.xml for cmi5), and, only when the
   // author asks for it, the editable copy of the course alongside (not listed in the description, so the LMS ignores it).
   function walk(dir: string, base = dir): string[] {
     return readdirSync(dir).flatMap((name) => {
@@ -308,6 +309,7 @@ if (!preview) {
     scorm12: { file: "imsmanifest.xml", text: buildManifest({ title: project.meta.title, files: courseFiles, graded }) },
     scorm2004: { file: "imsmanifest.xml", text: buildManifest2004({ title: project.meta.title, files: courseFiles, graded }) },
     xapi: { file: "tincan.xml", text: buildTincanXml({ title: project.meta.title, language: project.meta.language, activityId: courseActivityId(project.meta) }) },
+    cmi5: { file: "cmi5.xml", text: buildCmi5Xml({ title: project.meta.title, language: project.meta.language, courseId: courseActivityId(project.meta), graded }) },
   };
   // The web-files folder keeps the SCORM 1.2 manifest, as it always has.
   if (targets.includes("scorm12")) writeFileSync(path.join(outDir, "imsmanifest.xml"), description.scorm12.text);
@@ -385,7 +387,7 @@ if (asJson) {
 } else {
   console.log(`\n${preview ? "Previewed" : "Published"} ${slides.length} slide(s) to ${outDir}`);
   if (!preview) {
-    const names: Record<Target, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 (4th edition)", xapi: "xAPI" };
+    const names: Record<Target, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 (4th edition)", xapi: "xAPI", cmi5: "cmi5" };
     for (const t of targets) console.log(`${names[t]} package (${manifestId(project.meta.title)}${graded ? ", graded" : ""}): ${zips[t]}`);
     if (reviewPath) console.log(`Word review document: ${reviewPath}`);
     if (video) {

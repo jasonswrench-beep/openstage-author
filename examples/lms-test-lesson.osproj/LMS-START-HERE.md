@@ -6,7 +6,7 @@ It costs nothing. It needs about 90 minutes in all, and you can stop after any r
 ## What has already been done (2026-11-01)
 
 * The lesson and the question-types course were rebuilt from the current program (commit `4f197bf`) as **six packages**: SCORM 1.2, SCORM 2004
-  and xAPI for each. They are in `dist\lms-test-pack\`. Their manifests are well-formed, and every file they name is in the zip.
+  and xAPI for each (and, since 2026-11-16, a cmi5 package for each, so eight). They are in `dist\lms-test-pack\`. Their manifests are well-formed, and every file they name is in the zip.
 * A **rehearsal** played the four required tests (launch, a failing attempt, a pass at the edge, resume) through the project's own pretend LMS
   and pretend LRS, in a real browser, on all three standards: **12 of 12 passed**, and it was repeated several times. `LMS-RESULTS.md`
   has what each pretend system held at the end. That is what a correct LMS should show. The rehearsal is `player\tools\lms-rehearsal.mjs`
@@ -44,6 +44,14 @@ Your LMS's upload menu says "New SCORM/xAPI Object", so try `lms-test-lesson-xap
 or only launches it. Open it, do test 3, and see whether anything is recorded. If your LMS shows nothing, that is expected for some setups: use
 An online SCORM test service (it has an LRS and lists the statements). What a correct LRS holds after test 3: one `initialized`, a stream of `experienced`, an
 `answered` for each answer, one `completed` and one `passed` whose result has score 0.8 (80 of 100).
+
+**Round 3b: cmi5 (about 15 minutes, only if your LMS says it supports cmi5; added 2026-11-16).**
+`lms-test-lesson-cmi5.zip` is the same lesson as a cmi5 package (a `cmi5.xml` at the root of the zip). Import it where your LMS takes a cmi5 course, launch it as a
+test student, and do tests 2, 3 and 4. A correct LMS shows the lesson **completed and passed** after test 3 (the course asks to be completed and passed, at 80 percent),
+**completed and not passed** after test 2, and opens test 4's lesson on Question 3 again if it allows the course to keep its place (cmi5 does not say it must: if
+it does not, the lesson opens at the start, and that is worth writing down). Also press **Exit the course** if the LMS gave a way back (the button only appears then).
+What the LMS's own record should hold after test 3: `initialized`, `experienced` and `answered` statements, one `completed`, one `passed` whose score is 0.8, and a last `terminated`.
+A pretend cmi5 LMS to try it first, by hand: `TEST WITH STAND-IN CMI5 LMS.bat` (it lists every statement and says at once if one breaks a rule of cmi5).
 
 **Round 4: the question types (about 20 minutes).**
 Upload `question-types-scorm12.zip` and follow `..\question-types.osproj\TEST-PLAN.md`. The thing to look at is **how the LMS shows each answer**

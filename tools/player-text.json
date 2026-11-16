@@ -9,6 +9,10 @@
       "text": "Back",
       "note": "Button: go to the previous slide"
     },
+    "nav.exit": {
+      "text": "Exit the course",
+      "note": "Button: leave the course and go back to the learning system, shown only when the learning system asked for it"
+    },
     "nav.next": {
       "text": "Next",
       "note": "Button: go to the next slide"

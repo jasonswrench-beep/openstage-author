@@ -1,16 +1,19 @@
 // A stand-in learning record store (LRS) for trying an xAPI package by hand, the way _scorm-test.html is a stand-in LMS.
 //
-//   node stand-in-xapi.ts DIST_DIR [--course NAME] [--port 8765] [--lrs-port 8766]
+//   node stand-in-xapi.ts DIST_DIR [--course NAME] [--port 8765] [--lrs-port 8766] [--cmi5] [--mode Normal|Browse|Review] [--return-url URL]
 //
 // It starts two servers on this computer only. One serves the published courses in DIST_DIR and a test page, _xapi-test.html.
 // The other is the LRS. They are on different ports on purpose: a real LRS is on a different site from the course, and the
 // browser's rules for that (CORS) are part of what has to work. The LRS is the strict one from src/fake-lrs.ts, so it refuses
 // a statement that a real LRS would refuse. It keeps everything in memory; stopping the program forgets it.
-// This is a test aid. The course still has to be tried against a real LRS.
+// With --cmi5 the other server is a cmi5 learning system instead: the course is launched the cmi5 way (a token to fetch, launch data to read), and the
+// statements are checked against the rules of cmi5 as well (src/fake-cmi5.ts). --mode and --return-url try the other kinds of launch.
+// This is a test aid. The course still has to be tried against a real LRS or LMS.
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { FakeCmi5Lms } from "./src/fake-cmi5.ts";
 import { FakeLrs } from "./src/fake-lrs.ts";
 import { uuid4 } from "./src/xapi.ts";
 
@@ -28,8 +31,12 @@ if (!existsSync(path.join(root, course, "index.html"))) {
   process.exit(1);
 }
 
-const lrs = new FakeLrs(`http://127.0.0.1:${lrsPort}/xapi/`);
-const registration = uuid4();
+const cmi5 = args.includes("--cmi5");
+const modeOption = option("mode", "Normal");
+const returnUrl = option("return-url", "");
+const lms = cmi5 ? new FakeCmi5Lms({ base: `http://127.0.0.1:${lrsPort}/`, launchMode: modeOption === "Browse" || modeOption === "Review" ? modeOption : "Normal", returnURL: returnUrl || null }) : null;
+const lrs = lms ? lms.lrs : new FakeLrs(`http://127.0.0.1:${lrsPort}/xapi/`);
+const registration = lms ? lms.launch.registration : uuid4();
 const actor = { objectType: "Agent", name: "Test Learner", mbox: "mailto:test.learner@example.test" };
 
 const TYPES: Record<string, string> = {
@@ -58,7 +65,7 @@ const CORS = {
 
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
   if (req.method === "OPTIONS") { res.writeHead(204, CORS).end(); return; }
-  const answer = await lrs.fetch(`http://127.0.0.1:${lrsPort}${req.url ?? "/"}`, {
+  const answer = await (lms ? lms.fetch : lrs.fetch)(`http://127.0.0.1:${lrsPort}${req.url ?? "/"}`, {
     method: req.method ?? "GET",
     headers: Object.fromEntries(Object.entries(req.headers).filter((e): e is [string, string] => typeof e[1] === "string")),
     body: await body(req),
@@ -70,6 +77,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
 // ---- the course and the test page
 
 const launchUrl = (): string => {
+  if (lms) return `${course}/index.html${lms.address}`;
   const q = new URLSearchParams({ endpoint: lrs.endpoint, auth: lrs.auth, actor: JSON.stringify(actor), registration });
   return `${course}/index.html?${q.toString()}`;
 };
@@ -90,8 +98,8 @@ const page = (): string => `<!doctype html>
   :focus-visible { outline: 3px solid #0b3fb3; outline-offset: 2px; }
 </style></head><body>
 <h1>OpenStage stand-in LRS</h1>
-<p>A test aid, not a real LRS. The course below was launched with the address of a strict xAPI store on another port,
-and the store lists everything the course sends. The learner is <strong>${actor.name}</strong>, registration <code>${registration}</code>.</p>
+<p>A test aid, not a real LRS${lms ? " or LMS" : ""}. The course below was launched ${lms ? "the cmi5 way, with the address of a token to fetch and of a strict xAPI store on another port (launch mode " + lms.options.launchMode + ")" : "with the address of a strict xAPI store on another port"},
+and the store lists everything the course sends. The learner is <strong>${lms ? "the cmi5 test learner" : (actor as { name?: string }).name}</strong>, registration <code>${registration}</code>.</p>
 <div class="bar">
   <button type="button" id="relaunch">Leave and relaunch</button>
   <button type="button" id="reset">Reset learner data</button>
@@ -101,6 +109,7 @@ and the store lists everything the course sends. The learner is <strong>${actor.
   <div>
     <h2>Statements the store accepted (<span id="count">0</span>)</h2>
     <table><thead><tr><th scope="col">Verb</th><th scope="col">Object</th><th scope="col">Result</th></tr></thead><tbody id="statements"></tbody></table>
+    ${lms ? '<h2>Breaks of the cmi5 rules</h2><pre id="problems">none</pre>' : ""}
     <h2>Saved place</h2><pre id="state">none</pre>
     <h2>Recent requests</h2><pre id="requests"></pre>
   </div>
@@ -108,9 +117,10 @@ and the store lists everything the course sends. The learner is <strong>${actor.
 <script>
   const frame = document.getElementById("course");
   const launch = () => { frame.src = ${JSON.stringify(launchUrl())}; };
-  document.getElementById("relaunch").addEventListener("click", () => { frame.addEventListener("load", launch, { once: true }); frame.src = "about:blank"; });
+  const newLaunch = async () => { await fetch("_cmi5-relaunch", { method: "POST" }); };
+  document.getElementById("relaunch").addEventListener("click", () => { frame.addEventListener("load", async () => { await newLaunch(); launch(); }, { once: true }); frame.src = "about:blank"; });
   document.getElementById("reset").addEventListener("click", async () => {
-    frame.addEventListener("load", async () => { await fetch("_xapi-reset", { method: "POST" }); launch(); }, { once: true });
+    frame.addEventListener("load", async () => { await fetch("_xapi-reset", { method: "POST" }); await newLaunch(); launch(); }, { once: true });
     frame.src = "about:blank";
   });
   const text = (v) => (v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v));
@@ -126,18 +136,24 @@ and the store lists everything the course sends. The learner is <strong>${actor.
       for (const t of [verb, obj, r]) { const td = document.createElement("td"); td.textContent = t; tr.appendChild(td); }
       rows.appendChild(tr);
     }
+    const p = document.getElementById("problems"); if (p) p.textContent = data.problems.length ? data.problems.join("\\n") : "none";
     document.getElementById("state").textContent = data.states.length ? data.states.join("\\n") : "none";
     document.getElementById("requests").textContent = data.requests.slice(-25).map((r) => r.method + " " + r.path).join("\\n");
   }
   setInterval(refresh, 500);
-  launch(); refresh();
+  newLaunch().then(() => { launch(); refresh(); });
 </script></body></html>`;
 
 createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/_xapi-test.html") { res.writeHead(200, { "Content-Type": TYPES[".html"]! }).end(page()); return; }
   if (url.pathname === "/_xapi-log.json") {
-    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ statements: lrs.statements, states: [...lrs.states.values()], requests: lrs.requests }));
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ statements: lrs.statements, states: [...lrs.states.values()], requests: lrs.requests, problems: lms ? lms.problems() : [] }));
+    return;
+  }
+  if (url.pathname === "/_cmi5-relaunch" && req.method === "POST") {
+    lms?.relaunch();
+    res.writeHead(204).end();
     return;
   }
   if (url.pathname === "/_xapi-reset" && req.method === "POST") {
@@ -152,6 +168,6 @@ createServer((req, res) => {
   if (!file.startsWith(root + path.sep) || !existsSync(file) || !statSync(file).isFile()) { res.writeHead(404).end("Not found"); return; }
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream" }).end(readFileSync(file));
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Stand-in LRS for ${course}: open http://127.0.0.1:${port}/_xapi-test.html`);
+  console.log(`Stand-in ${lms ? "cmi5 LMS" : "LRS"} for ${course}: open http://127.0.0.1:${port}/_xapi-test.html`);
   console.log(`The store is at ${lrs.endpoint}. Close this window to stop it.`);
 });

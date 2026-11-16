@@ -12,9 +12,9 @@ export interface PublishNarration {
 }
 
 /** The kinds of package a publish makes. */
-export type PackageKind = "scorm12" | "scorm2004" | "xapi";
+export type PackageKind = "scorm12" | "scorm2004" | "xapi" | "cmi5";
 
-const PACKAGE_NAMES: Record<PackageKind, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004", xapi: "xAPI" };
+const PACKAGE_NAMES: Record<PackageKind, string> = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004", xapi: "xAPI", cmi5: "cmi5" };
 
 /** The video a publish made, when it was asked to. */
 export interface PublishVideo {
@@ -44,7 +44,7 @@ export interface PublishResult {
   indexHtml?: string;
   /** The package to show the author first (SCORM 1.2 when it was made), or null for a preview. */
   zip?: string | null;
-  /** Every package made, by kind. Absent from a result written before SCORM 2004 and xAPI. */
+  /** Every package made, by kind. Absent from a result written before SCORM 2004 and xAPI; cmi5 is absent from a result written before it. */
   zips?: Partial<Record<PackageKind, string>>;
   /** The Word copy for colleagues and accessibility reviewers, or null when it was not made. Absent from an older result. */
   review?: string | null;

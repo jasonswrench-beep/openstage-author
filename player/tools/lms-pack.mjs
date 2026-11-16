@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// Puts everything for the real LMS test in one folder, dist/lms-test-pack: the six packages (the LMS test lesson and the question-types course,
-// each as SCORM 1.2, SCORM 2004 and xAPI), the start-here page, the test plans and the results sheet. It only copies; it does not publish.
+// Puts everything for the real LMS test in one folder, dist/lms-test-pack: the eight packages (the LMS test lesson and the question-types course,
+// each as SCORM 1.2, SCORM 2004, xAPI and cmi5), the start-here page, the test plans and the results sheet. It only copies; it does not publish.
 //
 //   node player/tools/lms-pack.mjs
 //
@@ -17,7 +17,7 @@ const lesson = path.join(repo, "examples", "lms-test-lesson.osproj");
 const types = path.join(repo, "examples", "question-types.osproj");
 
 const files = [
-  ...["lms-test-lesson", "question-types"].flatMap((name) => ["scorm12", "scorm2004", "xapi"].map((kind) => [path.join(dist, `${name}-${kind}.zip`), `${name}-${kind}.zip`])),
+  ...["lms-test-lesson", "question-types"].flatMap((name) => ["scorm12", "scorm2004", "xapi", "cmi5"].map((kind) => [path.join(dist, `${name}-${kind}.zip`), `${name}-${kind}.zip`])),
   [path.join(lesson, "LMS-START-HERE.md"), "LMS-START-HERE.md"],
   [path.join(lesson, "BRIGHTSPACE-STEPS.md"), "BRIGHTSPACE-STEPS.md"],
   [path.join(lesson, "SCORM-CLOUD-STEPS.md"), "SCORM-CLOUD-STEPS.md"],

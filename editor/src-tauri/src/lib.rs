@@ -864,7 +864,7 @@ fn publish_flags(preview: bool, video: bool) -> Vec<&'static str> {
     if preview {
         flags.push("--preview");
     } else if video {
-        flags.push("--targets=scorm12,scorm2004,xapi,review,mp4");
+        flags.push("--targets=scorm12,scorm2004,xapi,cmi5,review,mp4");
     }
     flags
 }
@@ -5862,7 +5862,7 @@ Colour,100,MC,Why?,x
         assert!(review_flags(None, Some("Comic Sans MS")).is_err());
         assert!(review_flags(None, Some("Arial --targets=mp4")).is_err(), "nothing but a font on the list gets through");
         assert_eq!(publish_flags(false, false), vec!["--json"]);
-        assert_eq!(publish_flags(false, true), vec!["--json", "--targets=scorm12,scorm2004,xapi,review,mp4"]);
+        assert_eq!(publish_flags(false, true), vec!["--json", "--targets=scorm12,scorm2004,xapi,cmi5,review,mp4"]);
         // A preview is a quick look at the page: it never makes a video, whatever was asked.
         assert_eq!(publish_flags(true, true), vec!["--json", "--preview"]);
         assert_eq!(publish_flags(true, false), vec!["--json", "--preview"]);
