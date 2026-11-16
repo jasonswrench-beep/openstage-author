@@ -787,6 +787,8 @@ see the narrow layout: the canvas always shows the whole stage, but when a learn
 course shows one column instead, in reading order, and narrowing the preview window or zooming in shows you that. Check it, because
 it is the order a screen reader reads that decides what comes first (see Reflow in the format spec).
 
+**Presenter.** With the optional Presenter add-on installed, **Insert > Presenter...** makes an illustrated presenter who speaks the narration of a text on the slide, as a video with captions, and makes it again when the words change (`docs/presenter.md`; the item is not there without the add-on).
+
 **Interactive video.** With a video chosen on the slide, **Insert > Interactive video...** adds questions, hotspots, chapters and choices at moments in the video, and lists and takes them away (`docs/interactive-video.md`).
 
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then

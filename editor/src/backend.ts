@@ -29,6 +29,19 @@ export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** What the shell says about the Presenter add-on when it is installed and may be used. */
+export interface PresenterAddon {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  tiers: string[];
+  commands: string[];
+  signed: boolean;
+  usable: boolean;
+  why: string | null;
+}
+
 export interface Finding {
   severity: "error" | "warning";
   file: string;
@@ -181,6 +194,14 @@ export interface Backend {
   narrationCache(dir: string): Promise<CachedAudio[]>;
   /** One piece of narration audio (a WAV file), by its cache key. */
   readNarrationAudio(dir: string, key: string): Promise<Uint8Array<ArrayBuffer>>;
+  /** The Presenter add-on, when it is installed and may be used here (docs/presenter.md); null when there is none. */
+  presenterAddon(): Promise<PresenterAddon | null>;
+  /** Ask the add-on something that needs no file: hello, check or presenters. What comes back is for presenter/look.ts to check. */
+  presenterAsk(command: "presenter.hello" | "presenter.check" | "presenter.presenters"): Promise<unknown>;
+  /** The mouth shapes of a piece of narration audio already made for the project, by its cache key. */
+  presenterMouthTrack(dir: string, key: string): Promise<unknown>;
+  /** Save a presenter clip (a WebM file) in the project's videos and return its project-relative path. */
+  savePresenterClip(dir: string, nameHint: string, webm: Uint8Array): Promise<string>;
   /** Delete narration audio by cache key. Returns how many were deleted. Only audio inside the project's own cache can be named. */
   deleteNarrationAudio(dir: string, keys: string[]): Promise<number>;
   /** Keep the audio made for one key under another key that names the same sound. Resolves with whether anything was copied. */
@@ -472,6 +493,10 @@ const tauriBackend: Backend = {
   narrationCache: (dir) => invoke<CachedAudio[]>("narration_cache", { dir }),
   deleteNarrationAudio: (dir, keys) => invoke<number>("delete_narration_audio", { dir, keys }),
   reuseNarrationAudio: (dir, from, to) => invoke<boolean>("reuse_narration_audio", { dir, from, to }),
+  presenterAddon: () => invoke<PresenterAddon | null>("presenter_addon"),
+  presenterAsk: (command) => invoke<unknown>("presenter_ask", { command }),
+  presenterMouthTrack: (dir, key) => invoke<unknown>("presenter_mouth_track", { dir, key }),
+  savePresenterClip: (dir, nameHint, webm) => invoke<string>("save_presenter_clip", { dir, nameHint, webm: bytesToBase64(webm) }),
   async readNarrationAudio(dir, key) {
     return base64ToBytes(await invoke<string>("read_narration_audio", { dir, hash: key }));
   },
@@ -739,6 +764,18 @@ const previewBackend: Backend = {
   },
   async narrationCache() {
     return [];
+  },
+  async presenterAddon() {
+    return null;
+  },
+  async presenterAsk() {
+    throw new Error("The Presenter add-on needs the desktop app.");
+  },
+  async presenterMouthTrack() {
+    throw new Error("The Presenter add-on needs the desktop app.");
+  },
+  async savePresenterClip() {
+    throw new Error("Saving a presenter clip needs the desktop app.");
   },
   async readNarrationAudio() {
     throw new Error("Playing narration needs the desktop app.");

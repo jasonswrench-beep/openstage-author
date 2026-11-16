@@ -46,6 +46,7 @@ import { castUse, cloneCast, draftProblems as castProblems, poseUse, tidyPerson,
 import * as S from "./scenarioedit.ts";
 import { moveSection, moveSlideAcross, moveSlidesToSection, newSectionId, removeSection, renameSection, sectionOf, sortSection, startSection, type Section, type SectionResult, type SortBy } from "./sections.ts";
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
+import { clipStatus, CLIP_BOX, framingStyle, type ClipStatus, type PresenterClipSpec } from "./presenter/status.ts";
 
 /** The format version this editor reads and writes. */
 export const FORMAT_VERSION = "0.52.0";
@@ -1735,6 +1736,79 @@ export class Model {
     this.project.meta = meta;
     this.emit({ kind: "content" });
     return { ok: true, message: v === "" ? `The course has no ${word} now.` : `The course's ${word} is ${v}.` };
+  }
+
+  // ---- a presenter clip (presenter/*.ts, docs/presenter.md)
+
+  /** Every object on the slide being edited, on any of its layers. */
+  private everyObject(): OSObject[] {
+    const slide = this.slide;
+    return slide ? [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects) : [];
+  }
+
+  /** The objects on the slide that have words to be spoken, for a presenter to speak. A presenter clip is not offered, because it carries its own voice. */
+  speakableObjects(): { id: string; name: string; narration: Narration }[] {
+    const out: { id: string; name: string; narration: Narration }[] = [];
+    for (const o of this.everyObject()) {
+      const n = o.narration as Narration | null;
+      if (n && typeof n.script === "string" && n.script.trim() !== "" && !o.presenter) out.push({ id: o.id, name: o.name, narration: n });
+    }
+    return out;
+  }
+
+  /** The video with this id on the slide, when it is a clip a presenter made. */
+  presenterClip(objectId: string): OSObject | null {
+    const o = this.everyObject().find((x) => x.id === objectId);
+    return o && o.type === "video" && o.presenter ? o : null;
+  }
+
+  /** Whether a clip still says what its narration says. */
+  presenterStatus(objectId: string): ClipStatus {
+    const o = this.everyObject().find((x) => x.id === objectId);
+    return o ? clipStatus(o) : "not-a-clip";
+  }
+
+  /** The narration the clip speaks is taken off the object it came from, so the same words are not said twice. */
+  private takeNarrationOff(objectId: string | null): void {
+    const from = objectId ? this.everyObject().find((x) => x.id === objectId) : undefined;
+    if (from && !from.presenter) from.narration = null;
+  }
+
+  /** Put a presenter clip on the slide, already made and saved, and select it. One undo step: the clip, its credit, and the narration taken off its source. */
+  addPresenterClip(spec: PresenterClipSpec): OSObject | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    const obj = newMedia("video", this.placement(this.allocator().object()), spec.src);
+    this.record("");
+    const stage = this.project.stage;
+    obj.name = "Presenter";
+    obj.geometry = { ...obj.geometry, x: Math.max(0, stage.width - CLIP_BOX - 60), y: Math.max(0, Math.round((stage.height - CLIP_BOX) / 2)), width: CLIP_BOX, height: CLIP_BOX };
+    obj.content = { src: spec.src, captions: spec.captions, transcript: "" };
+    obj.style = framingStyle(spec.block.framing);
+    obj.accessibility = { ...obj.accessibility, altText: spec.altText };
+    obj.narration = { ...spec.narration, audioCache: null };
+    obj.presenter = spec.block;
+    layer.objects.push(obj);
+    this.takeNarrationOff(spec.takeNarrationFrom);
+    this.assets = [...this.assets.filter((a) => a.path !== spec.credit.path), spec.credit];
+    this.sel = { ...this.sel, objectId: obj.id };
+    this.emit({ kind: "structure", objectId: obj.id });
+    return obj;
+  }
+
+  /** Put a new clip in place of a presenter clip's old one: the same object, with its position, size, alt text and narration kept. One undo step. */
+  remakePresenterClip(objectId: string, spec: PresenterClipSpec): OSObject | null {
+    const obj = this.presenterClip(objectId);
+    if (!obj) return null;
+    this.record("");
+    const old = String(obj.content["src"] ?? "");
+    obj.content = { ...obj.content, src: spec.src, captions: spec.captions };
+    const { radius: _gone, ...style } = obj.style as Record<string, string | number>;
+    obj.style = { ...style, ...framingStyle(spec.block.framing, Math.round(Math.min(obj.geometry.width, obj.geometry.height))) };
+    obj.presenter = spec.block;
+    this.assets = [...this.assets.filter((a) => a.path !== old && a.path !== spec.credit.path), spec.credit];
+    this.emit({ kind: "content", objectId });
+    return obj;
   }
 
   // ---- an interactive video (interactivevideo.ts)

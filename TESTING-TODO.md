@@ -49,6 +49,17 @@ Built and covered by 9 tests of the moments and the Model, 5 of the format, 1 of
 - [ ] **A learner who skips ahead.** Use the video's own controls to go past a question, then back. The question should come up again and hold the video again.
 - [ ] **With NVDA and the keyboard.** The dialog's fields and status line; Tab to a hotspot and press Enter (it should pause the video and show the note), then **Close the note**; the chapter buttons by Tab; a question that holds the video: does the screen reader say that the question has come in?
 
+## Presenter clips: the OpenStage Presenter add-on, Phase 1 (2026-11-16; format 0.52.0)
+
+Built and covered by 17 tests of the host, 8 of the shell, 16 of the drawing and the file, 6 of the Model, 5 of the format and 2 of the player. The dialog was driven in a real browser (Chromium) with real speech from a Windows voice, the real host, a real recording and the real publisher; a published course played the clip as an ordinary video with captions, and requested no separate narration audio. It was not run in the editor window itself (no desktop session), with the real speech engine (Kokoro), on a laptop with no graphics card, or with a screen reader.
+
+- [ ] **Install it and open the editor with it:** double-click `presenter\INSTALL FOR DEVELOPMENT.bat`, then `presenter\OPEN EDITOR WITH PRESENTER.bat`. **Insert > Presenter...** should be there (and not there when you open the editor with `OPEN EDITOR.bat`).
+- [ ] **The spec's gate for Phase 1:** a whole course with a Lite presenter, published to SCORM, from a computer with no graphics card. Make the narration with Kokoro first (**Narration > Narration...**), then **Insert > Presenter...** on a slide with a narrated heading. Does the clip look right, does the mouth follow the voice, do the captions need a lot of fixing, did the text stop speaking, did it publish? Import the package into your LMS (`examples/lms-test-lesson.osproj/LMS-START-HERE.md` says how).
+- [ ] **How it feels:** a one-minute narration takes a minute to record. Is that acceptable for Phase 1, or is the faster-than-real-time clip (the spec's target) what to build next? Does covering the editor window while it records make the clip stutter, as the dialog warns?
+- [ ] **The pictures:** are the four presenters acceptable to put in a course? The mouth follows the sound, not the words: does it read as talking? Say what to change (colours, hair, the label, a fifth presenter).
+- [ ] **With NVDA, keyboard only:** open the dialog, choose a presenter with the arrow keys, make a clip, listen for the status at each quarter of the way, press Escape while it makes, make it again from a clip that is out of date.
+- [ ] **A published course with a presenter clip** in a screen reader: the video's alt text starts from the presenter in words; the "AI presenter" label is part of the picture and is not read, so the credits page (switch it on) is what says in words that a program made the presenter and that the voice is synthetic. Is that enough?
+
 ## Items that wait for the core, or for you (2026-11-16)
 
 - Items 5, 6, 7 and 9 (games from banks, reviewers' comments, the source ledger, several languages in one package) each need a piece the core has not published (C4, C9, C7, C6). What each needs is written in `CORE-REQUESTS.md` (R1, R3, R4, R5), and nothing was built of them. Item 2's reading of OpenAssess banks waits on C4 too (R1); its QTI half is built, above.
