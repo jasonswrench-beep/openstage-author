@@ -118,3 +118,17 @@ switcher"). What a spec for the package needs to settle, from Author's side:
 
 **Author's part, when it exists:** **File > Languages...** to add a language from a translated file and to say which is the learner's default, the switcher in the
 published course's navigation bar, and a publish that carries all of them in one package of each kind (SCORM, xAPI, cmi5).
+
+## R6. The presenter engine host and the Presenter object (list item 10)
+
+**For:** item 10 (the presenter avatar add-on, `docs/avatar-addon-spec.md`). The spec says the engine host is shared with OpenStage Studio ("so tutorial
+videos can use the same presenters and voices") and that Phase 4 brings the same Presenter object to OpenStage Scroll. A piece three tools share is a piece
+for the core.
+
+Asked, if the core is to own it: the `.osavatar` package (the source image, the face crop, cached face features, the default voice and the consent record,
+reusable across courses), the add-on manifest and the JSON messages between a tool and the engine host (`presenter.createAvatar`, `presenter.speak`,
+`presenter.render`, `presenter.cancel`, with progress, cancel and errors streamed back), the model catalog with its licence gate and SHA-256 pins, and the
+hardware check. What stays in each tool: the panel, and how a clip sits in that tool's own format.
+
+**Meanwhile:** nothing is built in Author until the questions in `ROADMAP.md` ("Presenter avatar add-on: five points") are answered, and Author's first
+slice (the Presenter object, the contract, the Lite engine) is written so that the package, the messages and the catalog can move to the core as they are.
