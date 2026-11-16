@@ -29,6 +29,7 @@ import { openAssets } from "./assetsdialog.ts";
 import { openVariables } from "./variablesdialog.ts";
 import { askText } from "./textprompt.ts";
 import { openPublishStyle } from "./publishstyledialog.ts";
+import { askAccessibilityBlockers } from "./a11yblockers.ts";
 import { dateText, nextVersion, type NameValues } from "./publishstyle.ts";
 import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
@@ -445,6 +446,7 @@ export class App {
       openProject: cmd({ label: "Open project...", icon: "folder-open", keys: "Ctrl+O", title: "Open a project folder", run: () => void this.open() }),
       saveNewVersion: cmd({ label: "Save as new version...", icon: "file-stack", title: "For a big revision: copy the whole course to a new folder with a new version number and open the copy, so the version you have now stays as it is", run: () => void this.saveNewVersion(), enabled: free }),
       publishStyle: cmd({ label: "Publishing style...", icon: "file-cog", title: "Your house rules for what Publish makes: the names of the files, and the Word review document's headings, numbering and font", run: () => void this.editPublishStyle() }),
+      a11yBlockers: cmd({ label: "Accessibility rules that stop a publish...", icon: "file-cog", title: "Accessibility problems are warnings. Choose any that must stop this course being published", run: () => void this.editAccessibilityBlockers(), enabled: () => !!this.model }),
       closeProject: cmd({ label: "Close project", icon: "folder-x", title: "Close this project and go back to the welcome page, with your recent projects and the examples", run: () => void this.closeProject(), enabled: open }),
       save: cmd({ label: "Save", icon: "save", keys: "Ctrl+S", title: "Save changes", run: () => void this.save(), enabled: () => !!this.model?.dirty }),
       slidesFromFile: cmd({ label: "Slides from a file...", icon: "file-input", title: "Add slides someone gave you as one file after this slide", run: () => void this.addSlidesFromFile(), enabled: open }),
@@ -522,7 +524,7 @@ export class App {
       { id: "file", label: "File", items: [
         c.newProject, c.openProject, c.save, c.saveNewVersion, c.closeProject, "-",
         { ...c.slidesFromFile, label: "Add slides from a file..." }, c.shareSlides, c.powerPoint, c.translate, "-",
-        c.preview, c.publish, c.publishStyle,
+        c.preview, c.publish, c.publishStyle, c.a11yBlockers,
       ] },
       { id: "edit", label: "Edit", items: [c.undo, c.redo, "-", c.editText, "-", ...this.objectEntries()] },
       { id: "insert", label: "Insert", items: [c.insertGallery, "-", ...c.addObjects, "-", c.recordScreen, c.game, c.quizFromFile] },
@@ -3305,7 +3307,7 @@ ${errorText(err)}`);
         ...this.findings.map((f, i) => {
           const where = f.object_id && f.object_id !== "-" ? `${f.object_id}: ` : "";
           const label = `${f.severity === "error" ? "Error" : "Warning"}. ${where}${f.message}`;
-          const li = this.item(`problem:${i}`, label, false, () => this.gotoProblem(f), f.detail);
+          const li = this.item(`problem:${i}`, label, false, () => this.gotoProblem(f), f.wcag && f.wcag.length > 0 ? `WCAG ${f.wcag.join(" and ")}. ${f.detail}`.trim() : f.detail);
           li.classList.add(f.severity);
           return li;
         }),
@@ -3672,6 +3674,18 @@ ${errorText(err)}`);
   private nameValues(m: Model): NameValues {
     const folder = m.dir.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "course";
     return { folder, title: m.project.meta.title, code: m.courseCode || undefined, version: m.courseVersion || undefined, date: dateText(new Date()) };
+  }
+
+  /** File > Accessibility rules that stop a publish: accessibility problems warn, and this course may choose the ones that do not (format 0.50.0). */
+  private async editAccessibilityBlockers(): Promise<void> {
+    const m = this.model;
+    if (!m) return;
+    const chosen = await askAccessibilityBlockers(m.accessibilityBlockers);
+    if (chosen) {
+      const said = m.setAccessibilityBlockers(chosen);
+      if (said) this.announce(said);
+    }
+    this.afterDialog("file");
   }
 
   /** File > Publishing style: the house rules for what Publish makes. */

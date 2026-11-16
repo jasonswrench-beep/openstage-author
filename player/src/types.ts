@@ -15,6 +15,8 @@ export interface Project {
   /** `version` and `courseCode` are optional (added in 0.49.0): the course's own version and its code at the institution. */
   meta: { title: string; author: string; language: string; created: string; modified: string; version?: string; courseCode?: string };
   stage: { width: number; height: number };
+  /** Optional (added in 0.50.0): the accessibility rules this project has chosen to stop a publish with. None unless the author turns one on. */
+  accessibilityBlockers?: string[];
   variables: Variable[];
   theme: { ref: string } | null;
   /** Whether the published course shows its credits page. */

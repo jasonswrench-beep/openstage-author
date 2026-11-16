@@ -20,6 +20,16 @@ Built from the cmi5 specification (Quartz) and tried against the pretend cmi5 LM
 - [ ] **cmi5's learner preferences** (language and audio) are read and not applied. Say if that matters.
 - [ ] **With NVDA.** **Exit the course** is a plain button in the navigation bar, shown only when the LMS asked for it.
 
+## Accessibility findings warn, and a course can choose rules that block (2026-11-16; format 0.50.0)
+
+Decided for the whole suite (Shared Core list, item 4): accessibility problems are warnings and never stop a publish; each says which WCAG criterion it answers; a course can turn chosen rules into blockers, off unless it does. Built in the checker, the Problems list, **File > Accessibility rules that stop a publish...**, the MCP check and the docs; 36 old tests were moved to the checker's `--block errors` mode (each rule that raised an error keeps it), and 12 new ones cover the policy. The rules and criteria are in `tools/a11y-rules.json` (30 rules), a stand-in for the core's catalogue (C2) until it is published (`CORE-REQUESTS.md`, R2). Not tried in the desktop program's own window or with a screen reader.
+
+- [ ] **Look at the Problems list.** Open `examples/broken.osproj`: the accessibility problems are warnings, each with "WCAG 1.1.1" (and so on) beneath it; the other errors (a missing file, a button that points at nothing) are still errors. Publish a course that only has accessibility problems: it should publish and say so.
+- [ ] **The dialog.** File > Accessibility rules that stop a publish...: 30 rules in the order of WCAG, none ticked; tick **A picture with no description** and publish a course with one: it should stop, and say which. Choose none again and it should publish. Escape and Cancel leave it as it was; Undo takes a choice back.
+- [ ] **Are the 30 mapped right?** The criterion beside each rule is my reading (for instance the hotspot size rules answer 2.5.8, new in WCAG 2.2, and say so; `navigation-no-way-out` and the format rules are not accessibility rules). Faculty will quote these: please look down `tools/a11y-rules.json`.
+- [ ] **With NVDA.** The dialog's 30 checkboxes read with their rule and criterion; the Problems list reads the criterion as part of each finding.
+- Decision to confirm: the line that WCAG 2.1 AA is the legal floor (the April 26, 2027 compliance date) and 2.2 AA is what Author aims for is in `docs/validator-spec.md`; the small question in the roadmap about it is answered there.
+
 ## Dialogs in the new look, and Find something to add (2026-11-11)
 
 Step 6 of the new look. Built and covered by 10 editor tests, a 44-step check in the browser preview, a tour that opens each of the 37 dialogs the menus open at full size and in a phone-width window, and the editor's own accessibility audit on the new window and eleven others. Not tried in the desktop program's own window or with a screen reader.

@@ -167,7 +167,7 @@ function validate(m: Model): Finding[] {
   try {
     mkdirSync(path.join(dir, "slides"));
     for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
-    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json", "--block", "errors"], { encoding: "utf-8" });
     return JSON.parse(r.stdout) as Finding[];
   } finally {
     rmSync(dir, { recursive: true, force: true });

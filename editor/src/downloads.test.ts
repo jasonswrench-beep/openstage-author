@@ -142,7 +142,7 @@ function validate(m: Model, fileText = "%PDF-1.7 stand-in"): Finding[] {
     for (const f of m.allFiles()) writeFileSync(path.join(dir, f.path), f.text);
     mkdirSync(path.join(dir, "assets", "documents"), { recursive: true });
     writeFileSync(path.join(dir, "assets", "documents", "course-guide.pdf"), fileText);
-    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json", "--block", "errors"], { encoding: "utf-8" });
     return JSON.parse(r.stdout);
   } finally {
     rmSync(dir, { recursive: true, force: true });

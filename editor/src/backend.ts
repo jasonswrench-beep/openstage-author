@@ -36,6 +36,8 @@ export interface Finding {
   rule: string;
   message: string;
   detail: string;
+  /** The WCAG success criteria an accessibility finding answers (such as "1.1.1"); absent for a finding that is not about accessibility. */
+  wcag?: string[];
 }
 
 /** What updating an older project did. */

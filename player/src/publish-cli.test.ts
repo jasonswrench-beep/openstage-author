@@ -183,9 +183,41 @@ test("a project with errors is not published, and the errors come back", { skip:
     const { result, status } = run(path.join(examples, "broken.osproj"), path.join(dir, "course"));
     assert.equal(status, 1);
     assert.equal(result.ok, false);
-    assert.match(result.message ?? "", /found 14 errors/);
-    assert.ok(result.findings.some((f) => f.rule === "alt-text-missing"));
+    assert.match(result.message ?? "", /found 7 errors/, "only the errors that are not about accessibility: those are warnings now");
+    assert.ok(result.findings.some((f) => f.rule === "alt-text-missing" && f.severity === "warning"), "an accessibility problem is still named, as a warning");
     assert.ok(!existsSync(path.join(dir, "course")), "nothing is written when the check fails");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an accessibility problem does not stop a publish, unless the project chose that rule to", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const project = path.join(dir, "a.osproj");
+    cpSync(path.join(examples, "minimal.osproj"), project, { recursive: true, filter: (src) => path.basename(src) !== ".cache" });
+    const slideFile = path.join(project, "slides", "slide-001.json");
+    const slide = JSON.parse(readFileSync(slideFile, "utf-8")) as { baseLayer: { objects: { accessibility: { altText: string; decorative: boolean } }[] } };
+    slide.baseLayer.objects[0]!.accessibility = { ...slide.baseLayer.objects[0]!.accessibility, altText: "", decorative: false };
+    writeFileSync(slideFile, JSON.stringify(slide, null, 2));
+
+    const warned = run(project, path.join(dir, "warned"));
+    assert.equal(warned.status, 0, JSON.stringify(warned.result));
+    assert.equal(warned.result.ok, true);
+    const finding = warned.result.findings.find((f) => f.rule === "alt-text-missing") as unknown as { severity: string; wcag: string[] };
+    assert.equal(finding.severity, "warning");
+    assert.deepEqual(finding.wcag, ["1.1.1"], "it says which criterion it answers");
+    assert.ok(existsSync(path.join(dir, "warned-scorm12.zip")), "the course was published");
+
+    const projectFile = path.join(project, "project.json");
+    const settings = JSON.parse(readFileSync(projectFile, "utf-8")) as Record<string, unknown>;
+    settings["accessibilityBlockers"] = ["alt-text-missing"];
+    writeFileSync(projectFile, JSON.stringify(settings, null, 2));
+    const blocked = run(project, path.join(dir, "blocked"));
+    assert.equal(blocked.status, 1);
+    assert.equal(blocked.result.ok, false);
+    assert.match(blocked.result.message ?? "", /found 1 error/);
+    assert.ok(!existsSync(path.join(dir, "blocked-scorm12.zip")), "the chosen rule stopped it");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

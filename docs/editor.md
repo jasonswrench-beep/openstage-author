@@ -789,7 +789,10 @@ it is the order a screen reader reads that decides what comes first (see Reflow 
 
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then
 checks it for problems with the same checker as the Problems list. Errors stop it, and are listed in the
-dialog; warnings do not. It makes the course as a folder of web files and as four packages beside it: SCORM 1.2
+dialog; warnings do not. **Accessibility problems are warnings, never errors** (missing alt text, low contrast, no captions, a click with no
+keyboard equivalent and the rest): each is in the Problems list with the WCAG success criterion it answers, such as "WCAG 1.1.1", and the
+author decides whether to publish. **File > Accessibility rules that stop a publish...** lets a course choose rules that do stop it, for
+that course only; none is chosen until the author turns it on (format 0.50.0, `docs/validator-spec.md`). It makes the course as a folder of web files and as four packages beside it: SCORM 1.2
 (`<name>-scorm12.zip`), SCORM 2004 (`<name>-scorm2004.zip`), xAPI (`<name>-xapi.zip`) and cmi5 (`<name>-cmi5.zip`). Each is a zip that also carries
 the editable project in a `source` folder the LMS ignores, and all four hold the same course files; only the file that
 describes them differs. The author uploads the one the LMS or learning record store asks for (see "SCORM 2004 tracking",

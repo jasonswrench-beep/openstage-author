@@ -16,7 +16,7 @@ import os
 import pathlib
 import re
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, field, asdict
 
 try:
     from jsonschema import Draft202012Validator
@@ -37,7 +37,7 @@ from quiztext import BROWSER_KEEPS, MAX_PASSAGE_WORDS, canonical_shortcut, read_
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 49, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 50, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -58,6 +58,40 @@ TAB_GAP_SEVERITY = "warning"
 
 ERROR, WARNING = "error", "warning"
 
+
+# ---------------------------------------------------------------- accessibility findings warn, and a project may make chosen ones stop a publish
+
+def _load_a11y_rules():
+    """The accessibility rules and the WCAG criterion each answers (tools/a11y-rules.json), by rule id."""
+    data = json.loads((pathlib.Path(__file__).resolve().parent / "a11y-rules.json").read_text(encoding="utf-8"))
+    return {r["id"]: r for r in data["rules"]}
+
+
+A11Y_RULES = _load_a11y_rules()
+
+
+def apply_accessibility_policy(findings, project, extra=None):
+    """Accessibility findings warn and never block: whatever severity a rule raised its finding with, it is a warning, unless the project names the
+    rule in accessibilityBlockers (off unless the author turns it on), when it is an error. Every one of them says which WCAG criteria it answers.
+    A rule named as a blocker that is not an accessibility rule gets a warning of its own, and blocks nothing."""
+    chosen = project.get("accessibilityBlockers") if isinstance(project, dict) else None
+    blockers = {b for b in chosen if isinstance(b, str)} if isinstance(chosen, list) else set()
+    # A build check may ask for more to block than the project does (the command line's --block): "all", "errors" (each rule that raises an error keeps it,
+    # as before accessibility findings were warnings), or a list of rule ids. The project's own list is the author's; this is not.
+    asked = set(A11Y_RULES) if extra == "all" else set(extra) if isinstance(extra, (list, set, tuple)) else set()
+    keep_errors = extra == "errors"
+    for f in findings:
+        info = A11Y_RULES.get(f.rule)
+        if info is None:
+            continue
+        f.wcag = list(info["wcag"])
+        f.severity = ERROR if f.rule in blockers or f.rule in asked or (keep_errors and f.severity == ERROR) else WARNING
+    for rule in sorted(blockers - set(A11Y_RULES)):
+        findings.append(Finding(WARNING, "project.json", "-", "blocker-unknown", "A rule chosen to stop a publish does not exist",
+                                f"The project asks for '{rule}' to stop a publish, but there is no accessibility rule of that name, so it stops nothing. "
+                                "It can be taken off the list of rules that stop a publish."))
+    return findings
+
 # Actions that act on the course itself, so they have no target.
 COURSE_ACTIONS = ("nextSlide", "previousSlide", "replaySlide")
 
@@ -70,6 +104,8 @@ class Finding:
     rule: str
     message: str
     detail: str = ""
+    # The WCAG success criteria an accessibility finding answers, such as ["1.1.1"]; empty for a finding that is not about accessibility.
+    wcag: list = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- schema
@@ -1572,9 +1608,10 @@ def _unsafe_svg(asset_root, add):
                 "Remove it from the project and add the picture again in the editor, which keeps only the drawing.")
 
 
-def validate_project(project_dir, asset_root=None):
+def validate_project(project_dir, asset_root=None, blockers=None):
     """asset_root: where assets/ and .cache/ are looked for, if not under project_dir. The
-    editor validates unsaved work from a temporary folder and points this at the real project."""
+    editor validates unsaved work from a temporary folder and points this at the real project.
+    blockers: "all", "errors" or rule ids, to make errors of accessibility findings that would otherwise be warnings (a build check; see apply_accessibility_policy)."""
     project_dir = pathlib.Path(project_dir)
     asset_root = pathlib.Path(asset_root) if asset_root else project_dir
     findings = []
@@ -1723,7 +1760,7 @@ def validate_project(project_dir, asset_root=None):
         for _, obj in _objects(slide):
             _assets(asset_root, rel, obj, add)
 
-    return findings
+    return apply_accessibility_policy(findings, project, blockers)
 
 
 _LETTERED = re.compile(r"^\s*\(?[A-Ha-h][.):]\s")
@@ -2060,7 +2097,8 @@ def format_text(findings):
             out.append("")
             out.append(f.file)
         tag = "ERROR" if f.severity == ERROR else "WARN "
-        out.append(f"  {tag}  {f.object_id:<10} {f.message}")
+        criteria = f"  [WCAG {', '.join(f.wcag)}]" if f.wcag else ""
+        out.append(f"  {tag}  {f.object_id:<10} {f.message}{criteria}")
         if f.detail:
             out.append(f"  {'':5}  {'':<10} {f.detail}")
     errors = sum(f.severity == ERROR for f in findings)
@@ -2077,17 +2115,21 @@ def main(argv):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     asset_root = None
+    block = None
     args = []
     it = iter(argv)
     for a in it:
         if a == "--asset-root":
             asset_root = next(it, None)
+        elif a == "--block":
+            value = next(it, "")
+            block = value if value in ("all", "errors") else [v for v in value.split(",") if v]
         elif not a.startswith("--"):
             args.append(a)
     if len(args) != 1:
-        print("Usage: validate.py PROJECT_DIR [--json] [--asset-root DIR]")
+        print("Usage: validate.py PROJECT_DIR [--json] [--asset-root DIR] [--block all|errors|RULE,RULE]")
         return 2
-    findings = validate_project(args[0], asset_root)
+    findings = validate_project(args[0], asset_root, block)
     if "--json" in argv:
         print(json.dumps([asdict(f) for f in sort_findings(findings)], indent=2, ensure_ascii=False))
     else:

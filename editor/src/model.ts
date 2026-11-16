@@ -47,7 +47,7 @@ import { moveSection, moveSlideAcross, moveSlidesToSection, newSectionId, remove
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.49.0";
+export const FORMAT_VERSION = "0.50.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1734,6 +1734,25 @@ export class Model {
     this.project.meta = meta;
     this.emit({ kind: "content" });
     return { ok: true, message: v === "" ? `The course has no ${word} now.` : `The course's ${word} is ${v}.` };
+  }
+
+  /** The accessibility rules this course has chosen to stop a publish with (format 0.50.0). None until the author turns one on. */
+  get accessibilityBlockers(): string[] {
+    return [...(this.project.accessibilityBlockers ?? [])];
+  }
+
+  /** Choose which accessibility rules stop a publish. Repeats are dropped and the order is kept; none takes the setting away. One undo step. Returns what to say, or null if nothing changed. */
+  setAccessibilityBlockers(ids: string[]): string | null {
+    const next = [...new Set(ids.filter((id) => /^[a-z0-9-]{1,80}$/.test(id)))].slice(0, 100);
+    const now = this.accessibilityBlockers;
+    if (next.length === now.length && next.every((id, i) => id === now[i])) return null;
+    this.record("");
+    if (next.length === 0) delete this.project.accessibilityBlockers;
+    else this.project.accessibilityBlockers = next;
+    this.emit({ kind: "content" });
+    return next.length === 0
+      ? "No accessibility rule stops a publish now. Accessibility problems are warnings."
+      : `${next.length === 1 ? "One accessibility rule" : `${next.length} accessibility rules`} will stop a publish for this course. The others stay warnings.`;
   }
 
   setCompletion(slides: "all" | "last"): string | null {
@@ -4949,11 +4968,11 @@ export class Model {
   }
 
   private snapshot(): string {
-    return JSON.stringify({ meta: this.project.meta, scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, banks: this.project.banks, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
+    return JSON.stringify({ meta: this.project.meta, scenes: this.project.scenes, variables: this.project.variables, characters: this.project.characters, banks: this.project.banks, sources: this.project.sources, credits: this.project.credits, completion: this.project.completion, accessibilityBlockers: this.project.accessibilityBlockers, assets: this.assets, theme: this.theme, ref: this.project.theme, slides: this.docs.map((d) => d.slide) });
   }
 
   private restore(snapshot: string): void {
-    const state = JSON.parse(snapshot) as { meta?: Project["meta"]; scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; banks?: Project["banks"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
+    const state = JSON.parse(snapshot) as { meta?: Project["meta"]; scenes: Project["scenes"]; variables: Project["variables"]; characters?: Project["characters"]; banks?: Project["banks"]; sources?: Project["sources"]; credits: boolean; completion?: Project["completion"]; accessibilityBlockers?: string[]; assets: CreditEntry[]; theme: Theme; ref: Project["theme"]; slides: Slide[] };
     // The course's details (its version and code are set in the editor) come back too.
     if (state.meta) this.project.meta = state.meta;
     this.project.scenes = state.scenes;
@@ -4967,6 +4986,8 @@ export class Model {
     this.project.credits = state.credits;
     if (state.completion) this.project.completion = state.completion;
     else delete (this.project as { completion?: unknown }).completion;
+    if (state.accessibilityBlockers) this.project.accessibilityBlockers = state.accessibilityBlockers;
+    else delete this.project.accessibilityBlockers;
     this.assets = state.assets;
     this.theme = state.theme;
     this.project.theme = state.ref;

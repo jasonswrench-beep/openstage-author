@@ -61,7 +61,7 @@ class Pieces(unittest.TestCase):
 
     def test_the_tools_that_read_a_shared_file_have_it_with_them(self):
         # validate.py reads these when it starts, so without them the problem check does not even run.
-        for name in ("download-types.json", "player-text.json", "theme-rules.json"):
+        for name in ("download-types.json", "player-text.json", "theme-rules.json", "a11y-rules.json"):
             self.assertIn(name, b.TOOLS)
 
     def test_what_the_uninstall_screen_offers_to_delete_is_named(self):

@@ -18,6 +18,8 @@ interface Finding {
   rule: string;
   message: string;
   detail: string;
+  /** The WCAG criteria an accessibility finding answers. */
+  wcag?: string[];
 }
 
 interface Said {
@@ -40,7 +42,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
   };
 
   return [
-    tool("check_course", "Check the open course for problems, as the editor's Problems list does: missing alt text, too little contrast, narration with no words, broken links between slides and more. Errors stop a course being published. Run this after changes, and fix every error.", {}, [], false, async () => {
+    tool("check_course", "Check the open course for problems, as the editor's Problems list does: missing alt text, too little contrast, narration with no words, broken links between slides and more. Errors stop a course being published. Accessibility problems (missing alt text, low contrast, no captions) are warnings, each with the WCAG criterion it answers, and do not stop a publish unless the course asked for that rule to; fix them anyway, and tell the person any you leave. Run this after changes, and fix every error.", {}, [], false, async () => {
       const { dir } = s.require();
       const r = await run(pythonOf(e), [tools("validate.py"), dir, "--json"], e);
       const findings = wholeJson<Finding[]>(r.stdout);
@@ -50,7 +52,7 @@ export function outputTools(s: Session, e: Environment): Tool[] {
       const shown = [...findings.filter((f) => f.severity === "error"), ...findings.filter((f) => f.severity !== "error")].slice(0, 80);
       return {
         text: errors === 0 ? `No errors${warnings > 0 ? `, ${warnings} ${warnings === 1 ? "warning" : "warnings"}` : ""}. The course can be published.` : `${errors} ${errors === 1 ? "error" : "errors"} and ${warnings} ${warnings === 1 ? "warning" : "warnings"}. The errors must be fixed before the course can be published.`,
-        data: { errors, warnings, findings: shown.map((f) => ({ severity: f.severity, where: f.file, object: f.object_id === "-" ? undefined : f.object_id, rule: f.rule, problem: f.message, detail: f.detail || undefined })), ...(findings.length > shown.length ? { shown: shown.length, more: findings.length - shown.length } : {}) },
+        data: { errors, warnings, findings: shown.map((f) => ({ severity: f.severity, where: f.file, object: f.object_id === "-" ? undefined : f.object_id, rule: f.rule, problem: f.message, detail: f.detail || undefined, wcag: f.wcag && f.wcag.length > 0 ? f.wcag : undefined })), ...(findings.length > shown.length ? { shown: shown.length, more: findings.length - shown.length } : {}) },
       };
     }),
 

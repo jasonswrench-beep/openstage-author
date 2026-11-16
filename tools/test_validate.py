@@ -50,7 +50,7 @@ class MutatedProject:
         self.edit(slide, lambda d: fn(d["baseLayer"]["objects"][index]))
 
     def run(self):
-        return validate.validate_project(self.root)
+        return validate.validate_project(self.root, blockers="errors")
 
 
 class ValidExample(unittest.TestCase):
@@ -736,7 +736,7 @@ class BrokenExample(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.f = validate.validate_project(EXAMPLES / "broken.osproj")
+        cls.f = validate.validate_project(EXAMPLES / "broken.osproj", blockers="errors")
 
     def test_empty_alt_text(self):
         self.assertTrue(rules(self.f, "alt-text-missing", "obj-0001", "error"))
@@ -1232,7 +1232,7 @@ class Interactions(unittest.TestCase):
             obj = next(o for o in slide["baseLayer"]["objects"] if o["type"] == "interaction")
             fn(obj)
             path.write_text(json.dumps(slide, indent=2), encoding="utf-8")
-            return validate.validate_project(dest), obj["id"]
+            return validate.validate_project(dest, blockers="errors"), obj["id"]
 
     def test_the_example_has_no_problems(self):
         self.assertEqual([f for f in validate.validate_project(self.EXAMPLE) if f.severity == "error"], [])
@@ -1423,7 +1423,7 @@ class Credits(unittest.TestCase):
             entry = {"path": "assets/images/a.jpg", "title": "A", "kind": "image",
                      "source": {"provider": provider, "url": "https://example.org/a", "creator": "Jane", "creatorUrl": "", "licence": "CC BY 4.0", "requiresCredit": True}}
             (dest / "assets.json").write_text(json.dumps({"assets": [entry]}), encoding="utf-8")
-            return validate.validate_project(dest)
+            return validate.validate_project(dest, blockers="errors")
 
     def test_every_source_the_editor_can_search_or_link_to_is_accepted(self):
         for provider in ("pixabay", "unsplash", "pexels", "openverse", "wikimedia", "freesound", "mixkit", "svgrepo", "libreshot", "vecteezy", "other"):
@@ -3271,7 +3271,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.49.0")
+        self.assertEqual(project["schemaVersion"], "0.50.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3722,6 +3722,101 @@ class LabeledGraphic(unittest.TestCase):
     def test_it_has_one_to_twelve_markers(self):
         self.assertEqual(len(rules(self.run_with(items=self.items(13)), "interaction-item-count", severity="error")), 1)
         self.assertEqual(rules(self.run_with(items=self.items(12)), "interaction-item-count"), [])
+
+
+class AccessibilityPolicy(unittest.TestCase):
+    """Accessibility findings warn and never block, and say which WCAG criterion they answer. A project may turn chosen rules into blockers,
+    and that is off unless it does (docs/validator-spec.md; development list item 4, 2026-11-15)."""
+
+    def broken(self, **kw):
+        return validate.validate_project(EXAMPLES / "broken.osproj", **kw)
+
+    def test_by_default_an_accessibility_finding_is_a_warning_with_its_criterion(self):
+        f = self.broken()
+        for rule, oid, wcag in [("alt-text-missing", "obj-0001", ["1.1.1"]), ("click-without-key", "obj-0003", ["2.1.1"]), ("contrast", "obj-0003", ["1.4.3"]),
+                                ("media-needs-captions", "obj-0004", ["1.2.1", "1.2.2"]), ("tab-order-duplicate", "obj-0003", ["2.4.3"])]:
+            hits = rules(f, rule)
+            self.assertTrue(hits, rule)
+            for h in hits:
+                self.assertEqual(h.severity, "warning", f"{rule} must not block")
+                self.assertEqual(h.wcag, wcag, rule)
+
+    def test_a_project_with_only_accessibility_problems_is_not_stopped(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["accessibility"].update(altText="", decorative=False))
+            f = validate.validate_project(p.root)
+            self.assertTrue(rules(f, "alt-text-missing", severity="warning"))
+            self.assertEqual([x for x in f if x.severity == "error"], [])
+            import subprocess
+            run = subprocess.run([sys.executable, str(validate.ROOT / "tools" / "validate.py"), str(p.root)], capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(run.returncode, 0, run.stdout)
+            self.assertIn("[WCAG 1.1.1]", run.stdout)
+
+    def test_a_rule_the_project_names_is_an_error_and_the_others_still_warn(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["accessibility"].update(altText="", decorative=False))
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=["alt-text-missing"]))
+            f = validate.validate_project(p.root)
+            self.assertTrue(rules(f, "alt-text-missing", severity="error"))
+            self.assertEqual(rules(f, "alt-text-missing")[0].wcag, ["1.1.1"])
+            import subprocess
+            run = subprocess.run([sys.executable, str(validate.ROOT / "tools" / "validate.py"), str(p.root)], capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(run.returncode, 1, "a chosen rule stops a publish")
+            # Another accessibility problem in the same project is still only a warning.
+            p.obj(0, lambda o: o["accessibility"].update(tabOrder=0))
+            g = validate.validate_project(p.root)
+            self.assertFalse(rules(g, "contrast", severity="error"))
+
+    def test_the_setting_is_off_until_it_is_turned_on(self):
+        with MutatedProject() as p:
+            p.obj(0, lambda o: o["accessibility"].update(altText="", decorative=False))
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=[]))
+            self.assertTrue(rules(validate.validate_project(p.root), "alt-text-missing", severity="warning"))
+
+    def test_a_blocker_that_is_not_an_accessibility_rule_is_said_and_stops_nothing(self):
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=["asset-missing", "no-such-rule"]))
+            f = validate.validate_project(p.root)
+            hits = rules(f, "blocker-unknown")
+            self.assertEqual(len(hits), 2)
+            self.assertTrue(all(h.severity == "warning" for h in hits))
+            self.assertEqual([x for x in f if x.severity == "error"], [])
+
+    def test_the_build_check_can_block_everything_or_what_was_an_error_before(self):
+        self.assertTrue(rules(self.broken(blockers="all"), "tab-order-gaps", severity="error") or not rules(self.broken(), "tab-order-gaps"))
+        before = self.broken(blockers="errors")
+        self.assertTrue(rules(before, "alt-text-missing", "obj-0001", "error"))
+        self.assertFalse(rules(before, "hotspot-small", severity="error"), "a rule that never raised an error stays a warning")
+        self.assertEqual(rules(self.broken(blockers=["contrast"]), "contrast")[0].severity, "error")
+        self.assertEqual(rules(self.broken(blockers=["contrast"]), "alt-text-missing")[0].severity, "warning")
+
+    def test_the_catalogue_names_only_rules_the_validator_has_and_a_criterion_for_each(self):
+        source = (validate.ROOT / "tools" / "validate.py").read_text(encoding="utf-8")
+        for rule_id, info in validate.A11Y_RULES.items():
+            self.assertIn(f'"{rule_id}"', source, f"{rule_id} is in the catalogue but no rule of that name is raised")
+            self.assertTrue(info["wcag"], rule_id)
+            for sc in info["wcag"]:
+                self.assertRegex(sc, r"^[1-4]\.\d{1,2}\.\d{1,2}$", rule_id)
+            self.assertIn(info["level"], ("A", "AA"), rule_id)
+            self.assertIn(info.get("since", "2.0"), ("2.0", "2.1", "2.2"), rule_id)
+            self.assertTrue(info["title"].strip(), rule_id)
+
+    def test_every_error_the_validator_raised_for_accessibility_before_is_in_the_catalogue(self):
+        # The rules that used to stop a publish for an accessibility reason (docs/validator-spec.md, "Accessibility, all errors").
+        for rule_id in ["alt-text-missing", "alt-text-on-decorative", "not-keyboard-reachable", "click-without-key", "media-needs-captions", "contrast",
+                        "theme-contrast", "tab-order-duplicate", "hotspot-decorative", "hotspot-too-small", "interaction-image-alt", "labeledgraphic-alt",
+                        "quiz-hotspot-alt", "quiz-region-label", "character-picture-alt", "theme-logo-alt", "theme-logo-decorative-alt", "download-title-missing",
+                        "download-description-missing", "embed-captions-unconfirmed", "embed-transcript-missing", "table-needs-header", "description-text-missing"]:
+            self.assertIn(rule_id, validate.A11Y_RULES)
+
+    def test_the_schema_accepts_the_list_and_refuses_a_repeat_or_a_bad_name(self):
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=["contrast", "alt-text-missing"]))
+            self.assertEqual([x for x in validate.validate_project(p.root) if x.rule == "schema"], [])
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=["contrast", "contrast"]))
+            self.assertTrue(rules(validate.validate_project(p.root), "schema"))
+            p.edit("project.json", lambda d: d.update(accessibilityBlockers=["Not A Rule"]))
+            self.assertTrue(rules(validate.validate_project(p.root), "schema"))
 
 
 if __name__ == "__main__":

@@ -183,8 +183,8 @@ class Reading(Temp):
 
         def broken(members):
             slide = json.loads(members["slides/slide-001.json"])
-            slide["baseLayer"]["objects"][2]["accessibility"]["altText"] = ""
-            slide["baseLayer"]["objects"][2]["accessibility"]["decorative"] = False
+            # Not an accessibility problem: those are warnings now and do not stop a set being used.
+            slide["baseLayer"]["objects"][2]["triggers"].append({"id": "trg-9502", "event": "slideStart", "action": "stopTimer", "target": "obj-9999", "conditions": []})
             members["slides/slide-001.json"] = json.dumps(slide).encode()
         self.refused(self.rewrite(self.dir / "set.osset", "broken.osset", broken), "a problem that stops them")
 

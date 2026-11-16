@@ -539,7 +539,7 @@ test("a table's cells are set by row and column from 1, and anything that is not
 
 // ---- the tools that run the program's other tools
 
-test("the check finds nothing wrong with a fresh course, then names a picture with no alt text as an error", { skip: !havePython }, async () => {
+test("the check finds nothing wrong with a fresh course, then names a picture with no alt text as a warning with its WCAG criterion", { skip: !havePython }, async () => {
   const w = await started();
   try {
     const clean = await w.call("check_course");
@@ -548,12 +548,15 @@ test("the check finds nothing wrong with a fresh course, then names a picture wi
     writeFileSync(path.join(w.folder, "p.png"), png(100, 100));
     const pic = (await w.call("add_picture", { slide: 1, file: "p.png" })).data;
     const bad = await w.call("check_course");
-    assert.equal(bad.data.errors, 1, JSON.stringify(bad.data));
-    assert.match(bad.text, /1 error.*must be fixed/);
+    // Accessibility problems warn and never stop a publish: the course can be published, and the finding says which WCAG criterion it answers.
+    assert.equal(bad.data.errors, 0, JSON.stringify(bad.data));
+    assert.equal(bad.data.warnings, 1, JSON.stringify(bad.data));
+    assert.match(bad.text, /No errors, 1 warning\. The course can be published\./);
     assert.equal(bad.data.findings[0].object, pic.id);
     assert.match(bad.data.findings[0].problem, /alt text/i);
+    assert.deepEqual(bad.data.findings[0].wcag, ["1.1.1"]);
     await w.call("set_object", { object: pic.id, altText: "A square" });
-    assert.equal((await w.call("check_course")).data.errors, 0);
+    assert.equal((await w.call("check_course")).data.warnings, 0);
   } finally {
     w.done();
   }
@@ -585,12 +588,21 @@ test("publishing makes the packages in Published courses, refuses a course with 
     assert.ok(existsSync(path.join(out, "Course-review.docx")));
     assert.ok(existsSync(path.join(out, "Course", "index.html")));
     assert.ok(r.data.files.every((f: string) => f.startsWith(w.folder)), "everything is inside the folder");
-    // A course with an error is refused, with the error.
+    // A picture with no alt text is a warning: the course still publishes.
     writeFileSync(path.join(w.folder, "p.png"), png(100, 100));
     await w.call("add_picture", { slide: 1, file: "p.png" });
+    const warned = await w.call("publish_course", { targets: ["scorm12"] });
+    assert.ok(warned.ok, warned.text);
+    // A course whose own settings make that rule stop a publish is refused, with the problem. (The setting is the author's, written in the project's file.)
+    const settings = path.join(w.folder, "Course.osproj", "project.json");
+    const project = JSON.parse(readFileSync(settings, "utf-8"));
+    project.accessibilityBlockers = ["alt-text-missing"];
+    writeFileSync(settings, JSON.stringify(project, null, 2));
     const refused = await w.call("publish_course", { targets: ["scorm12"] });
     assert.equal(refused.ok, false);
     assert.match(refused.text, /error/i);
+    project.accessibilityBlockers = [];
+    writeFileSync(settings, JSON.stringify(project, null, 2));
     // A folder of the same name that is not a published course is left alone.
     rmSync(path.join(out, "Course"), { recursive: true });
     mkdirSync(path.join(out, "Course"));

@@ -143,7 +143,7 @@ test("an imported project passes the real validator with only the problems the a
     const { pkg, deck } = open(spec({ noPhotoAlt: true }));
     const prepared = m.prepareDeckImport(deck, pkg, "x.pptx", [0]);
     for (const a of prepared.assets) writeFileSync(path.join(dir, a.path), a.bytes);
-    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const r = spawnSync(process.env["OPENSTAGE_PYTHON"]!, [path.join(repo, "tools", "validate.py"), dir, "--json", "--block", "errors"], { encoding: "utf-8" });
     const findings = JSON.parse(r.stdout) as { severity: string; rule: string; message: string }[];
     const errors = findings.filter((f) => f.severity === "error");
     // The picture had no alt text in the deck, so the author is asked. Nothing else is wrong.
@@ -207,7 +207,7 @@ test("a deck imported with notes as narration passes the real validator", () => 
       mkdirSync(path.dirname(path.join(dir, a.path)), { recursive: true });
       writeFileSync(path.join(dir, a.path), a.bytes);
     }
-    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json", "--block", "errors"], { encoding: "utf-8" });
     const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
     assert.deepEqual(found.filter((f) => f.severity === "error" && !/contrast/.test(f.rule)), [], r.stdout.slice(0, 600));
   } finally {
@@ -272,7 +272,7 @@ test("an imported slide that plays by itself passes the real validator, and Mode
       mkdirSync(path.dirname(p), { recursive: true });
       writeFileSync(p, f.text);
     }
-    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json"], { encoding: "utf-8" });
+    const r = spawnSync("python", [path.join(repo, "tools", "validate.py"), dir, "--json", "--block", "errors"], { encoding: "utf-8" });
     const found = JSON.parse(r.stdout || "[]") as { rule: string; severity: string }[];
     assert.deepEqual(found.filter((f) => f.rule === "timing-click-advance" || (f.severity === "error" && !/contrast/.test(f.rule))).map((f) => f.rule), [], r.stdout.slice(0, 600));
   } finally {

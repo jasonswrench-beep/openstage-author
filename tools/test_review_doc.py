@@ -229,7 +229,7 @@ class WhatItSays(unittest.TestCase):
             doc, summary = review_doc.make(proj)
             lines = [t for _, t in text_of(check_package(self, doc))]
             self.assertIn("Alt text: MISSING. A screen reader has nothing to say for it.", lines)
-            self.assertGreater(summary["errors"], 0, "and the checker's own list has it too")
+            self.assertGreater(summary["warnings"], 0, "and the checker's own list has it too, as a warning, since accessibility problems warn")
 
     def test_narration_scripts_are_included(self):
         _, _, roots = build("minimal.osproj")

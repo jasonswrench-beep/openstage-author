@@ -84,7 +84,7 @@ SITECUSTOMIZE = ROOT / "tools" / "bundled_sitecustomize.py"
 EXAMPLES = ["minimal.osproj", "interactions.osproj", "question-types.osproj", "lesson-parts.osproj", "scenario.osproj", "timed-media.osproj", "looks.osproj", "branching.osproj",
             # Every ready-made game, finished, so there is something to play at once (Jason, 2026-11-10).
             "quiz-board.osproj", "prize-ladder.osproj", "escape-room.osproj", "order-challenge.osproj"]
-TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "quiztext.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "kokoro_model.py", "kokoro-model.json", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json"]
+TOOLS = ["validate.py", "migrate.py", "narrate.py", "narration_key.py", "quiztext.py", "generate.py", "voice_sample.py", "kokoro-voices.json", "openai-voices.json", "download-types.json", "theme-rules.json", "narration-requirements.txt", "docopt-0.6.2-py2.py3-none-any.whl", "kokoro_model.py", "kokoro-model.json", "charpack.py", "pngio.py", "xliff.py", "review_doc.py", "player-text.json", "a11y-rules.json"]
 PLAYER_PACKAGES = [("esbuild",), ("@esbuild", "win32-x64"), ("fflate",)]
 # The file the MCP server is shipped as, beside the player. The editor looks for it by this name.
 MCP_SERVER = "openstage-mcp.mjs"

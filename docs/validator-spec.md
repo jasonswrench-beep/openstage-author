@@ -23,9 +23,24 @@ a publish.
 A **warning** means the project is valid but something is probably wrong. Warnings never
 stop a publish.
 
-Accessibility problems are errors, not warnings. This is the choice that makes the
-accessibility positioning real rather than aspirational. A tool that warns about missing
-alt text produces courses with missing alt text.
+**Accessibility problems are warnings, never errors** (decided 2026-11-15, for every tool in the suite, Author included; it replaces the
+earlier rule that they were errors). The author decides whether to publish. What the validator owes the author is a clear
+finding, in plain words, with the WCAG 2.1 AA success criterion it answers on every one of them, so that faculty who need to
+show where a course stands against the standard (the legal floor, from the April 26, 2027 compliance date) have the mapping. OpenStage
+Author aims for WCAG 2.2 AA; a finding that answers a criterion that came with 2.2 says so.
+
+**Opt-in blockers.** A project can turn chosen accessibility rules into publishing blockers for itself: `accessibilityBlockers` in
+`project.json` (format 0.50.0), a list of rule ids. A rule on that list raises an error, and only that rule does; the rest still warn.
+The list is empty unless the author turns rules on (in the editor, **File > Accessibility rules that stop a publish...**). A name on the
+list that is not an accessibility rule is reported (`blocker-unknown`, a warning) and stops nothing.
+
+Which rules are accessibility rules, and the criterion each answers, is `tools/a11y-rules.json`. That file stands in for the shared
+accessibility catalogue (C2) until the core publishes it; the validator and the catalogue are kept together here, and a test fails if the
+catalogue names a rule the validator does not raise.
+
+For a build check (not an author's setting), `validate.py --block all|errors|RULE,RULE` makes accessibility findings errors: `all` for every
+rule, `errors` for each rule that raises an error by its nature (what every accessibility rule did before this change), or the rules named.
+The tests use `errors`, so a rule that stops firing still fails a test.
 
 ## Schema checks
 
@@ -39,7 +54,9 @@ A suggested description is checked for shape: `altSuggestion` has a non-empty `t
 
 ## Semantic rules
 
-### Accessibility — all errors
+### Accessibility rules that raise errors by their nature
+
+Each of these is reported as a **warning** (with its WCAG criterion) unless the project names it in `accessibilityBlockers`. The rules and criteria are in `tools/a11y-rules.json`.
 
 | Rule | Message |
 | --- | --- |
@@ -52,9 +69,10 @@ A suggested description is checked for shape: `altSuggestion` has a non-empty `t
 | A `video` or `audio` object has no caption track and no narration script | Time-based media needs captions |
 | Text contrast against its background is below WCAG 2.2 AA, for the object's own look, for each look it can take, and for each way the looks stack (a look that makes the object see-through counts; `disabled` is left out) | Contrast too low |
 
-The `click` without `keyActivate` rule is the one that will be most tempting to soften.
-It should not be softened. It is the difference between a tool that produces accessible
-courses and a tool that permits them.
+The `click` without `keyActivate` rule is the one that will be most tempting to ignore.
+It is the difference between a tool that produces accessible courses and a tool that permits
+them, so its finding says so in plain words, with the criterion (2.1.1), and an author who wants it to
+stop a publish can say so.
 
 ### Accessibility — warning
 
