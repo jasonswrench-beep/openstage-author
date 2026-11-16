@@ -94,3 +94,10 @@ The editor program (the editor/ folder) and the publishing tools
 
 Any further bundled model or library is listed here with its licence before
 it ships. Open weights are not automatically open source: check each one.
+
+Presenters "Guide", "Coach", "Professor" and "Mentor" (the illustrated presenters of the OpenStage Presenter add-on: presenter/src/presenters.rs and editor/src/presenter/draw.ts)
+  Drawn by a program from colours and shapes written for this project. Jason S. Wrench and the OpenStage Author
+  contributors release them under the Apache License 2.0. A clip made with one is credited in the course's assets.json as made by a program, and the credits page says so.
+
+The OpenStage Presenter add-on's own program (presenter/) is built from Rust crates under MIT or Apache License 2.0 only (serde, serde_json and windows-sys, and what they need).
+  presenter/tools/check_rules.py fails the build if a dependency is under another licence, or looks like FFmpeg.

@@ -1,0 +1,13 @@
+{
+  "contract": 1,
+  "id": "presenter",
+  "name": "OpenStage Presenter",
+  "version": "0.1.0",
+  "licence": "Apache-2.0",
+  "description": "Illustrated presenters that speak a slide's narration, made into a video you put on the slide.",
+  "formatMin": "0.52.0",
+  "host": "openstage-presenter.exe",
+  "commands": ["presenter.hello", "presenter.check", "presenter.presenters", "presenter.mouthTrack"],
+  "tiers": ["lite"],
+  "signature": null
+}

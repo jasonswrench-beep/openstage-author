@@ -1,0 +1,410 @@
+// The Presenter add-on, seen from the editor's native side (docs/presenter.md): finding it, asking its engine host things, and saving the clip the
+// editor makes. The add-on is a separate download in a folder of its own; nothing here runs unless that folder is there and the editor asks.
+
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::fs;
+use std::io::{Read, Write};
+use std::path::{Component, Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// The longest manifest read.
+const MAX_MANIFEST: u64 = 64 * 1024;
+/// The most the engine host may say before it is cut off.
+const MAX_ANSWER: u64 = 16 * 1024 * 1024;
+/// The commands of contract 1 an add-on may list.
+const KNOWN_COMMANDS: &[&str] = &["presenter.hello", "presenter.check", "presenter.presenters", "presenter.mouthTrack"];
+const KNOWN_TIERS: &[&str] = &["lite", "standard", "studio"];
+/// The most a clip may weigh (the video folder allows 500 MB).
+const MAX_CLIP: usize = 500 * 1024 * 1024;
+
+/// What the editor needs to know about an add-on it found.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AddonInfo {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub tiers: Vec<String>,
+    pub commands: Vec<String>,
+    /// The manifest carries a signature. Nothing verifies it yet (there is no key to verify against), so this does not make an add-on usable.
+    pub signed: bool,
+    /// Whether the editor may use it now.
+    pub usable: bool,
+    /// Why it is not usable, in words, when it is not.
+    pub why: Option<String>,
+    #[serde(skip)]
+    pub host: PathBuf,
+}
+
+/// Where add-ons are kept: a folder for each, each with an addon.json. `OPENSTAGE_ADDONS` names another place (for tests and for a developer).
+pub fn addons_root() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("OPENSTAGE_ADDONS") {
+        if !p.is_empty() {
+            return Some(PathBuf::from(p));
+        }
+    }
+    #[cfg(windows)]
+    {
+        std::env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("OpenStage").join("addons"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::env::var_os("HOME").map(|d| PathBuf::from(d).join("Library").join("Application Support").join("OpenStage").join("addons"))
+    }
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|d| PathBuf::from(d).join(".local").join("share")))
+            .map(|d| d.join("OpenStage").join("addons"))
+    }
+}
+
+/// Whether an add-on that is not signed may be used: only while a developer sets OPENSTAGE_DEV_ADDONS=1, because nothing can sign one yet.
+pub fn dev_addons() -> bool {
+    std::env::var("OPENSTAGE_DEV_ADDONS").map(|v| v == "1").unwrap_or(false)
+}
+
+fn text<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
+    v.get(key).and_then(|x| x.as_str())
+}
+
+/// A path that stays inside the add-on's own folder: relative, no `..`, not empty.
+fn inside(rel: &str) -> bool {
+    let p = Path::new(rel);
+    !rel.is_empty() && !p.is_absolute() && p.components().all(|c| matches!(c, Component::Normal(_))) && !rel.contains(':')
+}
+
+fn id_ok(id: &str) -> bool {
+    (2..=31).contains(&id.len()) && id.as_bytes()[0].is_ascii_lowercase() && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+fn version_ok(v: &str) -> bool {
+    let parts: Vec<&str> = v.split('.').collect();
+    parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.len() <= 6 && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Reads and checks the manifest in one add-on's folder.
+pub fn read_manifest(folder: &Path, dev: bool) -> Result<AddonInfo, String> {
+    let file = folder.join("addon.json");
+    let meta = fs::metadata(&file).map_err(|_| "There is no addon.json.".to_string())?;
+    if !meta.is_file() || meta.len() > MAX_MANIFEST {
+        return Err("addon.json is not a file of a sensible size.".into());
+    }
+    let raw = fs::read_to_string(&file).map_err(|e| format!("addon.json could not be read: {e}"))?;
+    let m: Value = serde_json::from_str(&raw).map_err(|e| format!("addon.json is not JSON: {e}"))?;
+    if m.get("contract").and_then(|c| c.as_u64()) != Some(1) {
+        return Err("addon.json is not for contract 1.".into());
+    }
+    let id = text(&m, "id").filter(|i| id_ok(i)).ok_or("addon.json has no good id.")?.to_string();
+    let name = text(&m, "name").filter(|n| !n.trim().is_empty() && n.len() <= 80).ok_or("addon.json has no good name.")?.to_string();
+    let version = text(&m, "version").filter(|v| version_ok(v)).ok_or("addon.json has no good version.")?.to_string();
+    text(&m, "licence").filter(|l| !l.trim().is_empty()).ok_or("addon.json does not say its licence.")?;
+    let host_rel = text(&m, "host").filter(|h| inside(h)).ok_or("addon.json names a program outside its own folder, or none.")?;
+    let host = folder.join(host_rel);
+    if !host.is_file() {
+        return Err(format!("The program {host_rel} is not in the add-on's folder."));
+    }
+    let list = |key: &str, known: &[&str]| -> Result<Vec<String>, String> {
+        let items = m.get(key).and_then(|v| v.as_array()).ok_or(format!("addon.json has no {key}."))?;
+        items
+            .iter()
+            .map(|i| i.as_str().filter(|s| known.contains(s)).map(|s| s.to_string()).ok_or(format!("addon.json lists a {key} this editor does not know.")))
+            .collect()
+    };
+    let commands = list("commands", KNOWN_COMMANDS)?;
+    let tiers = list("tiers", KNOWN_TIERS)?;
+    let signed = text(&m, "signature").map(|s| !s.trim().is_empty()).unwrap_or(false);
+    let usable = dev;
+    let why = if usable { None } else { Some("It is not signed, and nothing can verify a signature yet. Set OPENSTAGE_DEV_ADDONS=1 to use it while it is being built.".to_string()) };
+    Ok(AddonInfo { id, name, version, description: text(&m, "description").unwrap_or("").chars().take(300).collect(), tiers, commands, signed, usable, why, host })
+}
+
+/// Every add-on in the folder that has a good manifest, by folder name.
+pub fn find_addons(root: &Path, dev: bool) -> Vec<AddonInfo> {
+    let Ok(entries) = fs::read_dir(root) else { return Vec::new() };
+    let mut folders: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+    folders.sort();
+    folders.iter().filter_map(|f| read_manifest(f, dev).ok()).collect()
+}
+
+/// Starts the engine host, gives it one request, and returns its answer. A host that does not answer in time is stopped.
+pub fn call_host(host: &Path, command: &str, params: Value, timeout: Duration) -> Result<Value, String> {
+    let request = json!({ "id": 1, "command": command, "params": params });
+    let mut cmd = Command::new(host);
+    cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("The Presenter add-on could not be started: {e}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = writeln!(stdin, "{request}");
+    }
+    let mut out = child.stdout.take().ok_or("The add-on gave no way to read its answer.")?;
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = out.by_ref().take(MAX_ANSWER + 1).read_to_end(&mut buf);
+        buf
+    });
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if started.elapsed() > timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("The Presenter add-on did not answer in time, so it was stopped.".into());
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(15)),
+            Err(e) => return Err(format!("The Presenter add-on could not be watched: {e}")),
+        }
+    }
+    let bytes = reader.join().map_err(|_| "The add-on's answer could not be read.".to_string())?;
+    if bytes.len() as u64 > MAX_ANSWER {
+        return Err("The Presenter add-on said far more than it should, so its answer was refused.".into());
+    }
+    let said = String::from_utf8_lossy(&bytes);
+    for line in said.lines().rev() {
+        let Ok(v) = serde_json::from_str::<Value>(line.trim()) else { continue };
+        if v["id"] != json!(1) {
+            continue;
+        }
+        if let Some(e) = v.get("error") {
+            return Err(text(e, "message").unwrap_or("The Presenter add-on said it could not do that.").to_string());
+        }
+        if let Some(r) = v.get("result") {
+            return Ok(r.clone());
+        }
+    }
+    let mut err = String::new();
+    if let Some(mut e) = child.stderr.take() {
+        let _ = e.by_ref().take(2000).read_to_string(&mut err);
+    }
+    Err(format!("The Presenter add-on gave no answer I could read.{}", if err.trim().is_empty() { String::new() } else { format!(" It said: {}", err.trim()) }))
+}
+
+/// The usable Presenter add-on, if there is one.
+fn the_addon() -> Option<AddonInfo> {
+    let root = addons_root()?;
+    find_addons(&root, dev_addons()).into_iter().find(|a| a.id == "presenter" && a.usable)
+}
+
+/// What the editor asks at the start: is the Presenter add-on here and may it be used?
+#[tauri::command]
+pub fn presenter_addon() -> Option<AddonInfo> {
+    the_addon()
+}
+
+/// Ask the add-on something that needs no file: hello, check or presenters.
+#[tauri::command]
+pub async fn presenter_ask(command: String) -> Result<Value, String> {
+    if !["presenter.hello", "presenter.check", "presenter.presenters"].contains(&command.as_str()) {
+        return Err("The editor does not ask the add-on that.".into());
+    }
+    let addon = the_addon().ok_or("The Presenter add-on is not here.")?;
+    if !addon.commands.contains(&command) {
+        return Err("This version of the add-on does not do that.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || call_host(&addon.host, &command, json!({}), Duration::from_secs(20))).await.map_err(|e| e.to_string())?
+}
+
+/// The mouth shapes of a piece of narration audio already made for the project (named by its cache key).
+#[tauri::command]
+pub async fn presenter_mouth_track(dir: String, key: String) -> Result<Value, String> {
+    let dir = PathBuf::from(dir);
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if !super::is_cache_key(&key) {
+        return Err("That is not narration audio.".into());
+    }
+    let wav = dir.join(".cache").join("narration").join(format!("{key}.wav"));
+    if !wav.is_file() {
+        return Err("The narration audio has not been made yet.".into());
+    }
+    let addon = the_addon().ok_or("The Presenter add-on is not here.")?;
+    if !addon.commands.iter().any(|c| c == "presenter.mouthTrack") {
+        return Err("This version of the add-on does not do that.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        call_host(&addon.host, "presenter.mouthTrack", json!({ "wav": wav.to_string_lossy(), "fps": 25 }), Duration::from_secs(120))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Save a clip the editor made in the project's videos, and return its project-relative path. The bytes (given as base64) have to be a real WebM
+/// file, and a file that is already there is never overwritten.
+pub fn save_clip_at(dir: &Path, name_hint: &str, bytes: &[u8]) -> Result<String, String> {
+    if !dir.join("project.json").is_file() {
+        return Err("That folder is not an OpenStage project.".into());
+    }
+    if bytes.len() < 64 || bytes[..4] != [0x1A, 0x45, 0xDF, 0xA3] {
+        return Err("What was made is not a video OpenStage can use.".into());
+    }
+    if bytes.len() > MAX_CLIP {
+        return Err("That clip is larger than 500 MB.".into());
+    }
+    let folder = dir.join("assets").join("video");
+    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let stem: String = format!("presenter-{}", super::safe_stem(name_hint, "clip")).chars().take(60).collect();
+    let name = super::unique_name(&folder, stem.trim_end_matches('-'), "webm");
+    fs::write(folder.join(&name), bytes).map_err(|e| format!("Could not save the clip: {e}"))?;
+    Ok(format!("assets/video/{name}"))
+}
+
+#[tauri::command]
+pub fn save_presenter_clip(dir: String, name_hint: String, webm: String) -> Result<String, String> {
+    use base64::Engine;
+    if webm.len() > MAX_CLIP * 4 / 3 + 16 {
+        return Err("That clip is larger than 500 MB.".into());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD.decode(webm.as_bytes()).map_err(|_| "What was made could not be read.".to_string())?;
+    save_clip_at(Path::new(&dir), &name_hint, &bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("openstage-presenter-shell-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn addon(root: &Path, folder: &str, manifest: &str, with_host: bool) -> PathBuf {
+        let d = root.join(folder);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("addon.json"), manifest).unwrap();
+        if with_host {
+            fs::write(d.join("host.exe"), b"x").unwrap();
+        }
+        d
+    }
+
+    const GOOD: &str = r#"{"contract":1,"id":"presenter","name":"OpenStage Presenter","version":"0.1.0","licence":"Apache-2.0","description":"Presenters.",
+        "host":"host.exe","commands":["presenter.hello","presenter.check"],"tiers":["lite"],"signature":null}"#;
+
+    #[test]
+    fn a_good_manifest_is_read_and_is_usable_only_in_the_developer_mode() {
+        let root = scratch("good");
+        let d = addon(&root, "presenter", GOOD, true);
+        let a = read_manifest(&d, false).unwrap();
+        assert_eq!((a.id.as_str(), a.version.as_str(), a.tiers.clone(), a.signed), ("presenter", "0.1.0", vec!["lite".to_string()], false));
+        assert!(!a.usable && a.why.as_deref().unwrap().contains("OPENSTAGE_DEV_ADDONS"));
+        assert!(read_manifest(&d, true).unwrap().usable);
+        assert_eq!(a.host, d.join("host.exe"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_signature_is_read_but_does_not_make_an_addon_usable() {
+        let root = scratch("signed");
+        let d = addon(&root, "presenter", &GOOD.replace("\"signature\":null", "\"signature\":\"abcd\""), true);
+        let a = read_manifest(&d, false).unwrap();
+        assert!(a.signed && !a.usable, "nothing verifies it yet");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_manifest_that_is_wrong_is_refused_in_words() {
+        let root = scratch("bad");
+        let cases = [
+            ("nocontract", GOOD.replace("\"contract\":1", "\"contract\":2")),
+            ("badid", GOOD.replace("\"id\":\"presenter\"", "\"id\":\"Presenter One\"")),
+            ("version", GOOD.replace("0.1.0", "one")),
+            ("nolicence", GOOD.replace("\"licence\":\"Apache-2.0\",", "")),
+            ("escape", GOOD.replace("host.exe", "../host.exe")),
+            ("absolute", GOOD.replace("host.exe", "C:/Windows/notepad.exe")),
+            ("command", GOOD.replace("presenter.check", "presenter.format-disk")),
+            ("tier", GOOD.replace("\"lite\"", "\"huge\"")),
+            ("notjson", "{".to_string()),
+        ];
+        for (name, manifest) in cases {
+            let d = addon(&root, name, &manifest, true);
+            assert!(read_manifest(&d, true).is_err(), "{name} must be refused");
+        }
+        let d = addon(&root, "nohost", GOOD, false);
+        assert!(read_manifest(&d, true).unwrap_err().contains("not in the add-on's folder"));
+        let d = root.join("nothing");
+        fs::create_dir_all(&d).unwrap();
+        assert!(read_manifest(&d, true).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_manifest_that_is_far_too_big_is_not_read() {
+        let root = scratch("big");
+        let d = addon(&root, "presenter", &format!("{GOOD}{}", " ".repeat(70_000)), true);
+        assert!(read_manifest(&d, true).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn finding_add_ons_keeps_the_good_ones_in_order_and_skips_the_rest() {
+        let root = scratch("find");
+        addon(&root, "b-presenter", &GOOD.replace("\"presenter\"", "\"b-one\"").replace("OpenStage Presenter", "B"), true);
+        addon(&root, "a-presenter", GOOD, true);
+        addon(&root, "broken", "{", true);
+        fs::write(root.join("a-file.txt"), "x").unwrap();
+        let found = find_addons(&root, true);
+        assert_eq!(found.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), vec!["presenter", "b-one"]);
+        assert!(find_addons(&root.join("none"), true).is_empty());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(windows)]
+    fn fake_host(dir: &Path, body: &str) -> PathBuf {
+        let p = dir.join("host.bat");
+        fs::write(&p, format!("@echo off\r\n{body}\r\n")).unwrap();
+        p
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_hosts_answer_is_read_and_its_errors_are_said() {
+        let d = scratch("call");
+        let ok = fake_host(&d, "echo {\"id\":1,\"event\":\"progress\"}\r\necho {\"id\":1,\"result\":{\"fine\":true}}");
+        assert_eq!(call_host(&ok, "presenter.hello", json!({}), Duration::from_secs(10)).unwrap(), json!({ "fine": true }));
+        let no = fake_host(&d, "echo {\"id\":1,\"error\":{\"code\":\"x\",\"message\":\"It would not work.\"}}");
+        assert_eq!(call_host(&no, "presenter.hello", json!({}), Duration::from_secs(10)).unwrap_err(), "It would not work.");
+        let junk = fake_host(&d, "echo this is not json");
+        assert!(call_host(&junk, "presenter.hello", json!({}), Duration::from_secs(10)).unwrap_err().contains("no answer"));
+        let other = fake_host(&d, "echo {\"id\":2,\"result\":{}}");
+        assert!(call_host(&other, "presenter.hello", json!({}), Duration::from_secs(10)).is_err(), "an answer to another request is not an answer");
+        assert!(call_host(&d.join("missing.exe"), "presenter.hello", json!({}), Duration::from_secs(10)).unwrap_err().contains("could not be started"));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_host_that_does_not_answer_is_stopped() {
+        let d = scratch("slow");
+        let slow = fake_host(&d, "ping -n 20 127.0.0.1 >nul");
+        let t = Instant::now();
+        let e = call_host(&slow, "presenter.hello", json!({}), Duration::from_millis(400)).unwrap_err();
+        assert!(e.contains("did not answer in time") && t.elapsed() < Duration::from_secs(8), "{e}");
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_clip_is_saved_only_if_it_is_a_webm_and_never_over_another_file() {
+        let d = scratch("clip");
+        fs::write(d.join("project.json"), "{}").unwrap();
+        let mut webm = vec![0x1A, 0x45, 0xDF, 0xA3];
+        webm.extend(vec![0u8; 100]);
+        assert_eq!(save_clip_at(&d, "Guide: Welcome!", &webm).unwrap(), "assets/video/presenter-Guide--Welcome.webm");
+        assert_eq!(save_clip_at(&d, "Guide: Welcome!", &webm).unwrap(), "assets/video/presenter-Guide--Welcome-2.webm");
+        assert!(save_clip_at(&d, "x", b"RIFF....WAVE and so on, long enough to pass the size test, not a webm at all.....").is_err());
+        assert!(save_clip_at(&d, "x", &webm[..10]).is_err());
+        assert!(save_clip_at(&d.join("nope"), "x", &webm).is_err());
+        let _ = fs::remove_dir_all(&d);
+    }
+}
