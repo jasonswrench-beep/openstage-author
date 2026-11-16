@@ -62,7 +62,7 @@ test("the course's code and version are kept in the project, one undo step each,
   const text = (p: string) => files.find((f) => f.path === p)!.text;
   const m = new Model({ dir: "versions-test", project: text("project.json"), theme: text("theme.json"), assets: null, slides: [{ id: "slide-001", text: text("slides/slide-001.json") }] });
   assert.equal(m.courseVersion, "");
-  assert.equal(m.project.schemaVersion, "0.50.0");
+  assert.equal(m.project.schemaVersion, "0.51.0");
   assert.deepEqual(m.setCourseDetail("version", "  2.0 "), { ok: true, message: "The course's version is 2.0." });
   assert.equal(m.project.meta.version, "2.0");
   assert.equal(m.setCourseDetail("courseCode", "CMM   360").message, "The course's course code is CMM 360.");

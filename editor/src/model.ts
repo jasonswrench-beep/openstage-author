@@ -29,6 +29,7 @@ import { applyPlan, planResync, type ResyncPlan } from "./pptx/resync.ts";
 import { cloneObjects, copyName } from "./clone.ts";
 import type { ImportedQuestion } from "./questionimport.ts";
 import { fillQuiz } from "./questionfill.ts";
+import { buildChapters, buildChoiceMoment, buildHotspotMoment, buildQuestionMoment, choiceProblem, hotspotProblem, layersOpenedBy, MOMENT_WORDS, momentsOf, nextTag, questionProblem, timeInWords, videoBox, type Built, type Moment, type VideoMomentSpec } from "./interactivevideo.ts";
 import { applyEdit, quizKind, type QuestionEdit } from "./questionedit.ts";
 import { alignBoxes, ALIGNMENTS, bounds, distributeBoxes, type Alignment, type Box } from "./align.ts";
 import { expandGroups, groupBox, loneGroups, scaleBoxes, unitsOf, wholeGroup } from "./group.ts";
@@ -47,7 +48,7 @@ import { moveSection, moveSlideAcross, moveSlidesToSection, newSectionId, remove
 import { downloadScript, isKnownVoice, isValidIpa, itemScript, langAfterVoiceChange, newNarration, questionScript, SPEED_MAX, SPEED_MIN, voiceOption, voiceTraits, type Narration } from "./narration.ts";
 
 /** The format version this editor reads and writes. */
-export const FORMAT_VERSION = "0.50.0";
+export const FORMAT_VERSION = "0.51.0";
 
 /** A shape that is a speech or thought bubble, or text that sits in one. */
 const isBubbleObject = (o: OSObject): boolean => (o.type === "shape" ? isBubbleKind(o.content["shape"]) : o.type === "text" && isBubbleKind(o.content["bubble"]));
@@ -1734,6 +1735,115 @@ export class Model {
     this.project.meta = meta;
     this.emit({ kind: "content" });
     return { ok: true, message: v === "" ? `The course has no ${word} now.` : `The course's ${word} is ${v}.` };
+  }
+
+  // ---- an interactive video (interactivevideo.ts)
+
+  /** The video or audio object with this id on the slide being edited, or null. */
+  private videoOf(videoId: string): OSObject | null {
+    const slide = this.slide;
+    if (!slide) return null;
+    const found = [slide.baseLayer, ...slide.layers].flatMap((l) => l.objects).find((o) => o.id === videoId);
+    return found && found.type === "video" ? found : null;
+  }
+
+  /** The moments tied to a video on the slide being edited: questions, hotspots, chapters and choices, in the order of their times. */
+  videoMoments(videoId: string): Moment[] {
+    const slide = this.slide;
+    return slide ? momentsOf(slide, videoId) : [];
+  }
+
+  /** The next free number for a trigger on an object. */
+  private nextTrigger(o: OSObject): string {
+    return `trg-${String(nextNumber(o.triggers.map((t) => t.id), "trg-")).padStart(4, "0")}`;
+  }
+
+  private nextTab(slide: Slide): number {
+    return slide.baseLayer.objects.reduce((m, o) => Math.max(m, o.accessibility.tabOrder ?? 0), 0) + 1;
+  }
+
+  /**
+   * Add something that happens at a moment in a video (a question, a hotspot or a choice), or set the video's chapters. The objects go in the slide, over
+   * the video, tied to its time; the layers they open go in with them. One undo step. Says why in plain words when it cannot.
+   */
+  addVideoMoment(videoId: string, spec: VideoMomentSpec): { ok: boolean; message: string } {
+    const slide = this.slide;
+    const video = this.videoOf(videoId);
+    if (!slide || !video) return { ok: false, message: "Choose a video on the slide first." };
+    const box = videoBox(video);
+    const alloc = this.allocator(slide);
+    const tab = this.nextTab(slide);
+    const slideIds = this.slides.map((s) => s.id);
+    let built: Built;
+    if (spec.kind === "question") {
+      const why = questionProblem(spec);
+      if (why) return { ok: false, message: why };
+      built = buildQuestionMoment(box, spec, alloc, tab, nextTag(slide, "question"));
+    } else if (spec.kind === "hotspot") {
+      const why = hotspotProblem(spec);
+      if (why) return { ok: false, message: why };
+      built = buildHotspotMoment(box, spec, alloc, tab, nextTag(slide, "hotspot"));
+    } else if (spec.kind === "choice") {
+      const why = choiceProblem(spec, slideIds);
+      if (why) return { ok: false, message: why };
+      if (spec.atMs === null && video.triggers.some((t) => t.event === "mediaComplete" && t.action === "showLayer" && slide.layers.some((l) => l.id === t.target && l.objects.some((x) => x.group?.startsWith("vm-choice-")))))
+        return { ok: false, message: "The video already has a choice for when it ends. Take that one away first." };
+      built = buildChoiceMoment(box, spec, alloc, tab, nextTag(slide, "choice"));
+    } else {
+      const { chapters, problems } = spec;
+      if (problems.length > 0) return { ok: false, message: problems[0]! };
+      this.record("");
+      this.dropMoments(slide, videoId, (m) => m.kind === "chapter");
+      const made = buildChapters(box, chapters, alloc, tab, nextTag(slide, "chapter"));
+      slide.baseLayer.objects.push(...made.objects);
+      this.emit({ kind: "structure" });
+      return { ok: true, message: made.said };
+    }
+    this.record("");
+    slide.baseLayer.objects.push(...built.objects);
+    slide.layers.push(...built.layers);
+    if (built.onVideo) video.triggers.push({ ...built.onVideo, id: this.nextTrigger(video) });
+    this.emit({ kind: "structure" });
+    // A question or a choice is drawn over the picture, so a video drawn small on the slide gets a crowded one.
+    const small = spec.kind !== "hotspot" && (video.geometry.width < 560 || video.geometry.height < 315);
+    return { ok: true, message: small ? `${built.said} The video is small on the slide, so this covers most of it: make the video bigger if it is crowded.` : built.said };
+  }
+
+  /** Take a moment away whole: its objects, the layers only they open, and a trigger on the video that opened them. One undo step. */
+  removeVideoMoment(videoId: string, tag: string): string | null {
+    const slide = this.slide;
+    if (!slide || !this.videoOf(videoId)) return null;
+    const had = momentsOf(slide, videoId).find((m) => m.tag === tag);
+    if (!had) return null;
+    this.record("");
+    this.dropMoments(slide, videoId, (m) => m.tag === tag);
+    this.emit({ kind: "structure" });
+    return `Took away the ${MOMENT_WORDS[had.kind].toLowerCase()}${had.atMs === null ? " at the end" : had.kind === "chapter" ? "s" : ` at ${timeInWords(had.atMs)}`}.`;
+  }
+
+  private dropMoments(slide: Slide, videoId: string, which: (m: Moment) => boolean): void {
+    const tags = new Set(momentsOf(slide, videoId).filter(which).map((m) => m.tag));
+    // A chapter menu is one moment however many buttons it has, so every tag of that kind goes with it.
+    if ([...momentsOf(slide, videoId).filter(which)].some((m) => m.kind === "chapter")) {
+      for (const layer of [slide.baseLayer, ...slide.layers]) for (const o of layer.objects) if (o.group?.startsWith("vm-chapter-") && o.triggers.some((t) => t.action === "seekMedia" && t.target === videoId)) tags.add(o.group);
+    }
+    if (tags.size === 0) return;
+    const gone: OSObject[] = [];
+    const emptied = new Set<string>();
+    for (const layer of [slide.baseLayer, ...slide.layers]) {
+      const had = layer.objects.length;
+      const keep = layer.objects.filter((o) => !(o.group && tags.has(o.group)));
+      gone.push(...layer.objects.filter((o) => o.group && tags.has(o.group)));
+      layer.objects = keep;
+      if (had > 0 && keep.length === 0 && layer !== slide.baseLayer) emptied.add(layer.id);
+    }
+    // The layers those objects opened go too (the feedback, the note), unless something that stays opens them, and so does a layer that held
+    // only the moment's objects (the choices at the end) and is empty now. A trigger on the video that opened a layer that is gone goes with it.
+    const stays = new Set(layersOpenedBy([slide.baseLayer, ...slide.layers].flatMap((l) => l.objects)));
+    const opened = new Set(layersOpenedBy(gone));
+    slide.layers = slide.layers.filter((l) => !emptied.has(l.id) && !(opened.has(l.id) && !stays.has(l.id)));
+    const video = this.videoOf(videoId);
+    if (video) video.triggers = video.triggers.filter((t) => !(t.event === "mediaComplete" && t.action === "showLayer" && !slide.layers.some((l) => l.id === t.target)));
   }
 
   /** The accessibility rules this course has chosen to stop a publish with (format 0.50.0). None until the author turns one on. */

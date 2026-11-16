@@ -107,6 +107,8 @@ export class Player implements Host {
       show: (id, instant) => this.stage.setObjectTimed(id, true, instant ? undefined : this.motion(id, "enter")),
       hide: (id, wasShowing) => this.stage.setObjectTimed(id, false, wasShowing ? this.motion(id, "exit") : undefined),
       advance: () => this.step(1),
+      // An object that waits for the learner to answer, such as a question in a video, holds the clip where it came in.
+      pauseClip: (id) => this.stage.pauseMedia(id),
       // Items that come by themselves are said in the same words as a press, so a learner who cannot see them still knows each came.
       stepShown: (ids, pressed, total, left) => this.say(this.itemSaid(ids, pressed, total, left)),
       changed: () => this.syncTimingBar(),
@@ -429,6 +431,10 @@ export class Player implements Host {
 
   pauseMedia(objectId: string): void {
     this.stage.pauseMedia(objectId);
+  }
+
+  seekMedia(objectId: string, ms: number): void {
+    this.stage.seekMedia(objectId, ms);
   }
 
   stopTimer(objectId: string): void {

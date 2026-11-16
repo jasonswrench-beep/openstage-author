@@ -30,6 +30,15 @@ Decided for the whole suite (Shared Core list, item 4): accessibility problems a
 - [ ] **With NVDA.** The dialog's 30 checkboxes read with their rule and criterion; the Problems list reads the criterion as part of each finding.
 - Decision to confirm: the line that WCAG 2.1 AA is the legal floor (the April 26, 2027 compliance date) and 2.2 AA is what Author aims for is in `docs/validator-spec.md`; the small question in the roadmap about it is answered there.
 
+## Interactive video (2026-11-16; format 0.51.0)
+
+Built and covered by 9 tests of the moments and the Model, 5 of the format, 1 of the timeline and 1 of the runtime, and **played in a real browser**: a question came up at 3 seconds, the video paused, an answer and Continue played it on; a hotspot paused it and showed a note that Close put away; a chapter button moved it to 0:12 and played it; a choice appeared when the video ended. Not tried in the editor window (the dialog was driven only as code), with a real recording, or with a screen reader.
+
+- [ ] **Make one in the editor.** Put a video on a slide, choose it, **Insert > Interactive video...**. Add a question, a hotspot, chapters and a choice; look at them on the slide and in Preview. Is the dialog clear? Is anything you would want missing (the list in `docs/interactive-video.md`, "What it will not do for you", says what is not built)?
+- [ ] **Look at how it is drawn.** A question or a choice is drawn over the picture in a light panel, sized to the video; the hotspot has a visible outline and a label under it. I only saw them on a small test video: is the panel too big, the label too small, the outline hard to see?
+- [ ] **A learner who skips ahead.** Use the video's own controls to go past a question, then back. The question should come up again and hold the video again.
+- [ ] **With NVDA and the keyboard.** The dialog's fields and status line; Tab to a hotspot and press Enter (it should pause the video and show the note), then **Close the note**; the chapter buttons by Tab; a question that holds the video: does the screen reader say that the question has come in?
+
 ## Dialogs in the new look, and Find something to add (2026-11-11)
 
 Step 6 of the new look. Built and covered by 10 editor tests, a 44-step check in the browser preview, a tour that opens each of the 37 dialogs the menus open at full size and in a phone-width window, and the editor's own accessibility audit on the new window and eleven others. Not tried in the desktop program's own window or with a screen reader.

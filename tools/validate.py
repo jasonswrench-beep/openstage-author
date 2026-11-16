@@ -37,7 +37,7 @@ from quiztext import BROWSER_KEEPS, MAX_PASSAGE_WORDS, canonical_shortcut, read_
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "schema"
 
-SUPPORTED_SCHEMA_VERSION = (0, 50, 0)
+SUPPORTED_SCHEMA_VERSION = (0, 51, 0)
 # How many items each kind of interaction can show. A drawing has only so many places for them.
 # Keep in step with ITEM_LIMITS in player/src/interactions.ts.
 ITEM_LIMITS = {
@@ -839,6 +839,11 @@ def _triggers(rel, obj, variables, slides_by_id, layer_ids, objects_by_id, add, 
             if ok and objects_by_id[target]["type"] != "timer":
                 add(ERROR, rel, obj["id"], "stop-timer-target", "Stop the timer needs a timer",
                     f"Trigger {t['id']}: '{target}' is a {objects_by_id[target]['type']} object, not a timer.")
+        elif action == "seekMedia":
+            ok = target in objects_by_id
+            if ok and objects_by_id[target]["type"] not in ("video", "audio"):
+                add(ERROR, rel, obj["id"], "trigger-seek-target", "Moving a clip needs a video or an audio clip",
+                    f"Trigger {t['id']}: '{target}' is a {objects_by_id[target]['type']} object, not a video or audio clip.")
         else:  # playMedia, pauseMedia, changeState
             ok = target in objects_by_id
         if not ok:
@@ -1958,6 +1963,9 @@ def _timing(slides, add):
         for layer, obj in _objects(slide):
             t = obj["timing"]
             oid = obj["id"]
+            if t.get("pauseMedia") and t["appear"] != "media":
+                add(ERROR, rel, oid, "timing-pause-media", "Only an object that follows a clip can pause it",
+                    "Pause the clip needs the object to appear at a moment in a video or audio clip.")
             if t["appear"] == "media":
                 follows_media = True
                 target = on_slide.get(t["media"])
@@ -2020,10 +2028,12 @@ def _timing(slides, add):
             if obj["animation"]["exit"]["effect"] != "none" and not leaves:
                 add(WARNING, rel, oid, "animation-exit-never", "This object has an exit effect but never goes",
                     "An exit effect plays when the object disappears, at the end of its time or at a step, and this object has neither, so the effect would never play.")
-            if t["visibleFor"] is not None and obj["type"] in INTERACTIVE:
+            # An object that holds the clip (timing.pauseMedia) stays for as long as the clip is held, which is until the learner goes on: its time is only how much of the clip it stays for after that.
+            holds = bool(t.get("pauseMedia"))
+            if t["visibleFor"] is not None and obj["type"] in INTERACTIVE and not holds:
                 add(WARNING, rel, oid, "timing-control-disappears", "A control that disappears can leave a learner stuck",
                     "A learner who needs more time, or uses a keyboard or a screen reader, may not reach it before it goes.")
-            if t["visibleFor"] is not None and obj["type"] in ("text", "scrollingText"):
+            if t["visibleFor"] is not None and obj["type"] in ("text", "scrollingText") and not holds:
                 words = len(re.sub(r"<[^>]*>", " ", obj["content"].get("html", "")).split())
                 needed = max(3000, int(words / _WORDS_PER_SECOND * 1000))
                 if t["visibleFor"] < needed:

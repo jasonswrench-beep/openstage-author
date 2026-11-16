@@ -787,6 +787,8 @@ see the narrow layout: the canvas always shows the whole stage, but when a learn
 course shows one column instead, in reading order, and narrowing the preview window or zooming in shows you that. Check it, because
 it is the order a screen reader reads that decides what comes first (see Reflow in the format spec).
 
+**Interactive video.** With a video chosen on the slide, **Insert > Interactive video...** adds questions, hotspots, chapters and choices at moments in the video, and lists and takes them away (`docs/interactive-video.md`).
+
 **Publish.** The Publish button (Ctrl+Shift+P) opens a dialog. Publishing saves your project first, then
 checks it for problems with the same checker as the Problems list. Errors stop it, and are listed in the
 dialog; warnings do not. **Accessibility problems are warnings, never errors** (missing alt text, low contrast, no captions, a click with no

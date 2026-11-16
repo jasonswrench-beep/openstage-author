@@ -42,7 +42,7 @@ by a machine and occasionally edited by hand.
 
 ```json
 {
-  "schemaVersion": "0.50.0",
+  "schemaVersion": "0.51.0",
   "meta": {
     "title": "Introduction to Organizational Communication",
     "author": "",
@@ -952,7 +952,7 @@ text and its own fill into what is behind them together, and is judged as it wil
 ```
 
 v0.1 action set, deliberately small: `jumpToSlide`, `showLayer`, `hideLayer`,
-`setVariable`, `playMedia`, `pauseMedia`, `changeState`. `stopTimer` was added in 0.32.0 (see Timers).
+`setVariable`, `playMedia`, `pauseMedia`, `changeState`. `stopTimer` was added in 0.32.0 (see Timers), and `seekMedia` in 0.51.0 (see Interactive video).
 
 Three more act on the course itself, so their `target` is empty (`""`), and a trigger that has a target for one of them, or an empty target for any other action, is a
 schema error: `nextSlide` goes to the slide that follows this one in the course, `previousSlide` to the one before, and `replaySlide` shows this slide again from the
@@ -1092,6 +1092,7 @@ and every migrated object has, means always there, so a course with no timing be
 | `appear` | `"time"`: shown `start` milliseconds after the object's layer is shown (after the slide opens, for the base layer). `"narration"`: shown `start` milliseconds after the object's own narration starts playing. `"media"`: shown when a video or audio clip on the slide has played `start` milliseconds (see Following a video or an audio clip). `"click"`: shown `start` milliseconds after the learner presses **Show next item** for this object's `step` (see Waiting for the learner). |
 | `step` | Only with `appear: "click"`, and then required: a whole number from 1 to 200. (Added in 0.35.0.) |
 | `media` | Only with `appear: "media"`, and then required: the `id` of a `video` or `audio` object on the same slide. Absent otherwise. (Added in 0.23.0.) |
+| `pauseMedia` | Optional, only with `appear: "media"` (added in 0.51.0): `true` holds the clip. When the object comes in as the clip plays, the clip is paused, and stays paused until the learner or a rule on the object plays it again (see Interactive video). Absent or `false` otherwise. |
 | `start` | A whole number of milliseconds, 0 to 3,600,000. With `appear: "time"` and `start: 0` the object is there from the start. With `appear: "media"` it counts the clip's own time. |
 | `visibleFor` | `null` to stay, or a whole number of milliseconds, 1 to 3,600,000, after which the object goes again, counted from when it appeared. With `appear: "media"` it is that much of the clip. |
 
@@ -1767,6 +1768,23 @@ only against the stand-in cmi5 learning system of this repository (`player/src/f
 - **Not done.** Several units or a block structure in one package, a `launchParameters` or `entitlementKey`, applying the learner's language and audio
   preferences (they are read only), objectives, and a run in a real LMS.
 
+## Interactive video
+
+An interactive video is a video on a slide with things that happen at moments in it. It is made of ordinary objects tied to the video, so nothing in the published course is a
+new kind of thing; two small additions in 0.51.0 make it possible.
+
+- **`seekMedia`** is a rule action. Its `target` is the `id` of a video or audio object on the same slide, and its `value` is a whole number of milliseconds, 0 to 3,600,000
+  (`value` is required). The clip moves to that time, a time past the end goes to the end, and everything that follows the clip (see Following a video or an audio clip)
+  follows it there. The validator reports a target that is not a video or an audio clip (`trigger-seek-target`, an error).
+- **`timing.pauseMedia`** holds the clip when the object comes in. It acts only when the object comes in as the clip plays or is moved to its time, not when the learner
+  chooses Show everything now and not when the clip cannot play. An object that holds the clip is not warned about for its short time (`timing-too-brief`,
+  `timing-control-disappears`): it stays for as long as the clip is held. `pauseMedia` without `appear: "media"` is a schema error.
+
+**What the editor makes** (Insert > Interactive video..., `docs/interactive-video.md`): a question (a multiple choice question over the picture that holds the clip,
+one try, feedback layers that each end with a Continue that plays the clip), a hotspot (a named hotspot over a part of the picture for a time, a note layer), chapters (a
+row of buttons under the video, each `seekMedia` then `playMedia`), and a choice (buttons that each `jumpToSlide`, at a time with the clip held, or when the video ends:
+a `mediaComplete` rule on the video shows a layer of choices). Each moment's objects share a `group` of the form `vm-<kind>-<number>`, which is how the editor finds them again.
+
 ## How the editor writes files
 
 The editor writes a file only if its content really changed. Opening a project and saving
@@ -1792,6 +1810,7 @@ updated.
 | --- | --- | --- |
 | 0.48.0 | 0.49.0 | Adds the optional `version` and `courseCode` of a project's `meta`: the course's own version and its code at the institution, used in the names of published files and in the Word review document. Nothing in an older course changes. |
 | 0.49.0 | 0.50.0 | Adds the optional `accessibilityBlockers` of a project: the accessibility rules the author has chosen to stop a publish with. Accessibility findings are warnings and never stop a publish unless a project names them here. Nothing in an existing project has to change, and a project that does not have the list is not stopped by any. |
+| 0.50.0 | 0.51.0 | Adds the `seekMedia` action (a rule moves a video or audio clip to a moment, `value` milliseconds) and the optional `pauseMedia` of a timing that follows a clip (the clip is held when the object comes in). They are what an interactive video is made of, with chapters and questions. Nothing in an existing project has to change. |
 | 0.47.0 | 0.48.0 | Adds one kind of input, `text`: a labelled box the learner types into (`lines`, `maxLength`, `hint`), saved in a string variable and, with `report`, told to the LMS as a `fill-in`. Nothing in an older course changes. |
 | 0.46.0 | 0.47.0 | Adds three kinds of quiz question: `essay` (`minWords`), `whichWord` (`passage`) and `shortcut` (`keys`). Nothing in an older course changes. |
 | 0.44.0 | 0.45.0 | Adds the optional `guided` of a labeled graphic: step through the markers in order with Previous and Next buttons and a count of the steps. Nothing in an older course changes. |

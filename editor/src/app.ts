@@ -30,6 +30,7 @@ import { openVariables } from "./variablesdialog.ts";
 import { askText } from "./textprompt.ts";
 import { openPublishStyle } from "./publishstyledialog.ts";
 import { askAccessibilityBlockers } from "./a11yblockers.ts";
+import { openInteractiveVideo } from "./interactivevideodialog.ts";
 import { dateText, nextVersion, type NameValues } from "./publishstyle.ts";
 import { openPowerPoint } from "./pptxdialog.ts";
 import { rovingStop } from "./roving.ts";
@@ -477,6 +478,7 @@ export class App {
       addObjects: ADD_MENU.map((k): MenuCommand => ({ label: k.label, icon: insertIcons[k.value], title: "Add this to the layer being edited", run: () => void this.addObject(k.value), enabled: open })),
       recordScreen: cmd({ label: "Record the screen (OpenScreen)...", icon: "video", title: "Record the screen, and check that this computer is ready to record", run: () => void this.openRecorderDialog() }),
       game: cmd({ label: "Game...", icon: "gamepad-2", title: "Add a ready-made game after this slide: a quiz board, a prize ladder, an escape room or an order challenge", run: () => void this.addSlide("games"), enabled: open }),
+      interactiveVideo: cmd({ label: "Interactive video...", icon: "clapperboard", title: "Choose a video on the slide first. Add questions, hotspots, chapters and choices at moments in it", run: () => void this.editInteractiveVideo(), enabled: () => this.model?.object?.type === "video" }),
       quizFromFile: cmd({ label: "Quiz from a spreadsheet...", icon: "sheet", title: "Make a slide for each question in a spreadsheet saved as a CSV file, after this slide. Tick the test bank box there to show each learner only some of them", run: () => void this.addQuestionsFromFile("quiz"), enabled: open }),
 
       newSlide: cmd({ label: "New slide...", icon: "plus", title: "Add a slide after this one, choosing its layout", run: () => void this.addSlide(), enabled: open }),
@@ -527,7 +529,7 @@ export class App {
         c.preview, c.publish, c.publishStyle, c.a11yBlockers,
       ] },
       { id: "edit", label: "Edit", items: [c.undo, c.redo, "-", c.editText, "-", ...this.objectEntries()] },
-      { id: "insert", label: "Insert", items: [c.insertGallery, "-", ...c.addObjects, "-", c.recordScreen, c.game, c.quizFromFile] },
+      { id: "insert", label: "Insert", items: [c.insertGallery, "-", ...c.addObjects, "-", c.recordScreen, c.game, c.quizFromFile, c.interactiveVideo] },
       { id: "slide", label: "Slide", items: [
         c.newSlide, c.duplicateSlide, c.changeLayout, c.slideUp, c.slideDown, c.deleteSlide, "-",
         c.goToSlide, c.newSection, c.moveToSection, c.renameSection, c.sortSection, c.sectionUp, c.sectionDown, c.removeSection, "-",
@@ -3674,6 +3676,18 @@ ${errorText(err)}`);
   private nameValues(m: Model): NameValues {
     const folder = m.dir.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "course";
     return { folder, title: m.project.meta.title, code: m.courseCode || undefined, version: m.courseVersion || undefined, date: dateText(new Date()) };
+  }
+
+  /** Insert > Interactive video: questions, hotspots, chapters and choices at moments in the chosen video (interactivevideo.ts). */
+  private async editInteractiveVideo(): Promise<void> {
+    const m = this.model;
+    const video = m?.object;
+    if (!m || !video || video.type !== "video") {
+      this.announce("Choose a video on the slide first.");
+      return;
+    }
+    await openInteractiveVideo(m, video.id, (msg) => this.announce(msg));
+    this.afterDialog("insert");
   }
 
   /** File > Accessibility rules that stop a publish: accessibility problems warn, and this course may choose the ones that do not (format 0.50.0). */

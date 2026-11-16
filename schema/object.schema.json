@@ -268,6 +268,7 @@
         "appear": { "enum": ["time", "narration", "media", "click"], "description": "time: start milliseconds after the layer is shown. narration: start milliseconds after this object's own narration starts. media: start milliseconds into the video or audio clip named by media. click: start milliseconds after the learner presses Show next item for step number step." },
         "step": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Only with appear click, and then required: which press of Show next item shows this object. Objects with the same step show together." },
         "media": { "$ref": "project.schema.json#/$defs/id", "description": "Only with appear media: the id of a video or audio object on the same slide, whose playing time this object follows." },
+        "pauseMedia": { "type": "boolean", "description": "Optional, added in 0.51.0, and only with appear media: when the object comes in as the clip plays, the clip is paused, so a question or a choice can be answered before the video goes on. The learner (or a rule on the object) plays it again." },
         "start": { "type": "integer", "minimum": 0, "maximum": 3600000 },
         "until": { "description": "Optional, added in 0.38.0. The object goes away when the learner shows step `step` (the steps of Show next item; on a slide with autoSteps, when that step comes by itself), `start` milliseconds after it. It is how an exit effect that waits for a click in PowerPoint comes across. A step that only has objects going away is still a step to press. If `visibleFor` is also given, the object goes at whichever comes first.", "type": "object", "additionalProperties": false, "required": ["step", "start"], "properties": { "step": { "type": "integer", "minimum": 1, "maximum": 200 }, "start": { "type": "integer", "minimum": 0, "maximum": 3600000 } } },
         "visibleFor": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 3600000 }], "description": "How long it stays once shown, or null to stay until the layer is hidden or the slide ends. With appear media it is a length of the video or audio clip, not of the clock." },
@@ -277,7 +278,7 @@
         {
           "if": { "required": ["appear"], "properties": { "appear": { "const": "media" } } },
           "then": { "required": ["media"] },
-          "else": { "not": { "required": ["media"] } }
+          "else": { "not": { "anyOf": [{ "required": ["media"] }, { "required": ["pauseMedia"] }] } }
         },
         {
           "if": { "required": ["appear"], "properties": { "appear": { "const": "click" } } },
@@ -905,8 +906,8 @@
           "enum": ["click", "keyActivate", "slideStart", "slideEnd", "mediaComplete", "timerEnd", "variableChange"]
         },
         "action": {
-          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "stopTimer", "changeState", "nextSlide", "previousSlide", "replaySlide"],
-          "description": "nextSlide, previousSlide and replaySlide act on the course itself, so their target is empty."
+          "enum": ["jumpToSlide", "showLayer", "hideLayer", "setVariable", "playMedia", "pauseMedia", "seekMedia", "stopTimer", "changeState", "nextSlide", "previousSlide", "replaySlide"],
+          "description": "nextSlide, previousSlide and replaySlide act on the course itself, so their target is empty. seekMedia (added in 0.51.0) moves the video or audio clip named by target to value milliseconds, and needs a value."
         },
         "target": { "type": "string", "pattern": "^([a-z][a-z0-9_-]*)?$" },
         "value": { "type": ["number", "boolean", "string"] },
@@ -935,6 +936,10 @@
           "if": { "properties": { "action": { "enum": ["nextSlide", "previousSlide", "replaySlide"] } } },
           "then": { "properties": { "target": { "const": "" } } },
           "else": { "properties": { "target": { "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "action": { "const": "seekMedia" } }, "required": ["action"] },
+          "then": { "required": ["value"], "properties": { "value": { "type": "integer", "minimum": 0, "maximum": 3600000 } } }
         }
       ]
     },

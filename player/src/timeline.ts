@@ -56,6 +56,8 @@ export interface TimedObject {
 }
 
 export interface TimelineHooks {
+  /** A clip should be held where it is: an object that asked for that (timing.pauseMedia) has just come in as the clip played. */
+  pauseClip?(mediaId: string): void;
   /** `instant` is true when the learner asked to show everything, which should not wait for an effect. */
   show(id: string, instant: boolean): void;
   /** `wasShowing` is false when the object was never on screen yet, so there is nothing to leave. */
@@ -471,6 +473,11 @@ export class Timeline {
       this.shown.set(id, visible);
       if (visible) this.hooks.show(id, this.everything);
       else this.hooks.hide(id, was === true);
+      // An object that holds the clip (a question, a choice) holds it as it comes in: not when everything is shown at once, not when the clip failed, and not at
+      // the first look, when a learner who is already past it is only being put back where they were.
+      if (visible && was === false && !this.everything && e.timing.appear === "media" && e.timing.pauseMedia === true && !this.clips.get(e.timing.media ?? "")?.failed) {
+        this.hooks.pauseClip?.(e.timing.media!);
+      }
     }
     this.tellSteps();
     // A timer that has run out is marked first, so the rules it starts find everything as it is now. A rule may take the learner to

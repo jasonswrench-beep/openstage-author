@@ -129,6 +129,7 @@ export type ActionName =
   | "setVariable"
   | "playMedia"
   | "pauseMedia"
+  | "seekMedia"
   | "stopTimer"
   | "changeState";
 
@@ -524,6 +525,8 @@ export interface Timing {
   step?: number;
   /** Only with appear "media": the id of the video or audio clip on the same slide whose playing time this follows. Then start and visibleFor count the clip's time. */
   media?: string;
+  /** Only with appear "media": the clip is paused when this object comes in as it plays (added in 0.51.0), so a question or a choice can be answered before the video goes on. */
+  pauseMedia?: boolean;
   start: number;
   visibleFor: number | null;
   /** The object goes away when the learner shows this step of Show next item (or it comes by itself), `start` ms after it (added in 0.38.0). If visibleFor is also set, whichever is first. */

@@ -3271,7 +3271,7 @@ class ConversationExample(unittest.TestCase):
         found = validate.validate_project(self.ROOT)
         self.assertEqual([f for f in found if f.severity in ("error", "warning")], [])
         project = json.loads((self.ROOT / "project.json").read_text(encoding="utf-8"))
-        self.assertEqual(project["schemaVersion"], "0.50.0")
+        self.assertEqual(project["schemaVersion"], "0.51.0")
 
     def test_every_slide_has_a_background_picture_two_described_people_and_two_bubbles(self):
         slides = self.slides()
@@ -3817,6 +3817,72 @@ class AccessibilityPolicy(unittest.TestCase):
             self.assertTrue(rules(validate.validate_project(p.root), "schema"))
             p.edit("project.json", lambda d: d.update(accessibilityBlockers=["Not A Rule"]))
             self.assertTrue(rules(validate.validate_project(p.root), "schema"))
+
+
+class InteractiveVideoPrimitives(unittest.TestCase):
+    """The seekMedia action and the pauseMedia timing (0.51.0): what an interactive video is made of."""
+
+    def video(self, d, oid="obj-9600"):
+        m = copy.deepcopy(d["baseLayer"]["objects"][0])
+        m.update({"id": oid, "name": "Lesson video", "type": "video", "triggers": [], "narration": None})
+        m["content"] = {"src": "assets/video/welcome.mp4", "captions": "assets/captions/welcome.vtt", "transcript": "<p>Words.</p>"}
+        m["accessibility"].update({"altText": "Lesson video", "role": "video", "tabOrder": 9, "decorative": False})
+        d["baseLayer"]["objects"].append(m)
+
+    def seek_button(self, p, target="obj-9600", value=30000):
+        def make(d):
+            self.video(d)
+            b = d["baseLayer"]["objects"][0]
+            b["triggers"] = [{"id": "trg-0042", "event": "click", "action": "seekMedia", "target": target, "value": value, "conditions": []},
+                             {"id": "trg-0043", "event": "keyActivate", "action": "seekMedia", "target": target, "value": value, "conditions": []}]
+        p.slide1(make)
+
+    def test_a_button_that_moves_a_video_is_accepted(self):
+        with MutatedProject() as p:
+            self.seek_button(p)
+            self.assertEqual([f for f in p.run() if f.severity == "error" and f.rule != "asset-missing"], [])
+
+    def test_the_target_must_be_a_video_or_an_audio_clip(self):
+        with MutatedProject() as p:
+            self.seek_button(p, target="obj-0002")
+            self.assertTrue(rules(p.run(), "trigger-seek-target", severity="error"))
+        with MutatedProject() as p:
+            self.seek_button(p, target="obj-no-such")
+            self.assertTrue(rules(p.run(), "trigger-target-missing", severity="error"))
+
+    def test_the_time_is_required_and_held_to_the_length_of_an_hour(self):
+        for value in (None, -1, 3600001, 1.5, "soon"):
+            with MutatedProject() as p:
+                self.seek_button(p, value=value)
+                if value is None:
+                    p.slide1(lambda d: d["baseLayer"]["objects"][0]["triggers"][0].pop("value"))
+                self.assertTrue(rules(p.run(), "schema"), f"a time of {value!r} is refused")
+
+    def test_an_object_that_holds_the_clip_is_not_warned_for_its_short_time_in_the_clip(self):
+        with MutatedProject() as p:
+            def make(d):
+                self.video(d)
+                t = d["baseLayer"]["objects"][0]["timing"]
+                t.update({"appear": "media", "media": "obj-9600", "start": 5000, "visibleFor": 500, "pauseMedia": True})
+            p.slide1(make)
+            self.assertEqual([f.rule for f in p.run() if f.rule in ("timing-too-brief", "timing-control-disappears")], [], "it stays while the clip is held")
+        with MutatedProject() as p:
+            def make(d):
+                self.video(d)
+                d["baseLayer"]["objects"][0]["timing"].update({"appear": "media", "media": "obj-9600", "start": 5000, "visibleFor": 500})
+            p.slide1(make)
+            self.assertTrue(rules(p.run(), "timing-too-brief") or rules(p.run(), "timing-control-disappears"), "without holding the clip, a short time is still warned about")
+
+    def test_pause_the_clip_needs_an_object_that_follows_one(self):
+        with MutatedProject() as p:
+            def make(d):
+                self.video(d)
+                d["baseLayer"]["objects"][0]["timing"].update({"appear": "media", "media": "obj-9600", "start": 5000, "visibleFor": 500, "pauseMedia": True})
+            p.slide1(make)
+            self.assertEqual([f for f in p.run() if f.severity == "error" and f.rule != "asset-missing"], [])
+        with MutatedProject() as p:
+            p.slide1(lambda d: d["baseLayer"]["objects"][0]["timing"].update({"pauseMedia": True}))
+            self.assertTrue(rules(p.run(), "schema"), "pauseMedia with a time that is not a clip's is refused")
 
 
 if __name__ == "__main__":

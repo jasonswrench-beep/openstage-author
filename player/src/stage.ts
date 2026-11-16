@@ -352,6 +352,14 @@ export class StageRenderer {
     this.mediaOf(objectId)?.pause();
   }
 
+  /** Move a clip to a moment, as the seekMedia action asks. A time past the end goes to the end; a clip not there does nothing. */
+  seekMedia(objectId: string, ms: number): void {
+    const m = this.mediaOf(objectId);
+    if (!m) return;
+    const to = ms / 1000;
+    m.currentTime = Number.isFinite(m.duration) && m.duration > 0 ? Math.min(to, m.duration) : to;
+  }
+
   /**
    * Show an object in one of its looks ("normal" is its own). Returns what a screen reader should be told, if the look has a message
    * and the object is there to be told about: nothing is said about something that is hidden, or is not changing.

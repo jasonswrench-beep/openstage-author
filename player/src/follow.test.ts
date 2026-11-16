@@ -283,3 +283,34 @@ test("following the same clip again does not leave the old listeners behind", ()
   w.f.attach("v", clip);
   assert.equal(clip.count(), once);
 });
+
+// ---- a question or a choice that holds the clip (timing.pauseMedia, 0.51.0)
+
+test("an object that holds the clip pauses it as it comes in, once, and not when it is only being put back or shown at once", () => {
+  const paused: string[] = [];
+  const log: string[] = [];
+  const clock = new FakeClock();
+  const timeline = new Timeline({ show: (id: string) => log.push(`show ${id}`), hide: (id) => log.push(`hide ${id}`), advance: () => undefined, pauseClip: (id: string) => paused.push(id) }, clock);
+  const holds: Timing = { appear: "media", media: "v", start: 5000, visibleFor: 500, pauseMedia: true };
+  timeline.addLayer("base", [obj("question", holds), obj("note", follows("v", 5000, 500))]);
+  timeline.clipTime("v", 4000);
+  assert.equal(paused.length, 0, "not yet");
+  timeline.clipTime("v", 5020);
+  assert.deepEqual(paused, ["v"], "the clip is held where the question came in");
+  assert.ok(log.includes("show question") && log.includes("show note"));
+  timeline.clipTime("v", 5100);
+  assert.deepEqual(paused, ["v"], "still there, still one pause");
+  timeline.clipTime("v", 5600);
+  timeline.clipTime("v", 5020);
+  assert.deepEqual(paused, ["v", "v"], "a learner who goes back and plays through meets it again");
+
+  const other = new Timeline({ show: () => undefined, hide: () => undefined, advance: () => undefined, pauseClip: (id: string) => paused.push(`other ${id}`) }, new FakeClock());
+  other.addLayer("base", [obj("question", holds)]);
+  other.showEverything();
+  other.clipTime("v", 5100);
+  assert.ok(!paused.some((x: string) => x.startsWith("other")), "showing everything at once never holds a clip");
+  const failed = new Timeline({ show: () => undefined, hide: () => undefined, advance: () => undefined, pauseClip: (id: string) => paused.push(`failed ${id}`) }, new FakeClock());
+  failed.addLayer("base", [obj("question", holds)]);
+  failed.clipFailed("v");
+  assert.ok(!paused.some((x: string) => x.startsWith("failed")), "a clip that cannot play has nothing to hold");
+});

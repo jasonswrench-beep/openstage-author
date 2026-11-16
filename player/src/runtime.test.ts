@@ -118,3 +118,15 @@ test("a timer's rules run when its time is up, and a rule can stop a timer", () 
   assert.equal(rt.fire("obj-timer", "timerEnd"), 2, "both of the timer's rules run when its time is up");
   assert.equal(rt.variables.get("var-attempts"), 7);
 });
+
+test("the seekMedia action moves the clip it names to the time it is given, and a time that is not a number goes to the start", () => {
+  const { rt, log, pkg } = newRuntime();
+  const button = pkg.slides[0]!.baseLayer.objects.find((o) => o.id === "obj-0004")!;
+  button.triggers = [{ id: "trg-seek", event: "click", action: "seekMedia", target: "obj-0099", value: 12500, conditions: [] }];
+  rt.goTo("slide-001");
+  rt.fire("obj-0004", "click");
+  assert.ok(log.includes("seek obj-0099 12500"), log.join(", "));
+  button.triggers = [{ id: "trg-seek", event: "click", action: "seekMedia", target: "obj-0099", value: "soon", conditions: [] }];
+  rt.fire("obj-0004", "click");
+  assert.ok(log.includes("seek obj-0099 0"), "a bad value never moves the clip to nonsense");
+});
