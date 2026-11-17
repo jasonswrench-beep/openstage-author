@@ -5,7 +5,7 @@
 
 import { drawFrame } from "./draw.ts";
 import { fastSupport, renderFast } from "./fast.ts";
-import { shapeAt, type Look, type MouthTrack } from "./look.ts";
+import { poseForPicture, type Look, type MouthTrack } from "./look.ts";
 import { webmWithDuration } from "./webm.ts";
 
 export interface ClipRequest {
@@ -111,7 +111,7 @@ async function renderRealtime(req: ClipRequest): Promise<MadeClip> {
     });
 
     ctx.imageSmoothingEnabled = true;
-    drawFrame(ctx as never, req.look, shapeAt(req.track, 0), 0, size, req.label);
+    drawFrame(ctx as never, req.look, poseForPicture(req.track, 0), 0, size, req.label);
 
     recorder.start(250);
     const t0 = audio.currentTime + 0.05;
@@ -128,7 +128,7 @@ async function renderRealtime(req: ClipRequest): Promise<MadeClip> {
         const frame = Math.floor((ms * fps) / 1000);
         if (frame !== last) {
           last = frame;
-          drawFrame(ctx as never, req.look, ms <= audioMs ? shapeAt(req.track, ms) : "closed", ms, size, req.label);
+          drawFrame(ctx as never, req.look, ms <= audioMs ? poseForPicture(req.track, ms) : "closed", ms, size, req.label);
         }
         req.onProgress?.(Math.min(1, ms / totalMs), Math.min(ms, totalMs) / 1000);
         if (ms >= totalMs) {

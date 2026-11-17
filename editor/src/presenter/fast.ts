@@ -4,7 +4,7 @@
 
 import type { ClipRequest, MadeClip } from "./clip.ts";
 import { drawFrame } from "./draw.ts";
-import { shapeAt } from "./look.ts";
+import { poseForPicture } from "./look.ts";
 import { opusHead, writeWebm, type MuxChunk } from "./webmwriter.ts";
 
 /** What this window can encode with. */
@@ -127,7 +127,7 @@ export async function renderFast(req: ClipRequest, how: FastSupport): Promise<Ma
       if (failure) throw failure;
       if (req.signal?.aborted) throw aborted();
       const ms = (i * 1000) / fps;
-      drawFrame(ctx as never, req.look, ms <= audioMs ? shapeAt(req.track, ms) : "closed", ms, size, req.label);
+      drawFrame(ctx as never, req.look, ms <= audioMs ? poseForPicture(req.track, ms) : "closed", ms, size, req.label);
       const frame = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
       video.encode(frame, { keyFrame: i % (fps * 2) === 0 });
       frame.close();

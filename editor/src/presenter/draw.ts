@@ -2,14 +2,15 @@
 // drawn from numbers (the picture is a square of `size` pixels), so a new presenter is only new colours and a hair style, and the same drawing
 // is the same on every computer. The clip is made by drawing this frame by frame (clip.ts).
 
-import type { Look, MouthShape } from "./look.ts";
+import type { Look, MouthPose, MouthShape } from "./look.ts";
+import { drawMouth } from "./mouthdraw.ts";
 
 /** Just the parts of a canvas the drawing uses, so a test can record what is drawn. */
 export type Ctx = Pick<
   CanvasRenderingContext2D,
   | "save" | "restore" | "translate" | "rotate" | "scale" | "beginPath" | "closePath" | "moveTo" | "lineTo" | "quadraticCurveTo" | "bezierCurveTo"
   | "arc" | "ellipse" | "rect" | "roundRect" | "fill" | "stroke" | "fillRect" | "fillText" | "clip"
-> & { fillStyle: CanvasRenderingContext2D["fillStyle"]; strokeStyle: CanvasRenderingContext2D["strokeStyle"]; lineWidth: number; lineCap: CanvasLineCap; font: string; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline };
+> & { fillStyle: CanvasRenderingContext2D["fillStyle"]; strokeStyle: CanvasRenderingContext2D["strokeStyle"]; lineWidth: number; lineCap: CanvasLineCap; lineJoin: CanvasLineJoin; font: string; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline };
 
 /** How closed the eyes are at a moment, from 0 (open) to 1 (shut). A blink every few seconds, quick, and never at the very start. */
 export function blinkAt(ms: number): number {
@@ -38,69 +39,11 @@ export function shade(hex: string, amount: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
-const MOUTH_DARK = "#5b1f26";
-const TONGUE = "#c4646d";
-
 function ellipse(ctx: Ctx, x: number, y: number, rx: number, ry: number, fill: string): void {
   ctx.beginPath();
   ctx.ellipse(x, y, Math.max(rx, 0.0001), Math.max(ry, 0.0001), 0, 0, Math.PI * 2);
   ctx.fillStyle = fill;
   ctx.fill();
-}
-
-/** The mouth, with its middle at the origin and one unit the size of the picture. */
-function drawMouth(ctx: Ctx, shape: MouthShape, u: number, skin: string): void {
-  ctx.lineCap = "round";
-  ctx.strokeStyle = shade(skin, -0.45);
-  ctx.lineWidth = 0.008 * u;
-  if (shape === "closed") {
-    ctx.beginPath();
-    ctx.moveTo(-0.045 * u, 0);
-    ctx.quadraticCurveTo(0, 0.014 * u, 0.045 * u, 0);
-    ctx.stroke();
-    return;
-  }
-  if (shape === "small") {
-    ellipse(ctx, 0, 0.004 * u, 0.03 * u, 0.012 * u, MOUTH_DARK);
-    return;
-  }
-  if (shape === "open") {
-    ellipse(ctx, 0, 0.012 * u, 0.045 * u, 0.04 * u, MOUTH_DARK);
-    ellipse(ctx, 0, 0.03 * u, 0.028 * u, 0.014 * u, TONGUE);
-    ctx.beginPath();
-    ctx.roundRect(-0.032 * u, -0.022 * u, 0.064 * u, 0.012 * u, 0.004 * u);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-    return;
-  }
-  if (shape === "wide") {
-    ctx.beginPath();
-    ctx.roundRect(-0.05 * u, -0.008 * u, 0.1 * u, 0.034 * u, 0.016 * u);
-    ctx.fillStyle = MOUTH_DARK;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(-0.04 * u, -0.006 * u, 0.08 * u, 0.01 * u, 0.003 * u);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-    return;
-  }
-  if (shape === "round") {
-    ellipse(ctx, 0, 0.01 * u, 0.026 * u, 0.03 * u, MOUTH_DARK);
-    ctx.beginPath();
-    ctx.ellipse(0, 0.01 * u, 0.03 * u, 0.034 * u, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = "#b35a62";
-    ctx.lineWidth = 0.007 * u;
-    ctx.stroke();
-    return;
-  }
-  // teeth: the lips drawn back, a band of teeth
-  ctx.beginPath();
-  ctx.roundRect(-0.046 * u, -0.004 * u, 0.092 * u, 0.026 * u, 0.012 * u);
-  ctx.fillStyle = "#ffffff";
-  ctx.fill();
-  ctx.strokeStyle = MOUTH_DARK;
-  ctx.lineWidth = 0.006 * u;
-  ctx.stroke();
 }
 
 /** The hair that is behind the head. */
@@ -136,8 +79,8 @@ function drawHairFront(ctx: Ctx, look: Look, u: number): void {
   ctx.fill();
 }
 
-/** One picture of the presenter: where the clip is at `ms`, with the mouth in `shape`. `size` is the side of the square canvas. */
-export function drawFrame(ctx: Ctx, look: Look, shape: MouthShape, ms: number, size: number, label: boolean): void {
+/** One picture of the presenter: where the clip is at `ms`, with the mouth in a shape or on its way from one to another. `size` is the side of the square canvas. */
+export function drawFrame(ctx: Ctx, look: Look, mouth: MouthShape | MouthPose, ms: number, size: number, label: boolean): void {
   const u = size;
   ctx.save();
   ctx.fillStyle = look.background;
@@ -229,7 +172,7 @@ export function drawFrame(ctx: Ctx, look: Look, shape: MouthShape, ms: number, s
 
   ctx.save();
   ctx.translate(0, 0.12 * u);
-  drawMouth(ctx, shape, u, look.skin);
+  drawMouth(ctx, mouth, u, shade(look.skin, -0.45));
   ctx.restore();
   ctx.restore();
 

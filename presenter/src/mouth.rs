@@ -6,8 +6,20 @@
 use crate::visemes::{self, Word};
 use crate::wav::Wav;
 
-/// The shapes, from closed to most open. The editor draws each one.
-pub const SHAPES: [&str; 6] = ["closed", "small", "open", "wide", "round", "teeth"];
+/// The shapes, roughly from closed to open, then the ones that are about the lips, the teeth and the tongue. The editor draws each one (a photo presenter groups them into
+/// the few looks it has). What each is for:
+///   closed  lips together (p, b, m) and a mouth at rest
+///   small   a small opening: the tongue and the back of the mouth (t, d, k, g, n), the neutral vowel
+///   mid     half open (the "e" of "bed", the "a" of "cat", the "u" of "cup")
+///   open    open wide (the "a" of "father")
+///   wide    lips spread (the "ee" of "see", the "i" of "sit")
+///   round   lips rounded into an "o"
+///   pucker  lips pushed forward and small (the "oo" of "too", w)
+///   sh      lips pushed forward with the teeth close (sh, ch, j)
+///   teeth   teeth together, lips apart (s, z)
+///   fv      upper teeth on the lower lip (f, v)
+///   tongue  the tongue showing (l, th)
+pub const SHAPES: [&str; 11] = ["closed", "small", "mid", "open", "wide", "round", "pucker", "sh", "teeth", "fv", "tongue"];
 
 pub struct Track {
     pub duration_ms: u64,
@@ -262,7 +274,7 @@ mod tests {
         assert_eq!(t.at(300), "open", "the vowel");
         assert_eq!(t.at(700), "open");
         assert_eq!(t.at(1250), "closed", "a pause, and the sound agrees");
-        assert_eq!(t.at(1700), "round");
+        assert_eq!(t.at(1700), "pucker");
         assert_eq!(t.at(2200), "wide");
         assert_eq!(t.runs[0].0, 0);
         assert_eq!(t.duration_ms, 2500);
@@ -299,7 +311,7 @@ mod tests {
     fn the_json_names_every_shape_and_every_run() {
         let j = of(&tone(200.0, 0.5, 0.5, 24000)).to_json();
         assert_eq!(j["fps"], 25);
-        assert_eq!(j["shapes"].as_array().unwrap().len(), 6);
+        assert_eq!(j["shapes"].as_array().unwrap().len(), 11);
         assert!(j["runs"][0][1].is_string());
     }
 }

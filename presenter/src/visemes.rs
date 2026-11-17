@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Mouth shapes from the words a speech engine said, each with the phonemes it said it with and when it started and ended. A word's time is shared among its
 //! phonemes by weight (a vowel is held longer than a consonant), each phoneme is a mouth shape, and each picture of the clip gets the shape that most of it shows,
-//! with a lean toward the shapes that are easy to miss and show most when they are missing: lips together for p, b and m, and teeth for f, v and s.
+//! with a lean toward the shapes that are easy to miss and show most when they are missing: lips together for p, b and m, and teeth for f, v and s. The eleven shapes
+//! and what each is for are listed with `mouth::SHAPES`.
 //!
 //! The phonemes are written as the engine writes them. Kokoro's are IPA with a few single capital letters for diphthongs (A for "ay" as in "day", I for "eye",
 //! O for "oh", W for "ow", Y for "oy", Q for the British "oh"); stress and length marks are skipped. A symbol that is not known is skipped, never guessed.
@@ -38,29 +39,39 @@ fn parts(c: char) -> &'static [Part] {
         // lips together
         'p' | 'b' => &[(STOP, "closed")],
         'm' => &[(SONORANT, "closed")],
-        // teeth showing
-        'f' | 'v' | 's' | 'z' | 'θ' | 'ð' => &[(FRICATIVE, "teeth")],
-        // lips pushed forward
-        'ʃ' | 'ʒ' | 'ʧ' | 'ʤ' => &[(FRICATIVE, "round")],
-        'w' | 'ɥ' => &[(SONORANT, "round")],
+        // the upper teeth on the lower lip
+        'f' | 'v' => &[(FRICATIVE, "fv")],
+        // the teeth together, the lips apart
+        's' | 'z' => &[(FRICATIVE, "teeth")],
+        // the tongue showing: between the teeth for th, behind the upper ones for l
+        'θ' | 'ð' => &[(FRICATIVE, "tongue")],
+        'l' | 'ɫ' | 'ɭ' | 'ʎ' => &[(SONORANT, "tongue")],
+        // lips pushed forward, the teeth close
+        'ʃ' | 'ʒ' | 'ʧ' | 'ʤ' => &[(FRICATIVE, "sh")],
+        // lips pushed forward and small
+        'w' | 'ɥ' => &[(SONORANT, "pucker")],
         // the tongue and the back of the mouth: a small opening
         't' | 'd' | 'k' | 'g' | 'ɡ' | 'ʔ' | 'c' | 'q' => &[(STOP, "small")],
-        'n' | 'l' | 'ɫ' | 'r' | 'ɹ' | 'ɾ' | 'ɻ' | 'ŋ' | 'j' | 'ɲ' | 'ʎ' | 'ɭ' | 'ɳ' | 'ʁ' | 'ʀ' => &[(SONORANT, "small")],
+        'n' | 'r' | 'ɹ' | 'ɾ' | 'ɻ' | 'ŋ' | 'j' | 'ɲ' | 'ɳ' | 'ʁ' | 'ʀ' => &[(SONORANT, "small")],
         'h' | 'x' | 'ɣ' | 'ç' => &[(FRICATIVE, "small")],
-        // vowels with the mouth open
-        'ɑ' | 'a' | 'ɐ' | 'ʌ' | 'ɒ' | 'ɶ' => &[(VOWEL, "open")],
+        // vowels with the mouth open wide
+        'ɑ' | 'a' | 'ɐ' | 'ɒ' | 'ɶ' => &[(VOWEL, "open")],
+        // vowels with the mouth half open
+        'æ' | 'ɛ' | 'ʌ' => &[(VOWEL, "mid")],
         // vowels with the lips spread
-        'æ' | 'ɛ' | 'e' | 'i' | 'ɪ' | 'ᵻ' | 'y' | 'ɨ' | 'ɩ' => &[(VOWEL, "wide")],
-        // vowels with the lips rounded
-        'ɔ' | 'o' | 'u' | 'ʊ' | 'ʉ' | 'ɵ' | 'ø' | 'œ' | 'ɯ' => &[(VOWEL, "round")],
+        'e' | 'i' | 'ɪ' | 'ᵻ' | 'y' | 'ɨ' | 'ɩ' => &[(VOWEL, "wide")],
+        // vowels with the lips rounded into an "o"
+        'ɔ' | 'o' | 'ɵ' | 'ø' | 'œ' => &[(VOWEL, "round")],
+        // vowels with the lips pushed forward and small
+        'u' | 'ʊ' | 'ʉ' | 'ɯ' => &[(VOWEL, "pucker")],
         // the neutral vowel and the r-coloured ones
         'ə' | 'ɚ' | 'ɝ' | 'ᵊ' | 'ɜ' | 'ɘ' => &[(VOWEL, "small")],
         // Kokoro's diphthongs, each a move from one shape to another
-        'A' => &[(HALF_VOWEL, "wide"), (HALF_VOWEL, "small")],
+        'A' => &[(HALF_VOWEL, "mid"), (HALF_VOWEL, "wide")],
         'I' => &[(HALF_VOWEL, "open"), (HALF_VOWEL, "wide")],
-        'O' => &[(HALF_VOWEL, "round"), (HALF_VOWEL, "small")],
-        'Q' => &[(HALF_VOWEL, "small"), (HALF_VOWEL, "round")],
-        'W' => &[(HALF_VOWEL, "open"), (HALF_VOWEL, "round")],
+        'O' => &[(HALF_VOWEL, "round"), (HALF_VOWEL, "pucker")],
+        'Q' => &[(HALF_VOWEL, "small"), (HALF_VOWEL, "pucker")],
+        'W' => &[(HALF_VOWEL, "open"), (HALF_VOWEL, "pucker")],
         'Y' => &[(HALF_VOWEL, "round"), (HALF_VOWEL, "wide")],
         _ => &[],
     }
@@ -101,8 +112,9 @@ pub fn segments(words: &[Word]) -> Vec<Seg> {
 fn lean(shape: &str) -> f32 {
     match shape {
         "closed" => 1.7,
-        "teeth" => 1.25,
-        "round" => 1.1,
+        "teeth" | "fv" => 1.25,
+        "tongue" => 1.15,
+        "round" | "pucker" | "sh" => 1.1,
         _ => 1.0,
     }
 }
@@ -120,7 +132,7 @@ pub fn frames(segs: &[Seg], fps: u32, frames: usize) -> Vec<&'static str> {
             while at < segs.len() && segs[at].end_ms <= t0 {
                 at += 1;
             }
-            let mut score = [0.0f32; 6];
+            let mut score = [0.0f32; crate::mouth::SHAPES.len()];
             let mut covered = 0.0;
             let mut i = at.min(segs.len());
             while i < segs.len() && segs[i].start_ms < t1 {
@@ -132,7 +144,7 @@ pub fn frames(segs: &[Seg], fps: u32, frames: usize) -> Vec<&'static str> {
                 i += 1;
             }
             if covered >= step * 0.5 {
-                let best = (0..6).max_by(|a, b| score[*a].partial_cmp(&score[*b]).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(0);
+                let best = (0..crate::mouth::SHAPES.len()).max_by(|a, b| score[*a].partial_cmp(&score[*b]).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(0);
                 return crate::mouth::SHAPES[best];
             }
             // between words: a pause shuts the mouth, a short gap leaves it a little open
@@ -157,7 +169,7 @@ mod tests {
     #[test]
     fn a_word_is_a_run_of_shapes_and_marks_that_are_not_sounds_are_skipped() {
         let names: Vec<&str> = shapes_of("wˈɛlkəm").iter().map(|p| p.1).collect();
-        assert_eq!(names, vec!["round", "wide", "small", "small", "small", "closed"]);
+        assert_eq!(names, vec!["pucker", "mid", "tongue", "small", "small", "closed"]);
         assert_eq!(shapes_of("ˈˌː .-'").len(), 0, "stress, length and spacing are not sounds");
         assert_eq!(shapes_of("§¶ø").len(), 1, "a symbol that is not known is skipped, never guessed");
         assert!(shapes_of("").is_empty());
@@ -166,9 +178,9 @@ mod tests {
     #[test]
     fn a_diphthong_is_two_shapes_and_a_vowel_is_held_longer_than_a_consonant() {
         let day: Vec<&str> = shapes_of("dA").iter().map(|p| p.1).collect();
-        assert_eq!(day, vec!["small", "wide", "small"]);
+        assert_eq!(day, vec!["small", "mid", "wide"]);
         let out: Vec<&str> = shapes_of("W").iter().map(|p| p.1).collect();
-        assert_eq!(out, vec!["open", "round"]);
+        assert_eq!(out, vec!["open", "pucker"]);
         let parts = shapes_of("ma");
         assert!(parts[1].0 > parts[0].0, "the vowel outweighs the lips");
     }
@@ -212,8 +224,36 @@ mod tests {
 
     #[test]
     fn every_shape_the_editor_draws_can_come_out() {
-        let all = segments(&[word(0.0, 0.5, "ɑ"), word(0.5, 1.0, "æ"), word(1.0, 1.5, "u"), word(1.5, 2.0, "ə"), word(2.0, 2.5, "s"), word(2.5, 3.0, "m")]);
-        let f: std::collections::BTreeSet<&str> = frames(&all, 25, 75).into_iter().collect();
-        assert_eq!(f.len(), 6, "{f:?}");
+        // one sound for each shape, half a second apiece: open, mid, wide, round, pucker, small, teeth, fv, tongue, sh, closed
+        let sounds = ["ɑ", "ɛ", "i", "o", "u", "ə", "s", "f", "l", "ʃ", "m"];
+        let words: Vec<Word> = sounds.iter().enumerate().map(|(i, p)| word(i as f32 * 0.5, i as f32 * 0.5 + 0.5, p)).collect();
+        let all = segments(&words);
+        let f: std::collections::BTreeSet<&str> = frames(&all, 25, sounds.len() * 12 + 1).into_iter().collect();
+        assert_eq!(f.len(), crate::mouth::SHAPES.len(), "{f:?}");
+        for shape in crate::mouth::SHAPES {
+            assert!(f.contains(shape), "{shape} never comes out");
+        }
+    }
+
+    #[test]
+    fn every_sound_makes_a_shape_that_exists() {
+        for c in "pbmfvszθðlɫɭʎʃʒʧʤwɥtdkgɡʔcqnrɹɾɻŋjɲɳʁʀhxɣçɑaɐɒɶæɛʌeiɪᵻyɨɩɔoɵøœuʊʉɯəɚɝᵊɜɘAIOQWY".chars() {
+            let made = shapes_of(&c.to_string());
+            assert!(!made.is_empty(), "{c} makes nothing");
+            for (weight, shape) in made {
+                assert!(weight > 0.0 && crate::mouth::SHAPES.contains(&shape), "{c} makes {shape}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_lips_and_the_teeth_and_the_tongue_are_not_lost_to_the_vowel_next_to_them() {
+        // "fa", "la" and "ʃa" over 100 ms: 40 ms for the consonant (a fricative a little more), then the vowel. The first picture at 25 a second keeps the consonant.
+        for (word_, shape) in [("fa", "fv"), ("la", "tongue"), ("ʃa", "sh"), ("ma", "closed")] {
+            let segs = segments(&[word(0.0, 0.1, word_)]);
+            let f = frames(&segs, 25, 3);
+            assert_eq!(f[0], shape, "{word_}");
+            assert_eq!(f[1], "open", "{word_}");
+        }
     }
 }

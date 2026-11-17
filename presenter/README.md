@@ -5,7 +5,7 @@ says what it does and how the editor talks to it; `docs/avatar-addon-spec.md` is
 
 The program is `openstage-presenter`. It has no window. OpenStage Author starts it, writes one request on its standard input, reads the answer from its standard output, and it ends.
 Its commands in this version: `presenter.hello`, `presenter.check` (what the computer can do), `presenter.presenters` (the illustrated presenters, as data the editor draws from), and
-`presenter.mouthTrack` (the mouth shape at each moment of a WAV file: from the words and phonemes the speech engine said when it is given them, and from the sound alone when it is not). It is Rust, because it is native code that other kinds of presenter (made from a photo, later) will
+`presenter.mouthTrack` (the mouth shape, one of eleven, at each moment of a WAV file: from the words and phonemes the speech engine said when it is given them, and from the sound alone when it is not). It is Rust, because it is native code that other kinds of presenter (made from a photo, later) will
 need, and it has two dependencies of its own, `serde` and `serde_json`, and `windows-sys` to read how much memory the computer has. No FFmpeg.
 
 ## Double-click scripts

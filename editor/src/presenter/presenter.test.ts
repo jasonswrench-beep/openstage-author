@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { blinkAt, drawFrame, drawLabel, shade, swayAt, type Ctx } from "./draw.ts";
-import { MOUTH_SHAPES, parsePresenters, parseTrack, shapeAt, type Look, type MouthShape, type MouthTrack } from "./look.ts";
+import { MOUTH_EASE_MS, MOUTH_LEAD_MS, MOUTH_SHAPES, parsePresenters, parseTrack, poseAt, poseForPicture, shapeAt, type Look, type MouthPose, type MouthShape, type MouthTrack } from "./look.ts";
+import { MOUTH_LOOK, lookOf, mixLook } from "./mouthdraw.ts";
 import { blockFor, clipStatus, creditForClip, fileHint, framingStyle, madeFrom, startingAltText } from "./status.ts";
 import { webmDuration, webmWithDuration } from "./webm.ts";
 import { newNarration } from "../narration.ts";
@@ -129,7 +130,41 @@ test("every mouth shape is drawn differently, and the picture is the same for th
     drawFrame(again.ctx, look, shape, 1234, 720, false);
     assert.equal(again.log.join("\n"), log.join("\n"), `${shape} is drawn the same way twice`);
   }
-  assert.equal(new Set(made.values()).size, MOUTH_SHAPES.length, "six shapes, six different pictures");
+  assert.equal(new Set(made.values()).size, MOUTH_SHAPES.length, "eleven shapes, eleven different pictures");
+});
+
+test("a mouth between two shapes is drawn from the numbers between them, and resting in a shape is that shape", () => {
+  const draw = (m: MouthShape | MouthPose): string => { const r = recorder(); drawFrame(r.ctx, look, m, 1234, 720, false); return r.log.join("\n"); };
+  for (const shape of MOUTH_SHAPES) {
+    assert.equal(draw({ from: shape, to: "open", mix: 0 }), draw(shape), `${shape} at the start of a move is the shape`);
+    assert.equal(draw({ from: "wide", to: shape, mix: 0 }), draw("wide"), `a move to ${shape} has not begun`);
+  }
+  const half = draw({ from: "closed", to: "open", mix: 0.5 });
+  assert.notEqual(half, draw("closed"));
+  assert.notEqual(half, draw("open"));
+  assert.notEqual(half, draw({ from: "closed", to: "open", mix: 0.25 }));
+  // a mouth nearly shut is a very thin shape: its lips are drawn with a round join, never a pointed one that would spike out at the corners
+  const thin = recorder();
+  drawFrame(thin.ctx, look, { from: "teeth", to: "closed", mix: 0.84 }, 1234, 720, false);
+  assert.equal((thin.ctx as unknown as Record<string, unknown>)["lineJoin"], "round");
+  const between = mixLook(MOUTH_LOOK.closed, MOUTH_LOOK.open, 0.5);
+  assert.equal(between.down, (MOUTH_LOOK.closed.down + MOUTH_LOOK.open.down) / 2);
+  assert.equal(between.sag, (MOUTH_LOOK.closed.sag + MOUTH_LOOK.open.sag) / 2);
+  assert.deepEqual(lookOf("wide"), MOUTH_LOOK.wide);
+  assert.deepEqual(lookOf({ from: "wide", to: "round", mix: 0 }), MOUTH_LOOK.wide);
+});
+
+test("every mouth shape fits in the face and is made of sensible numbers", () => {
+  assert.deepEqual(Object.keys(MOUTH_LOOK).sort(), [...MOUTH_SHAPES].sort());
+  for (const [name, m] of Object.entries(MOUTH_LOOK)) {
+    for (const [k, v] of Object.entries(m)) assert.ok(Number.isFinite(v) && v >= 0, `${name}.${k} is ${v}`);
+    assert.ok(m.w >= 0.015 && m.w <= 0.055, `${name} is a sensible width`);
+    assert.ok(m.up + m.down <= 0.08 && m.down < 0.06, `${name} does not open past the chin`);
+    assert.ok(m.teethTop + m.teethBottom <= m.up + m.down + m.sag + 0.002, `${name}: the teeth fit in the opening`);
+  }
+  assert.ok(MOUTH_LOOK.closed.up === 0 && MOUTH_LOOK.closed.down === 0, "a shut mouth has no opening");
+  assert.ok(MOUTH_LOOK.open.down > MOUTH_LOOK.mid.down && MOUTH_LOOK.mid.down > MOUTH_LOOK.small.down, "small, mid, open are in order");
+  assert.ok(MOUTH_LOOK.pucker.w < MOUTH_LOOK.round.w && MOUTH_LOOK.round.w < MOUTH_LOOK.wide.w, "pushed forward is narrower than rounded, which is narrower than spread");
 });
 
 test("the label is drawn only when it is on, and says what it is", () => {
@@ -203,9 +238,103 @@ test("a file that is not a WebM is returned as it was", () => {
   assert.equal(webmWithDuration(webm(), Number.NaN).length, webm().length);
 });
 
-test("the shapes are the six the add-on makes", () => {
-  const shapes: MouthShape[] = ["closed", "small", "open", "wide", "round", "teeth"];
+test("the shapes are the eleven the add-on makes, and a track can use any of them", () => {
+  const shapes: MouthShape[] = ["closed", "small", "mid", "open", "wide", "round", "pucker", "sh", "teeth", "fv", "tongue"];
   assert.deepEqual([...MOUTH_SHAPES], shapes);
   const t: MouthTrack = parseTrack(raw);
   assert.ok(t.runs.every((r) => MOUTH_SHAPES.includes(r.shape)));
+  const all = parseTrack({ durationMs: 1100, fps: 25, runs: shapes.map((s, i) => [i * 100, s]) });
+  assert.deepEqual(all.runs.map((r) => r.shape), shapes);
+  assert.throws(() => parseTrack({ durationMs: 100, fps: 25, runs: [[0, "grin"]] }), /could not be understood/);
+});
+
+// ---- the mouth in motion
+
+/** A track with one run each time the shape changes, one shape to each picture of 25 a second. */
+function grid(shapes: MouthShape[]): MouthTrack {
+  const runs: MouthTrack["runs"] = [];
+  shapes.forEach((shape, i) => {
+    if (runs.length === 0 || runs[runs.length - 1]!.shape !== shape) runs.push({ atMs: i * 40, shape });
+  });
+  return { durationMs: shapes.length * 40, fps: 25, runs, source: "phonemes" };
+}
+
+/** How much of a shape a pose is made of. */
+const weight = (p: MouthPose, shape: MouthShape): number => (p.from === shape ? 1 - p.mix : 0) + (p.to === shape ? p.mix : 0);
+
+const track: MouthTrack = { durationMs: 1000, fps: 25, runs: [{ atMs: 0, shape: "closed" }, { atMs: 200, shape: "open" }, { atMs: 600, shape: "closed" }], source: "phonemes" };
+
+test("a move from one shape to the next is centred on the moment the track changes, and is smooth", () => {
+  assert.deepEqual(poseAt(track, 100), { from: "closed", to: "closed", mix: 0 });
+  assert.deepEqual(poseAt(track, 400), { from: "open", to: "open", mix: 0 });
+  assert.equal(poseAt(track, 200).mix, 0.5, "half way at the change");
+  assert.equal(poseAt(track, 200).from, "closed");
+  assert.equal(poseAt(track, 200).to, "open");
+  assert.equal(poseAt(track, 150).mix, 0, "it has not begun half the ease before");
+  assert.deepEqual(poseAt(track, 250), { from: "open", to: "open", mix: 0 }, "and it has finished half the ease after");
+  assert.ok(poseAt(track, 175).mix > 0 && poseAt(track, 175).mix < 0.5, "begun, before the change");
+  assert.ok(poseAt(track, 225).mix > 0.5 && poseAt(track, 225).mix < 1, "nearly there, after it");
+  assert.equal(MOUTH_EASE_MS, 100);
+  // and the move out of it
+  assert.equal(poseAt(track, 600).mix, 0.5);
+  assert.equal(poseAt(track, 600).to, "closed");
+  assert.deepEqual(poseAt(track, 5000), { from: "closed", to: "closed", mix: 0 });
+  assert.deepEqual(poseAt(track, -20), { from: "closed", to: "closed", mix: 0 });
+});
+
+test("the mouth is ahead of the sound: the picture is made from a little later in the track", () => {
+  assert.equal(MOUTH_LEAD_MS, 40);
+  // the sound opens at 200 ms. The picture shown from 160 ms is made from 160 + 20 (its middle) + 40 (the lead) = 220 ms, nearly open
+  const p = poseForPicture(track, 160);
+  assert.equal(shapeAt(track, 160), "closed", "the sound has not opened yet");
+  assert.equal(p.to, "open");
+  assert.ok(p.mix > 0.5, `it is more than half open before the sound: ${p.mix}`);
+  assert.deepEqual(poseForPicture(track, 200), { from: "open", to: "open", mix: 0 });
+  assert.deepEqual(poseForPicture(track, 0), { from: "closed", to: "closed", mix: 0 });
+  // the middle of a picture is half of it, whatever the picture rate the track was made at
+  assert.equal(poseForPicture(track, 160).mix, poseAt(track, 160 + 20 + 40).mix);
+  assert.equal(poseForPicture({ ...track, fps: 50 }, 160).mix, poseAt(track, 160 + 10 + 40).mix);
+});
+
+test("a shape that lasts one picture is never blended away", () => {
+  // lips together for one picture between two vowels, a shape of one picture between a pause and a vowel, and so on
+  const shapes: MouthShape[] = ["open", "open", "open", "closed", "open", "open", "open", "open", "closed", "closed", "teeth", "wide", "wide", "wide", "wide", "fv", "round", "round"];
+  const t = grid(shapes);
+  let one = 0;
+  for (let i = 1; i < shapes.length - 1; i++) {
+    if (shapes[i] === shapes[i - 1] || shapes[i] === shapes[i + 1]) continue;
+    // the picture shown from (i - 1) * 40 is the one made from the middle of the track's picture i
+    const p = poseForPicture(t, (i - 1) * 40);
+    assert.equal(p.mix, 0, `picture ${i - 1}`);
+    assert.equal(p.from, shapes[i], `picture ${i - 1} shows ${shapes[i]} whole`);
+    one++;
+  }
+  assert.ok(one >= 3, `${one} one-picture shapes tried`);
+  // and the same for one picture beside shapes that last a long time
+  const long: MouthTrack = { durationMs: 2000, fps: 25, runs: [{ atMs: 0, shape: "open" }, { atMs: 1000, shape: "closed" }, { atMs: 1040, shape: "open" }], source: "phonemes" };
+  assert.deepEqual(poseForPicture(long, 1000 - 40), { from: "closed", to: "open", mix: 0 }, "the picture made from the middle of the one-picture shape");
+});
+
+test("the mouth never jumps: the shapes in a pose change smoothly from moment to moment, whatever the track", () => {
+  let seed = 7;
+  const next = (): number => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+  for (let trial = 0; trial < 40; trial++) {
+    const runs: MouthTrack["runs"] = [{ atMs: 0, shape: "closed" }];
+    let at = 0;
+    for (let i = 0; i < 30; i++) {
+      at += 40 * (1 + Math.floor(next() * 8));
+      let shape = MOUTH_SHAPES[Math.floor(next() * MOUTH_SHAPES.length)]!;
+      if (shape === runs[runs.length - 1]!.shape) shape = shape === "closed" ? "open" : "closed";
+      runs.push({ atMs: at, shape });
+    }
+    const t: MouthTrack = { durationMs: at + 200, fps: 25, runs, source: "phonemes" };
+    for (let ms = 0; ms < at + 100; ms += 1) {
+      const a = poseAt(t, ms);
+      const b = poseAt(t, ms + 1);
+      assert.ok(a.mix >= 0 && a.mix <= 1 && MOUTH_SHAPES.includes(a.from) && MOUTH_SHAPES.includes(a.to));
+      let change = 0;
+      for (const shape of MOUTH_SHAPES) change += Math.abs(weight(a, shape) - weight(b, shape));
+      assert.ok(change < 0.1, `trial ${trial}: the mouth changes by ${change} in a millisecond at ${ms}`);
+    }
+  }
 });

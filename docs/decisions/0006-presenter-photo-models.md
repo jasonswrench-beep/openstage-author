@@ -103,7 +103,7 @@ What it showed:
 5. **The numbers are a rough guide.** Ten photos is a small sample and the measure is crude, but it separates the one failure from the rest: the lowest of the other nine is 2.4%, and s11 is 0.8%.
 
 What this means for the design: it holds for faces with visible lips and ordinary expressions. Before a photo is accepted as a presenter, the add-on has to be able to say when the mouth will barely move (see the to-do in `ROADMAP.md`), and the editor
-should not offer six mouth shapes for a photo when it can draw four.
+should not offer six mouth shapes for a photo when it can draw four. (2026-11-17: the add-on now makes eleven shapes, not six; the trial used six lip openings, and a photo presenter would group the eleven into the same four or so looks.)
 
 ## What is needed to go on
 
