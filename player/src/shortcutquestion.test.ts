@@ -47,7 +47,7 @@ test("SCORM 1.2 and strict SCORM 2004 are told a fill-in", async () => {
   const a = await told12(keys("Ctrl+Shift+S"), "ctrl+shift+s");
   assert.deepEqual([a("type"), a("student_response"), a("correct_responses.0.pattern"), a("result")], ["fill-in", "Ctrl+Shift+S", "Ctrl+Shift+S", "correct"]);
   const b = await told2004(keys("Ctrl+Shift+S", "Cmd+Shift+S"), "Ctrl+D");
-  assert.deepEqual([b.get("type"), b.get("learner_response"), b.get("correct_responses.0.pattern"), b.get("correct_responses.1.pattern"), b.get("result")], ["fill_in", "Ctrl+D", "Ctrl+Shift+S", "Shift+Meta+S", "incorrect"]);
+  assert.deepEqual([b.get("type"), b.get("learner_response"), b.get("correct_responses.0.pattern"), b.get("correct_responses.1.pattern"), b.get("result")], ["fill-in", "Ctrl+D", "Ctrl+Shift+S", "Shift+Meta+S", "incorrect"]);
   assert.deepEqual(b.warnings, []);
 });
 

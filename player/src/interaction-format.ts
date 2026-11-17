@@ -80,5 +80,8 @@ export function formatInput(type: InputInteraction, response: string): { kind: I
   return { kind: type, response };
 }
 
-/** The name SCORM 2004 gives each kind (underscores, not hyphens). xAPI keeps the hyphens. */
-export const scorm2004Type = (kind: InteractionKind): string => kind.split("-").join("_");
+/**
+ * The name SCORM 2004 gives each kind. It is the same word SCORM 1.2 and xAPI use, with hyphens (`true-false`, `fill-in`, `long-fill-in`): the 2004 vocabulary
+ * spells them that way too. Underscores were sent here once, and a strict LMS refuses such a type with error 406 and then every answer with 408.
+ */
+export const scorm2004Type = (kind: InteractionKind): string => kind;

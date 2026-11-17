@@ -35,7 +35,7 @@ test("what the LMS is told for an essay: the words, spaces tidied, cut to what S
 test("an essay is long fill-in for SCORM 2004 and xAPI, its words as they are and no right answer", () => {
   const g = grade(full(0), "A reply with [brackets] and, commas.");
   assert.deepEqual(formatGraded(full(0), g), { kind: "long-fill-in", response: "A reply with [brackets] and, commas.", patterns: [] });
-  assert.equal(scorm2004Type("long-fill-in"), "long_fill_in", "every hyphen, not only the first");
+  assert.equal(scorm2004Type("long-fill-in"), "long-fill-in", "the hyphens are kept: SCORM 2004 spells it that way");
 });
 
 test("nothing to check until there are enough words, and the learner is told how many", () => {
@@ -66,7 +66,7 @@ test("SCORM 1.2 is told a fill-in with the writing and no correct response", asy
 
 test("SCORM 2004 is told a long fill-in, which its strict LMS takes with no complaint", async () => {
   const lms = await told2004(essay(3), "a reply\nof four words");
-  assert.deepEqual([lms.get("type"), lms.get("learner_response"), lms.get("correct_responses.0.pattern"), lms.get("result")], ["long_fill_in", "a reply of four words", undefined, "correct"]);
+  assert.deepEqual([lms.get("type"), lms.get("learner_response"), lms.get("correct_responses.0.pattern"), lms.get("result")], ["long-fill-in", "a reply of four words", undefined, "correct"]);
   assert.deepEqual(lms.warnings, []);
 });
 

@@ -282,11 +282,40 @@ test("the fake LMS itself rejects what the standard rejects", () => {
   assert.equal(lms.SetValue("cmi.interactions.0.id", "q1"), "true");
   assert.equal(lms.SetValue("cmi.interactions.0.learner_response", "a"), "false");
   assert.equal(lms.GetLastError(), "408");
-  assert.equal(lms.SetValue("cmi.interactions.0.type", "true_false"), "true");
+  assert.equal(lms.SetValue("cmi.interactions.0.type", "true_false"), "false", "the strict LMS refuses the underscored spelling, as a real one does");
+  assert.equal(lms.GetLastError(), "406");
+  assert.equal(lms.SetValue("cmi.interactions.0.type", "fill_in"), "false");
+  assert.equal(lms.SetValue("cmi.interactions.0.type", "long_fill_in"), "false");
+  assert.equal(lms.SetValue("cmi.interactions.0.type", "true-false"), "true");
   assert.equal(lms.SetValue("cmi.interactions.0.learner_response", "a"), "false");
   assert.equal(lms.GetLastError(), "406");
   assert.equal(lms.SetValue("cmi.interactions.2.id", "skipped"), "false");
   assert.equal(lms.Terminate(""), "true");
   assert.equal(lms.Terminate(""), "false");
   assert.equal(lms.GetLastError(), "113");
+});
+
+test("the strict LMS takes only the standard's own type words, which have hyphens, and each kind's answer syntax", () => {
+  const lms = new FakeLms2004();
+  lms.relaunch();
+  lms.Initialize("");
+  for (const [n, type] of ["true-false", "choice", "fill-in", "long-fill-in", "matching", "performance", "sequencing", "likert", "numeric", "other"].entries()) {
+    assert.equal(lms.SetValue(`cmi.interactions.${n}.id`, `q${n}`), "true");
+    assert.equal(lms.SetValue(`cmi.interactions.${n}.type`, type), "true", type);
+  }
+  // an underscored spelling, or any word that is not in the vocabulary, is refused with 406, and the answer after it with 408
+  lms.SetValue("cmi.interactions.10.id", "q10");
+  for (const bad of ["true_false", "fill_in", "long_fill_in", "truefalse", "True-False", "essay"]) {
+    assert.equal(lms.SetValue("cmi.interactions.10.type", bad), "false", bad);
+    assert.equal(lms.GetLastError(), "406", bad);
+  }
+  assert.equal(lms.SetValue("cmi.interactions.10.learner_response", "true"), "false");
+  assert.equal(lms.GetLastError(), "408");
+  // a long fill-in's pattern takes the same leading flags a fill-in's does ({lang=} and {case_matters=}), and up to 4000 characters
+  assert.equal(lms.SetValue("cmi.interactions.3.correct_responses.0.pattern", "{lang=en}{case_matters=false}some words"), "true");
+  assert.equal(lms.SetValue("cmi.interactions.3.correct_responses.0.pattern", "x".repeat(4000)), "true");
+  assert.equal(lms.SetValue("cmi.interactions.3.correct_responses.0.pattern", "x".repeat(4001)), "false");
+  assert.equal(lms.SetValue("cmi.interactions.3.learner_response", "y".repeat(4000)), "true");
+  assert.equal(lms.SetValue("cmi.interactions.3.learner_response", "y".repeat(4001)), "false");
+  assert.equal(lms.SetValue("cmi.interactions.2.correct_responses.0.pattern", "{lang=en}{case_matters=true}{order_matters=false}one[,]two"), "true");
 });

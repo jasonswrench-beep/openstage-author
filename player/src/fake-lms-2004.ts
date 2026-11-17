@@ -40,8 +40,11 @@ const KNOWN = new Set([...READ_ONLY, ...WRITE_ONLY, "cmi.completion_status", "cm
 const COMPLETION = ["completed", "incomplete", "not attempted", "unknown"];
 const SUCCESS = ["passed", "failed", "unknown"];
 const EXIT = ["", "timeout", "suspend", "logout", "normal"];
-const TYPES = ["true_false", "choice", "fill_in", "long_fill_in", "matching", "performance", "sequencing", "likert", "numeric", "other"];
+const TYPES = ["true-false", "choice", "fill-in", "long-fill-in", "matching", "performance", "sequencing", "likert", "numeric", "other"];
 const RESULTS = ["correct", "incorrect", "unanticipated", "neutral"];
+
+/** The flags a fill-in or long fill-in pattern may begin with, in any order: {case_matters=true}, {order_matters=false} and {lang=en}. */
+const PATTERN_FLAGS = /^(\{(case_matters|order_matters)=(true|false)\}|\{lang=[^{}]*\})*/;
 
 const REAL = /^-?\d+(\.\d+)?$/;
 const SHORT_ID = /^[A-Za-z0-9._:-]+$/;
@@ -245,23 +248,25 @@ export class FakeLms2004 implements Scorm2004Api {
 
   private response(type: string, value: string): string | null {
     switch (type) {
-      case "true_false": return value === "true" || value === "false" ? null : "406";
+      case "true-false": return value === "true" || value === "false" ? null : "406";
       case "choice":
       case "sequencing": return items(value).every((s) => SHORT_ID.test(s)) ? null : "406";
       case "likert": return SHORT_ID.test(value) ? null : "406";
       case "numeric": return real(value) ? null : "406";
       case "matching": return items(value).every((p) => /^[^[\]]+\[\.\][^[\]]+$/.test(p) && p.split("[.]").every((s) => SHORT_ID.test(s))) ? null : "406";
-      case "fill_in": return items(value).length <= 10 && items(value).every((s) => s.length <= 250) ? null : "406";
+      case "fill-in": return items(value).length <= 10 && items(value).every((s) => s.length <= 250) ? null : "406";
       default: return value.length <= 4000 ? null : "406";
     }
   }
 
   private pattern(type: string, value: string): string | null {
     switch (type) {
-      case "fill_in": {
-        const body = value.replace(/^(\{(case_matters|order_matters)=(true|false)\})*/, "");
+      case "fill-in": {
+        const body = value.replace(PATTERN_FLAGS, "");
         return items(body).length <= 10 && items(body).every((s) => s.length <= 250) ? null : "406";
       }
+      // A long fill-in has one answer, up to 4000 characters, and the same leading flags.
+      case "long-fill-in": return value.replace(PATTERN_FLAGS, "").length <= 4000 ? null : "406";
       case "numeric": return /^(-?\d+(\.\d+)?)?(\[:\](-?\d+(\.\d+)?)?)?$/.test(value) && value !== "" ? null : "406";
       case "choice":
       case "sequencing": return items(value).length > 0 && items(value).every((s) => SHORT_ID.test(s)) ? null : "406";

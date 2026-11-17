@@ -58,7 +58,7 @@ test("SCORM 1.2 and strict SCORM 2004 are told the word as a fill-in", async () 
   const a = await told12(word(DOG), "w3");
   assert.deepEqual([a("type"), a("student_response"), a("correct_responses.0.pattern"), a("result")], ["fill-in", "barked", "barked", "correct"]);
   const b = await told2004(word(DOG), "w1");
-  assert.deepEqual([b.get("type"), b.get("learner_response"), b.get("correct_responses.0.pattern"), b.get("result")], ["fill_in", "The", "barked", "incorrect"]);
+  assert.deepEqual([b.get("type"), b.get("learner_response"), b.get("correct_responses.0.pattern"), b.get("result")], ["fill-in", "The", "barked", "incorrect"]);
   assert.deepEqual(b.warnings, []);
 });
 

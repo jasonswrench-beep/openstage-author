@@ -1075,7 +1075,7 @@ author's to change.
 **What the LMS is told.** Each submission is one interaction, of the SCORM type that fits: `choice` for multiple choice, multiple response and hotspot (the
 letters of the choices or areas, `a`, `b`, `c` in the order written), `fill-in` for short answer and fill in the blanks, `numeric` for a number (its range
 as `min#max`), `matching` (`1.a,2.b`, the item number and the letter of its match) and `sequencing` (the letters of the items in the learner's order). A
-long answer is cut to the 255 characters SCORM 1.2 allows. An essay is a `fill-in` in SCORM 1.2 with no correct response, and a long fill-in (`long_fill_in` in SCORM 2004, `long-fill-in` in xAPI)
+long answer is cut to the 255 characters SCORM 1.2 allows. An essay is a `fill-in` in SCORM 1.2 with no correct response, and a long fill-in (`long-fill-in` in SCORM 2004 and xAPI)
 there. A which-word question is a `fill-in` whose answer is the word chosen and whose patterns are the right words; a shortcut is a `fill-in` whose answer and patterns are written the one way (`Ctrl+Shift+S`).
 
 ## Timing
@@ -1655,8 +1655,9 @@ project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bund
   duration such as `PT1H2M3.45S`. `Terminate` is called once, when the page is hidden or unloaded.
 - **Interactions.** Each quiz submission is one interaction: `id`, then `type`, then `timestamp`, `learner_response`, `result`
   (`correct` or `incorrect`; a partly right answer is `incorrect` and the share of points is in the score), `weighting` and
-  `correct_responses`. The order matters: an LMS refuses an answer before its type. The standard's own answer syntax is used,
-  not the plainer forms of 1.2:
+  `correct_responses`. The order matters: an LMS refuses an answer before its type. The `type` words are the standard's own, spelled
+  with hyphens (`true-false`, `fill-in`, `long-fill-in`), the same words SCORM 1.2 and xAPI use; an underscored spelling is refused by a strict LMS
+  with error 406, and then every answer after it with 408. The standard's own answer syntax is used, not the plainer forms of 1.2:
 
   | Question | `type` | `learner_response` and patterns |
   | --- | --- | --- |
@@ -1664,14 +1665,14 @@ project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bund
   | Sequencing | `sequencing` | letters in order, `b[,]a[,]c` |
   | Matching | `matching` | `1[.]a[,]2[.]c` (item, then option) |
   | Number | `numeric` | a number, and the pattern `1[:]5` for a range or `7` for an exact answer |
-  | Short answer | `fill_in` | the text; the pattern begins `{case_matters=true}` when capitals matter |
-  | Fill in the blanks | `fill_in` | each blank joined by `[,]`; the pattern begins `{case_matters=...}{order_matters=true}` (a word picked from a list is exact) |
-  | Choose a word, keyboard shortcut | `fill_in` | the word, or the shortcut written the one way; the patterns are each right word, or each right shortcut |
-  | Essay | `long_fill_in` | what was written, spaces tidied, up to 255 characters; no correct response |
+  | Short answer | `fill-in` | the text; the pattern begins `{case_matters=true}` when capitals matter |
+  | Fill in the blanks | `fill-in` | each blank joined by `[,]`; the pattern begins `{case_matters=...}{order_matters=true}` (a word picked from a list is exact) |
+  | Choose a word, keyboard shortcut | `fill-in` | the word, or the shortcut written the one way; the patterns are each right word, or each right shortcut |
+  | Essay | `long-fill-in` | what was written, spaces tidied, up to 255 characters; no correct response |
 
   A number question answered with something that is not a number is sent as type `other`. A separator typed inside a learner's
   words (`[,]`, `[.]`, `[:]`) is changed to have a space in it, so it cannot be mistaken for one. An input the author chose to
-  report is an interaction too: a tick box is `true_false` with `true` or `false`, a rating is `likert`, a drop-down or radio group is `choice`.
+  report is an interaction too: a tick box is `true-false` with `true` or `false`, a rating is `likert`, a drop-down or radio group is `choice`.
 - **Review and browse mode** are read only: nothing is written.
 - **Not done.** Only the primary objective is used, there is one SCO (so no sequencing between parts), and `adl.nav.request`, `cmi.comments_from_learner` and
   `cmi.interactions.n.objectives` are not written.

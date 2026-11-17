@@ -194,7 +194,7 @@ test("a reported text field is a fill-in interaction in SCORM 1.2, cut to the 25
   assert.equal(lms.data["cmi.interactions.1.id"], undefined);
 });
 
-test("a reported text field is a fill_in interaction in SCORM 2004, and the strict LMS accepts it", () => {
+test("a reported text field is a fill-in interaction in SCORM 2004, and the strict LMS accepts it", () => {
   const lms = new FakeLms2004();
   lms.relaunch();
   const { rt } = newRuntime(packageWith(textField(true)));
@@ -208,7 +208,7 @@ test("a reported text field is a fill_in interaction in SCORM 2004, and the stri
   } finally {
     console.warn = realWarn;
   }
-  assert.equal(lms.data["cmi.interactions.0.type"], "fill_in");
+  assert.equal(lms.data["cmi.interactions.0.type"], "fill-in");
   assert.equal(lms.data["cmi.interactions.0.learner_response"], "Ada");
   assert.deepEqual(warnings, []);
 });

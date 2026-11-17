@@ -83,9 +83,10 @@ test("an input's tick box becomes true or false", () => {
   assert.deepEqual(formatInput("choice", "b"), { kind: "choice", response: "b" });
 });
 
-test("SCORM 2004 spells its types with underscores", () => {
-  assert.equal(scorm2004Type("true-false"), "true_false");
-  assert.equal(scorm2004Type("fill-in"), "fill_in");
+test("SCORM 2004 spells its types with hyphens, as SCORM 1.2 and xAPI do", () => {
+  assert.equal(scorm2004Type("true-false"), "true-false");
+  assert.equal(scorm2004Type("fill-in"), "fill-in");
+  assert.equal(scorm2004Type("long-fill-in"), "long-fill-in");
   assert.equal(scorm2004Type("choice"), "choice");
   assert.equal(scorm2004Type("other"), "other");
 });
