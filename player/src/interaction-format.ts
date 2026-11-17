@@ -49,7 +49,8 @@ export function formatGraded(q: QuizContent, g: Graded): FormattedInteraction {
     }
     case "essay":
       // Nothing to compare it with: the pattern list is empty and whoever reads the record judges the writing. Spaces were tidied when it was graded.
-      return { kind: "long-fill-in", response: g.response, patterns: [] };
+      // SCORM 1.2 got the first 255 characters (g.response); a long fill-in holds up to 4000, so these two standards are given the whole of it.
+      return { kind: "long-fill-in", response: g.longResponse ?? g.response, patterns: [] };
     case "whichWord":
     case "shortcut":
       return { kind: "fill-in", response: safe(g.response), patterns: g.patterns.map(safe) };

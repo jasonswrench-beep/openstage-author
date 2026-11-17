@@ -1031,7 +1031,8 @@ on, and every marker has a blank and every blank a marker.
   one, whatever `minWords` says). A word is a run of letters or numbers between spaces: a dash or a mark on its own is not one. A learner who has written too few is told
   how many to write, and that is not an attempt. The box shows the number of words as plain text that a screen reader reads when the box is focused; it is not a live
   region, so nothing is said as the learner types. A finished essay is read only, not disabled, so it can still be read. What was written goes to the LMS and is
-  read by a person there. It is cut to 255 characters, with its spaces tidied, because SCORM 1.2 holds no more; a long essay is not kept in the learner's place when they
+  read by a person there. Its spaces are tidied. SCORM 1.2 holds no more than 255 characters of an answer, so it is given the first 255; SCORM 2004 and xAPI are given the whole of it, up to the 4000 characters a
+  long fill-in holds. A long essay is not kept in the learner's place when they
   leave (an answer of more than 200 characters is not kept), so it is not put back, though a question that is finished is still finished.
 - A **which-word** passage is read the same way by the player (`player/src/passage.ts`), the validator (`tools/quiztext.py`) and the editor, and all are tested against
   `tools/passage-cases.json`. Words are runs of anything but spaces, with the punctuation round them taken off (`"[yes]",` is the word `yes`); a word is chosen
@@ -1075,8 +1076,8 @@ author's to change.
 **What the LMS is told.** Each submission is one interaction, of the SCORM type that fits: `choice` for multiple choice, multiple response and hotspot (the
 letters of the choices or areas, `a`, `b`, `c` in the order written), `fill-in` for short answer and fill in the blanks, `numeric` for a number (its range
 as `min#max`), `matching` (`1.a,2.b`, the item number and the letter of its match) and `sequencing` (the letters of the items in the learner's order). A
-long answer is cut to the 255 characters SCORM 1.2 allows. An essay is a `fill-in` in SCORM 1.2 with no correct response, and a long fill-in (`long-fill-in` in SCORM 2004 and xAPI)
-there. A which-word question is a `fill-in` whose answer is the word chosen and whose patterns are the right words; a shortcut is a `fill-in` whose answer and patterns are written the one way (`Ctrl+Shift+S`).
+long answer is cut to the 255 characters SCORM 1.2 allows. An essay is a `fill-in` in SCORM 1.2 (the first 255 characters, with no correct response), and a long fill-in (`long-fill-in` in SCORM 2004 and xAPI)
+there, the whole of it up to 4000 characters. A which-word question is a `fill-in` whose answer is the word chosen and whose patterns are the right words; a shortcut is a `fill-in` whose answer and patterns are written the one way (`Ctrl+Shift+S`).
 
 ## Timing
 
@@ -1668,7 +1669,7 @@ project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bund
   | Short answer | `fill-in` | the text; the pattern begins `{case_matters=true}` when capitals matter |
   | Fill in the blanks | `fill-in` | each blank joined by `[,]`; the pattern begins `{case_matters=...}{order_matters=true}` (a word picked from a list is exact) |
   | Choose a word, keyboard shortcut | `fill-in` | the word, or the shortcut written the one way; the patterns are each right word, or each right shortcut |
-  | Essay | `long-fill-in` | what was written, spaces tidied, up to 255 characters; no correct response |
+  | Essay | `long-fill-in` | what was written, spaces tidied, up to 4000 characters (SCORM 1.2 is given 255); no correct response |
 
   A number question answered with something that is not a number is sent as type `other`. A separator typed inside a learner's
   words (`[,]`, `[.]`, `[:]`) is changed to have a space in it, so it cannot be mistaken for one. An input the author chose to

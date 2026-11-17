@@ -55,7 +55,7 @@ A pretend cmi5 LMS to try it first, by hand: `TEST WITH STAND-IN CMI5 LMS.bat` (
 
 **Round 4: the question types (about 20 minutes).**
 Upload `question-types-scorm12.zip` and follow `..\question-types.osproj\TEST-PLAN.md`. The thing to look at is **how the LMS shows each answer**
-(an essay answer is sent as a long fill-in, cut to 255 characters in SCORM 1.2; a drag-and-drop or sequencing answer is sent as matching or sequencing).
+(an essay answer is sent as a long fill-in, cut to 255 characters in SCORM 1.2 and sent whole, up to 4000, in SCORM 2004 and xAPI; a drag-and-drop or sequencing answer is sent as matching or sequencing).
 
 **Round 5: the rest of the plan, if you have the energy.**
 Tests 6 to 13 of `LMS-TEST-PLAN.md`: keyboard only, a screen reader (NVDA only when you are away, and only after you tell me), the YouTube embed, the

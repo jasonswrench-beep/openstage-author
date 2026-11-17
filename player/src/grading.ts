@@ -36,6 +36,8 @@ export interface Graded {
   scormType: ScormType;
   /** What to tell the LMS the learner answered. */
   response: string;
+  /** Only for an essay: the whole of what was written, up to the 4000 characters a SCORM 2004 long fill-in holds, for SCORM 2004 and xAPI. `response` is cut to what SCORM 1.2 holds. */
+  longResponse?: string;
   /** What to tell the LMS is right, one pattern for each way of being right. */
   patterns: string[];
   /** Only for blanks: what is in each, and the first accepted answer of each. SCORM 2004 and xAPI have their own separator, so they need the parts, not the text joined with commas. */
@@ -47,7 +49,15 @@ export const countWords = (text: string): number => text.split(/\s+/).filter((w)
 
 /** SCORM 1.2 holds 255 characters of an answer. */
 const LIMIT = 255;
-const cut = (s: string): string => (s.length > LIMIT ? s.slice(0, LIMIT) : s);
+/** A SCORM 2004 long fill-in holds 4000 (xAPI is given the same, so an essay reads the same in both). */
+const LONG_LIMIT = 4000;
+/** The first `max` characters, never ending half way through a character made of two parts (an emoji), which is not text an LMS or a JSON file can hold. */
+const cutTo = (s: string, max: number): string => {
+  if (s.length <= max) return s;
+  const head = s.slice(0, max);
+  return /[\uD800-\uDBFF]$/.test(head) ? head.slice(0, -1) : head;
+};
+const cut = (s: string): string => cutTo(s, LIMIT);
 
 /** a, b, c ... for the first, second, third. SCORM names choices and targets this way. */
 export const letter = (index: number): string => String.fromCharCode(97 + Math.max(0, Math.min(25, index)));
@@ -246,8 +256,10 @@ function gradeHotspot(q: HotspotQuiz, answer: string): Graded {
 export const essayDone = (q: EssayQuiz, answer: string): boolean => countWords(answer) >= Math.max(1, q.minWords);
 
 function gradeEssay(q: EssayQuiz, answer: string): Graded {
-  // 1.2 has only a short fill-in to put it in; SCORM 2004 and xAPI are told it is a long one (see interaction-format.ts). No right answer to send.
-  return whole(essayDone(q, answer), { scormType: "fill-in", response: cut(answer.replace(/\s+/g, " ").trim()), patterns: [] });
+  // 1.2 has only a short fill-in to put it in, so it holds 255 characters; SCORM 2004 and xAPI are told it is a long one (see interaction-format.ts) and are given
+  // up to 4000. No right answer to send.
+  const text = answer.replace(/\s+/g, " ").trim();
+  return whole(essayDone(q, answer), { scormType: "fill-in", response: cut(text), longResponse: cutTo(text, LONG_LIMIT), patterns: [] });
 }
 
 function gradeWhichWord(q: WhichWordQuiz, answer: string): Graded {

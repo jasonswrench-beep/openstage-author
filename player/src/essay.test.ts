@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { countWords, emptyMessage, grade, isAnswered, keepAnswer } from "./grading.ts";
 import { formatGraded, scorm2004Type } from "./interaction-format.ts";
-import { built, courseWith, told12, told2004, type Body } from "./question-helpers.ts";
+import { FakeLrs } from "./fake-lrs.ts";
+import { built, courseWith, told12, told2004, tick, type Body } from "./question-helpers.ts";
+import { XapiTracker } from "./xapi.ts";
 import type { EssayQuiz, QuizContent } from "./types.ts";
 
 const essay = (minWords: number): Body<EssayQuiz> => ({ questionType: "essay", minWords });
@@ -29,13 +31,32 @@ test("an essay is done at the fewest words asked for, and never with none", () =
 test("what the LMS is told for an essay: the words, spaces tidied, cut to what SCORM 1.2 holds, and nothing to compare it with", () => {
   const g = grade(full(0), "  Line one.\n\nLine   two.  ");
   assert.deepEqual([g.scormType, g.response, g.patterns], ["fill-in", "Line one. Line two.", []]);
-  assert.equal(grade(full(0), "word ".repeat(200)).response.length, 255);
+  assert.equal(grade(full(0), "word ".repeat(200)).response.length, 255, "SCORM 1.2 holds 255");
 });
 
 test("an essay is long fill-in for SCORM 2004 and xAPI, its words as they are and no right answer", () => {
   const g = grade(full(0), "A reply with [brackets] and, commas.");
   assert.deepEqual(formatGraded(full(0), g), { kind: "long-fill-in", response: "A reply with [brackets] and, commas.", patterns: [] });
   assert.equal(scorm2004Type("long-fill-in"), "long-fill-in", "the hyphens are kept: SCORM 2004 spells it that way");
+});
+
+test("SCORM 2004 and xAPI are given the whole essay, up to the 4000 characters a long fill-in holds; SCORM 1.2 keeps 255", () => {
+  const two = "word ".repeat(200).trim(); // 999 characters
+  const g = grade(full(0), `  ${two}  \n`);
+  assert.equal(g.response.length, 255);
+  assert.equal(formatGraded(full(0), g).response, two, "all of it, spaces tidied");
+  const huge = grade(full(0), "word ".repeat(1500));
+  assert.equal(huge.response.length, 255);
+  assert.equal(formatGraded(full(0), huge).response.length, 4000, "cut at the most a long fill-in holds");
+  assert.equal(formatGraded(full(0), grade(full(0), "x".repeat(4000))).response.length, 4000, "exactly 4000 is kept whole");
+});
+
+test("a cut never ends half way through an emoji, which no LMS or JSON file could hold", () => {
+  const s255 = grade(full(0), "a".repeat(254) + "😀 and more");
+  assert.equal(s255.response, "a".repeat(254), "the emoji would have been split by the 255th character");
+  const s4000 = formatGraded(full(0), grade(full(0), "a".repeat(3999) + "😀 and more")).response;
+  assert.equal(s4000, "a".repeat(3999));
+  for (const text of [s255.response, s4000]) assert.doesNotThrow(() => encodeURIComponent(text), "no lone half of a character");
 });
 
 test("nothing to check until there are enough words, and the learner is told how many", () => {
@@ -68,6 +89,34 @@ test("SCORM 2004 is told a long fill-in, which its strict LMS takes with no comp
   const lms = await told2004(essay(3), "a reply\nof four words");
   assert.deepEqual([lms.get("type"), lms.get("learner_response"), lms.get("correct_responses.0.pattern"), lms.get("result")], ["long-fill-in", "a reply of four words", undefined, "correct"]);
   assert.deepEqual(lms.warnings, []);
+});
+
+test("a long essay: SCORM 1.2 is told the first 255 characters, SCORM 2004 the whole of it up to 4000, and the strict LMS takes both", async () => {
+  const reply = ("word ".repeat(200) + "\n").repeat(1); // 1000 characters
+  const tidy = reply.replace(/\s+/g, " ").trim();
+  const old = await told12(essay(3), reply);
+  assert.equal(old("student_response"), tidy.slice(0, 255));
+  const lms = await told2004(essay(3), reply);
+  assert.equal(lms.get("learner_response"), tidy);
+  assert.deepEqual(lms.warnings, [], "the strict LMS refused nothing");
+  const huge = await told2004(essay(3), "word ".repeat(1500));
+  assert.equal(huge.get("learner_response")?.length, 4000);
+  assert.deepEqual(huge.warnings, []);
+});
+
+test("xAPI is told the essay whole, up to 4000 characters, as a long fill-in", async () => {
+  const { rt } = courseWith(essay(3));
+  const lrs = new FakeLrs();
+  const tracker = new XapiTracker({ endpoint: lrs.endpoint, auth: lrs.auth, actor: { objectType: "Agent", name: "Test Learner", mbox: "mailto:learner@example.test" }, registration: "0b8c1e2a-5d3f-4a6b-9c7d-1e2f3a4b5c6d", activityId: "https://example.test/essay-course" }, rt, { fetch: lrs.fetch, wait: async () => undefined });
+  await tracker.begin();
+  rt.submitQuiz("obj-0011", "word ".repeat(1500), "click");
+  await tick();
+  await tracker.settled();
+  const answered = lrs.statements.find((s) => (s["verb"] as { id: string }).id.endsWith("/answered"))!;
+  assert.equal(((answered["object"] as { definition: Record<string, unknown> }).definition)["interactionType"], "long-fill-in");
+  const response = (answered["result"] as Record<string, unknown>)["response"] as string;
+  assert.equal(response.length, 4000);
+  assert.equal(response, "word ".repeat(1500).trim().slice(0, 4000));
 });
 
 // ---- the page
