@@ -67,10 +67,43 @@ What it showed:
    little. That keeps the per-clip work in the editor's fast encoder, needs no graphics card and no DirectML (whose DLL is not open source), and makes the expensive step a one-time cost for each photo, which an author could leave to run.
 4. **Limits seen:** the six shapes come out as about four looks (closed, slightly open, open and a middle one; the rounded and the spread mouth are hard to tell apart); "eyes shut" came out as half shut on all three; where the lips are
    hidden (a moustache) the mouth hardly moves; the head does not turn (the sway would be a movement of the flat picture); the pictures are the 512 by 512 crop LivePortrait works on, not the whole photograph (pasting back was not tried);
-   only five photographs were tried.
+   only five photographs were tried at first, and ten in the check below.
 
 Not tried: anything in Rust (ONNX Runtime has to be reached from the add-on, which is Rust: the CPU build of the library loads at run time and is MIT), the CUDA or the graph-cutting routes, paste-back, photographs of faces turned away or
 wearing glasses, and a computer with fewer cores (a laptop with 8 would take about three times as long).
+
+## The ten-photo check (2026-11-16)
+
+The same trial was run on ten of the example photographs in the LivePortrait repository (a painted portrait, photographs of adults, a young child), each made into the twelve pictures (six lip openings with the eyes open, and the same six
+with the eyes shut), and the pictures compared. The comparison is rough: for each photo, the share of the picture's pixels that changed noticeably (by more than 25 of 255 in any colour) between the closed-mouth picture and another.
+Pictures were looked at for four photographs (s0, s1, s11 and s12); the others were judged by these numbers alone.
+
+| Photo | Seconds to make the 12 | Open mouth against closed | Wide against closed | Wide against round | Eyes shut against open |
+| --- | --- | --- | --- | --- | --- |
+| s0 (painted portrait) | 108 | 3.0% | 1.9% | 0.2% | 0.5% |
+| s1 | 102 | 5.1% | 4.5% | 1.0% | 0.8% |
+| s2 | 62 | 4.6% | 3.6% | 1.1% | 1.0% |
+| s3 | 72 | 4.4% | 3.1% | 0.7% | 2.0% |
+| s10 | 107 | 2.7% | 1.7% | 0.3% | 2.0% |
+| **s11 (a young child, lips pursed)** | 106 | **0.8%** | **0.0%** | 0.0% | **0.1%** |
+| s12 (a moustache) | 95 | 3.0% | 1.5% | 0.5% | 1.6% |
+| s22 | 111 | 3.6% | 1.3% | 0.0% | 2.0% |
+| s23 | 121 | 2.8% | 1.4% | 0.5% | 0.6% |
+| s25 | 137 | 2.4% | 0.6% | 0.0% | 1.7% |
+
+What it showed:
+
+1. **Every photo had exactly one face found** by YuNet and gave twelve pictures, in 62 to 137 seconds on this computer's processor.
+2. **Nine of ten photos had a mouth that moves.** Opening the mouth wide changed 2.4% to 5.1% of the picture. **The tenth, s11, hardly moves:** the opening changed 0.8% of the picture and the other mouths none at all. Looked at, the child's lips are pursed, and
+   the model keeps them nearly as they were; only the widest opening parts them a little. A clip made from that photo would look like a photograph with a faint twitch. The moustache photo (s12) moved, though less than most.
+3. **The wide and the round mouth look the same.** They differ by at most 1.1% of the picture in any photo, and by next to nothing in three. The six mouth shapes the add-on makes come out of this as about four looks: closed, slightly open (small, teeth),
+   a middle opening (wide, round), and open. The editor's illustrated presenters show all six; a photo presenter would show four.
+4. **The eyes come out half closed, not shut.** The "eyes shut" pictures differ from the open ones by 0.1% to 2.0% of the picture, and where they were looked at (s0, s1, s11, s12) the eyes are narrowed rather than closed (in s11 hardly at all). A blink
+   would read as a narrowing of the eyes.
+5. **The numbers are a rough guide.** Ten photos is a small sample and the measure is crude, but it separates the one failure from the rest: the lowest of the other nine is 2.4%, and s11 is 0.8%.
+
+What this means for the design: it holds for faces with visible lips and ordinary expressions. Before a photo is accepted as a presenter, the add-on has to be able to say when the mouth will barely move (see the to-do in `ROADMAP.md`), and the editor
+should not offer six mouth shapes for a photo when it can draw four.
 
 ## What is needed to go on
 
