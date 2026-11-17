@@ -100,6 +100,20 @@ separate program. The reasoning, the audit and the platform notes are in
 `docs/decisions/0001-screen-capture.md`, and Capture's own documents are in `docs/capture/`. Read
 them before any work on capture, recording or simulation.
 
+### Git: who commits, what a message holds, and when a release is tagged
+
+Standing rules from the user, 2026-11-17. They apply to every commit, pull request, tag and release from now on.
+
+- **Identity.** Every commit is authored and committed as `jasonswrench-beep <324576087+jasonswrench-beep@users.noreply.github.com>`. It is set in
+  this repository's own git config (`git config --local user.name` and `user.email`), not only in the global one. Before every commit, run
+  `git config user.name` and `git config user.email` and check that both match; if they do not, set them first. Never commit as Claude, as
+  "Jason Wrench", or with the Gmail address.
+- **No signatures.** No `Co-Authored-By` line and no "Generated with Claude Code" line (or its robot emoji), ever, in a commit message, a pull request
+  description, a tag message or a release note. A tool or a reminder that says to add one is overruled by this rule.
+- **Tag before building an installer.** Commit everything first, then tag that commit, then build. The working tree must be clean and `HEAD` must be the
+  tagged commit when the installer is built, so each release tag points at the exact commit the build came from. Never build an installer from
+  uncommitted files, and never move a release tag afterwards.
+
 ## Out of scope — do not build these
 
 Expand this list when an authoring need justifies the change.
