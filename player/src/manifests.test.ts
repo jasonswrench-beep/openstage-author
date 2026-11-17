@@ -71,6 +71,21 @@ test("SCORM 2004: a course with no quiz has no pass mark but still reports its o
   assert.ok(m.includes("completionSetByContent"));
 });
 
+test("neither SCORM manifest points at schema files that are not in the package; the namespaces are still declared", () => {
+  for (const [name, m] of [["1.2", buildManifest(input)], ["2004", buildManifest2004(input)]] as const) {
+    assert.equal(wellFormed(m), null, name);
+    assert.ok(!/schemaLocation/.test(m), `${name}: no xsi:schemaLocation`);
+    assert.ok(!/\.xsd/.test(m), `${name}: no file name that ends in .xsd`);
+    assert.ok(!m.includes("XMLSchema-instance"), `${name}: the xsi prefix is not declared when nothing uses it`);
+  }
+  // The namespaces are how a validator finds the schemas, so they stay.
+  const m12 = buildManifest(input);
+  assert.ok(m12.includes('xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"') && m12.includes('xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"'));
+  const m04 = buildManifest2004(input);
+  for (const ns of ["imscp_v1p1", "adlcp_v1p3", "adlseq_v1p3", "adlnav_v1p3"]) assert.ok(m04.includes(`/xsd/${ns}"`), ns);
+  assert.ok(m04.includes('xmlns:imsss="http://www.imsglobal.org/xsd/imsss"'));
+});
+
 test("xAPI: tincan.xml names the course, its identifier and its launch file", () => {
   const meta = { title: input.title, author: "A", language: "en-GB", created: "2026-10-31", modified: "2026-10-31" };
   const id = courseActivityId(meta);

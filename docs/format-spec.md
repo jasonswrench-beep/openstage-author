@@ -1587,8 +1587,10 @@ left behaviour open, v0.1 fixes it as follows.
 The published page reports to an LMS when it finds a SCORM 1.2 API (`window.API`, in a parent
 frame or the opener). With none, such as a file opened from disk, the course runs untracked.
 The package is `<name>-scorm12.zip`: the course, an `imsmanifest.xml`, and the editable project
-under `source/` (not listed in the manifest, so the LMS ignores it). The ADL schema files
-(`.xsd`) are not bundled; LMSs that import without them are unaffected.
+under `source/` (not listed in the manifest, so the LMS ignores it). The ADL and IMS schema files
+(`.xsd`) are not bundled, and the manifest has no `xsi:schemaLocation`: it used to name those files, which were not in the package, and a pointer to
+nothing is worse than none. The namespaces are still declared, so a validator finds the schemas by them. Bundling the files waits on reading the ADL
+and IMS licences, which cannot be assumed to allow it.
 
 - **Completion** means the slides have been seen enough, as the project's `completion` setting says (every
   slide, or having reached the last one), and every quiz is finished (answered correctly, or out of attempts). **Success** means the score reached the pass mark. They are
@@ -1638,7 +1640,7 @@ three: the sections "Completion", "Score" and "Pass mark" of SCORM 1.2 tracking 
 ## SCORM 2004 tracking
 
 The package is `<name>-scorm2004.zip`, for SCORM 2004 4th edition: the course, an `imsmanifest.xml`, and the editable
-project under `source/`. As with 1.2, the ADL schema files (`.xsd`) are not bundled.
+project under `source/`. As with 1.2, the ADL and IMS schema files (`.xsd`) are not bundled and the manifest has no `xsi:schemaLocation`.
 
 - **Two statuses.** `cmi.completion_status` is `incomplete` until the course is complete, then `completed`. `cmi.success_status`
   is written only when the course is complete and the assessment is finished: `passed` or `failed`. They are separate, so a

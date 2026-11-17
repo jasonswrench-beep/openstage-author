@@ -1,4 +1,8 @@
 // imsmanifest.xml for a SCORM 1.2 or SCORM 2004 package containing one SCO: the whole course.
+//
+// There is no xsi:schemaLocation. It named the ADL and IMS schema files (imscp_v1p1.xsd and the rest), which are not in the package: they are not ours
+// to redistribute until their licences are read, and a hint that points at files that are not there is worse than none. The namespaces are still
+// declared, so a validator finds the schemas by them. Package Doctor reported it (2026-11-17).
 
 import { PASSING_PERCENT } from "./scorm.ts";
 
@@ -26,9 +30,7 @@ export function buildManifest(input: ManifestInput): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="${id}" version="1.0"
   xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
-  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
   <metadata>
     <schema>ADL SCORM</schema>
     <schemaversion>1.2</schemaversion>
@@ -74,9 +76,7 @@ export function buildManifest2004(input: ManifestInput): string {
   xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_v1p3"
   xmlns:adlseq="http://www.adlnet.org/xsd/adlseq_v1p3"
   xmlns:adlnav="http://www.adlnet.org/xsd/adlnav_v1p3"
-  xmlns:imsss="http://www.imsglobal.org/xsd/imsss"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.imsglobal.org/xsd/imscp_v1p1 imscp_v1p1.xsd http://www.adlnet.org/xsd/adlcp_v1p3 adlcp_v1p3.xsd http://www.adlnet.org/xsd/adlseq_v1p3 adlseq_v1p3.xsd http://www.adlnet.org/xsd/adlnav_v1p3 adlnav_v1p3.xsd http://www.imsglobal.org/xsd/imsss imsss_v1p0.xsd">
+  xmlns:imsss="http://www.imsglobal.org/xsd/imsss">
   <metadata>
     <schema>ADL SCORM</schema>
     <schemaversion>2004 4th Edition</schemaversion>
