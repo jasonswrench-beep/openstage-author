@@ -317,14 +317,29 @@ class Import(unittest.TestCase):
                     self.assertEqual(mine.replace(b'"fr-FR"', f'"{lang}"'.encode()), theirs, f"{f.name} is written back exactly as it was, line endings and all")
 
     def test_each_file_keeps_its_own_line_endings(self):
-        crlf = [p for p in GOOD if b"\r\n" in (p / "project.json").read_bytes()]
-        lf = [p for p in GOOD if b"\r\n" not in (p / "project.json").read_bytes()]
-        self.assertTrue(crlf and lf, "the examples have both")
-        for proj in (crlf[0], lf[0]):
-            data, _ = xliff.export(proj, "fr-FR", make_pseudo=True)
-            xliff.import_xliff(proj, data, self.out(proj.stem), None)
-            raw = (self.out(proj.stem) / "project.json").read_bytes()
-            self.assertEqual(b"\r\n" in raw, proj in crlf)
+        """The examples are stored with plain line endings and checked out with whatever the computer uses (Windows line endings on Windows, plain ones elsewhere),
+        so they cannot be counted on to have both. The test makes its own: a project of Windows line endings, one of plain ones, and one that mixes them,
+        because a file is written back the way it was found."""
+        def variant(name, project_crlf, slides_crlf):
+            dest = self.dir / name
+            shutil.copytree(EXAMPLES / "minimal.osproj", dest, ignore=shutil.ignore_patterns(".cache"))
+            for f in [dest / "project.json"] + sorted((dest / "slides").glob("*.json")):
+                plain = f.read_bytes().replace(b"\r\n", b"\n")
+                f.write_bytes(plain.replace(b"\n", b"\r\n") if (project_crlf if f.name == "project.json" else slides_crlf) else plain)
+            return dest
+
+        for name, project_crlf, slides_crlf in (("all-windows", True, True), ("all-plain", False, False), ("mixed", True, False)):
+            with self.subTest(name):
+                proj = variant(name, project_crlf, slides_crlf)
+                data, _ = xliff.export(proj, "fr-FR", make_pseudo=True)
+                xliff.import_xliff(proj, data, self.out(name + "-out"), None)
+                for f in [proj / "project.json"] + sorted((proj / "slides").glob("*.json")):
+                    raw = (self.out(name + "-out") / f.relative_to(proj)).read_bytes()
+                    if project_crlf if f.name == "project.json" else slides_crlf:
+                        self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"), f"{f.name}: every line ends the Windows way")
+                    else:
+                        self.assertNotIn(b"\r", raw, f"{f.name}: no line ends the Windows way")
+                    self.assertGreater(raw.count(b"\n"), 1, f"{f.name} was written")
 
     def test_alt_text_and_narration_that_said_the_same_words_say_the_translation(self):
         proj = EXAMPLES / "minimal.osproj"

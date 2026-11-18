@@ -54,15 +54,37 @@ test("the key follows every input that changes the audio, and nothing else", () 
   assert.equal(narrationHash({ ...base, audioCache: { hash: "sha256:00", path: ".cache/narration/x.wav" } }), key, "audioCache is bookkeeping");
 });
 
-test("the key matches audio the generator really made for the example project", () => {
+/** The narration of the example project's first slide: real narration, written by hand, that both the editor and the generator have to key the same way. */
+function exampleNarrations(): Narration[] {
   const slide = JSON.parse(readFileSync(path.join(repo, "examples", "minimal.osproj", "slides", "slide-001.json"), "utf-8")) as { baseLayer: { objects: { narration: Narration | null }[] } };
-  const narrated = slide.baseLayer.objects.filter((o) => o.narration);
+  return slide.baseLayer.objects.flatMap((o) => (o.narration ? [o.narration] : []));
+}
+
+test("the key is the one the generator's own code works out for the example project's narration", (t) => {
+  const narrated = exampleNarrations();
   assert.ok(narrated.length > 0);
-  for (const o of narrated) {
-    const wav = path.join(repo, "examples", "minimal.osproj", ".cache", "narration", `${keyOf(o.narration!)}.wav`);
-    assert.ok(existsSync(wav), `the editor works out ${keyOf(o.narration!)}, which the generator should have made`);
+  // tools/narration_key.py has no dependencies on purpose, so any Python will do.
+  const code = "import sys, json; sys.path.insert(0, sys.argv[1]); from narration_key import narration_hash; print(json.dumps([narration_hash(n) for n in json.load(sys.stdin)]))";
+  const r = spawnSync(process.env["OPENSTAGE_PYTHON"] ?? "python", ["-c", code, path.join(repo, "tools")], { input: JSON.stringify(narrated), encoding: "utf-8" });
+  if (r.error) {
+    t.skip("Python is not available here");
+    return;
   }
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), narrated.map((n) => narrationHash(n)));
 });
+
+// This one needs audio the generator made. Audio is never kept in the repository (.cache is generated), so it is checked only in a copy that has it.
+const exampleCache = path.join(repo, "examples", "minimal.osproj", ".cache", "narration");
+test("the key matches audio the generator really made for the example project",
+  { skip: existsSync(exampleCache) ? false : "no generated audio in this copy (examples/minimal.osproj/.cache is made by publishing the example with a speech engine)" },
+  () => {
+    const narrated = exampleNarrations();
+    assert.ok(narrated.length > 0);
+    for (const n of narrated) {
+      assert.ok(existsSync(path.join(exampleCache, `${keyOf(n)}.wav`)), `the editor works out ${keyOf(n)}, which the generator should have made`);
+    }
+  });
 
 test("a pronunciation is accepted exactly when the validator accepts it", () => {
   const verdicts: [string, boolean][] = [
