@@ -57,10 +57,10 @@ The captions window (**Write captions...** on a video or audio clip) can listen 
 ## Making an installer, and trying it
 
 Double-click `BUILD INSTALLER.bat`. The first time it downloads Python, Node and the installer maker, which takes some minutes, and it needs the recorder (`OPEN EDITOR.bat` builds it) and the
-speech recogniser (`BUILD SPEECH RECOGNISER.bat`) to be built already. It makes one file, `dist\installer\OpenStage Author_0.1.0_x64-setup.exe` (about 41 MB), with a `.sha256` file beside it.
+speech recogniser (`BUILD SPEECH RECOGNISER.bat`) to be built already. It makes one file in `dist\installer`, a setup program whose name ends in `-setup.exe` (about 75 MB), with a `.sha256` file beside it.
 Double-click that file to install OpenStage Author for your own Windows account (no administrator password). It has its own Python and Node, so nothing else has to be installed, and it appears in the Start menu;
-Settings, Apps removes it. It is not signed yet, so Windows shows "Windows protected your PC": choose **More info**, then **Run anyway**. To try an installer without touching the real program (its own name, its own
-settings), use `BUILD INSTALLER.bat trial`. The narration voice is not in the installer: open **Narration** in the editor and press **Install the narration voice**; it asks first, downloads about 670 MB and takes about 2.1 GB.
+Settings, Apps removes it. A setup made this way is not signed, so Windows shows "Windows protected your PC": choose **More info**, then **Run anyway**. A signed one is made with `python tools\build_installer.py --sign`, which needs Azure Artifact Signing (`tools/sign_windows.py` says what it needs); the build then checks that the setup and every program inside it are signed. To try an installer without touching the real program (its own name, its own
+settings), use `BUILD INSTALLER.bat trial`. The narration voice is not in the installer: open **Narration** in the editor and press **Install the narration voice**; it asks first, downloads about 590 MB and takes about 1.5 GB.
 The plan and the reasons are in `docs/decisions/0004-packaging-and-narration.md`. **About OpenStage Author...**, in the editor's **Help** menu, shows the version and where things are on the computer, to copy into a message when you ask for help.
 
 ## Publishing a course

@@ -402,7 +402,7 @@ time costs money, which the service charges; the tab says so. **Edit credit** ke
 | Unsplash | pictures |
 | Freesound | sounds |
 
-The keys are kept in OpenStage's own settings on your PC and never in a project. Freesound shows only what is free
+The keys are kept in Windows Credential Manager on your PC, not in OpenStage's settings file, and never in a project. Freesound shows only what is free
 to use in a course (CC0, and plain Attribution); on the website, check the licence of each sound. Choosing a result shows its creator, licence and length, a pre-listen player for a sound, and "Add to project"
 (or "Add and insert on this slide") downloads it into the project and saves its credit. Unsplash is told about
 the download, as its rules ask. A service's description of a picture is offered as a starting point for alt

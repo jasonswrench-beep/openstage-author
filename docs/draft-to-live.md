@@ -42,5 +42,5 @@ If you are not sure which kind a change is, ask: would a learner who is halfway 
 ## Where things are kept
 
 * The course: its project folder, and nothing else. Copy the folder to back it up or to give the course to a colleague.
-* Your publishing style, recent projects and keys: the editor's own settings on your computer, never in a project.
+* Your publishing style and recent projects: the editor's own settings on your computer, never in a project. Your keys: Windows Credential Manager on your computer, never in a project.
 * The narration audio: inside the project folder, made again whenever the words change.

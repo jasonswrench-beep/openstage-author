@@ -1574,13 +1574,15 @@ CAPTURE_FILES = ("events.jsonl",)
 CAPTURE_FOLDERS = ("capture", "captures")
 
 
-def _capture_material(project, project_dir, add):
+def _capture_material(project, root, add):
     """Raw recording material (an interaction log, footage) must not be published. assets/ goes out with the course, so material there is
     an error: every learner could download it. Elsewhere in the project it is never published (the editable copy a package can carry
-    holds only the project's own files; player/src/sourcecopy.ts), but it is still better kept outside the project folder."""
+    holds only the project's own files; player/src/sourcecopy.ts), but it is still better kept outside the project folder.
+    root is the real project folder (the asset root), not the copy of the JSON files the editor validates unsaved work from: that copy
+    holds no assets/, so searching it would show the problem only when the course is published."""
     patterns = project.get("sourceExclude", [])
-    for folder, dirs, files in os.walk(project_dir):
-        rel_folder = pathlib.Path(folder).relative_to(project_dir).as_posix()
+    for folder, dirs, files in os.walk(root):
+        rel_folder = pathlib.Path(folder).relative_to(root).as_posix()
         rel_folder = "" if rel_folder == "." else rel_folder
         found = [d for d in dirs if d.lower() in CAPTURE_FOLDERS]
         found_files = [f for f in files if f.lower() in CAPTURE_FILES]
@@ -1749,7 +1751,7 @@ def validate_project(project_dir, asset_root=None, blockers=None):
                     "Duplicate provenance, re-sync behaviour undefined",
                     f"Capture '{capture}' step {step} is the source of {len(where)} slides.")
 
-    _capture_material(project, project_dir, add)
+    _capture_material(project, asset_root, add)
     _unsafe_svg(asset_root, add)
     _characters(project, asset_root, add)
     _icon_credit(project, slides, add)

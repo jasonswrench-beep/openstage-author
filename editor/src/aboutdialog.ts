@@ -57,6 +57,10 @@ export function openAbout(opts: AboutDialogOptions): Promise<void> {
         answer.textContent = `Could not check for updates. ${errorText(err)}`;
       } finally {
         check.disabled = false;
+        // A dimmed button cannot hold the keyboard, so focus fell to the page the moment it was dimmed. Give it back to the button, unless the
+        // window has closed meanwhile or the person has already moved to something else inside it (that is theirs to keep).
+        const now = document.activeElement;
+        if (dialog.isConnected && (now === dialog || now === check || !dialog.contains(now))) check.focus();
       }
     };
     check.addEventListener("click", () => void runCheck());

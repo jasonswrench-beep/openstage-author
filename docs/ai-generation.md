@@ -48,7 +48,7 @@ offered, and a plugin has no way to be handed a recording (voice cloning is out 
 4. **Check the key** asks OpenAI whether it accepts the key (it costs nothing).
 5. **Save.**
 
-Your key is kept in OpenStage's own settings on your computer, with your stock-library keys. **It is never saved in a project**, so sharing a
+Your key is kept in Windows Credential Manager on your computer, not in OpenStage's settings file, and your stock-library keys are kept there too. **It is never saved in a project**, so sharing a
 project never shares a key. Changing the key takes back your yes, because a different key may be a different account; tick the box again.
 
 ## Voices
@@ -139,7 +139,7 @@ python tools/voice_sample.py --cache-dir DIR [same options]         ({"voice": "
 - `OPENSTAGE_MODEL_<SERVICE>_<KIND>` (`SPEECH`, `PICTURE`) names a model.
 - If an engine fails, the others are still tried, the rest of that engine's narrations are not (a wrong key is not tried again and
   again), and `narrate.py` prints a `NOT MADE:` line for each and exits with 1. Audio that was made is kept.
-- The editor's desktop shell (`editor/src-tauri/src/lib.rs`) reads the key and the yes from the settings file, hands a tool only the key of a
+- The editor's desktop shell (`editor/src-tauri/src/lib.rs`) reads the key from Windows Credential Manager and the yes from the settings file, hands a tool only the key of a
   service that has both, in an environment variable (never on a command line), and checks what comes back (is it a real WebP, is it a sensible size)
   before saving it in the project.
 - Tests: `python tools/test_engines.py` (no internet: the service is a stand-in and the plugin tests run the example plugin for real),

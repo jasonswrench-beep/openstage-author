@@ -1970,6 +1970,20 @@ class CaptureMaterial(unittest.TestCase):
             self.assertEqual(len(hit), 1)
             self.assertIn("published with the course", hit[0].detail)
 
+    def test_the_editors_live_check_sees_it_too_not_only_the_publish(self):
+        """The editor validates unsaved work from a temporary copy of the JSON files and points the asset root at the real project.
+        That copy holds no assets/, so the check must look in the real folder, or the author finds out only at publish."""
+        with MutatedProject() as p:
+            self.put(p, "assets/capture/events.jsonl")
+            self.put(p, "recording/events.jsonl")
+            bare = p.dir / "copy.osproj"
+            shutil.copytree(p.root, bare, ignore=shutil.ignore_patterns("assets", "recording", ".cache"))
+            # The copy by itself holds nothing to find (this is what the live check used to look at, and so it missed it).
+            self.assertEqual(rules(validate.validate_project(bare, blockers="errors"), "capture-material-in-project"), [])
+            found = validate.validate_project(bare, asset_root=p.root, blockers="errors")
+            self.assertEqual([f.object_id for f in rules(found, "capture-material-in-project", severity="error")], ["assets/capture"])
+            self.assertEqual([f.object_id for f in rules(found, "capture-material-in-project", severity="warning")], ["recording/events.jsonl"])
+
     def test_the_cache_folder_is_not_searched(self):
         with MutatedProject() as p:
             self.put(p, ".cache/capture/events.jsonl")
