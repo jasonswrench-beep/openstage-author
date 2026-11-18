@@ -131,7 +131,7 @@ export function openMcp(opts: McpOptions): Promise<void> {
       }
       lines.append(
         h("h3", { text: "Connect an assistant" }),
-        h("p", { class: "note", text: "After you press Save, give your assistant these lines. It reads the settings each time it connects, so you can turn access off here later without changing them. They need Node.js, which comes with the installed program." }),
+        h("p", { class: "note", text: "After you press Save, give your assistant these lines. It reads the settings each time it connects, so you can turn access off here later without changing them. They need Node.js, which comes with the installed program. The lines hold folders on this computer, with your Windows user name in them, so share them only with the assistant you are setting up." }),
         copyBlock("mcp-desktop", "Claude Desktop (add to claude_desktop_config.json)", claudeDesktopConfig(info), 9, say),
         copyBlock("mcp-code", "Claude Code (run in a terminal)", claudeCodeCommand(info), 4, say),
       );

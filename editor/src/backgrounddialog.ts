@@ -204,10 +204,18 @@ export function chooseBackgroundPicture(opts: BackgroundDialogOptions): Promise<
     document.body.appendChild(dialog);
     status.textContent = "Looking for packs of backgrounds...";
     dialog.showModal();
-    add.focus();
+    // The Add button is at the foot of the window, so focusing it the usual way scrolled the window down until its heading was out of sight (about 389 pixels, found
+    // 2026-11-18). It gets focus without scrolling, so the window opens at its heading.
+    add.focus({ preventScroll: true });
     void refresh().then(() => {
-      // Put focus on the first picture's button, so choosing is one key away; if there is none, or the author has already moved on, it stays where it is.
-      if (document.activeElement === add) (dialog.querySelector(".lib-choose") as HTMLElement | null)?.focus();
+      // Put focus on the first picture's button, so choosing is one key away; if there is none, it stays on Add. If the author has already moved on, it stays where it is.
+      if (document.activeElement !== add) return;
+      const first = dialog.querySelector<HTMLElement>(".lib-choose");
+      const target = first ?? add;
+      target.focus({ preventScroll: true });
+      // The heading is in sight, and so is the control that has focus: the window scrolls no further than it takes to show it.
+      dialog.scrollTop = 0;
+      target.scrollIntoView({ block: "nearest" });
     });
   });
 }

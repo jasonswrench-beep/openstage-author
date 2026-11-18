@@ -3,6 +3,8 @@
 // connects, so a change here takes effect for the next connection and a running one is stopped by turning it off. Nothing here needs a page or a
 // program, so all of it is tested directly.
 
+import { backslashed } from "./displaypath.ts";
+
 export interface McpSettings {
   /** Off until the author turns it on. */
   enabled: boolean;
@@ -63,7 +65,8 @@ export function parseMcpInfo(raw: string): McpInfo {
   if (o["env"] && typeof o["env"] === "object" && !Array.isArray(o["env"])) {
     for (const [k, v] of Object.entries(o["env"] as Record<string, unknown>)) if (typeof v === "string" && k !== "") env[k] = v;
   }
-  const info: McpInfo = { node: text(o["node"]), script: text(o["script"]), settings: text(o["settings"]), env, found: o["found"] === true, note: text(o["note"]) };
+  // One kind of slash in each path (the shell joins "mcp/openstage-mcp.mjs" onto a folder that has backslashes). They are the real paths: an assistant's settings need them.
+  const info: McpInfo = { node: backslashed(text(o["node"])), script: backslashed(text(o["script"])), settings: backslashed(text(o["settings"])), env, found: o["found"] === true, note: text(o["note"]) };
   return info.found && (info.node === "" || info.script === "" || info.settings === "") ? { ...info, found: false, note: info.note || UNKNOWN_MCP.note } : info;
 }
 

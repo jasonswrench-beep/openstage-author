@@ -2395,11 +2395,20 @@ ${errorText(err)}`);
     }
     const o = choice.startsWith("shape:") ? m.addObject("shape", { shape: choice.slice(6) }) : m.addObject(choice as "text" | "hotspot");
     if (o && o.type === "hotspot") {
-      this.announce(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
+      this.focusCanvasAfterAdd(`Added ${o.name}, number ${o.accessibility.tabOrder ?? 0} in reading order. Move it over the part of the picture to press, make it at least 24 by 24 pixels, and write its name in the Alt text field, for example "The Save button". Then add a rule for what pressing it does.`);
     } else if (o) {
       const n = o.accessibility.tabOrder ?? 0;
-      this.announce(`Added ${o.name}${n >= 1 ? `, number ${n} in reading order` : ", decorative"}. Its properties are in the Properties panel.`);
+      this.focusCanvasAfterAdd(`Added ${o.name}${n >= 1 ? `, number ${n} in reading order` : ", decorative"}. Its properties are in the Properties panel.`);
     }
+  }
+
+  /**
+   * After an object is added from a menu or a window, the keyboard goes to the canvas, where the new object is the chosen one: F2 edits the words of a text, and the arrow
+   * keys move it. The menu or window that added it has closed, and focus would otherwise be left on the page itself (found 2026-11-18: F2 did nothing right after
+   * Insert > Text box). The wait, and the announcement after it, are as in gotoProblem: a screen reader is given the canvas's name first, then told what was added.
+   */
+  private focusCanvasAfterAdd(said: string): void {
+    window.setTimeout(() => { this.canvas.focus(); this.announce(said); }, 120);
   }
 
   /** Add a speech or thought bubble, with words to type in or empty. */
@@ -2411,7 +2420,7 @@ ${errorText(err)}`);
     if (!made) return;
     const n = made.accessibility.tabOrder ?? 0;
     const who = which === "speech" ? "speaking" : "thinking";
-    this.announce(how === "text"
+    this.focusCanvasAfterAdd(how === "text"
       ? `Added a ${which} bubble with words, number ${n} in reading order. Type what it says in the Text box in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`
       : `Added an empty ${which} bubble, decorative. Choose its fill and outline in the Properties panel, and use the Tail setting to put the tail on the side of whoever is ${who}.`);
   }
@@ -5654,7 +5663,7 @@ ${errorText(err)}`);
     }
     return [
       edit,
-      this.selectField("block", "Style", TEXT_BLOCKS.map((b) => ({ value: b, label: `${BLOCK_LABELS[b]} (size ${BLOCK_SIZES[b]})` })), simple.block, (v) => {
+      this.selectField("block", "Kind of text", TEXT_BLOCKS.map((b) => ({ value: b, label: `${BLOCK_LABELS[b]} (size ${BLOCK_SIZES[b]})` })), simple.block, (v) => {
         const cur = parseSimpleText(String(m.object?.content["html"] ?? "")) ?? simple;
         const msg = m.setBlock(o.id, v as TextBlock, cur.text);
         if (msg) this.announce(`${msg}. Change the font size if you want a different one.`);

@@ -1,5 +1,8 @@
 // The About window's facts: the version, and where things are on this computer. They are what someone helping with a problem asks first, so they can be copied as plain text. The shell gathers them
 // (`about_info` in lib.rs); everything that turns them into words is here, so it is tested alone (about.test.ts).
+// A path is shown without the Windows user name (displaypath.ts), because these lines are meant to be pasted into a message. The facts themselves keep the real paths, for the buttons that open a folder.
+
+import { withoutUserName } from "./displaypath.ts";
 
 /** What the shell says about this copy of the editor. Every field is words or a path, never empty: "not found" says so. */
 export interface AboutInfo {
@@ -51,14 +54,14 @@ export function aboutLines(a: AboutInfo): { label: string; value: string }[] {
   return [
     { label: "Version", value: a.version },
     { label: "Kind of copy", value: a.installed ? "Installed (it has its own Python and Node)" : "Run from the source folder (it uses the Python and Node on this computer)" },
-    { label: "Program", value: a.program },
-    { label: "Python", value: a.python },
-    { label: "Node", value: a.node },
-    { label: "Screen recorder", value: a.recorder },
-    { label: "Speech recogniser", value: a.recogniser },
+    { label: "Program", value: withoutUserName(a.program) },
+    { label: "Python", value: withoutUserName(a.python) },
+    { label: "Node", value: withoutUserName(a.node) },
+    { label: "Screen recorder", value: withoutUserName(a.recorder) },
+    { label: "Speech recogniser", value: withoutUserName(a.recogniser) },
     { label: "Narration voice", value: a.engine },
-    { label: "Settings file", value: a.settings },
-    { label: "Data folder", value: a.data },
+    { label: "Settings file", value: withoutUserName(a.settings) },
+    { label: "Data folder", value: withoutUserName(a.data) },
     { label: "Web view", value: a.webview },
     { label: "Windows", value: `${a.windows} (${a.arch})` },
   ];

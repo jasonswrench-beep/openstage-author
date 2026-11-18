@@ -243,7 +243,21 @@ class WhatItSays(unittest.TestCase):
         self.assertEqual([o["id"] for o in order], ["a", "b", "c", "d"], "tab order first, then the rest as they come")
 
     def test_the_problems_the_checker_found_are_a_table_with_a_header_row(self):
-        data, summary, roots = build("minimal.osproj")
+        # The smallest example has no problems, so a copy is given the one a PowerPoint import can leave: a slide that mixes imported and new objects.
+        stamp = "2026-10-10T14:22:00Z"
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = pathlib.Path(tmp) / "p.osproj"
+            shutil.copytree(EXAMPLES / "minimal.osproj", proj, ignore=shutil.ignore_patterns(".cache"))
+            project = json.loads((proj / "project.json").read_text(encoding="utf-8"))
+            project["sources"] = [{"id": "deck-7b21", "name": "Intro.pptx", "importedAt": stamp, "slideWidth": 12192000, "slideHeight": 6858000,
+                                   "pixelsPerInch": 96, "offsetX": 0, "offsetY": 0}]
+            (proj / "project.json").write_text(json.dumps(project), encoding="utf-8")
+            slide_file = proj / "slides" / "slide-002.json"
+            slide = json.loads(slide_file.read_text(encoding="utf-8"))
+            slide["baseLayer"]["objects"][1]["provenance"] = {"sourceDeck": "deck-7b21", "slideIndex": 4, "shapeId": "{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}", "importedAt": stamp}
+            slide_file.write_text(json.dumps(slide), encoding="utf-8")
+            data, summary = review_doc.make(proj)
+            roots = check_package(self, data)
         self.assertEqual(summary, {"slides": 2, "errors": 0, "warnings": 1})
         table = roots["word/document.xml"].find(f".//{W}tbl")
         first = table.find(W + "tr")

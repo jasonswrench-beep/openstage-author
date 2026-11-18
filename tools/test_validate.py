@@ -58,9 +58,21 @@ class ValidExample(unittest.TestCase):
         f = validate.validate_project(EXAMPLES / "minimal.osproj")
         self.assertEqual([x for x in f if x.severity == "error"], [])
 
-    def test_minimal_only_warns_about_mixed_provenance(self):
-        f = validate.validate_project(EXAMPLES / "minimal.osproj")
-        self.assertEqual({x.rule for x in f}, {"provenance-mixed"})
+    def test_minimal_has_no_findings_at_all(self):
+        """The smallest example is the first course an author opens, so it opens with nothing in the Problems list."""
+        self.assertEqual(validate.validate_project(EXAMPLES / "minimal.osproj"), [])
+
+    def test_a_slide_that_mixes_imported_and_new_objects_is_warned_about(self):
+        """The warning the smallest example used to carry, kept covered here: one imported object on a slide of the author's own."""
+        deck = {"id": "deck-7b21", "name": "Introduction to communication.pptx", "importedAt": "2026-10-10T14:22:00Z",
+                "slideWidth": 12192000, "slideHeight": 6858000, "pixelsPerInch": 96, "offsetX": 0, "offsetY": 0}
+        imported = {"sourceDeck": "deck-7b21", "slideIndex": 4, "shapeId": "{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}", "importedAt": "2026-10-10T14:22:00Z"}
+        with MutatedProject() as p:
+            p.edit("project.json", lambda d: d.__setitem__("sources", [deck]))
+            p.obj(1, lambda o: o.__setitem__("provenance", imported), slide="slides/slide-002.json")
+            hit = rules(p.run(), "provenance-mixed")
+            self.assertEqual([(f.file, f.object_id) for f in hit], [("slides/slide-002.json", "slide-002")])
+            self.assertEqual(hit[0].severity, "warning")
 
 
 class CompletionSetting(unittest.TestCase):
@@ -3338,6 +3350,7 @@ class DeckImportRules(unittest.TestCase):
 
     def test_a_slide_and_a_shape_from_a_listed_deck_are_fine(self):
         with MutatedProject() as p:
+            p.edit("project.json", lambda d: d.__setitem__("sources", [self.DECK]))  # the smallest example lists no deck: it was never imported
             p.slide1(lambda d: d.__setitem__("provenance", self.slide_prov()))
             p.obj(0, lambda o: o.__setitem__("provenance", {"sourceDeck": "deck-7b21", "slideIndex": 0, "shapeId": "256/2", "slideId": "256",
                                                            "importedAt": "2026-10-10T14:22:00Z", "sourceHash": "a1b2c3d4e5f6", "base": self.base()}))

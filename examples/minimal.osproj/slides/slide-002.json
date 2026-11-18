@@ -152,12 +152,7 @@
           "pronunciations": [],
           "audioCache": null
         },
-        "provenance": {
-          "sourceDeck": "deck-7b21",
-          "slideIndex": 4,
-          "shapeId": "{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}",
-          "importedAt": "2026-10-10T14:22:00Z"
-        },
+        "provenance": null,
         "simulation": null
       }
     ]

@@ -13,6 +13,7 @@ import {
   type AiSettings, type PluginList, type ServiceInfo, type Work,
 } from "./aiservices.ts";
 import { errorText, type Backend } from "./backend.ts";
+import { withoutUserName } from "./displaypath.ts";
 import { SAVED_KEY_HIDDEN, isSavedKey } from "./savedkeys.ts";
 import { parseSettings, serializeSettings, type Settings } from "./stock.ts";
 
@@ -185,7 +186,7 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
     openFolder.addEventListener("click", async () => {
       try {
         folder = await b.aiPluginsFolder();
-        folderText.textContent = `Voice plugins go in this folder, each in a folder of its own: ${folder}`;
+        folderText.textContent = `Voice plugins go in this folder, each in a folder of its own: ${withoutUserName(folder)}`;
         await b.revealInFolder(folder);
       } catch (err) {
         say(errorText(err));
@@ -275,7 +276,7 @@ export function openAiServices(opts: AiDialogOptions): Promise<AiDialogResult> {
       loaded = true;
       try {
         folder = await b.aiPluginsFolder();
-        folderText.textContent = `Voice plugins go in this folder, each in a folder of its own: ${folder}`;
+        folderText.textContent = `Voice plugins go in this folder, each in a folder of its own: ${withoutUserName(folder)}`;
         plugins = await b.aiPlugins();
         renderPlugins();
       } catch {
