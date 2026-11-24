@@ -68,7 +68,8 @@ if not exist node_modules call npm ci
 if errorlevel 1 goto :failed
 call npm run build
 if errorlevel 1 goto :failed
-call npx tauri build --no-bundle
+REM dev-addons is the developer route for add-ons (OPENSTAGE_DEV_ADDONS, see docs/presenter.md). This is the build for this computer; the installer's build leaves it out.
+call npx tauri build --no-bundle --features dev-addons
 if errorlevel 1 goto :failed
 popd
 

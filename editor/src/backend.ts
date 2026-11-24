@@ -37,7 +37,10 @@ export interface PresenterAddon {
   description: string;
   tiers: string[];
   commands: string[];
+  /** The add-on's folder has a signature file; that alone proves nothing. */
   signed: boolean;
+  /** The signature checks out against the key built into the editor, for this manifest and this program. */
+  verified: boolean;
   usable: boolean;
   why: string | null;
 }
@@ -433,10 +436,14 @@ const tauriBackend: Backend = {
     return typeof picked === "string" ? picked : null;
   },
   async pickQuestionFile() {
+    // The shell opens the chooser itself and remembers the file, and it reads only that file (src-tauri/src/lib.rs, pick_question_file).
+    // The test seam (docs/editor.md) tells it the file instead; a build made for other people refuses that.
     const forced = testPick("questionfile");
-    if (forced !== undefined) return forced;
-    const picked = await openDialog({ multiple: false, title: "Choose a table of questions", filters: [{ name: "Questions: a table (CSV) or a QTI file", extensions: ["csv", "tsv", "txt", "xml", "zip", "qti"] }, { name: "Tables of questions (CSV)", extensions: ["csv", "tsv", "txt"] }, { name: "QTI files", extensions: ["xml", "zip", "qti"] }] });
-    return typeof picked === "string" ? picked : null;
+    if (forced !== undefined) {
+      if (forced !== null) await invoke<void>("test_pick_question_file", { path: forced });
+      return forced;
+    }
+    return await invoke<string | null>("pick_question_file");
   },
   async pickQuestionTemplateSave(name) {
     const forced = testPick("questionsave");

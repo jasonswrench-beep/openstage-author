@@ -2199,9 +2199,21 @@ fn read_asset_url(dir: String, path: String) -> Result<String, String> {
     asset_data_url(Path::new(&dir), &path)
 }
 
+/// The folder of the project the editor has open: the last one `open_project` opened. A command that reaches into a project through a folder the page names can be
+/// held to this one (`presenter::in_open_project`), so a page that is led astray cannot make it read or write in some other project on the computer.
+static OPEN_PROJECT: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+pub(crate) fn open_project_dir() -> Option<PathBuf> {
+    OPEN_PROJECT.lock().ok().and_then(|g| g.clone())
+}
+
 #[tauri::command]
 fn open_project(dir: String) -> Result<OpenedProject, String> {
-    open_project_at(Path::new(&dir))
+    let opened = open_project_at(Path::new(&dir))?;
+    if let Ok(mut open) = OPEN_PROJECT.lock() {
+        *open = Some(PathBuf::from(&dir));
+    }
+    Ok(opened)
 }
 
 #[tauri::command]
@@ -3454,14 +3466,61 @@ fn read_qti_file_at(source: &Path) -> Result<Vec<u8>, String> {
     fs::read(source).map_err(|e| format!("Could not read that file: {e}"))
 }
 
+/// The file the author chose with the question-file chooser, the last time they did. The two commands below that read a question file read only this one, so the
+/// page cannot make them read some other file on the computer: the path has to be one the chooser, which the author has to click through, handed over.
+static PICKED_QUESTION_FILE: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+fn remember_picked_question_file(path: &Path) {
+    if let Ok(mut picked) = PICKED_QUESTION_FILE.lock() {
+        *picked = Some(path.to_path_buf());
+    }
+}
+
+/// `source` as a file the chooser returned (the same place, however it is spelled), or a refusal in words.
+fn picked_question_file(source: &str) -> Result<PathBuf, String> {
+    let picked = PICKED_QUESTION_FILE.lock().ok().and_then(|p| p.clone());
+    match picked {
+        Some(p) if matches!((Path::new(source).canonicalize(), p.canonicalize()), (Ok(a), Ok(b)) if a == b) => Ok(p),
+        _ => Err("Choose the file with the file chooser first. The editor reads only the file that was chosen.".into()),
+    }
+}
+
+/// Ask the author for a table of questions or a QTI file with the system's file chooser, and remember the answer so it can be read.
+#[tauri::command]
+async fn pick_question_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Choose a table of questions")
+        .add_filter("Questions: a table (CSV) or a QTI file", &["csv", "tsv", "txt", "xml", "zip", "qti"])
+        .add_filter("Tables of questions (CSV)", &["csv", "tsv", "txt"])
+        .add_filter("QTI files", &["xml", "zip", "qti"])
+        .blocking_pick_file();
+    let Some(picked) = picked else { return Ok(None) };
+    let path = picked.into_path().map_err(|e| e.to_string())?;
+    remember_picked_question_file(&path);
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+/// For automated tests of the real app only (`window.__openstageTestPick`, docs/editor.md): stands in for the chooser. A build made for other people refuses it.
+#[tauri::command]
+fn test_pick_question_file(path: String) -> Result<(), String> {
+    if !presenter::dev_route_built() {
+        return Err("This editor does not take a file from a test.".into());
+    }
+    remember_picked_question_file(Path::new(&path));
+    Ok(())
+}
+
 #[tauri::command]
 fn qti_file_read(source: String) -> Result<tauri::ipc::Response, String> {
-    read_qti_file_at(Path::new(&source)).map(tauri::ipc::Response::new)
+    read_qti_file_at(&picked_question_file(&source)?).map(tauri::ipc::Response::new)
 }
 
 #[tauri::command]
 fn question_file_read(source: String) -> Result<String, String> {
-    read_question_file_at(Path::new(&source))
+    read_question_file_at(&picked_question_file(&source)?)
 }
 
 #[tauri::command]
@@ -3851,7 +3910,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![presenter::presenter_addon, presenter::presenter_ask, presenter::presenter_mouth_track, presenter::save_presenter_clip, presenter::narration_cues, open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, check_for_updates, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, qti_file_read, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![presenter::presenter_addon, presenter::presenter_ask, presenter::presenter_mouth_track, presenter::save_presenter_clip, presenter::narration_cues, open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, check_for_updates, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, qti_file_read, pick_question_file, test_pick_question_file, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {

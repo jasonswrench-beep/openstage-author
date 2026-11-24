@@ -61,7 +61,7 @@ of the way. It has been driven by keyboard in a real browser; it has not yet bee
 ### The folder
 
 An add-on is a folder in the add-ons folder: `%LOCALAPPDATA%\OpenStage\addons\<folder>\` on Windows (`~/Library/Application Support/OpenStage/addons` on a Mac,
-`$XDG_DATA_HOME/OpenStage/addons` or `~/.local/share/OpenStage/addons` elsewhere; `OPENSTAGE_ADDONS` names another place). It holds an `addon.json` and the program.
+`$XDG_DATA_HOME/OpenStage/addons` or `~/.local/share/OpenStage/addons` elsewhere; in a developer's build, `OPENSTAGE_ADDONS` names another place). It holds an `addon.json`, the program and, once it is signed, `addon.sig`.
 
 ```json
 {
@@ -86,15 +86,31 @@ An add-on is a folder in the add-ons folder: `%LOCALAPPDATA%\OpenStage\addons\<f
 | `host` | The program, as a path inside the add-on's own folder. A path with `..`, a drive, or an absolute path is refused, and the file has to be there. |
 | `commands` | What the program answers: any of the four below. The editor asks only for what is listed. |
 | `tiers` | `lite`, `standard`, `studio` (the kinds of presenter the add-on can make). |
-| `signature` | Read, not verified: there is no key to verify against yet. |
+| `signature` | Not used. The signature is a file of its own, `addon.sig`, so that it can cover this manifest (see "Signing"). |
 
 The manifest is read only if it is a file of 64 KB or less, and one that is not whole is passed over without a word (the editor never half uses an add-on).
 
-### Who may use it, for now
+### Who may use it, and signing
 
-The spec has the editor show the Presenter command only for "a valid, signed manifest". Nothing can sign an add-on yet, so **an add-on is usable only while
-`OPENSTAGE_DEV_ADDONS=1` is set** on the computer. `presenter/OPEN EDITOR WITH PRESENTER.bat` sets it for one session. When signing exists, a verified signature makes an add-on usable
-on its own and this setting stays for developers. (Decided 2026-11-16: `ROADMAP.md`.)
+The spec has the editor show the Presenter command only for "a valid, signed manifest". The editor checks that, and an add-on is usable when **its signature verifies**.
+
+**What is signed.** `addon.sig` holds an Ed25519 signature, written as base64, over these three lines of text (each ends with a line feed):
+
+```
+OpenStage add-on 1
+<SHA-256 of addon.json, as lowercase hex>
+<SHA-256 of the engine host program named by "host", as lowercase hex>
+```
+
+So changing one byte of the manifest or of the program, or putting a signature made for another add-on beside this one, makes it unusable. The editor reads the manifest once and checks and uses those same bytes, and it checks again each time it asks the add-on something.
+
+**The key.** The public key is built into the editor (`ADDON_PUBLIC_KEY` in `editor/src-tauri/src/presenter.rs`). It is empty until the owner makes a key pair, offline, and gives the editor only the public half; the private half never comes into this repository or any build folder. **With no key built in, no add-on can verify, so none is usable in an editor made for other people**, which is why the Presenter add-on stays developer-only.
+
+**Going back.** The editor writes the highest version of each signed add-on it has used in `last-used.json` in the add-ons folder, and does not use a signed version lower than that, so an old version with a known fault cannot be put back. To go back on purpose, delete that file.
+
+**The developer route.** An editor built with the `dev-addons` feature (and any debug build) also reads `OPENSTAGE_DEV_ADDONS=1`, which lets an add-on that is not signed run, and `OPENSTAGE_ADDONS`, which names another add-ons folder. `OPEN EDITOR.bat` builds the editor on the owner's own computer with that feature and `presenter/OPEN EDITOR WITH PRESENTER.bat` sets the first one for one session. The installer's build never has the feature, so a setup made for other people ignores both settings. (`tools/test_build_installer.py` fails if the installer asks for it.)
+
+What is left to the owner before any add-on is released: make the key pair, give the editor the public key, and sign each add-on release (`addon.sig`). A small program to sign with is not written yet.
 
 ### The messages
 

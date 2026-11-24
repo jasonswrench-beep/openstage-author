@@ -20,6 +20,8 @@ serde_json = "1"
 base64 = "0.22"
 ureq = "2"
 sha2 = "0.10"
+# Checks the signature on an add-on (src/presenter.rs). Apache-2.0 AND ISC. The program already has it through ureq's TLS, so this adds no new crate.
+ring = "0.17"
 # Reads an SVG picture so it can be rebuilt from its drawing only (src/svgclean.rs). MIT; already used by the program's other crates.
 quick-xml = "0.42"
 tauri-plugin-opener = "2.7.1"
@@ -28,3 +30,9 @@ tauri-plugin-global-shortcut = "2"
 [target.'cfg(windows)'.dependencies]
 # Windows Credential Manager, where the stock-library and AI keys are kept (src/secrets.rs). Already used by the program's other crates.
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+
+[features]
+# The developer route for add-ons (src/presenter.rs). With it, OPENSTAGE_DEV_ADDONS=1 lets an add-on that is not signed run, and OPENSTAGE_ADDONS names another
+# add-ons folder. A debug build has the route anyway. OPEN EDITOR.bat builds with it for the owner's own computer; the installer build never does, so a
+# setup made for other people ignores both settings and uses only add-ons whose signature checks out.
+dev-addons = []

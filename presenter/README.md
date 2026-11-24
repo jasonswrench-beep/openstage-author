@@ -14,7 +14,7 @@ need, and it has two dependencies of its own, `serde` and `serde_json`, and `win
 | --- | --- |
 | `TEST PRESENTER HOST.bat` | Runs the program's tests and the rules check. |
 | `INSTALL FOR DEVELOPMENT.bat` | Builds the program and copies it with `addon.json` to `%LOCALAPPDATA%\OpenStage\addons\presenter`, where the editor looks. |
-| `OPEN EDITOR WITH PRESENTER.bat` | Opens the editor with `OPENSTAGE_DEV_ADDONS=1`, because nothing can sign the add-on yet and an unsigned one is used only with that setting. |
+| `OPEN EDITOR WITH PRESENTER.bat` | Opens the editor with `OPENSTAGE_DEV_ADDONS=1`, because the add-on is not signed yet and an unsigned one is used only with that setting. The setting works only in an editor built for development (`OPEN EDITOR.bat` builds one); a setup made for other people ignores it. |
 
 ## The rules
 

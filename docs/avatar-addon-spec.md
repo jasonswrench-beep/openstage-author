@@ -2,7 +2,7 @@
 
 Nov 15, 2026 · Jason Wrench
 
-*Saved into the repository on 2026-11-16 from the Word document "OpenStage Author Presenter Avatar Add-on Spec". The words, tables and links are the document's own. The Word original also has a small diagram (the editor, the engine host and the four engines); its caption is kept below and the diagram is not reproduced. Where this specification meets a rule in `CLAUDE.md`, the build plan in `ROADMAP.md` says so.*
+*Saved into the repository on 2026-11-16 from the specification document "OpenStage Author Presenter Avatar Add-on Spec". The words, tables and links are the document's own. The original document also has a small diagram (the editor, the engine host and the four engines); its caption is kept below and the diagram is not reproduced. Where this specification meets a rule in `CLAUDE.md`, the build plan in `ROADMAP.md` says so.*
 
 ## Purpose and scope
 
@@ -29,14 +29,14 @@ Candidates that can be redistributed (after the detector swap where noted):
 
 | Model | Code / weights license | Input | Head motion | Min video memory | CPU | Activity | Fit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [JoyVASA](https://github.com/jdh-algo/JoyVASA) | MIT / MIT; swap detector | photo + audio | yes | 8 GB (tested on a Windows 11 RTX 4060 laptop) | no | Dec 2024 | Standard tier motion |
+| [JoyVASA](https://github.com/jdh-algo/JoyVASA) | MIT / MIT; swap detector | photo + audio | yes | 8 GB (tested on a Windows 11 laptop with an 8 GB graphics card) | no | Dec 2024 | Standard tier motion |
 | [LivePortrait](https://github.com/KwaiVGI/LivePortrait) via [FasterLivePortrait](https://github.com/warmshao/FasterLivePortrait) | MIT / MIT; use the MediaPipe option | photo + motion (from JoyVASA) | yes | about 4 to 6 GB (unverified) | runs, "extremely slow" per author | Jun 2025 | Standard tier renderer; ONNX and a Windows bundle exist |
-| [MuseTalk 1.5](https://github.com/TMElyralab/MuseTalk) | MIT; README says usable "even commercially" | video or still + audio | no, mouth only | 4 GB (8 s of video took about 5 min on an RTX 3050 Ti laptop) | no | Apr 2025 | optional lip polish pass |
+| [MuseTalk 1.5](https://github.com/TMElyralab/MuseTalk) | MIT; README says usable "even commercially" | video or still + audio | no, mouth only | 4 GB (8 s of video took about 5 min on a laptop with a small graphics card) | no | Apr 2025 | optional lip polish pass |
 | [Ditto](https://github.com/antgroup/ditto-talkinghead) | Apache 2.0; swap detector | photo + audio | yes | unverified; needs TensorRT, Ampere or newer | no | Nov 2025 | benchmark candidate; real-time on server cards |
-| [SoulX-FlashHead](https://github.com/Soul-AILab/SoulX-FlashHead) | Apache 2.0 (Pro); Lite includes an Open-RAIL-M part | photo + audio | yes | unverified | no | Feb 2026 | benchmark candidate; 10.8 fps (Pro) on an RTX 4090 |
+| [SoulX-FlashHead](https://github.com/Soul-AILab/SoulX-FlashHead) | Apache 2.0 (Pro); Lite includes an Open-RAIL-M part | photo + audio | yes | unverified | no | Feb 2026 | benchmark candidate; 10.8 fps (Pro) on a graphics card with 24 GB |
 | [EchoMimic V3 Flash](https://github.com/antgroup/echomimic_v3) | Apache 2.0 / Apache 2.0 | photo + audio | yes | 12 GB | no | Jan 2026 | Studio tier, better quality |
-| [MiniMates](https://github.com/kleinlee/MiniMates) | MIT per README (no LICENSE file; weights unverified) | photo + audio | mostly face | none; about 10 to 11 fps on desktop and laptop CPUs, 18 fps on Intel UHD 770 | yes | Oct 2024 | CPU photo option, if its license checks out |
-| [InfiniteTalk / MultiTalk](https://github.com/MeiGen-AI) | Apache 2.0 | photo or video + audio | yes, upper body | 480p on one RTX 4090 in low-memory mode | no | 2025 | Studio tier, long clips, very slow |
+| [MiniMates](https://github.com/kleinlee/MiniMates) | MIT per README (no LICENSE file; weights unverified) | photo + audio | mostly face | none; about 10 to 11 fps on desktop and laptop CPUs, 18 fps on integrated graphics | yes | Oct 2024 | CPU photo option, if its license checks out |
+| [InfiniteTalk / MultiTalk](https://github.com/MeiGen-AI) | Apache 2.0 | photo or video + audio | yes, upper body | 480p on one graphics card with 24 GB in low-memory mode | no | 2025 | Studio tier, long clips, very slow |
 | [SadTalker](https://github.com/OpenTalker/SadTalker) | Apache 2.0 / MIT; 3D face model files unverified | photo + audio | yes, stiff | about 4 to 6 GB (unverified) | slow | Jun 2023, stale | not recommended |
 
 Ruled out for a redistributed free tool:
@@ -86,7 +86,7 @@ Build three local tiers that share one voice engine and one output format, and l
 | --- | --- | --- | --- | --- |
 | Lite | illustrated 2D presenter (mouth-swap sprites, later Inochi2D puppets) | any Windows laptop, CPU only | Kokoro or Kitten voice, phoneme timing to mouth shapes, drawn in the editor's own WebView canvas, captured to video | faster than real time |
 | Standard | the user's photo, talking with natural head motion | dedicated GPU with 4 to 8 GB, or integrated graphics as a slow batch | Kokoro voice, JoyVASA turns audio into face motion, LivePortrait renders the photo, ONNX Runtime on Windows ML | a few minutes per minute of video on 8 GB (to confirm in Phase 0) |
-| Studio | sharper mouth and richer expression | NVIDIA with 8 GB for the lip pass, 12 GB or more for EchoMimic V3 Flash | Standard output plus a MuseTalk 1.5 lip pass, or EchoMimic V3 Flash; InfiniteTalk for long clips | slow; meant for overnight queues |
+| Studio | sharper mouth and richer expression | a CUDA card with 8 GB for the lip pass, 12 GB or more for EchoMimic V3 Flash | Standard output plus a MuseTalk 1.5 lip pass, or EchoMimic V3 Flash; InfiniteTalk for long clips | slow; meant for overnight queues |
 | Remote (optional) | same as Standard or Studio | any computer with a network connection | the same engine host running on another machine, such as a lab workstation or a rented GPU server, reached over an encrypted link with a key | depends on that machine |
 
 Why this split:
@@ -106,7 +106,7 @@ Parts:
 
 - **Plug-in contract in OpenStage Author.** On start, Author looks for %LOCALAPPDATA%\OpenStage\addons\*\addon.json. The manifest names the add-on, its version, the Author versions it supports, the engine host executable, and the commands it offers (presenter.createAvatar, presenter.speak, presenter.render, presenter.cancel). Author shows the Presenter panel only when a valid, signed manifest is found.
 - **Engine host (openstage-presenter.exe).** A separate process, so a crash, a long render or a memory spike never takes the editor down. Author starts it on demand and talks to it as JSON messages over standard input and output (the same pattern Tauri uses for sidecars). Progress, cancel and errors stream back as messages.
-- **Engines.** The host loads one of three engines, chosen by the hardware check: the Lite engine (2D puppet, CPU), the Standard engine (photo animation through ONNX Runtime, which works on NVIDIA, AMD and Intel graphics on Windows without a separate CUDA install; build on Windows ML, since Microsoft says DirectML "is in sustained engineering" and new work has moved to Windows ML, with DirectML kept as the fallback for older Windows 10 machines), and the optional Studio pack (an embedded Python runtime with PyTorch and CUDA, for the heaviest, best-quality models on NVIDIA cards). Each engine is its own download.
+- **Engines.** The host loads one of three engines, chosen by the hardware check: the Lite engine (2D puppet, CPU), the Standard engine (photo animation through ONNX Runtime, which works on graphics cards of any maker on Windows without a separate CUDA install; build on Windows ML, since Microsoft says DirectML "is in sustained engineering" and new work has moved to Windows ML, with DirectML kept as the fallback for older Windows 10 machines), and the optional Studio pack (an embedded Python runtime with PyTorch and CUDA, for the heaviest, best-quality models on CUDA cards). Each engine is its own download.
 - **Model manager.** Models are fetched on first use from their official Hugging Face repositories, resumable, each checked against a SHA-256 hash pinned in the add-on's model catalog. Before any download the user sees the model's size, its license in plain words, and where it comes from. Models live in %LOCALAPPDATA%\OpenStage\models\ and can be removed from a Manage Models screen.
 - **Updates.** The add-on uses the same signed update channel as the rest of the suite, separately from Author. The model catalog is a small signed JSON file, so a better model can be offered without shipping a new installer.
 
@@ -116,7 +116,7 @@ Author only ever talks to the engine host; the host picks the engine the hardwar
 
 Install sizes (targets): add-on installer under 60 MB; Lite engine with one voice about 150 MB; Standard engine plus models about 1 to 2 GB; Studio pack 4 to 8 GB.
 
-On Mac, the Lite engine and text-to-speech should work from the start; the Standard engine can follow through ONNX Runtime's CoreML support; the Studio pack stays Windows and NVIDIA only.
+On Mac, the Lite engine and text-to-speech should work from the start; the Standard engine can follow through ONNX Runtime's CoreML support; the Studio pack stays Windows and CUDA cards only.
 
 ## From photo and script to a slide
 
@@ -151,7 +151,7 @@ What it checks:
 
 - Graphics card vendor, model and dedicated video memory (through DXGI on Windows), plus the driver version.
 - System memory and free disk space in the models folder.
-- Whether an NVIDIA card can run CUDA, for the Studio pack.
+- Whether a card can run CUDA, for the Studio pack.
 - A 10-second benchmark the first time a tier is used, stored so later estimates show real minutes, not guesses.
 
 How it decides (starting thresholds, to be tuned from the benchmark):
@@ -161,7 +161,7 @@ How it decides (starting thresholds, to be tuned from the benchmark):
 | No dedicated GPU, under 8 GB RAM | Lite | Lite |
 | Integrated graphics, 8 GB RAM or more | Lite, Standard (slow, overnight batch) | Lite |
 | Dedicated GPU with 4 to 6 GB video memory | Lite, Standard | Standard |
-| NVIDIA GPU with 8 GB video memory or more | Lite, Standard, Studio | Standard |
+| CUDA-capable GPU with 8 GB video memory or more | Lite, Standard, Studio | Standard |
 | Any machine, cloud enabled by the user | adds Cloud | unchanged |
 
 Fallbacks while rendering:
@@ -201,7 +201,7 @@ Everything runs on the user's computer by default: no photo, voice, script or vi
 
 Build the voice and the Lite tier first, because they prove the whole plug-in path on any computer before any heavy model is involved. Each phase ends at a gate that must pass before the next starts.
 
-- **Phase 0: proof and license check.** Run JoyVASA plus LivePortrait with the MediaPipe detector on an 8 GB NVIDIA card and on a laptop with integrated graphics. Confirm JoyVASA exports to ONNX, measure Kokoro on a plain CPU, and confirm the MiniMates weight license. Gate: a 1-minute clip renders on the 8 GB card with lips in sync, and every model in the plan passes the license rules.
+- **Phase 0: proof and license check.** Run JoyVASA plus LivePortrait with the MediaPipe detector on an 8 GB CUDA card and on a laptop with integrated graphics. Confirm JoyVASA exports to ONNX, measure Kokoro on a plain CPU, and confirm the MiniMates weight license. Gate: a 1-minute clip renders on the 8 GB card with lips in sync, and every model in the plan passes the license rules.
 - **Phase 1: plug-in contract, voice and Lite tier.** Add-on manifest and discovery in Author, the engine host, Kokoro and Kitten voices, mouth-swap presenter, Presenter object with captions and re-render. Gate: a full course with a Lite presenter publishes to SCORM from a laptop with no graphics card.
 - **Phase 2: Standard tier.** Model manager with license screen and checksums, hardware check and benchmark, Windows ML engine for JoyVASA and LivePortrait, render queue and cache, framing and cutout options. Gate: a non-technical tester creates a photo presenter without help.
 - **Phase 3: Studio pack and voices.** Embedded Python and CUDA pack, MuseTalk lip pass, EchoMimic V3 Flash, Piper multilingual pack, voice cloning with consent checks. Gate: the Studio pack installs and uninstalls cleanly beside the Standard tier.

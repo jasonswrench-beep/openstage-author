@@ -26,8 +26,15 @@ class Pieces(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = pathlib.Path(d) / "x"
             p.write_bytes(b"abc")
-            self.assertEqual(b.md5(p), "900150983cd24fb0d6963f7d28e17f72")
             self.assertEqual(b.sha256(p), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+            self.assertFalse(hasattr(b, "md5"), "MD5 is not used for anything the build trusts")
+
+    def test_the_installers_editor_is_built_without_the_developer_route_for_add_ons(self):
+        # editor/src-tauri/Cargo.toml: with the dev-addons feature the editor reads OPENSTAGE_DEV_ADDONS and OPENSTAGE_ADDONS. OPEN EDITOR.bat turns it on for the owner's own
+        # computer; a setup made for other people must never have it, so nothing here may ask for it.
+        source = pathlib.Path(b.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("dev-addons", source)
+        self.assertNotIn("--features", source)
 
     def test_what_goes_in_names_only_things_that_exist(self):
         for name in b.TOOLS:
@@ -121,11 +128,7 @@ class Pieces(unittest.TestCase):
                 b.cached_embed("9.9.9", "https://www.python.org/x", "0" * 64)
             self.assertFalse(bad.exists())
             bad.write_bytes(b"abc")
-            with self.assertRaises(SystemExit):
-                b.cached_embed("9.9.9", "https://www.python.org/x", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "0" * 32)
-            self.assertFalse(bad.exists(), "the MD5 is checked too where it is given")
-            bad.write_bytes(b"abc")
-            self.assertEqual(b.cached_embed("9.9.9", "https://www.python.org/x", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "900150983cd24fb0d6963f7d28e17f72"), bad)
+            self.assertEqual(b.cached_embed("9.9.9", "https://www.python.org/x", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), bad)
 
     def test_the_narration_pythons_folder_is_the_one_the_editor_looks_for(self):
         engine = (b.TAURI / "src" / "engine.rs").read_text(encoding="utf-8")

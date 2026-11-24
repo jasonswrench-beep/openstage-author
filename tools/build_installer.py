@@ -67,9 +67,8 @@ PYTHON_SHA256 = "90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea415
 # python.org built for Windows. Only pip goes in it: the voice's packages are installed later, from tools/narration-requirements.txt, each checked.
 NARRATION_PYTHON_VERSION = "3.12.10"
 NARRATION_PYTHON_URL = f"https://www.python.org/ftp/python/{NARRATION_PYTHON_VERSION}/python-{NARRATION_PYTHON_VERSION}-embed-amd64.zip"
-NARRATION_PYTHON_MD5 = "fe8ef205f2e9c3ba44d0cf9954e1abd3"  # as python.org lists it: it lists no SHA-256 for this release
-# Worked out on 2026-11-13 from the download that matched python.org's MD5 and size, and whose python.exe and python312.dll carry the Python Software
-# Foundation's valid signature. Both are checked.
+# python.org lists no SHA-256 for this release, only an MD5, which is too weak to trust. This SHA-256 was worked out on 2026-11-13 from the download that matched
+# python.org's MD5 and size, and whose python.exe and python312.dll carry the Python Software Foundation's valid signature. Only the SHA-256 is checked now.
 NARRATION_PYTHON_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
 NODE_VERSION = "24.22.3"
 NODE_URL = f"https://nodejs.org/dist/v{NODE_VERSION}/node-v{NODE_VERSION}-win-x64.zip"
@@ -129,14 +128,6 @@ def sha256(path):
     return h.hexdigest()
 
 
-def md5(path):
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(1 << 20), b""):
-            h.update(block)
-    return h.hexdigest()
-
-
 def fetch(url, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
     say(f"  downloading {url}")
@@ -146,12 +137,12 @@ def fetch(url, dest):
     dest.with_suffix(dest.suffix + ".part").replace(dest)
 
 
-def cached_embed(version, url, wanted_sha256, wanted_md5=None):
-    """One embeddable Python from python.org, from the cache or fetched, checked against its SHA-256 (and MD5, where that is all python.org lists)."""
+def cached_embed(version, url, wanted_sha256):
+    """One embeddable Python from python.org, from the cache or fetched, checked against its SHA-256."""
     zip_path = CACHE / f"python-{version}-embed-amd64.zip"
     if not zip_path.is_file():
         fetch(url, zip_path)
-    if sha256(zip_path) != wanted_sha256 or (wanted_md5 and md5(zip_path) != wanted_md5):
+    if sha256(zip_path) != wanted_sha256:
         zip_path.unlink()
         fail(f"the Python {version} download did not match its checksum ({wanted_sha256}). It was deleted; run this again, and if it happens again, stop and look.")
     return zip_path
@@ -162,7 +153,7 @@ def cached_python():
 
 
 def cached_narration_python():
-    return cached_embed(NARRATION_PYTHON_VERSION, NARRATION_PYTHON_URL, NARRATION_PYTHON_SHA256, NARRATION_PYTHON_MD5)
+    return cached_embed(NARRATION_PYTHON_VERSION, NARRATION_PYTHON_URL, NARRATION_PYTHON_SHA256)
 
 
 def stage_python(folder, archive, version, requirements):

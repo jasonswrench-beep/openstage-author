@@ -107,7 +107,7 @@ mod os {
     use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE};
     use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
     use windows::Win32::Foundation::FreeLibrary;
-    use windows::Win32::System::LibraryLoader::LoadLibraryW;
+    use windows::Win32::System::LibraryLoader::{LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
     use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 
     fn gpus() -> Vec<Gpu> {
@@ -139,11 +139,17 @@ mod os {
         Some(status.ullTotalPhys / (1024 * 1024))
     }
 
-    /// Whether the NVIDIA driver's CUDA library can be loaded, which is what the Studio kind needs besides the card.
+    /// Whether the NVIDIA driver's CUDA library can be loaded, which is what the Studio kind needs besides the card. It is looked for in Windows' own system folder
+    /// only, never in the folder the program was started from or the current folder, so a file of that name left there is not loaded.
     fn cuda() -> bool {
+        in_system_folder(w!("nvcuda.dll"))
+    }
+
+    /// Whether a library of this name can be loaded from Windows' system folder (and is let go again at once).
+    pub(super) fn in_system_folder(name: PCWSTR) -> bool {
         // SAFETY: loading a system library by name and letting it go again.
         unsafe {
-            match LoadLibraryW(w!("nvcuda.dll")) {
+            match LoadLibraryExW(name, None, LOAD_LIBRARY_SEARCH_SYSTEM32) {
                 Ok(h) => {
                     let _ = FreeLibrary(h);
                     true
@@ -233,27 +239,27 @@ mod tests {
         let a = capability(&facts(vec![], 6000));
         assert_eq!((a.standard, a.studio, a.default), (false, false, "lite"));
         // integrated graphics, 8 GB or more: the photo kind, slowly, but the illustrated one by default
-        let b = capability(&facts(vec![gpu("Intel UHD Graphics 770", "intel", 128)], 16000));
+        let b = capability(&facts(vec![gpu("Integrated graphics", "intel", 128)], 16000));
         assert_eq!((b.standard, b.studio, b.default), (true, false, "lite"));
         assert!(b.why.contains("overnight"));
         // a dedicated card with 4 to 6 GB: the photo kind, by default
-        let c = capability(&facts(vec![gpu("GeForce GTX 1650", "nvidia", 4096)], 16000));
+        let c = capability(&facts(vec![gpu("Card with 4 GB", "nvidia", 4096)], 16000));
         assert_eq!((c.standard, c.studio, c.default), (true, false, "standard"));
-        let d = capability(&facts(vec![gpu("Radeon RX 6600", "amd", 6144)], 16000));
+        let d = capability(&facts(vec![gpu("Card with 6 GB", "amd", 6144)], 16000));
         assert_eq!((d.standard, d.studio, d.default), (true, false, "standard"));
         // NVIDIA with 8 GB or more: all three
-        let e = capability(&facts(vec![gpu("NVIDIA GeForce RTX 3050", "nvidia", 8192)], 16000));
+        let e = capability(&facts(vec![gpu("Card with 8 GB", "nvidia", 8192)], 16000));
         assert_eq!((e.standard, e.studio, e.default), (true, true, "standard"));
         assert!(e.why.contains("8 GB"));
         // 8 GB on an AMD card is enough for the photo kind but the Studio pack is NVIDIA only
-        let f = capability(&facts(vec![gpu("Radeon RX 7600", "amd", 8192)], 32000));
+        let f = capability(&facts(vec![gpu("Card with 8 GB, no CUDA", "amd", 8192)], 32000));
         assert_eq!((f.standard, f.studio), (true, false));
     }
 
     #[test]
     fn the_best_real_card_counts_and_the_software_adapter_never_does() {
-        let soft = Gpu { name: "Microsoft Basic Render Driver".into(), vendor: "microsoft", dedicated_mb: 0, software: true };
-        let a = capability(&facts(vec![soft.clone(), gpu("Intel UHD", "intel", 128), gpu("NVIDIA GeForce RTX 3050", "nvidia", 8192)], 16000));
+        let soft = Gpu { name: "Software adapter".into(), vendor: "microsoft", dedicated_mb: 0, software: true };
+        let a = capability(&facts(vec![soft.clone(), gpu("Integrated graphics", "intel", 128), gpu("Card with 8 GB", "nvidia", 8192)], 16000));
         assert!(a.studio, "the integrated card and the software adapter do not hide the good one");
         let b = capability(&facts(vec![soft], 4000));
         assert_eq!((b.standard, b.default), (false, "lite"));
@@ -264,7 +270,7 @@ mod tests {
 
     #[test]
     fn a_kind_is_offered_only_when_the_computer_is_capable_and_its_engine_is_here() {
-        let f = facts(vec![gpu("NVIDIA GeForce RTX 3050", "nvidia", 8192)], 32000);
+        let f = facts(vec![gpu("Card with 8 GB", "nvidia", 8192)], 32000);
         let none = tiers(&f, Engines::default());
         let t = none.as_array().unwrap();
         assert_eq!((t[0]["id"].as_str(), t[0]["offered"].clone(), t[0]["default"].clone()), (Some("lite"), json!(true), json!(true)), "with no engine, the illustrated kind is the default");
@@ -293,6 +299,37 @@ mod tests {
             assert!(r["memoryMb"].as_u64().unwrap() > 256);
             assert!(r["diskFreeMb"].as_u64().unwrap() > 0, "the space where models are kept is read");
         }
+    }
+
+    /// A library left in the program's own folder or the current folder is not loaded as if it were the driver's: only Windows' system folder is searched.
+    #[cfg(windows)]
+    #[test]
+    fn a_library_of_the_drivers_name_is_looked_for_in_the_system_folder_only() {
+        use windows::core::{w, PCWSTR};
+        use windows::Win32::Foundation::FreeLibrary;
+        use windows::Win32::System::LibraryLoader::LoadLibraryW;
+        let system = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into())).join("System32").join("version.dll");
+        assert!(system.is_file(), "a real library to leave about");
+        let beside = std::env::current_exe().unwrap().parent().unwrap().join("openstage-planted-test.dll");
+        let here = std::env::current_dir().unwrap().join("openstage-planted-test.dll");
+        std::fs::copy(&system, &beside).unwrap();
+        let _ = std::fs::copy(&system, &here);
+        // The control: the ordinary way of loading by name does find it (the program's own folder is searched first), so the test would notice if it were loaded.
+        let found_the_ordinary_way = unsafe {
+            match LoadLibraryW(w!("openstage-planted-test.dll")) {
+                Ok(h) => {
+                    let _ = FreeLibrary(h);
+                    true
+                }
+                Err(_) => false,
+            }
+        };
+        let found_in_system_folder = os::in_system_folder(PCWSTR(w!("openstage-planted-test.dll").0));
+        let _ = std::fs::remove_file(&beside);
+        let _ = std::fs::remove_file(&here);
+        assert!(found_the_ordinary_way, "the planted library is where an ordinary load finds it");
+        assert!(!found_in_system_folder, "but it is not loaded from there when only the system folder is searched");
+        assert!(os::in_system_folder(w!("kernel32.dll")), "and a library that is in the system folder is");
     }
 
     #[test]

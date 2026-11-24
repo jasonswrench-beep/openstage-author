@@ -1,14 +1,30 @@
 // The Presenter add-on, seen from the editor's native side (docs/presenter.md): finding it, asking its engine host things, and saving the clip the
 // editor makes. The add-on is a separate download in a folder of its own; nothing here runs unless that folder is there and the editor asks.
 
+use ring::signature::{UnparsedPublicKey, ED25519};
 use serde::Serialize;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// The public key an add-on's signature has to verify against: an Ed25519 key, 32 bytes. It is `None` until the owner makes the key pair, offline, and gives
+/// the public half to be put here; the private half never comes into this repository or a build folder. With no key nothing can be verified, so no add-on is
+/// usable except through the developer route (`dev_route_built`).
+const ADDON_PUBLIC_KEY: Option<[u8; 32]> = None;
+/// The file beside addon.json that holds the signature: 64 bytes of Ed25519, written as base64, over `signed_message`.
+const SIGNATURE_FILE: &str = "addon.sig";
+const MAX_SIGNATURE: u64 = 1024;
+/// The largest engine host program that is hashed.
+const MAX_HOST: u64 = 512 * 1024 * 1024;
+/// What the editor remembers about the add-ons it has used: the highest version of each. It lives in the add-ons folder.
+const LAST_USED_FILE: &str = "last-used.json";
+/// The most of the add-on's error output that is kept to be shown.
+const MAX_STDERR: u64 = 2000;
 /// The longest manifest read.
 const MAX_MANIFEST: u64 = 64 * 1024;
 /// The most the engine host may say before it is cut off.
@@ -33,8 +49,10 @@ pub struct AddonInfo {
     pub description: String,
     pub tiers: Vec<String>,
     pub commands: Vec<String>,
-    /// The manifest carries a signature. Nothing verifies it yet (there is no key to verify against), so this does not make an add-on usable.
+    /// The add-on's folder has a signature file. That alone proves nothing.
     pub signed: bool,
+    /// The signature checks out against the key built into the editor, for this very manifest and this very program.
+    pub verified: bool,
     /// Whether the editor may use it now.
     pub usable: bool,
     /// Why it is not usable, in words, when it is not.
@@ -43,12 +61,16 @@ pub struct AddonInfo {
     pub host: PathBuf,
 }
 
-/// Where add-ons are kept: a folder for each, each with an addon.json. `OPENSTAGE_ADDONS` names another place (for tests and for a developer).
+/// Whether this editor has the developer route for add-ons: a debug build, or a build made with the `dev-addons` feature (OPEN EDITOR.bat does that on the owner's
+/// own computer). The installer's build has neither, so a setup made for other people never reads `OPENSTAGE_DEV_ADDONS` or `OPENSTAGE_ADDONS`.
+pub const fn dev_route_built() -> bool {
+    cfg!(any(debug_assertions, feature = "dev-addons"))
+}
+
+/// Where add-ons are kept: a folder for each, each with an addon.json. In a build that has the developer route, `OPENSTAGE_ADDONS` names another place instead.
 pub fn addons_root() -> Option<PathBuf> {
-    if let Ok(p) = std::env::var("OPENSTAGE_ADDONS") {
-        if !p.is_empty() {
-            return Some(PathBuf::from(p));
-        }
+    if let Some(p) = root_setting(dev_route_built(), std::env::var("OPENSTAGE_ADDONS").ok().as_deref()) {
+        return Some(p);
     }
     #[cfg(windows)]
     {
@@ -67,9 +89,33 @@ pub fn addons_root() -> Option<PathBuf> {
     }
 }
 
-/// Whether an add-on that is not signed may be used: only while a developer sets OPENSTAGE_DEV_ADDONS=1, because nothing can sign one yet.
+/// Whether an add-on that is not signed may be used: only in a build that has the developer route, and only while a developer sets OPENSTAGE_DEV_ADDONS=1.
 pub fn dev_addons() -> bool {
-    std::env::var("OPENSTAGE_DEV_ADDONS").map(|v| v == "1").unwrap_or(false)
+    dev_wanted(dev_route_built(), std::env::var("OPENSTAGE_DEV_ADDONS").ok().as_deref())
+}
+
+/// The other add-ons folder `OPENSTAGE_ADDONS` names, only in a build that has the developer route.
+fn root_setting(dev_route: bool, setting: Option<&str>) -> Option<PathBuf> {
+    setting.filter(|p| dev_route && !p.is_empty()).map(PathBuf::from)
+}
+
+/// Whether `OPENSTAGE_DEV_ADDONS` asks for the developer route and this build has it.
+fn dev_wanted(dev_route: bool, setting: Option<&str>) -> bool {
+    dev_route && setting == Some("1")
+}
+
+/// How an add-on is judged: the key its signature has to match (none, until the owner makes one), and whether a developer's add-on that is not signed may run.
+#[derive(Clone, Copy, Debug)]
+pub struct Policy {
+    pub key: Option<[u8; 32]>,
+    pub dev: bool,
+}
+
+impl Policy {
+    /// The policy of this editor, as it is built and as the computer is set now.
+    pub fn current() -> Policy {
+        Policy { key: ADDON_PUBLIC_KEY, dev: dev_addons() }
+    }
 }
 
 fn text<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
@@ -91,15 +137,68 @@ fn version_ok(v: &str) -> bool {
     parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.len() <= 6 && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
-/// Reads and checks the manifest in one add-on's folder.
-pub fn read_manifest(folder: &Path, dev: bool) -> Result<AddonInfo, String> {
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// What an add-on's signature covers, so that changing the manifest or the program by one byte breaks it: a fixed first line, then the SHA-256 of addon.json
+/// and the SHA-256 of the engine host program, each as lowercase hex on a line of its own. (`docs/presenter.md`, "Signing", says how to make one.)
+fn signed_message(manifest: &[u8], host_sha256: &[u8]) -> Vec<u8> {
+    format!("OpenStage add-on 1\n{}\n{}\n", hex(&Sha256::digest(manifest)), hex(host_sha256)).into_bytes()
+}
+
+/// The SHA-256 of a file, read in pieces, and refused if it is far bigger than an engine host should be.
+fn sha256_of_file(path: &Path) -> Result<Vec<u8>, String> {
+    let mut file = fs::File::open(path).map_err(|e| format!("The add-on's program could not be read: {e}"))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut total: u64 = 0;
+    loop {
+        let n = file.read(&mut buf).map_err(|e| format!("The add-on's program could not be read: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        total += n as u64;
+        if total > MAX_HOST {
+            return Err("The add-on's program is far bigger than an engine host should be.".into());
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hasher.finalize().to_vec())
+}
+
+/// Whether the signature file in the add-on's folder is a good signature, by `key`, of exactly this manifest (as read, byte for byte) and this program.
+fn check_signature(folder: &Path, manifest: &[u8], host: &Path, key: &[u8; 32]) -> Result<(), String> {
+    let file = folder.join(SIGNATURE_FILE);
+    let meta = fs::metadata(&file).map_err(|_| "It has no signature.".to_string())?;
+    if !meta.is_file() || meta.len() > MAX_SIGNATURE {
+        return Err("Its signature is not a file of a sensible size.".into());
+    }
+    let text = fs::read_to_string(&file).map_err(|_| "Its signature could not be read.".to_string())?;
+    let signature = {
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.decode(text.trim().as_bytes()).map_err(|_| "Its signature is not in the form it should be.".to_string())?
+    };
+    let host_hash = sha256_of_file(host)?;
+    UnparsedPublicKey::new(&ED25519, key)
+        .verify(&signed_message(manifest, &host_hash), &signature)
+        .map_err(|_| "Its signature does not match: the add-on was changed after it was signed, or it was not signed by OpenStage.".to_string())
+}
+
+/// Reads and checks the manifest in one add-on's folder, and whether its signature verifies. An add-on is usable when it does, or when the policy lets a developer's
+/// add-on run.
+pub fn read_manifest(folder: &Path, policy: &Policy) -> Result<AddonInfo, String> {
     let file = folder.join("addon.json");
     let meta = fs::metadata(&file).map_err(|_| "There is no addon.json.".to_string())?;
     if !meta.is_file() || meta.len() > MAX_MANIFEST {
         return Err("addon.json is not a file of a sensible size.".into());
     }
-    let raw = fs::read_to_string(&file).map_err(|e| format!("addon.json could not be read: {e}"))?;
-    let m: Value = serde_json::from_str(&raw).map_err(|e| format!("addon.json is not JSON: {e}"))?;
+    // The bytes are read once and these same bytes are both checked against the signature and read as the manifest.
+    let raw = fs::read(&file).map_err(|e| format!("addon.json could not be read: {e}"))?;
+    if raw.len() as u64 > MAX_MANIFEST {
+        return Err("addon.json is not a file of a sensible size.".into());
+    }
+    let m: Value = serde_json::from_slice(&raw).map_err(|e| format!("addon.json is not JSON: {e}"))?;
     if m.get("contract").and_then(|c| c.as_u64()) != Some(1) {
         return Err("addon.json is not for contract 1.".into());
     }
@@ -121,18 +220,77 @@ pub fn read_manifest(folder: &Path, dev: bool) -> Result<AddonInfo, String> {
     };
     let commands = list("commands", KNOWN_COMMANDS)?;
     let tiers = list("tiers", KNOWN_TIERS)?;
-    let signed = text(&m, "signature").map(|s| !s.trim().is_empty()).unwrap_or(false);
-    let usable = dev;
-    let why = if usable { None } else { Some("It is not signed, and nothing can verify a signature yet. Set OPENSTAGE_DEV_ADDONS=1 to use it while it is being built.".to_string()) };
-    Ok(AddonInfo { id, name, version, description: text(&m, "description").unwrap_or("").chars().take(300).collect(), tiers, commands, signed, usable, why, host })
+    let signed = folder.join(SIGNATURE_FILE).is_file();
+    let verdict = match &policy.key {
+        Some(key) => check_signature(folder, &raw, &host, key),
+        None => Err("This editor has no signing key built in yet, so it cannot check an add-on's signature.".to_string()),
+    };
+    let verified = verdict.is_ok();
+    let usable = verified || policy.dev;
+    let why = match (&verdict, usable) {
+        (_, true) | (Ok(()), _) => None,
+        (Err(e), false) => Some(if dev_route_built() { format!("{e} A developer can set OPENSTAGE_DEV_ADDONS=1 to use it while it is being built.") } else { e.clone() }),
+    };
+    Ok(AddonInfo { id, name, version, description: text(&m, "description").unwrap_or("").chars().take(300).collect(), tiers, commands, signed, verified, usable, why, host })
 }
 
-/// Every add-on in the folder that has a good manifest, by folder name.
-pub fn find_addons(root: &Path, dev: bool) -> Vec<AddonInfo> {
+fn version_key(v: &str) -> (u64, u64, u64) {
+    let mut p = v.split('.').map(|n| n.parse::<u64>().unwrap_or(0));
+    (p.next().unwrap_or(0), p.next().unwrap_or(0), p.next().unwrap_or(0))
+}
+
+/// The highest version of each add-on this editor has used, from the add-ons folder. A file that is missing or not what it should be says nothing was used.
+fn last_used(root: &Path) -> HashMap<String, String> {
+    let file = root.join(LAST_USED_FILE);
+    let Ok(meta) = fs::metadata(&file) else { return HashMap::new() };
+    if !meta.is_file() || meta.len() > 4096 {
+        return HashMap::new();
+    }
+    let Ok(v) = fs::read_to_string(&file).map_err(|_| ()).and_then(|r| serde_json::from_str::<Value>(&r).map_err(|_| ())) else { return HashMap::new() };
+    v.as_object()
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().filter(|s| version_ok(s) && id_ok(k)).map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default()
+}
+
+/// Notes that a verified add-on is being used, so an older version of it is refused from now on. A failure to write is passed over: the add-on still runs.
+pub fn remember_use(root: &Path, addon: &AddonInfo) {
+    if !addon.verified {
+        return;
+    }
+    let mut used = last_used(root);
+    if used.get(&addon.id).map_or(false, |seen| version_key(seen) >= version_key(&addon.version)) {
+        return;
+    }
+    used.insert(addon.id.clone(), addon.version.clone());
+    let mut sorted: Vec<(&String, &String)> = used.iter().collect();
+    sorted.sort();
+    let body: serde_json::Map<String, Value> = sorted.into_iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect();
+    let _ = fs::write(root.join(LAST_USED_FILE), serde_json::to_string_pretty(&Value::Object(body)).unwrap_or_default());
+}
+
+/// Every add-on in the folder that has a good manifest, by folder name. A signed add-on that is an older version than one used before is not usable (a developer's
+/// route still lets it run): a signed older version that has a known fault must not be put back.
+pub fn find_addons(root: &Path, policy: &Policy) -> Vec<AddonInfo> {
     let Ok(entries) = fs::read_dir(root) else { return Vec::new() };
     let mut folders: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
     folders.sort();
-    folders.iter().filter_map(|f| read_manifest(f, dev).ok()).collect()
+    let used = last_used(root);
+    folders
+        .iter()
+        .filter_map(|f| read_manifest(f, policy).ok())
+        .map(|mut a| {
+            if a.verified && !policy.dev {
+                if let Some(seen) = used.get(&a.id).filter(|seen| version_key(seen) > version_key(&a.version)) {
+                    a.usable = false;
+                    a.why = Some(format!(
+                        "This is version {}, but version {seen} of it has been used on this computer, and the editor does not go back to an older add-on. Install version {seen} or a newer one.",
+                        a.version
+                    ));
+                }
+            }
+            a
+        })
+        .collect()
 }
 
 /// Starts the engine host, gives it one request, and returns its answer. A host that does not answer in time is stopped.
@@ -154,6 +312,16 @@ pub fn call_host(host: &Path, command: &str, params: Value, timeout: Duration) -
         let mut buf = Vec::new();
         let _ = out.by_ref().take(MAX_ANSWER + 1).read_to_end(&mut buf);
         buf
+    });
+    // Its error output is read while it runs, on a thread of its own: the first part is kept to be shown if it gives no answer, and the rest is read and thrown away,
+    // so a program that talks a lot there is never left waiting for someone to read, which would hold up its answer until it was stopped.
+    let said_aside = child.stderr.take().map(|mut e| {
+        std::thread::spawn(move || {
+            let mut kept = Vec::new();
+            let _ = e.by_ref().take(MAX_STDERR).read_to_end(&mut kept);
+            let _ = std::io::copy(&mut e, &mut std::io::sink());
+            kept
+        })
     });
     let started = Instant::now();
     loop {
@@ -185,17 +353,17 @@ pub fn call_host(host: &Path, command: &str, params: Value, timeout: Duration) -
             return Ok(r.clone());
         }
     }
-    let mut err = String::new();
-    if let Some(mut e) = child.stderr.take() {
-        let _ = e.by_ref().take(2000).read_to_string(&mut err);
-    }
+    // The program has ended, so its error output has ended too.
+    let err = said_aside.and_then(|t| t.join().ok()).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
     Err(format!("The Presenter add-on gave no answer I could read.{}", if err.trim().is_empty() { String::new() } else { format!(" It said: {}", err.trim()) }))
 }
 
 /// The usable Presenter add-on, if there is one.
 fn the_addon() -> Option<AddonInfo> {
     let root = addons_root()?;
-    find_addons(&root, dev_addons()).into_iter().find(|a| a.id == "presenter" && a.usable)
+    let found = find_addons(&root, &Policy::current()).into_iter().find(|a| a.id == "presenter" && a.usable)?;
+    remember_use(&root, &found);
+    Some(found)
 }
 
 /// What the editor asks at the start: is the Presenter add-on here and may it be used?
@@ -217,10 +385,30 @@ pub async fn presenter_ask(command: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || call_host(&addon.host, &command, json!({}), Duration::from_secs(20))).await.map_err(|e| e.to_string())?
 }
 
+/// Whether two paths are the same folder, by where they really lead (so a different spelling of the same place counts, and a link into another place does not).
+fn same_folder(a: &Path, b: &Path) -> bool {
+    matches!((a.canonicalize(), b.canonicalize()), (Ok(a), Ok(b)) if a == b)
+}
+
+/// Holds `dir` to the folder of the project that is open (`open`, if there is one): a folder that has a project.json but is some other project is refused.
+fn confine_to_open(dir: &str, open: Option<&Path>) -> Result<PathBuf, String> {
+    let Some(open) = open else { return Err("No project is open.".into()) };
+    if same_folder(Path::new(dir), open) {
+        Ok(PathBuf::from(dir))
+    } else {
+        Err("That is not the project that is open.".into())
+    }
+}
+
+/// `dir` as a folder the Presenter commands may work in: only the project that is open.
+fn in_open_project(dir: &str) -> Result<PathBuf, String> {
+    confine_to_open(dir, super::open_project_dir().as_deref())
+}
+
 /// The mouth shapes of a piece of narration audio already made for the project (named by its cache key).
 #[tauri::command]
 pub async fn presenter_mouth_track(dir: String, key: String) -> Result<Value, String> {
-    let dir = PathBuf::from(dir);
+    let dir = in_open_project(&dir)?;
     if !dir.join("project.json").is_file() {
         return Err("That folder is not an OpenStage project.".into());
     }
@@ -269,8 +457,9 @@ pub fn save_presenter_clip(dir: String, name_hint: String, webm: String) -> Resu
     if webm.len() > MAX_CLIP * 4 / 3 + 16 {
         return Err("That clip is larger than 500 MB.".into());
     }
+    let dir = in_open_project(&dir)?;
     let bytes = base64::engine::general_purpose::STANDARD.decode(webm.as_bytes()).map_err(|_| "What was made could not be read.".to_string())?;
-    save_clip_at(Path::new(&dir), &name_hint, &bytes)
+    save_clip_at(&dir, &name_hint, &bytes)
 }
 
 /// The words the speech engine said, each with when it began and ended (seconds) and the phonemes it said it with, from the project's cache. Only Kokoro keeps them, and
@@ -336,7 +525,7 @@ pub fn narration_cues_at(dir: &Path, key: &str) -> Result<Value, String> {
 
 #[tauri::command]
 pub fn narration_cues(dir: String, key: String) -> Result<Value, String> {
-    narration_cues_at(Path::new(&dir), &key)
+    narration_cues_at(&in_open_project(&dir)?, &key)
 }
 
 #[cfg(test)]
@@ -363,25 +552,193 @@ mod tests {
     const GOOD: &str = r#"{"contract":1,"id":"presenter","name":"OpenStage Presenter","version":"0.1.0","licence":"Apache-2.0","description":"Presenters.",
         "host":"host.exe","commands":["presenter.hello","presenter.check"],"tiers":["lite"],"signature":null}"#;
 
+    /// What an editor made for other people uses: no developer route, and a public key (here, a test key) to check signatures against.
+    fn shipped(key: [u8; 32]) -> Policy {
+        Policy { key: Some(key), dev: false }
+    }
+    /// A developer's editor, with no key: only the developer route can run an add-on.
+    const DEV: Policy = Policy { key: None, dev: true };
+
+    fn key_pair(seed: u8) -> (ring::signature::Ed25519KeyPair, [u8; 32]) {
+        use ring::signature::KeyPair;
+        let pair = ring::signature::Ed25519KeyPair::from_seed_unchecked(&[seed; 32]).unwrap();
+        let mut public = [0u8; 32];
+        public.copy_from_slice(pair.public_key().as_ref());
+        (pair, public)
+    }
+
+    /// Signs the add-on in `folder` as it is now: its addon.json and its host.exe.
+    fn sign(folder: &Path, pair: &ring::signature::Ed25519KeyPair) {
+        use base64::Engine;
+        let message = signed_message(&fs::read(folder.join("addon.json")).unwrap(), &Sha256::digest(fs::read(folder.join("host.exe")).unwrap()));
+        fs::write(folder.join(SIGNATURE_FILE), base64::engine::general_purpose::STANDARD.encode(pair.sign(&message).as_ref())).unwrap();
+    }
+
     #[test]
-    fn a_good_manifest_is_read_and_is_usable_only_in_the_developer_mode() {
+    fn a_good_manifest_is_read_and_is_usable_only_through_the_developer_route() {
         let root = scratch("good");
         let d = addon(&root, "presenter", GOOD, true);
-        let a = read_manifest(&d, false).unwrap();
-        assert_eq!((a.id.as_str(), a.version.as_str(), a.tiers.clone(), a.signed), ("presenter", "0.1.0", vec!["lite".to_string()], false));
-        assert!(!a.usable && a.why.as_deref().unwrap().contains("OPENSTAGE_DEV_ADDONS"));
-        assert!(read_manifest(&d, true).unwrap().usable);
+        let (_, public) = key_pair(1);
+        let a = read_manifest(&d, &shipped(public)).unwrap();
+        assert_eq!((a.id.as_str(), a.version.as_str(), a.tiers.clone(), a.signed, a.verified), ("presenter", "0.1.0", vec!["lite".to_string()], false, false));
+        assert!(!a.usable && a.why.as_deref().unwrap().contains("no signature"), "{:?}", a.why);
+        assert!(read_manifest(&d, &DEV).unwrap().usable, "the developer route runs an add-on that is not signed");
         assert_eq!(a.host, d.join("host.exe"));
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn a_signature_is_read_but_does_not_make_an_addon_usable() {
-        let root = scratch("signed");
-        let d = addon(&root, "presenter", &GOOD.replace("\"signature\":null", "\"signature\":\"abcd\""), true);
-        let a = read_manifest(&d, false).unwrap();
-        assert!(a.signed && !a.usable, "nothing verifies it yet");
+    fn with_no_key_built_in_nothing_is_usable_but_through_the_developer_route() {
+        let root = scratch("nokey");
+        let d = addon(&root, "presenter", GOOD, true);
+        let (pair, _) = key_pair(1);
+        sign(&d, &pair);
+        let plain = Policy { key: None, dev: false };
+        let a = read_manifest(&d, &plain).unwrap();
+        assert!(a.signed && !a.verified && !a.usable, "a signature cannot be checked without a key");
+        assert!(a.why.as_deref().unwrap().contains("no signing key"));
+        assert!(read_manifest(&d, &DEV).unwrap().usable);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_signed_add_on_is_usable_and_anything_changed_since_is_not() {
+        let root = scratch("signed");
+        let (pair, public) = key_pair(1);
+        let policy = shipped(public);
+        let d = addon(&root, "presenter", GOOD, true);
+        sign(&d, &pair);
+        let a = read_manifest(&d, &policy).unwrap();
+        assert!(a.signed && a.verified && a.usable && a.why.is_none(), "{:?}", a.why);
+
+        // the program changed
+        fs::write(d.join("host.exe"), b"a different program").unwrap();
+        let a = read_manifest(&d, &policy).unwrap();
+        assert!(a.signed && !a.verified && !a.usable, "a changed program");
+        assert!(a.why.as_deref().unwrap().contains("does not match"));
+        fs::write(d.join("host.exe"), b"x").unwrap();
+        assert!(read_manifest(&d, &policy).unwrap().usable, "put back, it is good again");
+
+        // the manifest changed: the same bytes with a different description
+        fs::write(d.join("addon.json"), GOOD.replace("Presenters.", "Something else.")).unwrap();
+        let a = read_manifest(&d, &policy).unwrap();
+        assert!(!a.verified && !a.usable, "a changed manifest");
+        fs::write(d.join("addon.json"), GOOD).unwrap();
+
+        // signed by somebody else
+        let (other, _) = key_pair(2);
+        sign(&d, &other);
+        let a = read_manifest(&d, &policy).unwrap();
+        assert!(!a.verified && !a.usable, "a wrong key");
+
+        // a signature that is not a signature
+        fs::write(d.join(SIGNATURE_FILE), "not base64 at all!").unwrap();
+        assert!(!read_manifest(&d, &policy).unwrap().usable);
+        fs::write(d.join(SIGNATURE_FILE), "AAAA").unwrap();
+        assert!(!read_manifest(&d, &policy).unwrap().usable);
+        fs::write(d.join(SIGNATURE_FILE), "A".repeat(5000)).unwrap();
+        assert!(read_manifest(&d, &policy).unwrap().why.as_deref().unwrap().contains("sensible size"));
+        let _ = fs::remove_file(d.join(SIGNATURE_FILE));
+        assert!(!read_manifest(&d, &policy).unwrap().usable, "no signature");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_signature_made_for_one_add_on_does_not_carry_to_another() {
+        let root = scratch("carry");
+        let (pair, public) = key_pair(1);
+        let policy = shipped(public);
+        let a = addon(&root, "presenter", GOOD, true);
+        sign(&a, &pair);
+        let b = addon(&root, "other", &GOOD.replace("\"presenter\"", "\"other\""), true);
+        fs::copy(a.join(SIGNATURE_FILE), b.join(SIGNATURE_FILE)).unwrap();
+        assert!(read_manifest(&a, &policy).unwrap().usable);
+        assert!(!read_manifest(&b, &policy).unwrap().usable, "the manifest is part of what is signed");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_older_version_than_one_used_is_not_usable_and_a_newer_one_is() {
+        let root = scratch("older");
+        let (pair, public) = key_pair(1);
+        let policy = shipped(public);
+        let d = addon(&root, "presenter", &GOOD.replace("0.1.0", "0.3.0"), true);
+        sign(&d, &pair);
+        let found = find_addons(&root, &policy);
+        assert!(found[0].usable, "nothing used yet");
+        remember_use(&root, &found[0]);
+        assert_eq!(last_used(&root).get("presenter").map(String::as_str), Some("0.3.0"));
+
+        fs::write(d.join("addon.json"), GOOD.replace("0.1.0", "0.2.9")).unwrap();
+        sign(&d, &pair);
+        let found = find_addons(&root, &policy);
+        assert!(found[0].verified && !found[0].usable, "a signed older version is refused");
+        assert!(found[0].why.as_deref().unwrap().contains("0.3.0"), "{:?}", found[0].why);
+        remember_use(&root, &found[0]);
+        assert_eq!(last_used(&root).get("presenter").map(String::as_str), Some("0.3.0"), "an older one never lowers what is remembered");
+        let mut as_dev = policy;
+        as_dev.dev = true;
+        assert!(find_addons(&root, &as_dev)[0].usable, "the developer route may go back");
+
+        fs::write(d.join("addon.json"), GOOD.replace("0.1.0", "0.3.1")).unwrap();
+        sign(&d, &pair);
+        let found = find_addons(&root, &policy);
+        assert!(found[0].usable, "a newer version is fine");
+        remember_use(&root, &found[0]);
+        assert_eq!(last_used(&root).get("presenter").map(String::as_str), Some("0.3.1"));
+
+        fs::write(d.join("addon.json"), GOOD.replace("0.1.0", "0.10.0")).unwrap();
+        sign(&d, &pair);
+        assert!(find_addons(&root, &policy)[0].usable, "0.10.0 is newer than 0.3.1, whatever the letters say");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_add_on_that_is_not_verified_is_never_remembered_and_the_memory_is_read_with_care() {
+        let root = scratch("remember");
+        let d = addon(&root, "presenter", &GOOD.replace("0.1.0", "9.0.0"), true);
+        let a = read_manifest(&d, &DEV).unwrap();
+        remember_use(&root, &a);
+        assert!(!root.join(LAST_USED_FILE).exists(), "a developer's add-on does not set the bar");
+        fs::write(root.join(LAST_USED_FILE), r#"{"presenter":"1.2.3","Bad Id":"1.0.0","x":"oops","other":7}"#).unwrap();
+        let used = last_used(&root);
+        assert_eq!(used.len(), 1);
+        assert_eq!(used["presenter"], "1.2.3");
+        fs::write(root.join(LAST_USED_FILE), "not json").unwrap();
+        assert!(last_used(&root).is_empty());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_developer_route_exists_only_where_the_build_has_it() {
+        assert_eq!(root_setting(true, Some("D:/elsewhere")), Some(PathBuf::from("D:/elsewhere")));
+        assert_eq!(root_setting(false, Some("D:/elsewhere")), None, "a build for other people ignores OPENSTAGE_ADDONS");
+        assert_eq!(root_setting(true, Some("")), None);
+        assert_eq!(root_setting(true, None), None);
+        assert!(dev_wanted(true, Some("1")));
+        assert!(!dev_wanted(false, Some("1")), "a build for other people ignores OPENSTAGE_DEV_ADDONS");
+        assert!(!dev_wanted(true, Some("0")) && !dev_wanted(true, None) && !dev_wanted(true, Some("yes")));
+        // The tests are a debug build, which has the route; the installer's build has neither a debug build nor the `dev-addons` feature.
+        assert!(dev_route_built());
+    }
+
+    #[test]
+    fn a_command_works_only_in_the_project_that_is_open() {
+        let a = scratch("open-a");
+        let b = scratch("open-b");
+        fs::write(a.join("project.json"), "{}").unwrap();
+        fs::write(b.join("project.json"), "{}").unwrap();
+        let a_text = a.to_string_lossy().into_owned();
+        let b_text = b.to_string_lossy().into_owned();
+        assert_eq!(confine_to_open(&a_text, Some(&a)).unwrap(), PathBuf::from(&a_text));
+        assert!(confine_to_open(&b_text, Some(&a)).unwrap_err().contains("not the project that is open"), "another folder that holds a project.json is refused");
+        assert!(confine_to_open(&a_text, None).unwrap_err().contains("No project is open"));
+        assert!(confine_to_open(&a.join("..").join(a.file_name().unwrap()).to_string_lossy(), Some(&a)).is_ok(), "the same place spelled another way is the same project");
+        assert!(confine_to_open(&a.join("nope").to_string_lossy(), Some(&a)).is_err(), "a folder inside it is not it");
+        assert!(confine_to_open("", Some(&a)).is_err());
+        assert!(confine_to_open(&a_text, Some(&a.join("missing"))).is_err());
+        let _ = fs::remove_dir_all(&a);
+        let _ = fs::remove_dir_all(&b);
     }
 
     #[test]
@@ -400,13 +757,13 @@ mod tests {
         ];
         for (name, manifest) in cases {
             let d = addon(&root, name, &manifest, true);
-            assert!(read_manifest(&d, true).is_err(), "{name} must be refused");
+            assert!(read_manifest(&d, &DEV).is_err(), "{name} must be refused");
         }
         let d = addon(&root, "nohost", GOOD, false);
-        assert!(read_manifest(&d, true).unwrap_err().contains("not in the add-on's folder"));
+        assert!(read_manifest(&d, &DEV).unwrap_err().contains("not in the add-on's folder"));
         let d = root.join("nothing");
         fs::create_dir_all(&d).unwrap();
-        assert!(read_manifest(&d, true).is_err());
+        assert!(read_manifest(&d, &DEV).is_err());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -414,7 +771,7 @@ mod tests {
     fn a_manifest_that_is_far_too_big_is_not_read() {
         let root = scratch("big");
         let d = addon(&root, "presenter", &format!("{GOOD}{}", " ".repeat(70_000)), true);
-        assert!(read_manifest(&d, true).is_err());
+        assert!(read_manifest(&d, &DEV).is_err());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -425,9 +782,9 @@ mod tests {
         addon(&root, "a-presenter", GOOD, true);
         addon(&root, "broken", "{", true);
         fs::write(root.join("a-file.txt"), "x").unwrap();
-        let found = find_addons(&root, true);
+        let found = find_addons(&root, &DEV);
         assert_eq!(found.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), vec!["presenter", "b-one"]);
-        assert!(find_addons(&root.join("none"), true).is_empty());
+        assert!(find_addons(&root.join("none"), &DEV).is_empty());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -451,6 +808,26 @@ mod tests {
         let other = fake_host(&d, "echo {\"id\":2,\"result\":{}}");
         assert!(call_host(&other, "presenter.hello", json!({}), Duration::from_secs(10)).is_err(), "an answer to another request is not an answer");
         assert!(call_host(&d.join("missing.exe"), "presenter.hello", json!({}), Duration::from_secs(10)).unwrap_err().contains("could not be started"));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_host_that_says_a_great_deal_on_its_error_output_is_still_answered_at_once() {
+        let d = scratch("chatty");
+        // About 140 KB on standard error, far more than a pipe holds, and then the answer. Nobody reading the error output would leave it waiting until it was stopped.
+        let chatty = fake_host(
+            &d,
+            "for /L %%i in (1,1,2000) do @echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1>&2\r\necho {\"id\":1,\"result\":{\"fine\":true}}",
+        );
+        let t = Instant::now();
+        let r = call_host(&chatty, "presenter.hello", json!({}), Duration::from_secs(30));
+        assert_eq!(r.unwrap(), json!({ "fine": true }));
+        assert!(t.elapsed() < Duration::from_secs(15), "it was answered after {:?}", t.elapsed());
+        // With no answer, the start of what it said is shown, and only the start.
+        let silent = fake_host(&d, "for /L %%i in (1,1,2000) do @echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 1>&2");
+        let e = call_host(&silent, "presenter.hello", json!({}), Duration::from_secs(30)).unwrap_err();
+        assert!(e.contains("no answer") && e.contains("bbbb") && e.len() < 2400, "{}", e.len());
         let _ = fs::remove_dir_all(&d);
     }
 

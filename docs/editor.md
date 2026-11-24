@@ -1016,7 +1016,10 @@ built yet, so apart from the check dialog in the first item nothing here shows o
   `OPENSTAGE_NO_BROWSER` makes the "open in browser" step do nothing, for automated tests.
 - `window.__openstageTestPick` is a test seam: set it to a function returning a path, and the file
   dialogs return that instead of opening. Automated tests of the real app use it, because a native
-  dialog cannot be clicked from a script. Nothing in the app sets it.
+  dialog cannot be clicked from a script. Nothing in the app sets it. (The question-file chooser is the
+  shell's own: it opens the dialog and remembers the file, and only that file can be read. For a test,
+  the seam also tells the shell the file through `test_pick_question_file`, which a build made for other
+  people refuses.)
 - `editor/dev-server.mjs` is a plain-browser stand-in for the Rust commands, used to test the web
   side. It is not part of the product.
 

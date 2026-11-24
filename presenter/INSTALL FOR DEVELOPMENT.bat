@@ -38,7 +38,8 @@ echo The add-on is installed in:
 echo   %DEST%
 echo.
 echo It is not signed yet, so OpenStage Author shows Insert, Presenter only
-echo while the setting OPENSTAGE_DEV_ADDONS=1 is on. The script
+echo while the setting OPENSTAGE_DEV_ADDONS=1 is on, and only in an editor
+echo built for development (OPEN EDITOR.bat builds one). The script
 echo   OPEN EDITOR WITH PRESENTER.bat
 echo in this folder opens the editor with that setting on.
 echo ------------------------------------------------------------
