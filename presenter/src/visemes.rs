@@ -12,6 +12,32 @@ pub struct Word {
     pub start: f32,
     pub end: f32,
     pub phonemes: String,
+    /// When each character of `phonemes` begins and ends (seconds from the start of the audio), if the speech engine said how long each sound was (Kokoro does: it predicts
+    /// the length of every phoneme and makes the audio from those lengths). One pair for each character. Without it a word's time is shared among its sounds by weight.
+    pub times: Option<Vec<(f32, f32)>>,
+}
+
+/// The times of a word's sounds from a request: a list of [start, end] pairs, one for each of the `want` characters of its phonemes, in seconds from the start of the audio, in
+/// order and each beginning where the one before ended (to a few thousandths). Anything else is not used, and the word is timed by weight.
+pub fn times_of(list: &[serde_json::Value], want: usize) -> Option<Vec<(f32, f32)>> {
+    if list.len() != want || want == 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(want);
+    let mut last_end = 0.0f32;
+    for pair in list {
+        let p = pair.as_array()?;
+        if p.len() != 2 {
+            return None;
+        }
+        let (a, b) = (p[0].as_f64()? as f32, p[1].as_f64()? as f32);
+        if !(a.is_finite() && b.is_finite() && a >= 0.0 && b >= a && a >= last_end - 0.002) {
+            return None;
+        }
+        out.push((a, b));
+        last_end = b;
+    }
+    Some(out)
 }
 
 /// One mouth shape, held for a stretch of the audio.
@@ -82,7 +108,48 @@ pub fn shapes_of(phonemes: &str) -> Vec<Part> {
     phonemes.chars().flat_map(|c| parts(c).iter().copied()).collect()
 }
 
+/// The shapes of a word whose sounds each have their own time, from those times. A sound that is two shapes (a diphthong) shares its own time between them by weight. A mark
+/// that is not a sound (stress, length) has a time too, which goes to the sound after it in the word (the lips begin shaping a stressed vowel before it is heard), or to the
+/// one before if none follows. Nothing starts before the shape ahead of it ended, and nothing runs past `cut_ms`, where the next word begins.
+fn timed_segments(word: &Word, times: &[(f32, f32)], cut_ms: f32, out: &mut Vec<Seg>) {
+    let first = out.len();
+    // where marks that have not found a sound yet began and ended
+    let mut carried: Option<(f32, f32)> = None;
+    for (c, (s, e)) in word.phonemes.chars().zip(times) {
+        let floor = out.last().map_or(0.0, |l| l.end_ms);
+        let (mut a, b) = ((s * 1000.0).max(floor), (e * 1000.0).min(cut_ms));
+        let made = parts(c);
+        if made.is_empty() {
+            let began = carried.map_or(a, |c0| c0.0);
+            carried = Some((began, b.max(carried.map_or(b, |c0| c0.1))));
+            continue;
+        }
+        if let Some((began, _)) = carried.take() {
+            a = a.min(began.max(floor)); // the mark's time goes to this sound
+        }
+        if b <= a {
+            continue;
+        }
+        let total: f32 = made.iter().map(|p| p.0).sum();
+        let mut at = a;
+        for (weight, shape) in made {
+            let next = at + (b - a) * weight / total;
+            out.push(Seg { start_ms: at, end_ms: next, shape });
+            at = next;
+        }
+    }
+    if let Some((_, ended)) = carried {
+        // marks at the end of the word, with no sound after them: the sound before keeps their time
+        if out.len() > first {
+            if let Some(l) = out.last_mut() {
+                l.end_ms = l.end_ms.max(ended.min(cut_ms));
+            }
+        }
+    }
+}
+
 /// Every shape of every word, laid on the time line. Words that are out of order or that overlap are put in order and each cut where the next begins.
+/// A word that has the time of each of its sounds (`times`) is laid by those times; one that has not has its time shared among its sounds by weight.
 pub fn segments(words: &[Word]) -> Vec<Seg> {
     let mut sorted: Vec<&Word> = words.iter().collect();
     sorted.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
@@ -92,6 +159,11 @@ pub fn segments(words: &[Word]) -> Vec<Seg> {
         let mut end = w.end * 1000.0;
         if let Some(next) = sorted.get(i + 1) {
             end = end.min(next.start * 1000.0);
+        }
+        if let Some(times) = w.times.as_ref().filter(|t| t.len() == w.phonemes.chars().count()) {
+            let cut = sorted.get(i + 1).map_or(f32::INFINITY, |n| n.start * 1000.0);
+            timed_segments(w, times, cut, &mut out);
+            continue;
         }
         let shapes = shapes_of(&w.phonemes);
         let total: f32 = shapes.iter().map(|p| p.0).sum();
@@ -163,7 +235,12 @@ mod tests {
     use super::*;
 
     fn word(start: f32, end: f32, phonemes: &str) -> Word {
-        Word { start, end, phonemes: phonemes.to_string() }
+        Word { start, end, phonemes: phonemes.to_string(), times: None }
+    }
+
+    /// A word whose sounds each have their own time (seconds), one pair for each character of `phonemes`.
+    fn timed(start: f32, end: f32, phonemes: &str, times: &[(f32, f32)]) -> Word {
+        Word { start, end, phonemes: phonemes.to_string(), times: Some(times.to_vec()) }
     }
 
     #[test]
@@ -255,5 +332,81 @@ mod tests {
             assert_eq!(f[0], shape, "{word_}");
             assert_eq!(f[1], "open", "{word_}");
         }
+    }
+
+    fn near(a: f32, b: f32) -> bool {
+        (a - b).abs() < 0.01
+    }
+
+    #[test]
+    fn a_sound_is_laid_where_the_speech_engine_says_it_is_not_where_the_weights_would_put_it() {
+        // by weight "ma" over 200 ms is about 89 ms of lips (a nasal weighs 1.2) and 111 of vowel (1.5); Kokoro said the lips were 150 ms and the vowel 50
+        let by_weight = segments(&[word(0.0, 0.2, "ma")]);
+        assert!((by_weight[0].end_ms - 88.9).abs() < 0.2, "{:?}", by_weight[0]);
+        let measured = segments(&[timed(0.0, 0.2, "ma", &[(0.0, 0.15), (0.15, 0.2)])]);
+        assert_eq!((measured[0].shape, measured[1].shape), ("closed", "open"));
+        assert!(near(measured[0].end_ms, 150.0) && near(measured[1].start_ms, 150.0) && near(measured[1].end_ms, 200.0), "{measured:?}");
+    }
+
+    #[test]
+    fn a_diphthong_shares_its_own_time_between_its_two_shapes() {
+        let s = segments(&[timed(0.0, 0.2, "dA", &[(0.0, 0.05), (0.05, 0.2)])]);
+        let names: Vec<&str> = s.iter().map(|x| x.shape).collect();
+        assert_eq!(names, vec!["small", "mid", "wide"]);
+        assert!(near(s[0].end_ms, 50.0) && near(s[1].end_ms, 125.0) && near(s[2].end_ms, 200.0), "{s:?}");
+    }
+
+    #[test]
+    fn the_time_of_a_stress_mark_goes_to_the_sound_after_it_or_failing_that_the_one_before() {
+        // "ˈa": the mark is 20 ms, then the vowel; the lips begin shaping the vowel at the mark
+        let s = segments(&[timed(0.0, 0.2, "ˈa", &[(0.0, 0.02), (0.02, 0.2)])]);
+        assert_eq!(s.len(), 1);
+        assert!(near(s[0].start_ms, 0.0) && near(s[0].end_ms, 200.0), "{s:?}");
+        // "aˈ": a mark with nothing after it lengthens the vowel before it
+        let end = segments(&[timed(0.0, 0.2, "aˈ", &[(0.0, 0.15), (0.15, 0.2)])]);
+        assert_eq!(end.len(), 1);
+        assert!(near(end[0].end_ms, 200.0), "{end:?}");
+        // "wˈɛ": the mark between two sounds goes to the second, so the first keeps its own time
+        let mid = segments(&[timed(0.0, 0.3, "wˈɛ", &[(0.0, 0.1), (0.1, 0.12), (0.12, 0.3)])]);
+        assert!(near(mid[0].end_ms, 100.0) && near(mid[1].start_ms, 100.0), "{mid:?}");
+    }
+
+    #[test]
+    fn times_that_do_not_fit_the_phonemes_are_not_used_and_the_word_is_timed_by_weight() {
+        let wrong_count = segments(&[timed(0.0, 0.2, "ma", &[(0.0, 0.15)])]);
+        let by_weight = segments(&[word(0.0, 0.2, "ma")]);
+        assert_eq!(wrong_count, by_weight);
+        assert!(times_of(&[], 0).is_none());
+        let good = serde_json::json!([[0.0, 0.1], [0.1, 0.2]]);
+        assert_eq!(times_of(good.as_array().unwrap(), 2), Some(vec![(0.0, 0.1), (0.1, 0.2)]));
+        for bad in [
+            serde_json::json!([[0.0, 0.1]]),                        // too few
+            serde_json::json!([[0.0, 0.1], [0.05, 0.2]]),            // starts before the one before ended
+            serde_json::json!([[0.0, 0.1], [0.3, 0.2]]),             // ends before it starts
+            serde_json::json!([[-1.0, 0.1], [0.1, 0.2]]),            // before the audio
+            serde_json::json!([[0.0, 0.1], ["x", 0.2]]),             // not a number
+            serde_json::json!([[0.0, 0.1], [0.1]]),                  // not a pair
+            serde_json::json!([0.0, 0.1]),                           // not pairs
+        ] {
+            assert!(times_of(bad.as_array().unwrap(), 2).is_none(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn timed_words_never_overlap_and_the_next_word_cuts_the_one_before() {
+        let segs = segments(&[timed(0.0, 0.4, "ma", &[(0.0, 0.1), (0.1, 0.4)]), timed(0.3, 0.5, "ta", &[(0.3, 0.35), (0.35, 0.5)])]);
+        assert!(segs.windows(2).all(|w| w[0].end_ms <= w[1].start_ms + 0.01), "{segs:?}");
+        assert!(near(segs[1].end_ms, 300.0), "the first word's vowel is cut where the second word begins: {segs:?}");
+        let out_of_order = segments(&[timed(2.0, 2.2, "a", &[(2.0, 2.2)]), timed(1.0, 1.2, "o", &[(1.0, 1.2)])]);
+        assert_eq!(out_of_order[0].shape, "round");
+    }
+
+    #[test]
+    fn a_quick_lip_closure_keeps_its_picture_when_the_sound_is_only_thirty_milliseconds_long() {
+        // "pa" with the p only 30 ms: the weights would give it 40 ms of a 100 ms word, the speech engine gave it 30
+        let segs = segments(&[timed(0.0, 0.2, "pa", &[(0.0, 0.03), (0.03, 0.2)])]);
+        let f = frames(&segs, 25, 5);
+        assert_eq!(f[0], "closed", "the lips are shut in the first picture");
+        assert_eq!(f[1], "open");
     }
 }

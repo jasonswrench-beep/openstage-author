@@ -31,10 +31,11 @@ as everywhere else in the editor: play the clip and check them in Write captions
 presenter, the shape or the label has changed since it was made) and offers **Make the clip again**: the same object, in the same place, with the same alt text, and a new
 file. It can write new captions from the words too (the old captions file is kept).
 
-**What it does not do (yet).** A presenter made from a photo and a voice of your own are not in this version (`ROADMAP.md`). **The mouth** follows the words when the speech engine kept them: Kokoro now keeps each word it speaks with the sounds (phonemes) it said it with, in the narration's cache, so
-a clip made from audio made since then has lips together for an "m", the upper teeth on the lower lip for an "f" and pushed-forward lips for an "oo". Audio made before that, and voices that give no phonemes (the online
+**What it does not do (yet).** A presenter made from a photo and a voice of your own are not in this version (`ROADMAP.md`). **The mouth** follows the words when the speech engine kept them: Kokoro keeps each word it speaks with the sounds (phonemes) it said it with, in the narration's cache, and, since add-on 0.3.0, the length of
+every sound too (Kokoro predicts it, and makes the audio from it), so a clip made from audio made since then has lips together for an "m", the upper teeth on the lower lip for an "f" and pushed-forward lips for an "oo",
+each when the voice said it. Audio made before the sounds were kept has the words only, and the mouth shares each word's time among its sounds by weight, which puts a sound in the wrong picture about four times in ten; and voices that give no phonemes (the online
 voices, a plugin's), follow the sound instead (how loud, and how high-pitched), which is a good likeness of talking and not of any particular word. The dialog says which it is going to
-do. To follow the words, make the narration audio again with Kokoro: audio that is already made is reused, so delete the project's `.cache\narration` folder first.
+do. To time every sound, make the narration audio again with Kokoro: audio that is already made is reused, so delete the project's `.cache\narration` folder first.
 
 **Telling learners.** The clip is credited in `assets.json` as made by a program, so when the credits page is on it says that a program made the presenter and that the voice is
 synthetic (the validator warns when it is not credited, or when the credits page is off). The small label is part of the picture, so a screen reader does not read it; the alt
@@ -67,7 +68,7 @@ An add-on is a folder in the add-ons folder: `%LOCALAPPDATA%\OpenStage\addons\<f
   "contract": 1,
   "id": "presenter",
   "name": "OpenStage Presenter",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "licence": "Apache-2.0",
   "description": "Illustrated presenters that speak a slide's narration, made into a video you put on the slide.",
   "formatMin": "0.52.0",
@@ -113,7 +114,7 @@ One request, then the program ends, so a crash or a slow job never takes the edi
 | `presenter.hello` | none | `{ "name", "version", "protocol": 1, "tiers": [...] }` |
 | `presenter.check` | none | `{ "os", "cpuThreads", "memoryMb", "diskFreeMb", "cuda", "gpus": [{ "name", "vendor", "dedicatedMb", "software" }], "capable": { "why" }, "tiers": [{ "id", "offered", "capable", "default", "reason" }] }`: the graphics cards (through DXGI), the memory, the free space where models are kept, whether an NVIDIA card can run CUDA, which kinds the computer is capable of (the specification's table: no card of its own and under 8 GB is Lite only; integrated graphics and 8 GB or more adds a slow Standard; a card with 4 to 6 GB makes Standard the default; an NVIDIA card with 8 GB or more adds Studio), and which are offered, which also needs the kind's engine installed, and why one is not |
 | `presenter.presenters` | none | `{ "presenters": [{ "id", "name", "tier": "lite", "description", "look": { "skin", "hair": { "style": "short" or "curly" or "long", "color" }, "shirt", "background", "glasses", "eyes" } }] }`. The editor draws each presenter from its `look`, so a new presenter is a new entry and nothing in the editor changes. |
-| `presenter.mouthTrack` | `{ "wav": path, "fps": 25, "words": [{ "start", "end", "phonemes" }] }`. The words are optional: each with when it began and ended in seconds and the phonemes it was said with. | `{ "durationMs", "fps", "shapes": [...], "source": "phonemes" or "sound", "runs": [[startMs, shape], ...] }`. The shape (one of the eleven below) showing from each start, and what they follow. |
+| `presenter.mouthTrack` | `{ "wav": path, "fps": 25, "words": [{ "start", "end", "phonemes", "times" }] }`. The words are optional: each with when it began and ended in seconds and the phonemes it was said with, and optionally `times`, a `[start, end]` pair in seconds for each character of its phonemes (when each sound began and ended, as the speech engine said). Times that do not fit (the wrong number, out of order, not numbers) are ignored and the word is timed by weight. | `{ "durationMs", "fps", "shapes": [...], "source": "phonemes" or "sound", "timing": "measured" or "estimated" or "none", "runs": [[startMs, shape], ...] }`. The shape (one of the eleven below) showing from each start, what they follow, and for the words whether every sound was laid by its own time (`measured`) or some word's time was shared among its sounds by weight (`estimated`; `none` when the shapes follow the sound). An editor that does not read `timing` loses nothing. |
 
 The editor does not pass a path from the page: it names narration audio by its cache key, and the shell finds the file in the project's own `.cache/narration`. Everything the add-on says
 is checked again in `editor/src/presenter/look.ts` before it is used.
@@ -123,12 +124,13 @@ The spec's other commands (`presenter.createAvatar`, `presenter.speak`, `present
 ## How a clip is made
 
 1. **The speech** is the narration the author already has: made with the speech engine if it is not (`makeNarration`), then read from the cache.
-2. **The mouth shapes** come from the add-on, as runs of shapes at 25 pictures a second. Given the words the speech engine said with their phonemes (from the narration's cache), it shares each
-   word's time among its phonemes by how long each kind of sound lasts (a stop is short, a fricative long), makes each phoneme one of eleven mouth shapes (the table below; a diphthong is a move from one shape to another), and gives each picture the shape most of it shows, leaning toward the lips, the teeth and
+2. **The mouth shapes** come from the add-on, as runs of shapes at 25 pictures a second. Given the words the speech engine said with their phonemes (from the narration's cache), it lays each phoneme where the speech engine said it was (`times`), or, for a word
+   that has none, shares the word's time among its phonemes by how long each kind of sound lasts (a stop is short, a fricative long). A stress or length mark has a time of its own in Kokoro's lengths (59 milliseconds on average before a stressed vowel, up to 100); it goes to the vowel after it, because a
+   vowel's loudness follows that reading better (checked against the audio of a test sentence: 0.264 against 0.222), and the lips begin shaping a vowel before it is heard. It makes each phoneme one of eleven mouth shapes (the table below; a diphthong is a move from one shape to another), and gives each picture the shape most of it shows, leaning toward the lips, the teeth and
    the tongue because they are the easiest to miss. Wherever the audio is quiet the mouth is shut, and if the sound is not where the words say it should be (the words are for other audio) they are not used. Without words
    it listens to the speech instead (how loud each moment is, and how fast the sound crosses zero, which follows how high-pitched it is), which needs no words, no language and no model.
    How good it is: measured against a real voice's own timing of every phoneme (the Windows voice, which reports it), the shape is right in 59 of 100 pictures from the words, against 34 from the sound alone (that is with the eleven shapes; with the six it first had, 59 and 36);
-   the same rules given the true time of each phoneme get 93, so what is left is the guess at where each phoneme falls inside its word (Kokoro predicts those lengths; reading them is the next step).
+   the same rules given the true time of each phoneme get 93, so what is left is the guess at where each phoneme falls inside its word. Kokoro predicts those lengths, and add-on 0.3.0 reads them (the cache keeps them, `tools/narrate.py`): on a test sentence of 90 sounds the track made from them differs from the track made by weight in 65 of 167 pictures (39%), so by weight the mouth showed a different sound from the one heard in about four pictures in ten.
 3. **The picture** is drawn on a canvas 720 pixels square, 25 times a second: a head and shoulders from the presenter's `look`, the mouth (one of the eleven shapes, or on its way from one to the next: see below), a blink every few seconds, a little sway
    and breathing, and the label if it is on.
 4. **The encoding.** Where the window has encoders (WebCodecs: VP9 or VP8 for the picture, Opus for the sound), each picture is drawn and encoded at once, the speech is encoded in
@@ -179,4 +181,4 @@ ship in an Apache 2.0 program, or looks like FFmpeg.
 ## Not built yet
 
 Phase 2 and later of the spec: a presenter made from a photo (the model manager and its licence gate, the benchmark, the engine), which waits on a decision about how it is made (`docs/decisions/0006-presenter-photo-models.md`: the specification's plan does not hold as written), the Studio kind, the add-on's own voices (Kitten, Piper), a
-remote engine, a Mac build of the engine host, Presenter in OpenStage Scroll and Studio, and the signed installer and update channel. The time of each phoneme inside its word, which Kokoro predicts and the cache does not keep yet, instead of sharing the word's time by weight. Voice cloning is out of scope (`CLAUDE.md`).
+remote engine, a Mac build of the engine host, Presenter in OpenStage Scroll and Studio, and the signed installer and update channel. Mouth shapes beyond the eleven (two public mouth-position guides count about twelve to fifteen visibly different looks of English; the likely refinements are in `docs/decisions/0006-presenter-photo-models.md`). Voice cloning is out of scope (`CLAUDE.md`).

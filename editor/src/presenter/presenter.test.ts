@@ -37,6 +37,15 @@ test("a mouth track says what it follows: the words, or the sound when it does n
   assert.equal(parseTrack({ ...raw, source: "anything else" }).source, "sound");
 });
 
+test("a mouth track says whether each sound was timed one by one: measured, estimated by weight, or none", () => {
+  assert.equal(parseTrack({ ...raw, source: "phonemes", timing: "measured" }).timing, "measured");
+  assert.equal(parseTrack({ ...raw, source: "phonemes", timing: "estimated" }).timing, "estimated");
+  assert.equal(parseTrack({ ...raw, source: "phonemes" }).timing, "estimated", "an add-on from before the times were kept shares each word's time by weight");
+  assert.equal(parseTrack({ ...raw, source: "phonemes", timing: "anything else" }).timing, "estimated");
+  assert.equal(parseTrack({ ...raw, source: "sound", timing: "measured" }).timing, "none", "a track that follows the sound has no timing of words");
+  assert.equal(parseTrack(raw).timing, "none");
+});
+
 test("a mouth track that cannot be used is refused with a sentence", () => {
   const bad: unknown[] = [null, "x", {}, { ...raw, durationMs: -1 }, { ...raw, durationMs: 9e9 }, { ...raw, fps: 0 }, { ...raw, fps: 500 }, { ...raw, runs: [] },
     { ...raw, runs: [[100, "closed"]] }, { ...raw, runs: [[0, "closed"], [0, "open"]] }, { ...raw, runs: [[0, "closed"], [300, "open"], [200, "wide"]] },
@@ -256,13 +265,13 @@ function grid(shapes: MouthShape[]): MouthTrack {
   shapes.forEach((shape, i) => {
     if (runs.length === 0 || runs[runs.length - 1]!.shape !== shape) runs.push({ atMs: i * 40, shape });
   });
-  return { durationMs: shapes.length * 40, fps: 25, runs, source: "phonemes" };
+  return { durationMs: shapes.length * 40, fps: 25, runs, source: "phonemes", timing: "measured" };
 }
 
 /** How much of a shape a pose is made of. */
 const weight = (p: MouthPose, shape: MouthShape): number => (p.from === shape ? 1 - p.mix : 0) + (p.to === shape ? p.mix : 0);
 
-const track: MouthTrack = { durationMs: 1000, fps: 25, runs: [{ atMs: 0, shape: "closed" }, { atMs: 200, shape: "open" }, { atMs: 600, shape: "closed" }], source: "phonemes" };
+const track: MouthTrack = { durationMs: 1000, fps: 25, runs: [{ atMs: 0, shape: "closed" }, { atMs: 200, shape: "open" }, { atMs: 600, shape: "closed" }], source: "phonemes", timing: "measured" };
 
 test("a move from one shape to the next is centred on the moment the track changes, and is smooth", () => {
   assert.deepEqual(poseAt(track, 100), { from: "closed", to: "closed", mix: 0 });
@@ -311,7 +320,7 @@ test("a shape that lasts one picture is never blended away", () => {
   }
   assert.ok(one >= 3, `${one} one-picture shapes tried`);
   // and the same for one picture beside shapes that last a long time
-  const long: MouthTrack = { durationMs: 2000, fps: 25, runs: [{ atMs: 0, shape: "open" }, { atMs: 1000, shape: "closed" }, { atMs: 1040, shape: "open" }], source: "phonemes" };
+  const long: MouthTrack = { durationMs: 2000, fps: 25, runs: [{ atMs: 0, shape: "open" }, { atMs: 1000, shape: "closed" }, { atMs: 1040, shape: "open" }], source: "phonemes", timing: "measured" };
   assert.deepEqual(poseForPicture(long, 1000 - 40), { from: "closed", to: "open", mix: 0 }, "the picture made from the middle of the one-picture shape");
 });
 
@@ -327,7 +336,7 @@ test("the mouth never jumps: the shapes in a pose change smoothly from moment to
       if (shape === runs[runs.length - 1]!.shape) shape = shape === "closed" ? "open" : "closed";
       runs.push({ atMs: at, shape });
     }
-    const t: MouthTrack = { durationMs: at + 200, fps: 25, runs, source: "phonemes" };
+    const t: MouthTrack = { durationMs: at + 200, fps: 25, runs, source: "phonemes", timing: "measured" };
     for (let ms = 0; ms < at + 100; ms += 1) {
       const a = poseAt(t, ms);
       const b = poseAt(t, ms + 1);

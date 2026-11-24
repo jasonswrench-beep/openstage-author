@@ -81,10 +81,51 @@ def words_with_offsets(tokens):
     return text, spans
 
 
+FRAMES_PER_SECOND = 40.0  # Kokoro predicts how long each phoneme lasts in frames of 1/40 second (600 samples at 24 kHz)
+
+
+def phoneme_times(tokens, pred_dur, offset=0.0):
+    """Kokoro's own length for every sound. It predicts how many frames each phoneme lasts and makes the audio from them; the word times it reports are built from the same
+    numbers, but the length of each phoneme inside a word is thrown away. This keeps it. `tokens` are Kokoro's tokens of one chunk of speech (with .phonemes, .whitespace and the
+    .start_ts it worked out) and `pred_dur` the frames it predicted for that chunk, one for each phoneme character, with one at each end for its start and end marks and one for each
+    space between words. `offset` is where the chunk begins in the whole audio, in seconds.
+    Returns a list the length of `tokens`: for each, a list of (start, end) in seconds from the start of the audio, one for each character of its phonemes, or None where the
+    token has none or Kokoro did not place it. The walk along `pred_dur` is the one Kokoro's own join_timestamps makes, so a word starts where Kokoro says it does."""
+    out = [None] * len(tokens)
+    if pred_dur is None:
+        return out
+    frames = [int(x) for x in (pred_dur.tolist() if hasattr(pred_dur, "tolist") else pred_dur)]
+    i = 1  # frame 0 is the start mark
+    for n, t in enumerate(tokens):
+        if i >= len(frames) - 1:
+            break
+        phonemes = getattr(t, "phonemes", None)
+        space = bool(getattr(t, "whitespace", None))
+        if not phonemes:
+            if space:
+                i += 2  # a space between words with no sound of its own still has a length
+            continue
+        j = i + len(phonemes)
+        if j >= len(frames):
+            break
+        start = getattr(t, "start_ts", None)
+        if start is not None:
+            at, times = offset + start, []
+            for k in range(len(phonemes)):
+                begin = at
+                at += frames[i + k] / FRAMES_PER_SECOND
+                times.append((begin, at))
+            out[n] = times
+        i = j + (1 if space else 0)
+    return out
+
+
 def timed_words(tokens):
     """The words Kokoro timed, each with the phonemes it said them with: [{"text", "start", "end", "phonemes"}], in seconds from the start of the audio.
     This is what lets a presenter's mouth follow the words rather than only the sound (docs/presenter.md). A token with no time or no phonemes (punctuation,
-    and every word of a language Kokoro does not time) is left out, and so is one whose times are not in order; with none left, there is no list at all."""
+    and every word of a language Kokoro does not time) is left out, and so is one whose times are not in order; with none left, there is no list at all.
+    A token may carry a sixth item, the start and end of each character of its phonemes (phoneme_times). Then the word has "times" too: [[start, end], ...], one pair for each
+    character of "phonemes", in seconds from the start of the audio. A word whose times do not fit its phonemes has none, and the mouth shares the word's time by weight instead."""
     words = []
     for tok in tokens:
         if len(tok) < 5:
@@ -92,10 +133,33 @@ def timed_words(tokens):
         text, _, start, end, phonemes = tok[0], tok[1], tok[2], tok[3], tok[4]
         if start is None or end is None or not isinstance(phonemes, str) or phonemes.strip() == "" or end < start or start < 0:
             continue
-        words.append({"text": text or "", "start": round(float(start), 3), "end": round(float(end), 3), "phonemes": phonemes.strip()[:100]})
+        word = {"text": text or "", "start": round(float(start), 3), "end": round(float(end), 3), "phonemes": phonemes.strip()[:100]}
+        times = _times_that_fit(tok[5] if len(tok) > 5 else None, phonemes)
+        if times is not None:
+            word["times"] = times
+        words.append(word)
         if len(words) >= MAX_WORDS:
             break
     return words
+
+
+def _times_that_fit(times, phonemes):
+    """The per-character times of a word as [[start, end], ...], cut to the phonemes the word keeps (stripped, at most 100 characters), or None if they do not fit."""
+    if not times or len(times) != len(phonemes):
+        return None
+    lead = len(phonemes) - len(phonemes.lstrip())
+    kept = times[lead:lead + len(phonemes.strip())][:100]
+    out, last = [], 0.0
+    for pair in kept:
+        try:
+            a, b = float(pair[0]), float(pair[1])
+        except (TypeError, ValueError, IndexError):
+            return None
+        if not (a >= 0.0 and b >= a and a >= last - 0.001):  # in order, each starting where the one before ended (Kokoro's do, to the thousandth of a second)
+            return None
+        out.append([round(a, 3), round(b, 3)])
+        last = b
+    return out or None
 
 
 MAX_WORDS = 20000
@@ -212,10 +276,12 @@ def synthesise(narration):
     audio, tokens, offset = [], [], 0.0
     for result in pipeline(text, voice=voice, speed=float(narration["speed"]), split_pattern=None):
         samples = result.audio.detach().cpu().numpy() if hasattr(result.audio, "detach") else np.asarray(result.audio)
-        for t in result.tokens or []:
+        chunk = list(result.tokens or [])
+        times = phoneme_times(chunk, getattr(result, "pred_dur", None), offset)
+        for n, t in enumerate(chunk):
             start = None if t.start_ts is None else offset + t.start_ts
             end = None if t.end_ts is None else offset + t.end_ts
-            tokens.append((t.text, t.whitespace, start, end, getattr(t, "phonemes", None)))
+            tokens.append((t.text, t.whitespace, start, end, getattr(t, "phonemes", None), times[n]))
         audio.append(samples)
         offset += len(samples) / SAMPLE_RATE
     return np.concatenate(audio).astype("float32"), tokens

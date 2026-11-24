@@ -70,6 +70,12 @@ export interface MouthTrack {
   runs: { atMs: number; shape: MouthShape }[];
   /** What the shapes follow: the words the speech engine said with the sounds it said them with, or only how loud and how high the sound is. */
   source: "phonemes" | "sound";
+  /**
+   * For the words: "measured" when each sound was laid by the time the speech engine gave it (Kokoro predicts the length of every sound), "estimated" when a word's time was
+   * shared among its sounds by weight (audio made before the lengths were kept, or a voice that gives none). "none" when the shapes follow the sound. An add-on that does not
+   * say (before 0.3.0) shares the word's time by weight, so its words are "estimated".
+   */
+  timing: "measured" | "estimated" | "none";
 }
 
 const MAX_RUNS = 200_000;
@@ -94,7 +100,9 @@ export function parseTrack(raw: unknown): MouthTrack {
     out.push({ atMs: r[0], shape: r[1] as MouthShape });
   }
   if (out[0]!.atMs !== 0) return bad();
-  return { durationMs, fps, runs: out, source: raw["source"] === "phonemes" ? "phonemes" : "sound" };
+  const source = raw["source"] === "phonemes" ? "phonemes" : "sound";
+  const timing = source === "sound" ? "none" : raw["timing"] === "measured" ? "measured" : "estimated";
+  return { durationMs, fps, runs: out, source, timing };
 }
 
 /** Where in the track a moment is: the run it is in. */

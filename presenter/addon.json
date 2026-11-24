@@ -2,7 +2,7 @@
   "contract": 1,
   "id": "presenter",
   "name": "OpenStage Presenter",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "licence": "Apache-2.0",
   "description": "Illustrated presenters that speak a slide's narration, made into a video you put on the slide.",
   "formatMin": "0.52.0",

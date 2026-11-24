@@ -28,6 +28,9 @@ pub struct Track {
     pub runs: Vec<(u64, &'static str)>,
     /// What the shapes follow: "phonemes" (the words the speech engine said, with the sounds it said them with) or "sound" (how loud and how high-pitched).
     pub source: &'static str,
+    /// For the words: "measured" when every word came with the time of each of its sounds (the speech engine's own), "estimated" when some did not and a word's time was shared
+    /// among its sounds by weight. "none" for a track that follows the sound.
+    pub timing: &'static str,
 }
 
 /// What one frame of sound looks like: its level in decibels and the rate its sound crosses zero, in cycles per second.
@@ -96,7 +99,7 @@ pub fn track(wav: &Wav, fps: u32) -> Track {
     let duration_ms = (wav.samples.len() as u64 * 1000) / wav.rate as u64;
     let all = frames(wav, fps);
     if all.is_empty() {
-        return Track { duration_ms, fps, runs: vec![(0, "closed")], source: "sound" };
+        return Track { duration_ms, fps, runs: vec![(0, "closed")], source: "sound", timing: "none" };
     }
     let mut sorted: Vec<f32> = all.iter().map(|f| f.db).collect();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
@@ -113,7 +116,7 @@ pub fn track(wav: &Wav, fps: u32) -> Track {
             runs.push((i as u64 * 1000 / fps as u64, *shape));
         }
     }
-    Track { duration_ms, fps, runs, source: "sound" }
+    Track { duration_ms, fps, runs, source: "sound", timing: "none" }
 }
 
 /// Mouth shapes from the words a speech engine said and the phonemes it said them with, kept honest by the sound: wherever the audio is quiet the mouth is closed, and
@@ -163,7 +166,8 @@ pub fn track_with_words(wav: &Wav, fps: u32, words: &[Word]) -> Option<Track> {
             runs.push((i as u64 * 1000 / fps as u64, shape));
         }
     }
-    Some(Track { duration_ms, fps, runs, source: "phonemes" })
+    let measured = words.iter().all(|w| w.times.as_ref().map_or(false, |t| t.len() == w.phonemes.chars().count()));
+    Some(Track { duration_ms, fps, runs, source: "phonemes", timing: if measured { "measured" } else { "estimated" } })
 }
 
 impl Track {
@@ -173,6 +177,7 @@ impl Track {
             "fps": self.fps,
             "shapes": SHAPES,
             "source": self.source,
+            "timing": self.timing,
             "runs": self.runs.iter().map(|(t, s)| serde_json::json!([t, s])).collect::<Vec<_>>(),
         })
     }
@@ -257,7 +262,29 @@ mod tests {
     }
 
     fn word(start: f32, end: f32, phonemes: &str) -> Word {
-        Word { start, end, phonemes: phonemes.to_string() }
+        Word { start, end, phonemes: phonemes.to_string(), times: None }
+    }
+
+    fn timed(start: f32, end: f32, phonemes: &str, times: &[(f32, f32)]) -> Word {
+        Word { start, end, phonemes: phonemes.to_string(), times: Some(times.to_vec()) }
+    }
+
+    #[test]
+    fn the_timing_says_whether_each_sound_was_laid_by_its_own_time_or_the_words_time_was_shared() {
+        let sound = parse(&make_pcm16(24000, &tone(200.0, 0.5, 1.0, 24000))).unwrap();
+        // the lips last 300 ms of this word; by weight they would last 444 of its 1000 ms (a nasal weighs 1.2 and a vowel 1.5): the track follows the measured time
+        let measured = track_with_words(&sound, 25, &[timed(0.0, 1.0, "ma", &[(0.0, 0.3), (0.3, 1.0)])]).unwrap();
+        assert_eq!((measured.source, measured.timing), ("phonemes", "measured"));
+        assert_eq!(measured.at(250), "closed", "the lips are still together at 250 ms: they were said for 300");
+        assert_eq!(measured.at(350), "open", "and the vowel has begun by 350");
+        let estimated = track_with_words(&sound, 25, &[word(0.0, 1.0, "ma")]).unwrap();
+        assert_eq!(estimated.timing, "estimated");
+        assert_eq!(estimated.at(350), "closed", "by weight the lips go on until 444 ms");
+        assert_eq!(estimated.at(500), "open");
+        let mixed = track_with_words(&sound, 25, &[timed(0.0, 0.5, "ma", &[(0.0, 0.1), (0.1, 0.5)]), word(0.5, 1.0, "ɑ")]).unwrap();
+        assert_eq!(mixed.timing, "estimated", "one word without times makes it an estimate");
+        assert_eq!(of(&tone(200.0, 0.5, 0.5, 24000)).timing, "none");
+        assert_eq!(measured.to_json()["timing"], "measured");
     }
 
     #[test]

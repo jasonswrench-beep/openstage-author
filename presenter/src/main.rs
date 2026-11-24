@@ -42,14 +42,18 @@ fn words_of(params: &Value) -> Vec<visemes::Word> {
         .filter_map(|w| {
             let (start, end) = (w["start"].as_f64()? as f32, w["end"].as_f64()? as f32);
             let phonemes = w["phonemes"].as_str()?;
+            // the time of each sound, if the speech engine gave them and they fit (a word with times that do not fit is timed by weight, not left out)
+            let times = w["times"].as_array().and_then(|list| visemes::times_of(list, phonemes.chars().count()));
             (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !phonemes.trim().is_empty() && phonemes.chars().count() <= MAX_PHONEMES)
-                .then(|| visemes::Word { start, end, phonemes: phonemes.to_string() })
+                .then(|| visemes::Word { start, end, phonemes: phonemes.to_string(), times })
         })
         .collect()
 }
 
 /// The mouth shapes of a recording: `params.wav` is the path of a WAV file, `params.fps` how many pictures a second the clip will have, and `params.words` (optional) the
-/// words the speech engine said with the phonemes of each. With words that fit the sound, the shapes follow the words; without, they follow the sound.
+/// words the speech engine said with the phonemes of each, and (optional, for each word) `times`: when each sound of it began and ended. With words that fit the sound, the
+/// shapes follow the words (`timing` says whether each sound was laid by its own time, "measured", or the word's time was shared among its sounds, "estimated"); without
+/// words, they follow the sound (`timing` is "none").
 fn mouth_track(params: &Value) -> Result<Value, Value> {
     let path = params["wav"].as_str().ok_or_else(|| fail("bad-request", "Say which audio file to listen to (wav)."))?;
     let fps = params["fps"].as_u64().unwrap_or(25) as u32;
@@ -148,6 +152,37 @@ mod tests {
         assert_eq!(w[0].phonemes, "ma");
         assert!(words_of(&json!({})).is_empty());
         assert!(words_of(&json!({ "words": "no" })).is_empty());
+    }
+
+    #[test]
+    fn the_time_of_each_sound_is_read_when_it_fits_and_a_word_whose_times_do_not_fit_is_kept_without_them() {
+        let p = json!({ "words": [
+            { "start": 0.0, "end": 0.5, "phonemes": "ma", "times": [[0.0, 0.2], [0.2, 0.5]] },
+            { "start": 0.5, "end": 1.0, "phonemes": "ta", "times": [[0.5, 0.6]] },                    // one pair for two sounds
+            { "start": 1.0, "end": 1.5, "phonemes": "ka", "times": [[1.0, 1.2], [1.1, 1.5]] },         // the second begins before the first ended
+            { "start": 1.5, "end": 2.0, "phonemes": "pa" },                                           // none given
+        ] });
+        let w = words_of(&p);
+        assert_eq!(w.len(), 4, "no word is left out for its times");
+        assert_eq!(w[0].times, Some(vec![(0.0, 0.2), (0.2, 0.5)]));
+        assert!(w[1].times.is_none() && w[2].times.is_none() && w[3].times.is_none());
+    }
+
+    #[test]
+    fn the_answer_says_whether_the_sounds_were_timed_one_by_one() {
+        let samples: Vec<f32> = (0..24000).map(|i| 0.5 * (2.0 * std::f32::consts::PI * 200.0 * i as f32 / 24000.0).sin()).collect();
+        let dir = std::env::temp_dir().join(format!("openstage-presenter-timing-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let wav = dir.join("a.wav");
+        std::fs::write(&wav, crate::wav::make_pcm16(24000, &samples)).unwrap();
+        let wav = wav.to_string_lossy().to_string();
+        let each = answer(&json!({ "id": 1, "command": "presenter.mouthTrack", "params": { "wav": wav, "words": [{ "start": 0.0, "end": 1.0, "phonemes": "ma", "times": [[0.0, 0.3], [0.3, 1.0]] }] } }));
+        assert_eq!((each["result"]["source"].as_str(), each["result"]["timing"].as_str()), (Some("phonemes"), Some("measured")));
+        let by_word = answer(&json!({ "id": 2, "command": "presenter.mouthTrack", "params": { "wav": wav, "words": [{ "start": 0.0, "end": 1.0, "phonemes": "ma" }] } }));
+        assert_eq!(by_word["result"]["timing"], "estimated");
+        let sound = answer(&json!({ "id": 3, "command": "presenter.mouthTrack", "params": { "wav": wav } }));
+        assert_eq!((sound["result"]["source"].as_str(), sound["result"]["timing"].as_str()), (Some("sound"), Some("none")));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

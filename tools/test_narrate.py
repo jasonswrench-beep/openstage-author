@@ -241,6 +241,59 @@ class WordsWithPhonemes(unittest.TestCase):
         self.assertEqual(narrate.build_cues(script, a[1], 1.5), narrate.build_cues(script, b[1], 1.5))
 
 
+class Token:
+    """Stands in for one of Kokoro's tokens: what phoneme_times reads."""
+
+    def __init__(self, phonemes, whitespace, start_ts):
+        self.phonemes, self.whitespace, self.start_ts = phonemes, whitespace, start_ts
+
+
+class SoundBySoundTimes(unittest.TestCase):
+    """Kokoro's own length for every sound, kept so a presenter's mouth need not guess where each sound falls inside its word."""
+
+    def test_each_sound_gets_the_length_kokoro_predicted_for_it_in_frames_of_a_fortieth_of_a_second(self):
+        # frames: start mark 5, "a" 2, "b" 3, the space 4, "c" 6, end mark 1
+        tokens = [Token("ab", " ", 0.125), Token("c", "", 0.25)]
+        times = narrate.phoneme_times(tokens, [5, 2, 3, 4, 6, 1], offset=10.0)
+        self.assertEqual([[round(s, 4), round(e, 4)] for s, e in times[0]], [[10.125, 10.175], [10.175, 10.25]])
+        self.assertEqual([[round(s, 4), round(e, 4)] for s, e in times[1]], [[10.25, 10.4]], "the next word reads its own frames, after the space")
+
+    def test_a_token_with_no_sound_of_its_own_still_has_the_length_of_the_space_after_it(self):
+        # a mark with a space after it uses two frames of the list (it and the space), as Kokoro's own walk does
+        tokens = [Token("", " ", None), Token("a", "", 0.5)]
+        times = narrate.phoneme_times(tokens, [5, 7, 9, 2, 1], offset=0.0)
+        self.assertIsNone(times[0])
+        self.assertEqual(times[1], [(0.5, 0.55)], "'a' is the fourth frame: the mark and its space came first")
+
+    def test_a_token_kokoro_did_not_place_and_a_chunk_with_no_lengths_have_none(self):
+        self.assertEqual(narrate.phoneme_times([Token("a", "", None)], [5, 2, 1]), [None])
+        self.assertEqual(narrate.phoneme_times([Token("a", "", 0.0)], None), [None])
+        self.assertEqual(narrate.phoneme_times([Token("abc", "", 0.0)], [5, 2, 1]), [None], "more sounds than lengths")
+        self.assertEqual(narrate.phoneme_times([], [5, 1]), [])
+
+    def test_the_word_carries_its_times_when_they_fit_and_does_not_when_they_do_not(self):
+        fits = narrate.timed_words([("ma", " ", 0.0, 0.2, "ma", [(0.0, 0.05), (0.05, 0.2)])])
+        self.assertEqual(fits[0]["times"], [[0.0, 0.05], [0.05, 0.2]])
+        self.assertEqual(fits[0]["phonemes"], "ma")
+        for bad in ([(0.0, 0.05)], [(0.0, 0.05), (0.04, 0.2)], [(0.0, 0.05), (0.3, 0.2)], [(-1.0, 0.05), (0.05, 0.2)], [(0.0, "x"), (0.05, 0.2)], None, []):
+            self.assertNotIn("times", narrate.timed_words([("ma", " ", 0.0, 0.2, "ma", bad)])[0], repr(bad))
+        self.assertNotIn("times", narrate.timed_words([("ma", " ", 0.0, 0.2, "ma")])[0], "a token of five items has none")
+
+    def test_times_follow_the_phonemes_when_they_are_stripped_and_cut(self):
+        padded = narrate.timed_words([("x", " ", 0.0, 0.3, " ab ", [(0.0, 0.1), (0.1, 0.2), (0.2, 0.25), (0.25, 0.3)])])[0]
+        self.assertEqual(padded["phonemes"], "ab")
+        self.assertEqual(padded["times"], [[0.1, 0.2], [0.2, 0.25]], "the times of the spaces went with the spaces")
+        long_ = narrate.timed_words([("x", " ", 0.0, 5.0, "a" * 150, [(i * 0.01, i * 0.01 + 0.01) for i in range(150)])])[0]
+        self.assertEqual((len(long_["phonemes"]), len(long_["times"])), (100, 100))
+
+    def test_the_times_add_up_to_the_word(self):
+        # the sounds of a word, one after another, start where the word does and do not run past it by more than the half space Kokoro gives the word
+        tokens = [Token("ab", " ", 0.125)]
+        t = narrate.phoneme_times(tokens, [5, 2, 3, 4, 1])[0]
+        self.assertAlmostEqual(t[0][0], 0.125)
+        self.assertTrue(all(a[1] == b[0] for a, b in zip(t, t[1:])), "no gaps inside a word")
+
+
 class VoiceNames(unittest.TestCase):
     """Only an exact name from kokoro-voices.json ever reaches Kokoro, which would read anything else as a voice file to load."""
 

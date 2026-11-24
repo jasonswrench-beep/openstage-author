@@ -141,7 +141,11 @@ export function openPresenter(m: Model, hooks: PresenterHooks): Promise<void> {
         say("Listening to the speech to find the mouth shapes.");
         const track = parseTrack(await b.presenterMouthTrack(m.dir, key));
         const seconds = Math.ceil(track.durationMs / 1000);
-        const follows = track.source === "phonemes" ? "The mouth follows the words." : "The mouth follows the sound.";
+        const follows = track.source !== "phonemes"
+          ? "The mouth follows the sound."
+          : track.timing === "measured"
+            ? "The mouth follows the words, each sound when the voice said it."
+            : "The mouth follows the words, but when each sound falls inside its word is a guess. To time each one exactly, make the narration audio again with Kokoro.";
         const how = await clipMode();
         say(how === "fast"
           ? `${follows} Drawing and encoding the clip. It is ${seconds} seconds long and should take only a few.`

@@ -1251,8 +1251,11 @@ is spoken, and a cue spans the first to the last word of its sentence. If those 
 timings cannot be matched to the script (for example after an IPA override changes the
 token text) the times are estimated from sentence length and `exactTimings` is false.
 
-Audio from Kokoro also has `words`: each word it timed, `{text, start, end, phonemes}` in seconds, with the phonemes (Kokoro's IPA) it was said with, up to 20 000 of them. A presenter's mouth follows
-them (`docs/presenter.md`). Audio made before they were kept, and audio from a service or a plugin, has none; nothing else reads them and a file without them is as good as before.
+Audio from Kokoro also has `words`: each word it timed, `{text, start, end, phonemes, times}` in seconds, with the phonemes (Kokoro's IPA) it was said with, up to 20 000 of them. `times`, when
+present, is the length of each sound as Kokoro predicted it (it makes the audio from those lengths): `[[start, end], ...]`, one pair for each character of `phonemes` (stress and length marks have a pair
+too), in seconds from the start of the audio, in order, each beginning where the one before ended (to a thousandth of a second). It has the length of `phonemes`; a word whose times do not fit it has none.
+A presenter's mouth follows them (`docs/presenter.md`). Audio made before they were kept (the words, and later the times), and audio from a service or a plugin, has none; nothing else reads them and a file
+without them is as good as before. This is a cache file, not a project file, and `times` is optional, so it needs no change of `schemaVersion`.
 
 The generator does not write into `audioCache` in the slide files. That field is optional
 bookkeeping; the cache is found by recomputing the hash. This keeps generated paths out

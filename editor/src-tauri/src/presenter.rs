@@ -274,7 +274,9 @@ pub fn save_presenter_clip(dir: String, name_hint: String, webm: String) -> Resu
 }
 
 /// The words the speech engine said, each with when it began and ended (seconds) and the phonemes it said it with, from the project's cache. Only Kokoro keeps them, and
-/// only for audio made since it did, so there are often none: the mouth then follows the sound. A word that is not whole is left out.
+/// only for audio made since it did, so there are often none: the mouth then follows the sound. A word that is not whole is left out. A word also carries `times`, when
+/// the cache has them and they fit: a [start, end] pair for each character of its phonemes (the length of each sound as Kokoro predicted it, kept by audio made since it did);
+/// without them the add-on shares the word's time among its sounds by weight. The add-on checks the times again.
 pub fn narration_words_at(dir: &Path, key: &str) -> Vec<Value> {
     if !super::is_cache_key(key) {
         return Vec::new();
@@ -292,8 +294,14 @@ pub fn narration_words_at(dir: &Path, key: &str) -> Vec<Value> {
                 .take(MAX_WORDS)
                 .filter_map(|w| {
                     let (start, end, phonemes) = (w["start"].as_f64()?, w["end"].as_f64()?, w["phonemes"].as_str()?);
-                    (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !phonemes.trim().is_empty() && phonemes.chars().count() <= 100)
-                        .then(|| json!({ "start": start, "end": end, "phonemes": phonemes }))
+                    (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start && !phonemes.trim().is_empty() && phonemes.chars().count() <= 100).then(|| {
+                        let mut word = json!({ "start": start, "end": end, "phonemes": phonemes });
+                        let pair_of_numbers = |p: &Value| p.as_array().map_or(false, |p| p.len() == 2 && p.iter().all(|n| n.as_f64().map_or(false, f64::is_finite)));
+                        if let Some(times) = w["times"].as_array().filter(|t| t.len() == phonemes.chars().count() && t.iter().all(pair_of_numbers)) {
+                            word["times"] = Value::Array(times.clone());
+                        }
+                        word
+                    })
                 })
                 .collect()
         })
@@ -503,6 +511,27 @@ mod tests {
         fs::write(cache.join(format!("{key}.json")), "nonsense").unwrap();
         assert!(narration_words_at(&d, &key).is_empty());
         assert!(narration_words_at(&d, "../../x").is_empty());
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn the_length_of_each_sound_is_passed_on_when_the_cache_has_it_and_it_fits_the_phonemes() {
+        let d = scratch("sound-times");
+        fs::write(d.join("project.json"), "{}").unwrap();
+        let key = "cd".repeat(32);
+        let cache = d.join(".cache").join("narration");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join(format!("{key}.json")), r#"{"duration":2,"cues":[],"words":[
+            {"text":"ma","start":0.0,"end":0.5,"phonemes":"ma","times":[[0.0,0.2],[0.2,0.5]]},
+            {"text":"ta","start":0.5,"end":1.0,"phonemes":"ta","times":[[0.5,0.6]]},
+            {"text":"ka","start":1.0,"end":1.5,"phonemes":"ka","times":[[1.0,1.2],[1.2,"x"]]},
+            {"text":"pa","start":1.5,"end":2.0,"phonemes":"pa"}]}"#).unwrap();
+        let w = narration_words_at(&d, &key);
+        assert_eq!(w.len(), 4, "no word is left out for its times");
+        assert_eq!(w[0]["times"], json!([[0.0, 0.2], [0.2, 0.5]]));
+        assert!(w[1].get("times").is_none(), "one pair for two sounds");
+        assert!(w[2].get("times").is_none(), "a time that is not a number");
+        assert!(w[3].get("times").is_none(), "audio made before the lengths were kept");
         let _ = fs::remove_dir_all(&d);
     }
 
