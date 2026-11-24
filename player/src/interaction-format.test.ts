@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { decodeBlanks, encodeBlanks, encodePairs, grade } from "./grading.ts";
-import { formatGraded, formatInput, scorm2004Type } from "./interaction-format.ts";
+import { formatGraded, formatInput, longResponse2004, scorm2004Type } from "./interaction-format.ts";
 import type { QuizContent } from "./types.ts";
 
 const base = { scoring: { points: 10, attemptsAllowed: 1 }, feedback: { correct: "", incorrect: "" } };
@@ -89,4 +89,41 @@ test("SCORM 2004 spells its types with hyphens, as SCORM 1.2 and xAPI do", () =>
   assert.equal(scorm2004Type("long-fill-in"), "long-fill-in");
   assert.equal(scorm2004Type("choice"), "choice");
   assert.equal(scorm2004Type("other"), "other");
+});
+
+// ---- SCORM 2004 long fill-in: an answer that begins with "{" (the learner's own braces) is not a language marker
+
+test("an essay that begins with { is given the course's language marker first, and nothing else is changed", () => {
+  assert.equal(longResponse2004("{lang=xx} my own words", "en-US"), "{lang=en-US}{lang=xx} my own words");
+  assert.equal(longResponse2004("{x} is a placeholder", "fr"), "{lang=fr}{x} is a placeholder");
+  assert.equal(longResponse2004("{", "en-US"), "{lang=en-US}{");
+  for (const plain of ["my own words", "", " {not first}", "ends with {", "lang=xx"]) assert.equal(longResponse2004(plain, "en-US"), plain, JSON.stringify(plain));
+});
+
+test("taking exactly one marker off what was stored gives back the learner's words whole, even when they hold a marker of their own", () => {
+  const strip = (stored: string) => stored.replace(/^\{lang=[^{}]*\}/, "");
+  for (const words of ["{lang=xx}hello", "{lang=en-US}{lang=en-US}twice", "{lang=}", "{{", "{lang=xx", "{ plain brace"]) {
+    assert.equal(strip(longResponse2004(words, "en-US")), words, words);
+  }
+  assert.equal(strip(longResponse2004("no brace at the start", "en-US")), "no brace at the start", "and with no marker added, nothing is taken off a plain answer");
+});
+
+test("a course language that is not a language code gives an empty marker, and a good one is used as it is", () => {
+  for (const language of ["en", "en-US", "zh-Hans-CN", "fil"]) assert.equal(longResponse2004("{a", language), `{lang=${language}}{a`, language);
+  for (const bad of ["", "english", "e", "en_US", "en-", "en US", "}{", "en}{lang=xx"]) assert.equal(longResponse2004("{a", bad), "{lang=}{a", JSON.stringify(bad));
+});
+
+test("the marker counts toward the 4000 characters, so the answer is cut a little rather than refused, and never in the middle of an emoji", () => {
+  const long = longResponse2004("{" + "w".repeat(5000), "en-US");
+  assert.equal(long.length, 4000);
+  assert.ok(long.startsWith("{lang=en-US}{www"));
+  const emoji = longResponse2004("{" + "w".repeat(3986) + "😀 more", "en-US");
+  assert.ok(emoji.length <= 4000);
+  assert.doesNotThrow(() => encodeURIComponent(emoji), "no lone half of a character");
+  assert.equal(longResponse2004("{" + "w".repeat(100), "en-US").length, 12 + 101, "a short answer is not cut");
+});
+
+test("formatGraded itself leaves an essay as written, because xAPI takes it that way: the marker is SCORM 2004's own, added where it is sent", () => {
+  const essay: QuizContent = { ...base, questionType: "essay", minWords: 1 };
+  assert.deepEqual(fmt(essay, "{lang=xx} my own words"), { kind: "long-fill-in", response: "{lang=xx} my own words", patterns: [] });
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { SPAN_SIZE, safeSpanStyle, spanColour, spanSize, spanStyleFor } from "./spanstyle.ts";
+import { SPAN_SIZE, safeSpanStyle, spanColour, spanSize, spanStyleFor, spanStyleParts } from "./spanstyle.ts";
 
 test("a colour is six lower case hex digits, from hex or rgb(), and anything else is refused", () => {
   assert.equal(spanColour("#C00000"), "#c00000");
@@ -35,4 +35,16 @@ test("the import writes the style for a part of a text that has its own colour o
   assert.equal(spanStyleFor(undefined, 80), "font-size:80%");
   assert.equal(spanStyleFor(undefined, undefined), "");
   assert.equal(spanStyleFor(undefined, 10), "", "too small to be kept");
+});
+
+test("the two parts of a span's style are given separately, for a page that sets them on the element's style object", () => {
+  assert.deepEqual(spanStyleParts("color: #C00000; font-size: 120%"), { colour: "#c00000", size: 120 });
+  assert.deepEqual(spanStyleParts("font-size:80%"), { colour: null, size: 80 });
+  assert.deepEqual(spanStyleParts("color:rgb(0, 0, 255);background:url(x);font-family:Comic Sans"), { colour: "#0000ff", size: null });
+  assert.deepEqual(spanStyleParts("color:red;font-size:12px"), { colour: null, size: null }, "a name and a pixel size are not kept");
+  assert.deepEqual([spanStyleParts(null), spanStyleParts(undefined), spanStyleParts("")], [{ colour: null, size: null }, { colour: null, size: null }, { colour: null, size: null }]);
+  for (const style of ["color:#abc;font-size:150%", "font-size:50%;color:rgb(1, 2, 3)", "nothing;color:#fff", ""]) {
+    const { colour, size } = spanStyleParts(style);
+    assert.equal(safeSpanStyle(style), [colour ? `color:${colour}` : "", size !== null ? `font-size:${size}%` : ""].filter(Boolean).join(";"), "the text form is the same two parts");
+  }
 });

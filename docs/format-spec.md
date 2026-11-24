@@ -1585,6 +1585,25 @@ left behaviour open, v0.1 fixes it as follows.
   The editor's canvas never reflows: it always shows the whole stage. To see the column, preview the course in a browser and narrow
   the window.
 
+### The published page's security policy
+
+`index.html` carries a content security policy in a `<meta http-equiv="Content-Security-Policy">` tag, written ahead of the style sheet and the script it
+governs. The browser enforces it, so if anything unexpected ever reached a course, the browser would refuse to run or fetch it. `player/src/csp.ts` has the
+policy with the reason for each part, and `player/src/csp.test.ts` holds it, so a change to it is a decision and not an accident.
+
+- **Code and style come only from the course's own folder.** `player.js` and `player.css` are the only script and style sheet. Nothing is written into the page
+  as script or style, and nothing is run from text (no `eval`). The project data is in a `<script type="application/json">` block, which is data and not code.
+  A span of text that has a colour or a size gets them through the element's style object, never a `style` attribute, which the policy refuses.
+- **Pictures, sound and video** are the course's own files (`img-src 'self' data:`, `media-src 'self' blob:`).
+- **Frames** are allowed for exactly the two sites an `embed` object plays from, `https://www.youtube-nocookie.com` and `https://player.vimeo.com`, and no others.
+- **Reports to a learning record store** (xAPI and cmi5) may go to any `https` address, and over plain `http` only to `localhost` and `127.0.0.1`, the same
+  rule the player applies to the launch address. The address `[::1]` cannot be written in a policy, so a store at that address is refused by the browser: use
+  `localhost`.
+- **No plug-ins** (`object-src 'none'`), a fixed `base` address, and forms that can only go to the course itself.
+- **What is not set.** `frame-ancestors` and `sandbox` can only be sent as a header, and a learning system has to be able to frame the course, so neither is
+  set. A host that puts its own script or style into the course page is refused by the browser like any other; the SCORM, xAPI and cmi5 connections are not
+  affected, because they are made by the player's own file.
+
 ## SCORM 1.2 tracking
 
 The published page reports to an LMS when it finds a SCORM 1.2 API (`window.API`, in a parent
@@ -1679,6 +1698,12 @@ project under `source/`. As with 1.2, the ADL and IMS schema files (`.xsd`) are 
   A number question answered with something that is not a number is sent as type `other`. A separator typed inside a learner's
   words (`[,]`, `[.]`, `[:]`) is changed to have a space in it, so it cannot be mistaken for one. An input the author chose to
   report is an interaction too: a tick box is `true-false` with `true` or `false`, a rating is `likert`, a drop-down or radio group is `choice`.
+
+  An essay's `learner_response` is a localized string in SCORM 2004: text that may begin with a language marker such as `{lang=en-US}`. A learner who begins an
+  essay with `{` (even with a marker of their own, `{lang=xx}`) would have it read as that marker, and the stored text would lose its start. So an essay that begins
+  with `{` is sent with a marker of its own in front, `{lang=` and the course's `meta.language` and `}` (an empty `{lang=}` if the course language is not a language
+  code), and everything after that first marker is the learner's words exactly as written. The marker counts toward the 4000 characters, so such an answer may lose
+  its last few. An essay that does not begin with `{` is sent as it is, and xAPI and SCORM 1.2 never get a marker.
 - **Review and browse mode** are read only: nothing is written.
 - **Not done.** Only the primary objective is used, there is one SCO (so no sequencing between parts), and `adl.nav.request`, `cmi.comments_from_learner` and
   `cmi.interactions.n.objectives` are not written.

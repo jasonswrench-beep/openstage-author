@@ -46,6 +46,15 @@ const RESULTS = ["correct", "incorrect", "unanticipated", "neutral"];
 /** The flags a fill-in or long fill-in pattern may begin with, in any order: {case_matters=true}, {order_matters=false} and {lang=en}. */
 const PATTERN_FLAGS = /^(\{(case_matters|order_matters)=(true|false)\}|\{lang=[^{}]*\})*/;
 
+/**
+ * A localized string, the form SCORM 2004 gives a long fill-in's answer: text that may begin with a language marker, {lang=en}. An LMS reads a leading marker as the
+ * language of the text and keeps the two apart; what a person reading the learner's record sees is `text`, with exactly one leading marker taken off.
+ */
+export function splitLanguage(value: string): { language: string | null; text: string } {
+  const m = /^\{lang=([^{}]*)\}/.exec(value);
+  return m ? { language: m[1]!, text: value.slice(m[0].length) } : { language: null, text: value };
+}
+
 const REAL = /^-?\d+(\.\d+)?$/;
 const SHORT_ID = /^[A-Za-z0-9._:-]+$/;
 const DURATION = /^P(?!$)(\d+Y)?(\d+M)?(\d+D)?(T(?!$)(\d+H)?(\d+M)?(\d+(\.\d{1,2})?S)?)?$/;
@@ -82,6 +91,16 @@ export class FakeLms2004 implements Scorm2004Api {
     const derived = this.derivedSuccess();
     if (derived) all["cmi.success_status"] = derived;
     return all;
+  }
+
+  /**
+   * What the LMS keeps of an interaction's learner_response, the way a person reading the record would see it. A long fill-in's answer is a localized string, so a leading
+   * {lang=...} marker is taken off and kept as the language; for the other kinds the answer is the text as sent. Undefined if there is no answer.
+   */
+  learnerText(n: number): { language: string | null; text: string } | undefined {
+    const value = this.store[`cmi.interactions.${n}.learner_response`];
+    if (value === undefined) return undefined;
+    return this.store[`cmi.interactions.${n}.type`] === "long-fill-in" ? splitLanguage(value) : { language: null, text: value };
   }
 
   /** Start a fresh launch of the SCO, as the LMS does when a learner opens it again. */

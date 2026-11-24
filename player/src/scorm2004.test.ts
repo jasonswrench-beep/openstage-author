@@ -3,7 +3,7 @@
 // as two separate fields, a scaled score, progress, and the standard's own answer syntax.
 import assert from "node:assert/strict";
 import { test, beforeEach, afterEach } from "node:test";
-import { FakeLms2004 } from "./fake-lms-2004.ts";
+import { FakeLms2004, splitLanguage } from "./fake-lms-2004.ts";
 import { FakeLms } from "./fake-lms.ts";
 import { Runtime } from "./runtime.ts";
 import { decodeSuspend, encodeSuspend, SUSPEND_LIMIT } from "./scorm.ts";
@@ -318,4 +318,28 @@ test("the strict LMS takes only the standard's own type words, which have hyphen
   assert.equal(lms.SetValue("cmi.interactions.3.learner_response", "y".repeat(4000)), "true");
   assert.equal(lms.SetValue("cmi.interactions.3.learner_response", "y".repeat(4001)), "false");
   assert.equal(lms.SetValue("cmi.interactions.2.correct_responses.0.pattern", "{lang=en}{case_matters=true}{order_matters=false}one[,]two"), "true");
+});
+
+test("the strict LMS reads a leading {lang=...} marker off a long fill-in's answer, as a real one does, and keeps only the words", () => {
+  const lms = new FakeLms2004();
+  lms.relaunch();
+  lms.Initialize("");
+  for (const [n, type] of ["long-fill-in", "long-fill-in", "fill-in"].entries()) {
+    assert.equal(lms.SetValue(`cmi.interactions.${n}.id`, `q${n}`), "true");
+    assert.equal(lms.SetValue(`cmi.interactions.${n}.type`, type), "true");
+  }
+  // an answer sent bare, which begins with a marker of the learner's own: the LMS takes it for the language and the words lose their start
+  assert.equal(lms.SetValue("cmi.interactions.0.learner_response", "{lang=xx}my words"), "true");
+  assert.deepEqual(lms.learnerText(0), { language: "xx", text: "my words" });
+  // the same words behind a marker of the course's own are kept whole, and only the one marker is taken off
+  assert.equal(lms.SetValue("cmi.interactions.1.learner_response", "{lang=en-US}{lang=xx}my words"), "true");
+  assert.deepEqual(lms.learnerText(1), { language: "en-US", text: "{lang=xx}my words" });
+  assert.equal(lms.GetValue("cmi.interactions.1.learner_response"), "{lang=en-US}{lang=xx}my words", "and read back it is what was sent");
+  // only a long fill-in's answer is a localized string here; a fill-in's is kept as sent, and a question not answered has no text
+  assert.equal(lms.SetValue("cmi.interactions.2.learner_response", "{lang=xx}a"), "true");
+  assert.deepEqual(lms.learnerText(2), { language: null, text: "{lang=xx}a" });
+  assert.equal(lms.learnerText(5), undefined);
+  assert.deepEqual([splitLanguage("plain"), splitLanguage("{lang=}x"), splitLanguage("{lang=xx"), splitLanguage("{x}")], [
+    { language: null, text: "plain" }, { language: "", text: "x" }, { language: null, text: "{lang=xx" }, { language: null, text: "{x}" },
+  ]);
 });

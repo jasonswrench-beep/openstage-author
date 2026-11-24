@@ -13,7 +13,7 @@ import type { Runtime, Snapshot } from "./runtime.ts";
 import type { Graded } from "./grading.ts";
 import type { InputInteraction, QuizContent } from "./types.ts";
 import { decodeSuspend, encodeSuspend, evaluate, findNamedApi, type Progress } from "./scorm.ts";
-import { formatGraded, formatInput, scorm2004Type } from "./interaction-format.ts";
+import { formatGraded, formatInput, longResponse2004, scorm2004Type } from "./interaction-format.ts";
 
 /** SCORM 2004 asks every LMS to hold at least 64000 characters of suspend_data and 1000 of location. */
 export const SUSPEND_LIMIT_2004 = 64000;
@@ -163,7 +163,9 @@ export class Scorm2004Tracker {
     this.set(`${base}.id`, objectId);
     this.set(`${base}.type`, scorm2004Type(f.kind));
     this.set(`${base}.timestamp`, timestamp2004(this.clock()));
-    if (f.response !== "") this.set(`${base}.learner_response`, f.response);
+    // An essay is a long fill-in, whose answer SCORM 2004 reads as a localized string: one that begins with "{" needs a language marker first (interaction-format.ts).
+    const response = f.kind === "long-fill-in" ? longResponse2004(f.response, this.runtime.pkg.project.meta.language) : f.response;
+    if (response !== "") this.set(`${base}.learner_response`, response);
     this.set(`${base}.result`, graded.correct ? "correct" : "incorrect");
     this.set(`${base}.weighting`, String(q.scoring.points));
     f.patterns.forEach((pattern, i) => this.set(`${base}.correct_responses.${i}.pattern`, pattern));

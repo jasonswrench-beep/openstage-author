@@ -50,9 +50,9 @@ export const countWords = (text: string): number => text.split(/\s+/).filter((w)
 /** SCORM 1.2 holds 255 characters of an answer. */
 const LIMIT = 255;
 /** A SCORM 2004 long fill-in holds 4000 (xAPI is given the same, so an essay reads the same in both). */
-const LONG_LIMIT = 4000;
+export const LONG_LIMIT = 4000;
 /** The first `max` characters, never ending half way through a character made of two parts (an emoji), which is not text an LMS or a JSON file can hold. */
-const cutTo = (s: string, max: number): string => {
+export const cutTo = (s: string, max: number): string => {
   if (s.length <= max) return s;
   const head = s.slice(0, max);
   return /[\uD800-\uDBFF]$/.test(head) ? head.slice(0, -1) : head;

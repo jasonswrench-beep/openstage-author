@@ -121,11 +121,20 @@ export function buildMedia(doc: Document, obj: OSObject, onEnded: (id: string) =
   return box;
 }
 
+/**
+ * The two sites an embedded video may play from, one for each provider. The published page's content security policy (csp.ts) lets an iframe load from
+ * exactly these and nowhere else, so a new provider has to be added here, where the policy and `embedUrl` both read it.
+ */
+export const EMBED_ORIGINS: Record<EmbedContent["provider"], string> = {
+  youtube: "https://www.youtube-nocookie.com",
+  vimeo: "https://player.vimeo.com",
+};
+
 /** The address an embedded video plays from. Only a well-formed id is used, so nothing else can reach the iframe. */
 export function embedUrl(c: EmbedContent): string | null {
-  if (c.provider === "youtube") return /^[A-Za-z0-9_-]{11}$/.test(c.id) ? `https://www.youtube-nocookie.com/embed/${c.id}?rel=0` : null;
+  if (c.provider === "youtube") return /^[A-Za-z0-9_-]{11}$/.test(c.id) ? `${EMBED_ORIGINS.youtube}/embed/${c.id}?rel=0` : null;
   if (!/^[0-9]{1,12}$/.test(c.id) || !/^[A-Za-z0-9]{0,32}$/.test(c.hash)) return null;
-  return `https://player.vimeo.com/video/${c.id}?dnt=1${c.hash ? `&h=${c.hash}` : ""}`;
+  return `${EMBED_ORIGINS.vimeo}/video/${c.id}?dnt=1${c.hash ? `&h=${c.hash}` : ""}`;
 }
 
 /**

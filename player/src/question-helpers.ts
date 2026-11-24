@@ -51,7 +51,7 @@ export async function told2004(content: Body, answer: string) {
   } finally {
     console.warn = realWarn;
   }
-  return { get: (key: string) => lms.data[`cmi.interactions.0.${key}`], warnings };
+  return { get: (key: string) => lms.data[`cmi.interactions.0.${key}`], warnings, lms };
 }
 
 /** The object a question sits in on a slide. */

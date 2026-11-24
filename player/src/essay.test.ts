@@ -5,8 +5,10 @@ import { test } from "node:test";
 import { countWords, emptyMessage, grade, isAnswered, keepAnswer } from "./grading.ts";
 import { formatGraded, scorm2004Type } from "./interaction-format.ts";
 import { FakeLrs } from "./fake-lrs.ts";
+import { splitLanguage } from "./fake-lms-2004.ts";
 import { built, courseWith, told12, told2004, tick, type Body } from "./question-helpers.ts";
 import { XapiTracker } from "./xapi.ts";
+import { examplePackage } from "./test-helpers.ts";
 import type { EssayQuiz, QuizContent } from "./types.ts";
 
 const essay = (minWords: number): Body<EssayQuiz> => ({ questionType: "essay", minWords });
@@ -104,6 +106,37 @@ test("a long essay: SCORM 1.2 is told the first 255 characters, SCORM 2004 the w
   assert.deepEqual(huge.warnings, []);
 });
 
+// An LMS reads an answer that begins with "{" as the start of a language marker, {lang=xx}, so an essay that begins that way is given a marker of its own first.
+const courseLanguage = examplePackage().project.meta.language;
+
+test("SCORM 2004 keeps an essay that begins with {lang=xx} whole: the course's own marker goes first, so the learner's is not read as a marker", async () => {
+  const words = "{lang=xx} my own words, kept just as I wrote them";
+  const sent = await told2004(essay(3), words);
+  assert.deepEqual(sent.warnings, [], "the strict LMS refused nothing");
+  assert.equal(sent.get("learner_response"), `{lang=${courseLanguage}}${words}`, "what is sent: the course's marker, then the words");
+  // what the LMS keeps, as a person reading the record sees it: the course's language, and the learner's words untouched
+  assert.deepEqual(sent.lms.learnerText(0), { language: courseLanguage, text: words });
+  // and read back from the LMS, taking off the one marker gives the same words
+  assert.equal(splitLanguage(sent.lms.GetValue("cmi.interactions.0.learner_response")).text, words);
+});
+
+test("SCORM 2004 is told an essay that begins with an ordinary brace under the course's language too, and other essays with no marker at all", async () => {
+  const braces = "{x} stands for the unknown, and {y} for the other one";
+  const first = await told2004(essay(3), braces);
+  assert.deepEqual([first.get("learner_response"), first.lms.learnerText(0)?.text, first.warnings], [`{lang=${courseLanguage}}${braces}`, braces, []]);
+  const plain = await told2004(essay(3), "no brace at the start, {lang=xx} later on is just words");
+  assert.equal(plain.get("learner_response"), "no brace at the start, {lang=xx} later on is just words", "no marker is added");
+  assert.deepEqual(plain.lms.learnerText(0), { language: null, text: "no brace at the start, {lang=xx} later on is just words" });
+});
+
+test("a very long essay that begins with { still fits the 4000 characters a long fill-in holds, marker included", async () => {
+  const sent = await told2004(essay(3), "{ " + "word ".repeat(1500));
+  assert.deepEqual(sent.warnings, [], "the strict LMS refused nothing");
+  const stored = sent.get("learner_response")!;
+  assert.ok(stored.length <= 4000 && stored.length > 3900, `kept nearly all of it: ${stored.length}`);
+  assert.ok(stored.startsWith(`{lang=${courseLanguage}}{ word word`));
+});
+
 test("xAPI is told the essay whole, up to 4000 characters, as a long fill-in", async () => {
   const { rt } = courseWith(essay(3));
   const lrs = new FakeLrs();
@@ -173,4 +206,16 @@ test("on the author's canvas nothing responds", () => {
   box.value = "typed";
   box.fire("input");
   assert.equal(root.byClass("os-q-count")[0]!.textContent, "0 words");
+});
+
+test("xAPI is told an essay that begins with { exactly as written: the language marker belongs to SCORM 2004 only", async () => {
+  const { rt } = courseWith(essay(3));
+  const lrs = new FakeLrs();
+  const tracker = new XapiTracker({ endpoint: lrs.endpoint, auth: lrs.auth, actor: { objectType: "Agent", name: "Test Learner", mbox: "mailto:learner@example.test" }, registration: "0b8c1e2a-5d3f-4a6b-9c7d-1e2f3a4b5c6d", activityId: "https://example.test/essay-course" }, rt, { fetch: lrs.fetch, wait: async () => undefined });
+  await tracker.begin();
+  rt.submitQuiz("obj-0011", "{lang=xx} my own words, kept just as I wrote them", "click");
+  await tick();
+  await tracker.settled();
+  const answered = lrs.statements.find((s) => (s["verb"] as { id: string }).id.endsWith("/answered"))!;
+  assert.equal(((answered["result"] as Record<string, unknown>)["response"]), "{lang=xx} my own words, kept just as I wrote them");
 });

@@ -3,7 +3,7 @@
 // {case_matters=...}{order_matters=...}. SCORM 1.2 uses its own plainer forms, which grading.ts produces and scorm.ts sends.
 // Nothing here knows about a page or an LMS, so all of it is tested directly.
 
-import type { Graded } from "./grading.ts";
+import { LONG_LIMIT, cutTo, type Graded } from "./grading.ts";
 import type { InputInteraction, QuizContent } from "./types.ts";
 
 export type InteractionKind = "choice" | "fill-in" | "long-fill-in" | "numeric" | "matching" | "sequencing" | "true-false" | "likert" | "other";
@@ -31,6 +31,25 @@ const pairs = (text: string): string => text.split(",").filter((s) => s !== "").
 
 /** SCORM 2004 asks for a real number as the answer to a numeric question. Anything else is sent as "other", which takes any text. */
 const isReal = (text: string): boolean => /^-?\d+(\.\d+)?$/.test(text);
+
+/** What SCORM 2004 takes as a language: two or three letters, then any number of subtags (en, en-US, zh-Hans-CN). */
+const LANGUAGE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
+/**
+ * A long fill-in's answer in the form SCORM 2004 stores it. In SCORM 2004 that answer is a "localized string": text that may begin with a language marker such as
+ * {lang=en-US}. An LMS therefore reads an answer that begins with "{" as the start of such a marker, and what it stores is not what the learner wrote (an essay that begins
+ * "{lang=xx}" loses those nine characters and is filed under the language xx). So an answer that begins with "{" is given a marker of its own first, in the course's
+ * language, and everything after that first marker is the learner's words exactly as written. An answer that does not begin with "{" is left alone.
+ * The marker counts toward the 4000 characters a long fill-in holds, so a very long answer loses its last few characters rather than being refused outright.
+ * A course language that is not a language code is replaced by an empty one ({lang=}), which ends the ambiguity just the same.
+ * Nothing in the player reads an answer back from the LMS, so there is no step to undo this here. Whoever reads the record takes off exactly one leading marker,
+ * and the learner's own words, even words that begin with a marker, are what is left (interaction-format.test.ts shows it).
+ */
+export function longResponse2004(response: string, language: string): string {
+  if (!response.startsWith("{")) return response;
+  const marker = `{lang=${LANGUAGE.test(language) ? language : ""}}`;
+  return marker + cutTo(response, LONG_LIMIT - marker.length);
+}
 
 /** The answer to a quiz question, in the form SCORM 2004 and xAPI take. */
 export function formatGraded(q: QuizContent, g: Graded): FormattedInteraction {

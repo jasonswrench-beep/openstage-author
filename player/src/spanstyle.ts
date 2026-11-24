@@ -32,13 +32,14 @@ export function spanSize(value: string): number | null {
 }
 
 /**
- * What survives of a style attribute: `color:#rrggbb` and `font-size:N%`, in that order, with the same colour and size written the same way, or "" when neither is there.
- * Anything else in it (a font, a background, a position, a url, a script in a colour) is dropped.
+ * What survives of a style attribute, as its two parts: the colour as `#rrggbb` and the size as a whole percentage, each null when it is not there or not allowed.
+ * Anything else in it (a font, a background, a position, a url, a script in a colour) is dropped. A page sets these two through the element's style object, not by
+ * writing a style attribute, because the published page's content security policy (csp.ts) refuses an inline style attribute.
  */
-export function safeSpanStyle(raw: string | null | undefined): string {
-  if (!raw) return "";
+export function spanStyleParts(raw: string | null | undefined): { colour: string | null; size: number | null } {
   let colour: string | null = null;
   let size: number | null = null;
+  if (!raw) return { colour, size };
   for (const part of raw.split(";")) {
     const at = part.indexOf(":");
     if (at < 0) continue;
@@ -47,6 +48,15 @@ export function safeSpanStyle(raw: string | null | undefined): string {
     if (name === "color") colour = spanColour(value) ?? colour;
     else if (name === "font-size") size = spanSize(value) ?? size;
   }
+  return { colour, size };
+}
+
+/**
+ * What survives of a style attribute, written as text: `color:#rrggbb` and `font-size:N%`, in that order, with the same colour and size written the same way, or ""
+ * when neither is there. This is for the project file and the editor, which keep a style as text; see `spanStyleParts` for what the page itself does with it.
+ */
+export function safeSpanStyle(raw: string | null | undefined): string {
+  const { colour, size } = spanStyleParts(raw);
   const out: string[] = [];
   if (colour) out.push(`color:${colour}`);
   if (size !== null) out.push(`font-size:${size}%`);

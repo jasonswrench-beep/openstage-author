@@ -41,6 +41,7 @@ import { creditsInUse, mergeCredits, narrationCredits } from "./src/credits.ts";
 import { isExcluded } from "./src/exclude.ts";
 import { editableCopyFiles, mayBePublished } from "./src/sourcecopy.ts";
 import { publishedPackage } from "./src/published.ts";
+import { policyMetaTag } from "./src/csp.ts";
 import { setPlayerText, t } from "./src/playertext.ts";
 import { makeVideo, type VideoResult } from "./src/video.ts";
 
@@ -260,6 +261,8 @@ await build({
   logLevel: "warning",
 });
 
+// The page carries a content security policy (src/csp.ts says what it allows and why). It sits right after the charset, ahead of the style sheet and the
+// script, which it governs. The project data below is in a script tag of type application/json: that is data, not code, so the policy leaves it alone.
 // JSON inside a script tag must not be able to close it.
 const U = String.fromCharCode(92) + "u";
 const json = JSON.stringify(pkg)
@@ -273,6 +276,7 @@ writeFileSync(
 <html lang="${esc(project.meta.language)}">
 <head>
 <meta charset="utf-8">
+${policyMetaTag()}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(project.meta.title)}</title>
 <link rel="stylesheet" href="player.css">
