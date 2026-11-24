@@ -194,6 +194,11 @@ or what a screen reader says: the clip is a video with the alt text and the capt
 No FFmpeg is used (`CLAUDE.md`): the encoders and the recorder are the window's own, and the file is written by `webmwriter.ts`, and the add-on's rule checker (`presenter/tools/check_rules.py`) fails the build if one of its dependencies is not under a licence that can
 ship in an Apache 2.0 program, or looks like FFmpeg.
 
+## To do before the add-on ships
+
+- **Make the signature cover every file.** `addon.sig` covers `addon.json` and the engine host program only (`docs/presenter.md`, "Who may use it, and signing"). Anything else that ships beside the host (DLLs, models, other programs) is not covered, so a file could be swapped without breaking the signature. Before release, list the SHA-256 of each such file in `addon.json`, have the editor check each one (a file that is missing, changed or not listed is a refusal) and sign `addon.json` as before, so the signature then covers all of them. Not built yet. (Asked for by the security review, 2026-11-24.)
+- **Make the key pair, give the editor the public half, sign the release** (the owner's: the private half stays offline and never comes into this repository or a build folder), and write the small program that signs.
+
 ## Not built yet
 
 Phase 2 and later of the spec: a presenter made from a photo (the model manager and its licence gate, the benchmark, the engine), which waits on a decision about how it is made (`docs/decisions/0006-presenter-photo-models.md`: the specification's plan does not hold as written), the Studio kind, the add-on's own voices (Kitten, Piper), a
