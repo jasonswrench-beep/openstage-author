@@ -2647,6 +2647,52 @@ fn copy_example(name: String, dir: String) -> Result<(), String> {
     copy_example_from(&examples, &name, Path::new(&dir))
 }
 
+/// The folder in Documents where the author's own copies of the examples are kept, one folder for each example.
+const EXAMPLE_COPIES: &str = "OpenStage Examples";
+
+/// The author's own copy of an example, in `<documents>/OpenStage Examples/<example>`: made from the example the first time, and the same copy, with the
+/// author's changes, every time after. Returns the folder and whether the copy was there already. A folder of that name that is not a copy of a project
+/// (something else was put there) is left alone, and the copy goes in the next free name instead.
+fn example_copy_in(examples: &Path, documents: &Path, name: &str) -> Result<(PathBuf, bool), String> {
+    if !is_example_name(name) {
+        return Err("That is not one of the examples.".into());
+    }
+    let home = documents.join(EXAMPLE_COPIES);
+    let stem = name.trim_end_matches(".osproj");
+    for n in 1..=50 {
+        let dir = if n == 1 { home.join(name) } else { home.join(format!("{stem}-{n}.osproj")) };
+        if dir.join("project.json").is_file() {
+            return Ok((dir, true));
+        }
+        let empty = !dir.exists() || (dir.is_dir() && fs::read_dir(&dir).map_err(|e| e.to_string())?.next().is_none());
+        if empty {
+            copy_example_from(examples, name, &dir)?;
+            return Ok((dir, false));
+        }
+    }
+    Err(format!("There is no free folder for a copy of this example in {}.", home.display()))
+}
+
+#[derive(Serialize)]
+struct ExampleCopy {
+    dir: String,
+    existed: bool,
+}
+
+/// Open an example: the author's own copy of it, made in Documents the first time (`example_copy_in`).
+#[tauri::command]
+fn example_copy(app: tauri::AppHandle, name: String) -> Result<ExampleCopy, String> {
+    let examples = examples_dir().ok_or("The examples did not come with this copy of the program.")?;
+    let documents = app
+        .path()
+        .document_dir()
+        .ok()
+        .or_else(|| std::env::var_os("USERPROFILE").map(|p| PathBuf::from(p).join("Documents")))
+        .ok_or("Your Documents folder could not be found.")?;
+    let (dir, existed) = example_copy_in(&examples, &documents, &name)?;
+    Ok(ExampleCopy { dir: dir.to_string_lossy().into_owned(), existed })
+}
+
 #[tauri::command]
 fn about_info(app: tauri::AppHandle) -> Result<String, String> {
     let program = std::env::current_exe().ok();
@@ -3934,7 +3980,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![presenter::presenter_addon, presenter::presenter_ask, presenter::presenter_mouth_track, presenter::save_presenter_clip, presenter::narration_cues, open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, check_for_updates, mcp_info, examples_folder, examples_list, copy_example, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, qti_file_read, pick_question_file, test_pick_question_file, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
+        .invoke_handler(tauri::generate_handler![presenter::presenter_addon, presenter::presenter_ask, presenter::presenter_mouth_track, presenter::save_presenter_clip, presenter::narration_cues, open_project, save_files, import_image, save_deck_picture, import_asset, list_assets, delete_asset, http_get, download_asset, read_settings, write_settings, create_project, migrate_project, translation_export, translation_import, validate, preview_project, publish_project, cancel_job, open_in_browser, narration_engine, narration_cache, read_narration_audio, reuse_narration_audio, about_info, check_for_updates, mcp_info, examples_folder, examples_list, copy_example, example_copy, copy_project, packs_list, packs_folder, pack_install, pack_remove, pack_picture_url, pack_use_picture, set_read, set_use_asset, set_discard, set_make, engine_status, engine_install, engine_remove, delete_narration_audio, make_narration, ai_plugins, ai_plugins_folder, ai_service, ai_make, voice_sample, read_asset, read_asset_url, capture_check, stream_start, stream_send, stream_set_paused, stream_state, stream_stop, hotkeys_set, hotkeys_clear, allow_project_media, list_recordings, recording_read, recording_folders, recording_write_edit, recording_write_steps, recording_keep_edit, save_step_picture, allow_recording_media, captions_read, captions_write, caption_source_read, question_file_read, qti_file_read, pick_question_file, test_pick_question_file, question_template_write, speech_status, speech_download, speech_audio_put, speech_drop, speech_listen, speech_cancel, read_media_bytes])
         .on_window_event(|window, event| {
             // If the window is gone, a recording must not carry on with nothing to command it, and the keys are let go.
             if let tauri::WindowEvent::Destroyed = event {
@@ -3995,6 +4041,39 @@ mod tests {
         assert!(copy_example_from(&examples, "../one.osproj", &root.join("x")).is_err());
         assert!(copy_example_from(&examples, "missing.osproj", &root.join("y")).unwrap_err().contains("did not come"));
         assert!(!root.join("y").exists(), "nothing is made for an example that is not there");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn opening_an_example_makes_one_copy_in_documents_and_opens_the_same_copy_after() {
+        let root = std::env::temp_dir().join(format!("openstage-test-example-copy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let examples = root.join("examples");
+        fs::create_dir_all(examples.join("one.osproj").join("slides")).unwrap();
+        fs::write(examples.join("one.osproj").join("project.json"), r#"{ "meta": { "title": "One" } }"#).unwrap();
+        let documents = root.join("Documents");
+
+        let (dir, existed) = example_copy_in(&examples, &documents, "one.osproj").unwrap();
+        assert_eq!(dir, documents.join("OpenStage Examples").join("one.osproj"));
+        assert!(!existed && dir.join("project.json").is_file(), "the first time, a copy is made");
+        fs::write(dir.join("project.json"), r#"{ "meta": { "title": "Mine now" } }"#).unwrap();
+        let (again, existed) = example_copy_in(&examples, &documents, "one.osproj").unwrap();
+        assert_eq!(again, dir);
+        assert!(existed, "after that, the same copy");
+        assert!(fs::read_to_string(again.join("project.json")).unwrap().contains("Mine now"), "with the author's changes kept");
+        assert!(fs::read_to_string(examples.join("one.osproj").join("project.json")).unwrap().contains("\"One\""), "and the example itself untouched");
+
+        // A folder of that name that holds something else is left alone; the copy goes in the next free name.
+        let other = root.join("Documents2");
+        fs::create_dir_all(other.join("OpenStage Examples").join("one.osproj")).unwrap();
+        fs::write(other.join("OpenStage Examples").join("one.osproj").join("notes.txt"), "mine").unwrap();
+        let (dir2, existed2) = example_copy_in(&examples, &other, "one.osproj").unwrap();
+        assert_eq!(dir2, other.join("OpenStage Examples").join("one-2.osproj"));
+        assert!(!existed2);
+        assert_eq!(fs::read_to_string(other.join("OpenStage Examples").join("one.osproj").join("notes.txt")).unwrap(), "mine");
+
+        assert!(example_copy_in(&examples, &documents, "../one.osproj").is_err(), "only an example's own name");
+        assert!(example_copy_in(&examples, &documents, "missing.osproj").unwrap_err().contains("did not come"));
         let _ = fs::remove_dir_all(&root);
     }
 

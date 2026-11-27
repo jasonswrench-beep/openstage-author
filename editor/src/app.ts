@@ -801,21 +801,26 @@ export class App {
     this.announce(on ? "The projects you open will be listed here." : "The editor will not keep a list of the projects you open, and the list is empty now.");
   }
 
-  /** Copy an example that came with the program into an empty folder the author chooses, and open the copy. */
+  /**
+   * Open an example that came with the program, at once: the author's own copy of it, which the desktop program keeps in Documents, OpenStage Examples.
+   * The first time the copy is made; after that the same copy opens, with the author's changes. The example itself never changes.
+   */
   private async openExample(e: ShownExample, from: HTMLElement): Promise<void> {
     if (this.model?.dirty && !(await backend.confirm("You have unsaved changes. Open another project and lose them?"))) return;
     const back = () => { if (from.isConnected) from.focus(); };
-    const dir = await backend.pickFolder(`Choose an empty folder for your copy of ${e.title}`, "new");
-    if (!dir) return back();
+    let copy: { dir: string; existed: boolean };
     try {
-      await backend.copyExample(e.name, dir);
+      copy = await backend.exampleCopy(e.name);
     } catch (err) {
-      this.announce(`Could not copy the example. ${errorText(err)}`);
-      window.alert(`Could not copy the example.\n\n${errorText(err)}`);
+      this.announce(`Could not open the example. ${errorText(err)}`);
+      window.alert(`Could not open the example.\n\n${errorText(err)}`);
       return back();
     }
+    const dir = copy.dir;
     try {
-      await this.load(dir, " This is your own copy of the example, so change it as you like.");
+      await this.load(dir, copy.existed
+        ? ` This is your own copy of the example, with your changes, in ${dir}.`
+        : ` This is your own copy of the example, saved in ${dir}, so change it as you like. The example itself stays as it came.`);
     } catch (err) {
       this.announce(`The example was copied but could not be opened. ${errorText(err)}`);
       window.alert(`The example was copied to ${dir} but could not be opened.\n\n${errorText(err)}`);

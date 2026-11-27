@@ -5,6 +5,7 @@
 import { DOWNLOAD_EXTENSIONS } from "../../player/src/downloads.ts";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { documentDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog, open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -145,6 +146,8 @@ export interface Backend {
   examplesList(): Promise<ExampleInfo[]>;
   /** Copy an example project (by its folder's name) into an empty folder, to open it there. Refuses a folder that has anything in it. */
   copyExample(name: string, dir: string): Promise<void>;
+  /** The author's own copy of an example, in Documents\OpenStage Examples: made the first time, the same copy (with their changes) after. */
+  exampleCopy(name: string): Promise<{ dir: string; existed: boolean }>;
   /** The character packs on this computer: the ones that came with the program and the ones the author added, and any folder that looks like a pack but cannot be used. */
   packsList(): Promise<PackList>;
   /** The folder the author's own packs are kept in (made if it is not there yet), to show them. */
@@ -356,7 +359,10 @@ const tauriBackend: Backend = {
   async pickFolder(title, purpose) {
     const forced = testPick(purpose);
     if (forced !== undefined) return forced;
-    const picked = await openDialog({ directory: true, multiple: false, title });
+    // For a new folder (a new project, or a copy of an example or a project) the chooser starts in Documents. Without a starting place Windows opens it
+    // wherever a chooser was used last, often inside another project, which is no place for a new one.
+    const start = purpose === "new" ? await documentDir().catch(() => undefined) : undefined;
+    const picked = await openDialog({ directory: true, multiple: false, title, ...(start ? { defaultPath: start } : {}) });
     return typeof picked === "string" ? picked : null;
   },
   open: (dir) => invoke<OpenedProject>("open_project", { dir }),
@@ -419,6 +425,7 @@ const tauriBackend: Backend = {
     return parseExamples(JSON.parse(await invoke<string>("examples_list")));
   },
   copyExample: (name, dir) => invoke<void>("copy_example", { name, dir }),
+  exampleCopy: (name) => invoke<{ dir: string; existed: boolean }>("example_copy", { name }),
   async packsList() {
     return parsePackList(await invoke<string>("packs_list"));
   },
@@ -699,6 +706,13 @@ const previewBackend: Backend = {
   },
   async copyExample(name, dir) {
     await post("/api/copy-example", { name, dir });
+  },
+  async exampleCopy(name) {
+    // The stand-in has no Documents folder of its own: it asks for the folder, as the desktop program used to.
+    const dir = new URLSearchParams(location.search).get("newdir") ?? window.prompt(`An empty folder for your copy of ${name}`);
+    if (!dir) throw new Error("No folder was given for the copy.");
+    await post("/api/copy-example", { name, dir });
+    return { dir, existed: false };
   },
   async packsList() {
     return NO_PACKS;

@@ -82,11 +82,12 @@ it. Its **...** button holds **Open**, **Show in folder** and **Take off the lis
 cannot be opened because its folder was moved, renamed or deleted, the editor says so and offers to take it off the list. The **...** beside
 the heading holds **Remember projects I open** (on at first; turning it off also empties the list) and **Clear the list**. The list is
 kept in the editor's own settings file on this computer, never in a project. Under them are the **Examples** that came with the program:
-click one to choose an empty folder, and the editor puts a copy of the example there and opens the copy, so the example stays as it came
-and your changes are your own. **Show all the examples** opens the folder they are in. **File > Close project** closes the project (asking
+click one and it opens at once, as your own copy: the first time, the editor copies the example to `Documents\OpenStage Examples\<example>.osproj` (or
+the next free name, if a folder of that name holds something else) and opens it; after that, the same copy opens, with your changes. The example
+itself stays as it came (design spec A01). There is no folder to choose (changed 2026-11-27: asking for an empty folder first was confusing). **Show all the examples** opens the folder they are in. **File > Close project** closes the project (asking
 first if there are unsaved changes) and goes back to the welcome page; it waits while OpenScreen is recording or a preview or publish is
 being made. The page is `editor/src/welcome.ts`, the list is `editor/src/recent.ts`, the examples it offers (and their order) are
-`editor/src/examples.ts`, and the copying is `examples_list` and `copy_example` in `lib.rs`.
+`editor/src/examples.ts`, and the copying is `examples_list`, `example_copy` and `copy_example` in `lib.rs`.
 
 **The Properties panel's tabs.** The Properties panel shows what is chosen under three tabs. **Content** is what the learner reads,
 hears and is told: the name, the words, the answers, the items, the narration, and the Accessibility group (alt text, decorative, role, tab

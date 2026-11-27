@@ -80,7 +80,7 @@ export class WelcomePage {
     this.exampleList = el(doc, "ul", { class: "example-list", role: "list", "aria-labelledby": "examples-h", "aria-describedby": "examples-note" });
     this.examplesSection = el(doc, "section", { class: "welcome-examples", "aria-labelledby": "examples-h", hidden: true },
       el(doc, "div", { class: "welcome-head" }, el(doc, "h2", { id: "examples-h" }, uiIcon(doc, "layout-grid"), el(doc, "span", { text: "Examples" })), this.showAllBtn),
-      el(doc, "p", { class: "note", id: "examples-note", text: "Each one opens as a copy, in a folder you choose, so the example stays as it came and your changes are your own." }),
+      el(doc, "p", { class: "note", id: "examples-note", text: "Click one and it opens at once, as your own copy kept in Documents, OpenStage Examples. The example stays as it came, and clicking it again opens your copy with your changes." }),
       this.exampleList);
 
     this.element = el(doc, "main", { class: "welcome", "aria-labelledby": "welcome-h" },
