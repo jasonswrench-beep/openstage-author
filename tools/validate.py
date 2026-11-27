@@ -1630,6 +1630,19 @@ def _unsafe_svg(asset_root, add):
                 "Remove it from the project and add the picture again in the editor, which keeps only the drawing.")
 
 
+# The name an example's instruction slide carries ("How this example works (delete before publishing)"). Such a slide explains the example to the author
+# and is not meant for learners, so the course is not finished while it is there.
+DELETE_BEFORE_PUBLISHING = re.compile(r"delete\s+(?:this\s+slide\s+)?before\s+publishing", re.IGNORECASE)
+
+
+def _check_delete_before_publishing(rel, slide, add):
+    name = slide.get("name") or ""
+    if DELETE_BEFORE_PUBLISHING.search(name):
+        add(WARNING, rel, slide["id"], "slide-delete-before-publishing", "A slide says to delete it before publishing",
+            f"The slide \"{name}\" is still in the course. It explains how the example works and is not meant for learners: "
+            "select it in the Slides panel and delete it before you publish.")
+
+
 def validate_project(project_dir, asset_root=None, blockers=None):
     """asset_root: where assets/ and .cache/ are looked for, if not under project_dir. The
     editor validates unsaved work from a temporary folder and points this at the real project.
@@ -1697,6 +1710,7 @@ def validate_project(project_dir, asset_root=None, blockers=None):
             add(ERROR, rel, data["id"], "slide-id-mismatch", "Slide id does not match its file name",
                 f"{rel} contains id '{data['id']}'.")
         slides[rel] = data
+        _check_delete_before_publishing(rel, data, add)
 
     on_disk = {f"slides/{p.name}" for p in (project_dir / "slides").glob("*.json")} if (project_dir / "slides").is_dir() else set()
     for rel in sorted(on_disk - {f"slides/{s}.json" for s in listed}):

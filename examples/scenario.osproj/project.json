@@ -84,6 +84,7 @@
       "id": "scene-main",
       "name": "Main",
       "slides": [
+        "slide-004",
         "slide-001",
         "slide-002",
         "slide-003"

@@ -94,7 +94,7 @@
           "color": "theme:color.text"
         },
         "accessibility": {
-          "altText": "Branching demo",
+          "altText": "Which path?",
           "role": "heading",
           "tabOrder": 1,
           "decorative": false
@@ -103,10 +103,10 @@
       {
         "id": "obj-0005",
         "geometry": {
-          "x": 408,
-          "y": 238,
-          "width": 560,
-          "height": 230,
+          "x": 80,
+          "y": 170,
+          "width": 640,
+          "height": 200,
           "rotation": 0,
           "z": 20
         },
@@ -131,7 +131,7 @@
         "provenance": null,
         "simulation": null,
         "type": "input",
-        "name": "Radio buttons",
+        "name": "Choice",
         "content": {
           "kind": "radio",
           "prompt": "Which path do you want?",
@@ -147,11 +147,6 @@
               "id": "opt-2",
               "label": "The long path",
               "value": "the-long-path"
-            },
-            {
-              "id": "opt-3",
-              "label": "Option 3",
-              "value": "option-3"
             }
           ]
         },
@@ -169,8 +164,8 @@
       {
         "id": "obj-0006",
         "geometry": {
-          "x": 232,
-          "y": 332,
+          "x": 80,
+          "y": 400,
           "width": 200,
           "height": 56,
           "rotation": 0,
@@ -250,7 +245,7 @@
         "provenance": null,
         "simulation": null,
         "type": "button",
-        "name": "Button",
+        "name": "Continue",
         "content": {
           "label": "Continue"
         },
@@ -270,5 +265,6 @@
       }
     ]
   },
-  "layers": []
+  "layers": [],
+  "hideNavigation": true
 }

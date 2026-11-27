@@ -1,0 +1,153 @@
+{
+  "id": "slide-004",
+  "name": "How this example works (delete before publishing)",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0032",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0033",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>How this example works</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "How this example works",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0034",
+        "geometry": {
+          "x": 80,
+          "y": 160,
+          "width": 1120,
+          "height": 530,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "How it works",
+        "content": {
+          "html": "<p>This course is a short branching conversation. <strong>This slide is for you, not for learners: delete it before you publish.</strong> Until you do, the Problems list reminds you.</p><ol><li><strong>Who will you be?</strong> (the next slide): the learner picks Alex or Jordan. The answer is kept in the variable <em>who</em>, and the conversation shows that person as the learner (the scenario's <em>Who the learner is</em>).</li><li><strong>The conversation</strong>: the whole branching story is one object. Select it, and the Properties panel shows its <strong>Situations</strong> (each with its lines and up to six <strong>Choices</strong>, and each choice leads to another situation) and its <strong>Meters</strong>. A situation with no choices is an ending.</li><li>A choice can add to a number or take some away: here <em>trust</em> and <em>clarity</em>, which the two meters show the learner.</li><li>At an ending the scenario sets <em>done</em> to true (<em>At an ending, set</em>), and a rule on the slide's title then shows the layer <em>Finished</em>, which tells the learner to carry on.</li><li><strong>What you took away</strong>: the closing slide, with the lesson.</li></ol><p><strong>To make your own:</strong> keep this shape and rewrite the situations, lines and choices in the conversation's Properties.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "This course is a short branching conversation. This slide is for you, not for learners: delete it before you publish. Until you do, the Problems list reminds you. Who will you be? (the next slide): the learner picks Alex or Jordan. The answer is kept in the variable who, and the conversation shows that person as the learner (the scenario's Who the learner is). The conversation: the whole branching story is one object. Select it, and the Properties panel shows its Situations (each with its lines and up to six Choices, and each choice leads to another situation) and its Meters. A situation with no choices is an ending. A choice can add to a number or take some away: here trust and clarity, which the two meters show the learner. At an ending the scenario sets done to true (At an ending, set), and a rule on the slide's title then shows the layer Finished, which tells the learner to carry on. What you took away: the closing slide, with the lesson. To make your own: keep this shape and rewrite the situations, lines and choices in the conversation's Properties.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -1,6 +1,6 @@
 {
   "id": "slide-003",
-  "name": "Long path",
+  "name": "Long path, part 1",
   "duration": null,
   "layout": "title-only",
   "background": null,
@@ -86,7 +86,7 @@
         "type": "text",
         "name": "Title",
         "content": {
-          "html": "<h1>Long path</h1>"
+          "html": "<h1>The long path, part 1</h1>"
         },
         "style": {
           "fontFamily": "theme:font.heading",
@@ -94,13 +94,125 @@
           "color": "theme:color.text"
         },
         "accessibility": {
-          "altText": "Slide title",
+          "altText": "The long path, part 1",
           "role": "heading",
           "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0016",
+        "geometry": {
+          "x": 80,
+          "y": 170,
+          "width": 1000,
+          "height": 120,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "What happens",
+        "content": {
+          "html": "<p>You chose the long path. It has two slides: Continue takes you to the second.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 22,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "You chose the long path. It has two slides: Continue takes you to the second.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0017",
+        "geometry": {
+          "x": 80,
+          "y": 320,
+          "width": 200,
+          "height": 56,
+          "rotation": 0,
+          "z": 30
+        },
+        "states": {},
+        "triggers": [
+          {
+            "id": "trg-0007",
+            "event": "click",
+            "action": "jumpToSlide",
+            "target": "slide-005",
+            "conditions": []
+          },
+          {
+            "id": "trg-0008",
+            "event": "keyActivate",
+            "action": "jumpToSlide",
+            "target": "slide-005",
+            "conditions": []
+          }
+        ],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "button",
+        "name": "Continue",
+        "content": {
+          "label": "Continue"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 18,
+          "color": "theme:color.onAccentStrong",
+          "fill": "theme:color.accentStrong",
+          "radius": 8
+        },
+        "accessibility": {
+          "altText": "Continue",
+          "role": "button",
+          "tabOrder": 3,
           "decorative": false
         }
       }
     ]
   },
-  "layers": []
+  "layers": [],
+  "hideNavigation": true
 }

@@ -103,11 +103,15 @@ class CompletionSetting(unittest.TestCase):
                 self.assertEqual([f for f in p.run() if f.severity == "error"], [], ok)
 
     def test_a_jump_past_a_slide_is_warned_about_when_every_slide_must_be_seen(self):
+        # The example: 1 how it works, 2 choose, 3 short path, 4 and 5 long path, 6 where they meet. Choose jumps to the next slide (no warning) or
+        # past the short path to the long one; the short path jumps past the long one to the end. Part 1 of the long path goes on to part 2, the next slide.
         found = [f for f in validate.validate_project(self.branching("all")) if f.rule == "completion-skippable"]
-        self.assertEqual(len(found), 1, "one warning for the jump to slide 3, none for the jump to the next slide")
-        self.assertEqual(found[0].severity, "warning")
-        self.assertIn("slide 1 to slide 3", found[0].detail)
-        self.assertIn("reaches the last slide", found[0].detail)
+        self.assertEqual(len(found), 2, "one warning for each jump past a slide, none for a jump to the next slide")
+        self.assertTrue(all(f.severity == "warning" for f in found))
+        details = " ".join(f.detail for f in found)
+        self.assertIn("slide 2 to slide 4", details)
+        self.assertIn("slide 3 to slide 6", details)
+        self.assertIn("reaches the last slide", details)
 
     def test_choosing_the_last_slide_removes_the_warning(self):
         self.assertEqual([f for f in validate.validate_project(self.branching("last")) if f.rule == "completion-skippable"], [])
@@ -880,6 +884,18 @@ class RulesNotInTheBrokenFixture(unittest.TestCase):
         with MutatedProject() as p:
             p.slide1(lambda d: d.__setitem__("id", "slide-777"))
             self.assertTrue(rules(p.run(), "slide-id-mismatch"))
+
+    def test_a_slide_that_says_to_delete_it_before_publishing_is_a_warning(self):
+        with MutatedProject() as p:
+            self.assertEqual(rules(p.run(), "slide-delete-before-publishing"), [], "an ordinary slide name is fine")
+            p.slide1(lambda d: d.__setitem__("name", "How this example works (delete before publishing)"))
+            found = rules(p.run(), "slide-delete-before-publishing", severity="warning")
+            self.assertEqual(len(found), 1)
+            self.assertIn("How this example works", found[0].detail)
+            p.slide1(lambda d: d.__setitem__("name", "Notes: DELETE THIS SLIDE BEFORE PUBLISHING"))
+            self.assertTrue(rules(p.run(), "slide-delete-before-publishing"), "whatever the case, with or without 'this slide'")
+            p.slide1(lambda d: d.__setitem__("name", "Before publishing, check the links"))
+            self.assertEqual(rules(p.run(), "slide-delete-before-publishing"), [])
 
     def test_orphan_slide_file_warns(self):
         with MutatedProject() as p:

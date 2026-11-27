@@ -337,6 +337,15 @@ alt text and a tab order of 1 or more like the other controls.
 An error, because a learner who reached the slide could never leave it. The last slide of the course is let be (it has nowhere to go), so is a slide that moves on by itself. The editor
 warns when **Leave out Back and Next** is ticked on a slide with no way out yet, and the three game sets hide Back and Next on every slide but their last, each of which has a way on of its own.
 
+### A slide that says to delete it before publishing
+
+| Rule | Message |
+| --- | --- |
+| A slide's name says to delete it before publishing ("delete before publishing" or "delete this slide before publishing", in any case) (`slide-delete-before-publishing`) | A slide says to delete it before publishing |
+
+A warning. The two branching examples begin with a slide named "How this example works (delete before publishing)" that tells the author how the example is
+built; it is not meant for learners, so the Problems list keeps saying so until it is gone (added 2026-11-27).
+
 ### Question banks and shuffled answers
 
 | Rule | Message |

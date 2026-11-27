@@ -1,0 +1,153 @@
+{
+  "id": "slide-004",
+  "name": "How this example works (delete before publishing)",
+  "duration": null,
+  "layout": "title-only",
+  "background": null,
+  "baseLayer": {
+    "id": "layer-base",
+    "name": "Base",
+    "objects": [
+      {
+        "id": "obj-0011",
+        "geometry": {
+          "x": 80,
+          "y": 136,
+          "width": 160,
+          "height": 6,
+          "rotation": 0,
+          "z": 5
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "shape",
+        "name": "Accent",
+        "content": {
+          "shape": "rectangle"
+        },
+        "style": {
+          "fill": "theme:color.accent"
+        },
+        "accessibility": {
+          "altText": "",
+          "role": "presentation",
+          "tabOrder": 0,
+          "decorative": true
+        }
+      },
+      {
+        "id": "obj-0012",
+        "geometry": {
+          "x": 80,
+          "y": 48,
+          "width": 1120,
+          "height": 80,
+          "rotation": 0,
+          "z": 10
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "Title",
+        "content": {
+          "html": "<h1>How this example works</h1>"
+        },
+        "style": {
+          "fontFamily": "theme:font.heading",
+          "fontSize": 44,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "How this example works",
+          "role": "heading",
+          "tabOrder": 1,
+          "decorative": false
+        }
+      },
+      {
+        "id": "obj-0013",
+        "geometry": {
+          "x": 80,
+          "y": 160,
+          "width": 1120,
+          "height": 520,
+          "rotation": 0,
+          "z": 20
+        },
+        "states": {},
+        "triggers": [],
+        "timing": {
+          "appear": "time",
+          "start": 0,
+          "visibleFor": null
+        },
+        "animation": {
+          "enter": {
+            "effect": "none",
+            "duration": 500
+          },
+          "exit": {
+            "effect": "none",
+            "duration": 500
+          }
+        },
+        "narration": null,
+        "provenance": null,
+        "simulation": null,
+        "type": "text",
+        "name": "How it works",
+        "content": {
+          "html": "<p>This little course sends the learner down one of two paths, depending on what they choose. <strong>This slide is for you, not for learners: delete it before you publish.</strong> Until you do, the Problems list reminds you.</p><ol><li><strong>Choose</strong> (the next slide): the learner picks a path. The answer is kept in the variable <em>choice</em> (Design, Variables...).</li><li>Its <strong>Continue</strong> button has two rules. Select the button and look at <strong>Rules</strong> in the Properties panel: <em>Go to a slide: Short path</em>, only if choice is the short path, and <em>Go to a slide: Long path, part 1</em>, only if choice is the long path.</li><li>The short path is one slide and the long path is two. The Continue button on each goes on along its own path, and both end at <strong>The paths meet again</strong>.</li><li>On every slide after this one, Back and Next are left out (Properties with nothing selected, Moving through the course), so a learner can only go the way their choice sends them. Even on the last slide: Back there would go to the slide before it in the list, the end of the long path, whichever way the learner came.</li></ol><p><strong>To make your own:</strong> change the words of the choice, add a slide or two for each path, and give Continue one rule for each answer.</p>"
+        },
+        "style": {
+          "fontFamily": "theme:font.body",
+          "fontSize": 20,
+          "color": "theme:color.text"
+        },
+        "accessibility": {
+          "altText": "This little course sends the learner down one of two paths, depending on what they choose. This slide is for you, not for learners: delete it before you publish. Until you do, the Problems list reminds you. 1. Choose, the next slide: the learner picks a path. The answer is kept in the variable choice (Design, Variables). 2. Its Continue button has two rules. Select the button and look at Rules in the Properties panel: Go to a slide: Short path, only if choice is the short path, and Go to a slide: Long path, part 1, only if choice is the long path. 3. The short path is one slide and the long path is two. The Continue button on each goes on along its own path, and both end at The paths meet again. 4. On every slide after this one, Back and Next are left out (Properties with nothing selected, Moving through the course), so a learner can only go the way their choice sends them. Even on the last slide: Back there would go to the slide before it in the list, the end of the long path, whichever way the learner came. To make your own: change the words of the choice, add a slide or two for each path, and give Continue one rule for each answer.",
+          "role": "paragraph",
+          "tabOrder": 2,
+          "decorative": false
+        }
+      }
+    ]
+  },
+  "layers": []
+}

@@ -5,7 +5,7 @@
     "author": "",
     "language": "en-US",
     "created": "2026-10-11",
-    "modified": "2026-10-11"
+    "modified": "2026-11-27"
   },
   "stage": {
     "width": 1280,
@@ -17,12 +17,6 @@
       "name": "choice",
       "type": "string",
       "initial": ""
-    },
-    {
-      "id": "var-2",
-      "name": "attempts",
-      "type": "number",
-      "initial": 3
     }
   ],
   "theme": {
@@ -37,9 +31,12 @@
       "id": "scene-main",
       "name": "Main",
       "slides": [
+        "slide-004",
         "slide-001",
         "slide-002",
-        "slide-003"
+        "slide-003",
+        "slide-005",
+        "slide-006"
       ]
     }
   ]
