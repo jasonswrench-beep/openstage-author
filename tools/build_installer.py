@@ -57,7 +57,7 @@ OUT = DIST / "installer"
 
 # The exact release this build is, as its tag on GitHub has it without the v. Raise it for every release: the program shows it in About, and
 # Check for updates compares it with the newest published tag (editor/src-tauri/src/updates.rs, docs/UPDATE-CHECK.md).
-RELEASE = "0.1.0-alpha.5"
+RELEASE = "1.0.0"
 
 # The course tools' Python (the checker, the migrations, the Word review document and the rest): a version python.org still looks after.
 PYTHON_VERSION = "3.14.10"

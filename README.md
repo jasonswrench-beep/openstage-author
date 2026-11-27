@@ -16,12 +16,11 @@ tools out of pocket.
 
 ## Status
 
-Early, and available for testing. [OpenStage Author 0.1.0 alpha 5](https://github.com/jasonswrench-beep/openstage-author/releases/tag/v0.1.0-alpha.5)
-is a pre-release for Windows: a signed installer with the editor, the player and what publishing needs. Download
-`OpenStage-Author-0.1.0-alpha.5-Setup.exe` from that page and check it against the SHA-256 given there.
+[OpenStage Author 1.0.0](https://github.com/jasonswrench-beep/openstage-author/releases/tag/v1.0.0) is the first full release, for Windows:
+a signed installer with the editor, the player and what publishing needs. Download `OpenStage-Author-1.0.0-Setup.exe` from that page
+and check it against the SHA-256 given there.
 
-It is a pre-release, so expect rough edges and changes between versions. Keep copies of what you make with it, and try a
-published course in your own LMS before students see it. It is not yet ready for courses that students depend on.
+Keep copies of what you make with it, and try a published course in your own LMS before students see it.
 
 ## Why this exists
 
