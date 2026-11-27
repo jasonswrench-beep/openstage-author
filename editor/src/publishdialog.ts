@@ -132,6 +132,7 @@ export function openPublish(opts: PublishOptions): Promise<void> {
           ...(name !== null ? { name } : {}),
           ...(style.headings !== DEFAULT_STYLE.headings ? { headings: style.headings } : {}),
           ...(style.font !== DEFAULT_STYLE.font ? { font: style.font } : {}),
+          ...(style.lrsHosts.length > 0 ? { hosts: style.lrsHosts } : {}),
         });
         last = result;
         say("");

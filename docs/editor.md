@@ -147,7 +147,12 @@ has; a course with sections has a Heading 1 for each section, numbered the same 
 Publish window says the name the files will get. With the usual style, Publish is exactly what it always was, byte for byte. The rules
 are `editor/src/publishstyle.ts` and its window `editor/src/publishstyledialog.ts`; the desktop program checks the name and the choices
 again before anything is written (`safe_publish_name` and `review_flags` in `lib.rs`), and `tools/review_doc.py` takes `--headings` and
-`--font`.
+`--font`. **Reporting to a learning record store (xAPI and cmi5)** is a box for the hosts a course may report to, such as `lrs.example.org` or
+`*.example.org`, separated by commas or one to a line (added 2026-11-27 from the security review). Empty, the usual, a course reports wherever it is
+launched; with hosts, a course launched with any other host runs untracked (`docs/format-spec.md`, "xAPI tracking" and "cmi5 tracking"). A host that
+is not one is named in the window, the box is marked and keeps the focus, and nothing is saved until it is put right. The list reaches the publish
+tool as `--lrs-hosts` (`lrs_hosts_flag` in `lib.rs` checks it again; `player/src/lrshosts.ts` reads it and holds the rules). The assistant
+server's own Publish (`mcp/`) does not use the publishing style, so a course it publishes has no list.
 
 Make a new project (a title, an author, a language and an empty folder, which gets one slide with the title on it) or open an existing project folder. Choose a slide and a layer. Choose an object from the Objects list or on the
 canvas. Move and resize it with the mouse, the arrow keys, or typed values. Edit its name, alt text,

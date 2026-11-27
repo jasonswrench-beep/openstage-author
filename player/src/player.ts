@@ -526,7 +526,7 @@ export function mount(): void {
   // A cmi5 launch: the LMS gave the address of a learning record store and of a place to ask for a token. The token, the launch data and the
   // learner's saved place are fetched first, so the course opens a moment later; if the LMS does not answer it opens at the start, untracked.
   if (isCmi5Launch(window.location.search)) {
-    const cmi5 = readCmi5Launch(window.location.search);
+    const cmi5 = readCmi5Launch(window.location.search, pkg.lrsHosts);
     if (!cmi5) {
       player.start(null);
       return;
@@ -545,7 +545,7 @@ export function mount(): void {
   }
   // No LMS, but the course may have been launched with the address of a learning record store (xAPI). The learner's saved place is
   // fetched from it first, so the course opens a moment later; if the store does not answer it opens at the start.
-  const launch = readLaunch(window.location.search, pkg.project);
+  const launch = readLaunch(window.location.search, pkg.project, pkg.lrsHosts);
   if (!launch) {
     // A preview opened straight from disk: the course just runs.
     player.start(null);

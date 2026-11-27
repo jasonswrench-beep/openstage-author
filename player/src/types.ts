@@ -734,4 +734,9 @@ export interface CoursePackage {
   narration: Record<string, NarrationAsset>;
   /** The size in bytes of each file a course offers for download, by its path, so learners are told how big it is. */
   fileSizes?: Record<string, number>;
+  /**
+   * The learning-record-store hosts the author allowed when publishing (lrshosts.ts says how a host is written). When there are some, the course reports to a store
+   * or learning system only at one of them and otherwise runs untracked; when there are none, or the field is absent, it reports wherever it is launched.
+   */
+  lrsHosts?: string[];
 }

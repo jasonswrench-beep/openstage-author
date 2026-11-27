@@ -1,9 +1,12 @@
 // The publishing style: the house rules an author sets once, for every project, so what Publish makes fits their institution's standards
 // without tidying it by hand each time (feedback from people who tried Author, 2026-11-10). It covers the names of the published files
-// (a pattern of the course's title, code, version and the date) and the Word review document's slide headings, numbering and font.
+// (a pattern of the course's title, code, version and the date), the Word review document's slide headings, numbering and font, and the
+// learning-record-store hosts a published course may report to (xAPI and cmi5; player/src/lrshosts.ts).
 // It is kept in the editor's own settings on this computer (stock.ts), never in a project. The name is worked out here and handed to the
 // desktop program, which checks it again before it writes anything (`safe_publish_name` in lib.rs). The pure parts are tested in
 // publishstyle.test.ts.
+
+import { parseHosts } from "../../player/src/lrshosts.ts";
 
 /** How the Word review document heads each slide. */
 export type HeadingStyle = "slide" | "number" | "outline" | "name";
@@ -14,9 +17,14 @@ export interface PublishStyle {
   headings: HeadingStyle;
   /** The font of the Word review document. */
   font: string;
+  /**
+   * The learning-record-store hosts a published course may report to (xAPI and cmi5), as player/src/lrshosts.ts reads them. Empty: any, as before. With some,
+   * a course launched with the address of any other host runs untracked.
+   */
+  lrsHosts: string[];
 }
 
-export const DEFAULT_STYLE: PublishStyle = { fileName: "{folder}", headings: "slide", font: "Calibri" };
+export const DEFAULT_STYLE: PublishStyle = { fileName: "{folder}", headings: "slide", font: "Calibri", lrsHosts: [] };
 
 export const HEADING_STYLES: readonly { value: HeadingStyle; label: string; example: string }[] = [
   { value: "slide", label: "Slide and its number", example: "Slide 4: Why it matters" },
@@ -45,12 +53,14 @@ export function parsePublishStyle(raw: unknown): PublishStyle {
   const fileName = typeof d["fileName"] === "string" && checkPattern(d["fileName"]) === null ? d["fileName"] : DEFAULT_STYLE.fileName;
   const headings = HEADING_STYLES.some((h) => h.value === d["headings"]) ? (d["headings"] as HeadingStyle) : DEFAULT_STYLE.headings;
   const font = typeof d["font"] === "string" && FONTS.includes(d["font"]) ? d["font"] : DEFAULT_STYLE.font;
-  return { fileName, headings, font };
+  // Only what is a host is kept: a list that was edited by hand and has something else in it keeps its good hosts.
+  const lrsHosts = Array.isArray(d["lrsHosts"]) ? parseHosts(d["lrsHosts"].filter((x): x is string => typeof x === "string").join(" ")).hosts : [];
+  return { fileName, headings, font, lrsHosts };
 }
 
 /** Whether a style is the usual one, so the settings file need not keep it. */
 export function isDefaultStyle(s: PublishStyle): boolean {
-  return s.fileName === DEFAULT_STYLE.fileName && s.headings === DEFAULT_STYLE.headings && s.font === DEFAULT_STYLE.font;
+  return s.fileName === DEFAULT_STYLE.fileName && s.headings === DEFAULT_STYLE.headings && s.font === DEFAULT_STYLE.font && s.lrsHosts.length === 0;
 }
 
 /** What is wrong with a pattern, or null. It needs at least one part in braces, and only the parts there are. */

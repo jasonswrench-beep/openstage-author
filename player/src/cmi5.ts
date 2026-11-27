@@ -11,6 +11,7 @@
 // goes only into the Authorization header of requests to the endpoint it came with, and never into a message or a statement.
 
 import type { Runtime, Snapshot } from "./runtime.ts";
+import { hostAllowedOrSay } from "./lrshosts.ts";
 import { attachXapi, normaliseActor, XAPI_VERSION, type Cmi5Session, type FetchLike, type XapiIo, type XapiLaunch, type XapiTracker } from "./xapi.ts";
 
 export const LAUNCH_DATA_STATE = "LMS.LaunchData";
@@ -51,11 +52,15 @@ function trusted(raw: string | null): URL | null {
   return url.protocol === "https:" || (url.protocol === "http:" && own) ? url : null;
 }
 
-/** The launch details in the address the course was opened with, or null if any is missing or cannot be trusted. */
-export function readCmi5Launch(search: string): Cmi5Launch | null {
+/**
+ * The launch details in the address the course was opened with, or null if any is missing or cannot be trusted. When the author listed the hosts the course may
+ * report to (lrshosts.ts), the endpoint and the place a token is asked for must both be at one of them.
+ */
+export function readCmi5Launch(search: string, allowedHosts?: readonly string[]): Cmi5Launch | null {
   const q = new URLSearchParams(search);
   const endpoint = trusted(q.get("endpoint"));
   const fetchUrl = trusted(q.get("fetch"));
+  if ((endpoint && !hostAllowedOrSay(endpoint, allowedHosts)) || (fetchUrl && !hostAllowedOrSay(fetchUrl, allowedHosts))) return null;
   const registration = q.get("registration");
   const activityId = q.get("activityId");
   const rawActor = q.get("actor");

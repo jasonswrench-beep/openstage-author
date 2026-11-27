@@ -898,6 +898,29 @@ fn review_flags(headings: Option<&str>, font: Option<&str>) -> Result<Vec<String
     Ok(flags)
 }
 
+/// The most hosts a publishing style may list (player/src/lrshosts.ts has the same).
+const MAX_LRS_HOSTS: usize = 50;
+
+/// The learning-record-store hosts of the author's publishing style as the publish tool's `--lrs-hosts` flag, or none when there are none (the course then
+/// reports wherever it is launched, as before). Each has to look like a host here (letters, digits, dots, hyphens, and a `*.` at the start); the publish tool
+/// checks each one fully again and says in words what is wrong.
+fn lrs_hosts_flag(hosts: Option<&[String]>) -> Result<Option<String>, String> {
+    let hosts: Vec<String> = hosts.unwrap_or_default().iter().map(|h| h.trim().to_ascii_lowercase()).filter(|h| !h.is_empty()).collect();
+    if hosts.is_empty() {
+        return Ok(None);
+    }
+    if hosts.len() > MAX_LRS_HOSTS {
+        return Err(format!("The publishing style lists {} learning record store hosts; a course may list at most {MAX_LRS_HOSTS}.", hosts.len()));
+    }
+    for h in &hosts {
+        let rest = h.strip_prefix("*.").unwrap_or(h);
+        if h.len() > 253 || rest.is_empty() || !rest.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-') {
+            return Err(format!("{h} is not a host name. Write a host such as lrs.example.org, or *.example.org for any host under it."));
+        }
+    }
+    Ok(Some(format!("--lrs-hosts={}", hosts.join(","))))
+}
+
 /// A name for the published files from the author's publishing style, made safe for any computer and any LMS: letters, digits, dots,
 /// hyphens and underscores stay, anything else becomes a hyphen, runs of those marks become one, and none is left at either end. None if
 /// nothing is left, or the name is one Windows keeps for itself.
@@ -2346,8 +2369,9 @@ async fn preview_project(dir: String, files: Vec<FileText>) -> Result<String, St
 /// Publish the saved project: a folder of web files and a SCORM 1.2 zip, written beside each other in `folder`. With `source`, each zip
 /// also carries an editable copy of the course (only the project's own files; player/src/sourcecopy.ts); without it, none.
 #[tauri::command]
-async fn publish_project(dir: String, folder: String, video: Option<bool>, name: Option<String>, headings: Option<String>, font: Option<String>, source: Option<bool>) -> Result<String, String> {
+async fn publish_project(dir: String, folder: String, video: Option<bool>, name: Option<String>, headings: Option<String>, font: Option<String>, source: Option<bool>, hosts: Option<Vec<String>>) -> Result<String, String> {
     let mut extra = review_flags(headings.as_deref(), font.as_deref())?;
+    extra.extend(lrs_hosts_flag(hosts.as_deref())?);
     if source.unwrap_or(false) {
         extra.push("--include-source".into());
     }
@@ -5921,6 +5945,17 @@ Colour,100,MC,Why?,x
         assert!(review_flags(Some("fancy"), None).is_err());
         assert!(review_flags(None, Some("Comic Sans MS")).is_err());
         assert!(review_flags(None, Some("Arial --targets=mp4")).is_err(), "nothing but a font on the list gets through");
+        // The hosts a course may report to: none passes nothing, so publishing is as it was.
+        assert_eq!(lrs_hosts_flag(None).unwrap(), None);
+        assert_eq!(lrs_hosts_flag(Some(&[])).unwrap(), None);
+        assert_eq!(lrs_hosts_flag(Some(&["  ".to_string()])).unwrap(), None);
+        let listed = ["LRS.Example.org".to_string(), " *.learn.example.net ".to_string(), "localhost".to_string()];
+        assert_eq!(lrs_hosts_flag(Some(&listed)).unwrap().as_deref(), Some("--lrs-hosts=lrs.example.org,*.learn.example.net,localhost"));
+        for bad in ["https://lrs.example.org", "lrs.example.org/xapi", "lrs.example.org:8443", "a,b.example.org", "x --targets=mp4", "*.", "a*.example.org", "lrs.example.org=1"] {
+            assert!(lrs_hosts_flag(Some(&[bad.to_string()])).is_err(), "{bad} must be refused");
+        }
+        let many: Vec<String> = (0..=MAX_LRS_HOSTS).map(|i| format!("h{i}.example.org")).collect();
+        assert!(lrs_hosts_flag(Some(&many)).is_err());
         assert_eq!(publish_flags(false, false), vec!["--json"]);
         assert_eq!(publish_flags(false, true), vec!["--json", "--targets=scorm12,scorm2004,xapi,cmi5,review,mp4"]);
         // A preview is a quick look at the page: it never makes a video, whatever was asked.

@@ -458,3 +458,42 @@ test("the people of the cast are credited on the credits page, though no slide s
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+/** The course data the published page carries, as the player reads it. */
+function pagePackage(site: string): Record<string, unknown> {
+  const page = readFileSync(path.join(site, "index.html"), "utf-8");
+  const data = /<script type="application\/json" id="openstage-project">(.*?)<\/script>/s.exec(page);
+  assert.ok(data, "the page carries its course data");
+  return JSON.parse(data[1]!) as Record<string, unknown>;
+}
+
+test("a published course lists the hosts it may report to, only when the author listed some", { skip: !havePython }, () => {
+  const dir = scratch();
+  try {
+    const none = run(path.join(examples, "minimal.osproj"), path.join(dir, "none"), "--preview");
+    assert.equal(none.status, 0, JSON.stringify(none.result));
+    assert.equal("lrsHosts" in pagePackage(path.join(dir, "none")), false, "no list, so nothing is added and the page is as it was");
+    const some = run(path.join(examples, "minimal.osproj"), path.join(dir, "some"), "--preview", "--lrs-hosts=LRS.Example.org, *.learn.example.net,lrs.example.org");
+    assert.equal(some.status, 0, JSON.stringify(some.result));
+    assert.deepEqual(pagePackage(path.join(dir, "some"))["lrsHosts"], ["lrs.example.org", "*.learn.example.net"], "lower case, each once, in the order given");
+    const empty = run(path.join(examples, "minimal.osproj"), path.join(dir, "empty"), "--preview", "--lrs-hosts=");
+    assert.equal(empty.status, 0);
+    assert.equal("lrsHosts" in pagePackage(path.join(dir, "empty")), false, "an empty list is no list");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a host list with an entry that is not a host stops the publish before anything is written", () => {
+  const dir = scratch();
+  try {
+    const r = spawnSync(process.execPath, ["publish.ts", path.join(examples, "minimal.osproj"), path.join(dir, "site"), "--json", "--preview", "--lrs-hosts=https://lrs.example.org/xapi,good.example.org"], { cwd: player, encoding: "utf-8" });
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /--lrs-hosts/);
+    assert.match(r.stderr, /https:\/\/lrs\.example\.org\/xapi/);
+    assert.equal(r.stdout.trim(), "", "nothing was published, so there is no result");
+    assert.equal(existsSync(path.join(dir, "site")), false, "nothing was written");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

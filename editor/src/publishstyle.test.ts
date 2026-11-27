@@ -51,10 +51,19 @@ test("the next big version: 1.0 and 1.3 make 2.0, 2 makes 3, none makes 2.0, wor
 });
 
 test("the style kept in the settings file is read back, and anything damaged is the usual", () => {
-  assert.deepEqual(parsePublishStyle({ fileName: "{code}_{title}", headings: "outline", font: "Arial" }), { fileName: "{code}_{title}", headings: "outline", font: "Arial" });
+  assert.deepEqual(parsePublishStyle({ fileName: "{code}_{title}", headings: "outline", font: "Arial" }), { fileName: "{code}_{title}", headings: "outline", font: "Arial", lrsHosts: [] }, "a style saved before hosts could be listed lists none");
   assert.deepEqual(parsePublishStyle({ fileName: "{nope}", headings: "fancy", font: "Comic Sans" }), DEFAULT_STYLE);
   assert.deepEqual(parsePublishStyle(null), DEFAULT_STYLE);
   assert.ok(isDefaultStyle(parsePublishStyle(undefined)));
+});
+
+test("the hosts a course may report to are kept with the style, and only what is a host", () => {
+  const kept = parsePublishStyle({ fileName: "{folder}", headings: "slide", font: "Calibri", lrsHosts: ["LRS.example.org", "*.learn.example.net", "lrs.example.org"] });
+  assert.deepEqual(kept.lrsHosts, ["lrs.example.org", "*.learn.example.net"]);
+  assert.equal(isDefaultStyle(kept), false, "a style with hosts is not the usual one, so it is kept in the settings file");
+  assert.deepEqual(parsePublishStyle({ lrsHosts: ["https://lrs.example.org/xapi", 7, null, "good.example.org"] }).lrsHosts, ["good.example.org"], "a list edited by hand keeps its good hosts");
+  assert.deepEqual(parsePublishStyle({ lrsHosts: "lrs.example.org" }).lrsHosts, [], "a list has to be a list");
+  assert.ok(isDefaultStyle(parsePublishStyle({ lrsHosts: [] })));
 });
 
 test("the course's code and version are kept in the project, one undo step each, and a blank one is taken away", () => {

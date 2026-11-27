@@ -1719,6 +1719,13 @@ its details in the address (the "TinCan launch"): `endpoint`, `auth` (the Author
   because the learner's answers are sent to it. The `actor` must name the learner in exactly one way (`mbox`, `mbox_sha1sum`,
   `openid` or `account`); the older launch form with each value in a list is understood. If the details are missing or do not meet
   these rules the course runs untracked.
+- **Hosts the author allowed.** The author's publishing style can list the learning-record-store hosts a course may report to (a setting of the
+  editor on that computer, not of the project: `docs/editor.md`, "The publishing style"; the publish tool's `--lrs-hosts=HOST,HOST`). The list goes
+  into the published page as the package's `lrsHosts`: host names in lower case, each once, such as `lrs.example.org`, or `*.example.org` for any host one
+  or more levels under it (the name itself is not included); no scheme, port, path or bracketed address (`player/src/lrshosts.ts`). With a list, the
+  `endpoint`'s host has to be on it, the learner's own computer included, or the course runs untracked and says why on the browser's console. With no
+  list, or an empty one, the page has no `lrsHosts` and the course reports to any endpoint that meets the rules above, as it always has. SCORM is not
+  affected.
 - **The course's identifier** is `activity_id` from the address if there is one, otherwise
   `https://openstageauthor.com/xapi/course/<the title as a slug>-<the project's created date>`, which is also the id in
   `tincan.xml`. It stays the same each time the course is published, and changes if the title is changed.
@@ -1772,7 +1779,8 @@ only against the stand-in cmi5 learning system of this repository (`player/src/f
   (`launchMethod="AnyWindow"`). **What the learner must do** (`moveOn`): `Completed` for a course with no scored question, and `CompletedAndPassed` with
   `masteryScore="0.8"` (the course's own pass mark) for one with a scored question.
 - **The launch.** The LMS opens `index.html` with `endpoint`, `fetch`, `actor`, `registration` and `activityId` in its address. The course takes them
-  only if all five are there and sound: the `endpoint` and the `fetch` address must be https (or the learner's own computer), the `registration` a UUID, the
+  only if all five are there and sound: the `endpoint` and the `fetch` address must be https (or the learner's own computer), and when the author listed
+  hosts (`lrsHosts`, as in xAPI above) both of their hosts must be on the list; the `registration` a UUID, the
   `activityId` an address, the `actor` an account. A launch that has the `fetch` address is a cmi5 launch and is never taken for an xAPI one; with a part missing the
   course runs untracked.
 - **The token.** The course asks the `fetch` address once, with a POST and no credentials, and is given `{"auth-token": "..."}`. It sends `Authorization: Basic

@@ -118,8 +118,11 @@ export interface Backend {
   preview(dir: string, files: FileText[]): Promise<PublishResult>;
   /** Publish the saved project: the course as web files and a SCORM 1.2 zip, both inside `folder`. */
   /** Make the packages, and with `video` an MP4 of the course too (Windows only; it takes minutes). */
-  /** `name` is the publishing style's name for the files (none: the project folder's); `headings` and `font` style the Word review document. */
-  publish(dir: string, folder: string, options?: { video?: boolean; name?: string; headings?: string; font?: string; source?: boolean }): Promise<PublishResult>;
+  /**
+   * `name` is the publishing style's name for the files (none: the project folder's); `headings` and `font` style the Word review document; `hosts` are the
+   * learning-record-store hosts the course may report to (none: any).
+   */
+  publish(dir: string, folder: string, options?: { video?: boolean; name?: string; headings?: string; font?: string; source?: boolean; hosts?: string[] }): Promise<PublishResult>;
   /** Copy a whole project into an empty folder, for a new version of the course. */
   copyProject(from: string, to: string): Promise<void>;
   /** Stop the preview or publish that is running. Returns whether there was one. */
@@ -395,7 +398,7 @@ const tauriBackend: Backend = {
     return parsePublishResult(await invoke<string>("preview_project", { dir, files }));
   },
   async publish(dir, folder, options) {
-    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true, name: options?.name ?? null, headings: options?.headings ?? null, font: options?.font ?? null, source: options?.source === true }));
+    return parsePublishResult(await invoke<string>("publish_project", { dir, folder, video: options?.video === true, name: options?.name ?? null, headings: options?.headings ?? null, font: options?.font ?? null, source: options?.source === true, hosts: options?.hosts ?? null }));
   },
   copyProject: (from, to) => invoke<void>("copy_project", { from, to }),
   cancelJob: () => invoke<boolean>("cancel_job"),

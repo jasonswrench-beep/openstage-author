@@ -80,6 +80,26 @@ test("a launch that is missing a part, or has one that cannot be trusted, is not
   assert.ok(readCmi5Launch(q({ endpoint: "http://localhost:8080/cmi5/", fetch: "http://localhost:8080/token" })), "the learner's own computer is fine");
 });
 
+test("when the author listed hosts, a launch whose endpoint and token address are listed is used, and any other runs the course untracked", () => {
+  const lms = new FakeCmi5Lms();
+  const host = new URL(lms.launch.endpoint).hostname;
+  const fetchHost = new URL(lms.launch.fetchUrl).hostname;
+  const q = (change: Record<string, string>) => {
+    const p = new URLSearchParams(lms.address.slice(1));
+    for (const [k, v] of Object.entries(change)) p.set(k, v);
+    return `?${p.toString()}`;
+  };
+  assert.deepEqual(readCmi5Launch(lms.address, [host, fetchHost]), { ...lms.launch }, "listed: used as it always was");
+  assert.deepEqual(readCmi5Launch(lms.address, undefined), { ...lms.launch });
+  assert.deepEqual(readCmi5Launch(lms.address, []), { ...lms.launch });
+  assert.equal(warnings.length, 0);
+  assert.equal(readCmi5Launch(lms.address, ["unrelated.example.org"]), null, "not listed: untracked");
+  assert.ok(warnings.length >= 1 && warnings[0]!.includes(host), warnings.join(" | "));
+  if (fetchHost !== host) assert.equal(readCmi5Launch(lms.address, [host]), null, "the place the token is asked for has to be listed too");
+  assert.equal(readCmi5Launch(q({ endpoint: "https://elsewhere.example.org/cmi5/" }), [host, fetchHost]), null, "an endpoint at another host is refused even when the token's host is listed");
+  assert.equal(readCmi5Launch(q({ fetch: "https://elsewhere.example.org/token" }), [host, fetchHost]), null, "and so is a token address at another host");
+});
+
 // ---- the token and the launch data
 
 test("the token is asked for with a POST, used as Basic, and can be had once", async () => {

@@ -63,6 +63,29 @@ test("the launch address gives the endpoint, the credential, the learner and the
   assert.equal(readLaunch(`${query}&activity_id=${encodeURIComponent("https://example.test/a")}`, project)?.activityId, "https://example.test/a");
 });
 
+test("when the author listed hosts, a launch at a listed host is used and any other runs the course untracked", () => {
+  const project = examplePackage().project;
+  const actor = encodeURIComponent(JSON.stringify(ACTOR));
+  const at = (host: string) => `?endpoint=${encodeURIComponent(`https://${host}/xapi/`)}&actor=${actor}`;
+  const own = `?endpoint=${encodeURIComponent("http://localhost:8766/xapi/")}&actor=${actor}`;
+  const realWarn = console.warn;
+  const said: string[] = [];
+  console.warn = (...a: unknown[]) => { said.push(a.join(" ")); };
+  try {
+    assert.ok(readLaunch(at("lrs.example.test"), project, ["lrs.example.test"]), "a listed host is used");
+    assert.ok(readLaunch(at("lrs.example.test"), project, ["*.example.test"]), "and so is one under a * entry");
+    assert.ok(readLaunch(at("anywhere.example.org"), project, undefined), "no list: any https host, as before");
+    assert.ok(readLaunch(at("anywhere.example.org"), project, []), "an empty list is no list");
+    assert.deepEqual(said, []);
+    assert.equal(readLaunch(at("elsewhere.example.org"), project, ["lrs.example.test"]), null, "a host that is not listed runs the course untracked");
+    assert.equal(said.length, 1);
+    assert.equal(readLaunch(own, project, ["lrs.example.test"]), null, "the learner's own computer is no exception when a list is set");
+    assert.ok(readLaunch(own, project, ["localhost"]), "unless it is listed");
+  } finally {
+    console.warn = realWarn;
+  }
+});
+
 test("a course opened without LRS details, or with ones that cannot be trusted, runs untracked", () => {
   const project = examplePackage().project;
   const actor = encodeURIComponent(JSON.stringify(ACTOR));

@@ -31,6 +31,7 @@ import type { InputInteraction, Project, QuizContent, ScenarioContent } from "./
 import { decodeSuspend, encodeSuspend, evaluate } from "./scorm.ts";
 import { formatGraded, formatInput, type InteractionKind } from "./interaction-format.ts";
 import { walk } from "./scenario.ts";
+import { hostAllowedOrSay } from "./lrshosts.ts";
 import { sessionTime2004 as duration } from "./scorm2004.ts";
 
 export const XAPI_VERSION = "1.0.3";
@@ -120,7 +121,7 @@ export function normaliseActor(raw: unknown): Record<string, unknown> | null {
  * The LRS details in the address the course was opened with, or null if there are none or they cannot be trusted. The
  * endpoint must be https, except on the learner's own computer, because the learner's answers are sent to it.
  */
-export function readLaunch(search: string, project: Project): XapiLaunch | null {
+export function readLaunch(search: string, project: Project, allowedHosts?: readonly string[]): XapiLaunch | null {
   const q = new URLSearchParams(search);
   const rawEndpoint = q.get("endpoint");
   const rawActor = q.get("actor");
@@ -129,6 +130,7 @@ export function readLaunch(search: string, project: Project): XapiLaunch | null 
   try { url = new URL(rawEndpoint); } catch { return null; }
   const own = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && own)) return null;
+  if (!hostAllowedOrSay(url, allowedHosts)) return null;
   let actor: Record<string, unknown> | null;
   try { actor = normaliseActor(JSON.parse(rawActor)); } catch { return null; }
   if (!actor) return null;

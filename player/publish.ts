@@ -22,6 +22,8 @@
 //   --review-headings=slide|number|outline|name  How the Word review document heads each slide (the author's publishing style;
 //                          tools/review_doc.py). "slide" if left out.
 //   --review-font=NAME     The Word review document's font, one of review_doc.py's FONTS. Calibri if left out.
+//   --lrs-hosts=HOST,HOST  The learning-record-store hosts the course may report to (xAPI and cmi5), such as lrs.example.org or *.example.org
+//                          (src/lrshosts.ts). A course launched with the address of any other host runs untracked. Any host if left out.
 //   --include-source       Each zip also carries an editable copy of the course (source/), so someone with the package can open
 //                          and change it. Off if left out. The copy holds only the project's own files and the assets they name
 //                          (src/sourcecopy.ts): never a hidden folder such as .git, a backup, the cache, a recording or OS files.
@@ -42,6 +44,7 @@ import { isExcluded } from "./src/exclude.ts";
 import { editableCopyFiles, mayBePublished } from "./src/sourcecopy.ts";
 import { publishedPackage } from "./src/published.ts";
 import { policyMetaTag } from "./src/csp.ts";
+import { parseHosts } from "./src/lrshosts.ts";
 import { setPlayerText, t } from "./src/playertext.ts";
 import { makeVideo, type VideoResult } from "./src/video.ts";
 
@@ -59,10 +62,17 @@ const flags = process.argv.slice(2);
 const asJson = flags.includes("--json");
 const preview = flags.includes("--preview");
 const includeSource = flags.includes("--include-source");
+// The hosts the published course may report to, if the author listed any. A host that is not a host is refused here, before anything is written.
+const lrsFlag = flags.find((a) => a.startsWith("--lrs-hosts="));
+const lrs = parseHosts(lrsFlag ? lrsFlag.slice("--lrs-hosts=".length) : "");
 const [projectArg, outArg] = flags.filter((a) => !a.startsWith("--"));
-const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,cmi5,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME] [--include-source]";
+const usage = "Usage: node publish.ts PROJECT_DIR OUT_DIR [--json] [--preview] [--targets=scorm12,scorm2004,xapi,cmi5,review,mp4] [--video-size=WxH] [--video-silent=SECONDS] [--video-no-motion] [--review-headings=slide|number|outline|name] [--review-font=NAME] [--lrs-hosts=HOST,HOST] [--include-source]";
 if (!projectArg || !outArg) {
   console.error(usage);
+  process.exit(2);
+}
+if (lrs.problems.length > 0) {
+  console.error(`${usage}\n--lrs-hosts: ${lrs.problems.join(" ")}`);
   process.exit(2);
 }
 const targetsFlag = flags.find((a) => a.startsWith("--targets="));
@@ -227,7 +237,7 @@ for (const slide of slides) {
   }
 }
 // What goes into the page is what the player reads: not who wrote the course, the decks it came from or how a picture was made (src/published.ts).
-const pkg: CoursePackage = publishedPackage({ project, theme, slides, narration, credits, fileSizes });
+const pkg: CoursePackage = publishedPackage({ project, theme, slides, narration, credits, fileSizes, ...(lrs.hosts.length > 0 ? { lrsHosts: lrs.hosts } : {}) });
 
 // 4. Write the output folder.
 rmSync(outDir, { recursive: true, force: true });

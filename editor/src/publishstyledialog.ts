@@ -1,12 +1,14 @@
 // File > Publishing style... (and a button in the Publish window): the house rules for what Publish makes, set once for every project.
 // The names of the published files are a pattern of parts in braces, with buttons that put a part in at the cursor and a line that shows
-// the name the open course would get; the Word review document's slide headings and font are chosen from lists. A native <dialog>, so
+// the name the open course would get; the Word review document's slide headings and font are chosen from lists; the hosts a course may report to
+// (xAPI and cmi5) are typed in a box, one or more to a line, and a host that is not one is named in the dialog. A native <dialog>, so
 // focus moves in, Tab stays inside, Escape closes it and focus goes back. A pattern that cannot be used is said in the dialog, which
 // stays open. The style is kept in the editor's settings file (stock.ts); the rules are in publishstyle.ts.
 
 import { errorText, type Backend } from "./backend.ts";
 import { checkPattern, DEFAULT_STYLE, FONTS, HEADING_STYLES, isDefaultStyle, NAME_PARTS, publishName, type NameValues, type PublishStyle } from "./publishstyle.ts";
 import { parseSettings, serializeSettings } from "./stock.ts";
+import { parseHosts } from "../../player/src/lrshosts.ts";
 
 type Attrs = Record<string, string | boolean>;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -51,6 +53,17 @@ export function openPublishStyle(opts: PublishStyleOptions): Promise<PublishStyl
       headings.value = style.headings;
       const font = h("select", { id: "ps-font" }, ...FONTS.map((f) => h("option", { value: f, text: f })));
       font.value = style.font;
+      const hostsBox = h("textarea", { id: "ps-hosts", rows: "3", autocomplete: "off", spellcheck: "false", "aria-describedby": "ps-hosts-note ps-hosts-error" });
+      hostsBox.value = style.lrsHosts.join("\n");
+      const hostsError = h("p", { id: "ps-hosts-error", class: "error-text", role: "alert" });
+      /** The hosts in the box, or null when one is not a host (which is then said, and the box marked). */
+      const readHosts = (): string[] | null => {
+        const { hosts, problems } = parseHosts(hostsBox.value);
+        hostsError.textContent = problems.join(" ");
+        hostsBox.setAttribute("aria-invalid", String(problems.length > 0));
+        return problems.length > 0 ? null : hosts;
+      };
+      hostsBox.addEventListener("change", () => void readHosts());
       const save = h("button", { type: "button", class: "primary", text: "Save style" });
       const usual = h("button", { type: "button", text: "Back to the usual" });
       const cancel = h("button", { type: "button", text: "Cancel" });
@@ -98,7 +111,12 @@ export function openPublishStyle(opts: PublishStyleOptions): Promise<PublishStyl
           nameBox.focus();
           return;
         }
-        const next: PublishStyle = { fileName: nameBox.value.trim(), headings: headings.value as PublishStyle["headings"], font: font.value };
+        const lrsHosts = readHosts();
+        if (lrsHosts === null) {
+          hostsBox.focus();
+          return;
+        }
+        const next: PublishStyle = { fileName: nameBox.value.trim(), headings: headings.value as PublishStyle["headings"], font: font.value, lrsHosts };
         try {
           const settings = parseSettings(await b.readSettings());
           if (isDefaultStyle(next)) delete settings.publishStyle;
@@ -115,6 +133,8 @@ export function openPublishStyle(opts: PublishStyleOptions): Promise<PublishStyl
         nameBox.value = DEFAULT_STYLE.fileName;
         headings.value = DEFAULT_STYLE.headings;
         font.value = DEFAULT_STYLE.font;
+        hostsBox.value = "";
+        void readHosts();
         showPreview();
         opts.announce("The usual style is filled in. Press Save style to keep it.");
       });
@@ -134,6 +154,10 @@ export function openPublishStyle(opts: PublishStyleOptions): Promise<PublishStyl
           h("div", { class: "field" }, h("label", { for: "ps-headings", text: "Each slide is headed" }), headings),
           h("p", { class: "note", text: "A course with sections has a heading for each section too, numbered the same way." }),
           h("div", { class: "field" }, h("label", { for: "ps-font", text: "Font" }), font)),
+        h("fieldset", {}, h("legend", { text: "Reporting to a learning record store (xAPI and cmi5)" }),
+          h("div", { class: "field" }, h("label", { for: "ps-hosts", text: "Hosts a course may report to" }), hostsBox),
+          h("p", { id: "ps-hosts-note", class: "note", text: "Leave this empty and a course reports to whatever learning record store it is launched with, as it always has. Write the hosts your learning systems use, such as lrs.example.org, or *.example.org for any host under it, separated by commas or one to a line, and a course launched with any other host runs without reporting anything. For cmi5, list the host the token comes from too. SCORM packages are not affected." }),
+          hostsError),
         failure,
         h("div", { class: "dialog-actions" }, save, usual, cancel),
       );
