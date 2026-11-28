@@ -20,6 +20,7 @@ mod svgclean;
 mod updates;
 mod speech;
 mod stream;
+mod voice_models;
 mod presenter;
 
 /// Tests that use the one job slot, or the recorder slot, take turns, because both are shared by the whole program.
@@ -3729,9 +3730,11 @@ fn speech_program() -> Result<PathBuf, String> {
     speech_program_in(std::env::var("OPENSTAGE_WHISPER").ok().as_deref(), &starts)
 }
 
-/// Where the speech models are kept: the editor's own folder on this computer, never a course.
-fn speech_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("speech-models"))
+/// Where the speech models are kept, never in a course: `%ProgramData%\Voice Models\speech`, the folder the suite's apps share, when it can be used
+/// (with `make`, it is made when it is not there yet), and the editor's own folder, where they were kept before (voice_models.rs).
+fn speech_models_dirs(app: &tauri::AppHandle, make: bool) -> Result<speech::Folders, String> {
+    let own = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("speech-models");
+    Ok(speech::Folders { shared: voice_models::folder(voice_models::SPEECH, make), own })
 }
 
 /// The folder the sound being listened to is kept in for as long as it takes.
@@ -3745,8 +3748,8 @@ static SPEECH_DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
 /// Whether the recogniser is there and which models are downloaded, as JSON for the page.
 #[tauri::command]
 fn speech_status(app: tauri::AppHandle) -> Result<String, String> {
-    let folder = speech_models_dir(&app)?;
-    serde_json::to_string(&speech::status(speech_program(), &folder)).map_err(|e| e.to_string())
+    let folders = speech_models_dirs(&app, false)?;
+    serde_json::to_string(&speech::status(speech_program(), &folders)).map_err(|e| e.to_string())
 }
 
 /// Download a model the author asked for. Progress reaches the page as `speech-download` events ({ id, done, total }). Only a model in the table in speech.rs can be asked for, and
@@ -3754,7 +3757,7 @@ fn speech_status(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 async fn speech_download(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let spec = speech::model(&id).ok_or("That is not a speech model OpenStage knows.")?;
-    let folder = speech_models_dir(&app)?;
+    let folder = speech_models_dirs(&app, true)?.download_to().to_path_buf();
     if SPEECH_DOWNLOADING.swap(true, Ordering::SeqCst) {
         return Err("A model is already being downloaded.".into());
     }
@@ -3814,10 +3817,9 @@ async fn speech_listen(app: tauri::AppHandle, audio: String, model: String, hint
     }
     let spec = speech::model(&model).ok_or("That is not a speech model OpenStage knows.")?;
     let program = speech_program()?;
-    let folder = speech_models_dir(&app)?;
-    if !speech::installed(&folder, spec) {
+    let Some(model_file) = speech_models_dirs(&app, false)?.find(spec) else {
         return Err(format!("The speech model {} is not downloaded yet.", spec.id));
-    }
+    };
     let wav = speech_temp_dir().join(&audio);
     if !wav.is_file() {
         return Err("The sound to listen to is not there any more. Try again.".into());
@@ -3825,7 +3827,7 @@ async fn speech_listen(app: tauri::AppHandle, audio: String, model: String, hint
     tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let _slot = JobSlot::take()?;
         let out_base = speech_temp_dir().join(audio.trim_end_matches(".wav"));
-        let args = speech::listen_args(&speech::model_path(&folder, spec), &wav, &out_base, spec.id, &hint, speech::threads());
+        let args = speech::listen_args(&model_file, &wav, &out_base, spec.id, &hint, speech::threads());
         let mut cmd = Command::new(&program);
         cmd.args(&args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
         if let Some(dir) = program.parent() {

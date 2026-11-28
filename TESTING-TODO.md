@@ -12,6 +12,14 @@ installed on the machine this was built on). Rebuild the test pack first with `P
 - [ ] **2. The recorder's Windows tests**, including the hour-long one: double-click the `.bat` files in `capture` (the list is in `capture/README.md`: `TEST EXPORT.bat`, `TEST WEBCAM.bat`, `TEST INTERACTIONS.bat`, `TEST LONG RECORDING.bat` (60 minutes), `TEST OUTPUT SWITCH.bat`, `TEST CUES.bat` (makes sounds on purpose), the region and window pickers, `OPEN TIMELINE DEMO.bat`) and say what you saw. The recorder's own automatic tests are silent and pass.
 - [ ] **3. A pass by someone who uses a screen reader every day**, over the editor and a published course: `docs/screen-reader-pass.md` has the script (NVDA and Narrator, eight patterns) with empty result lines; Capture's own pass is in `capture-timeline/README.md`. NVDA 2026.2 was run over the editor and the course pages by the assistant on 2026-10-21 and found ten problems, fixed; a daily user will find far more. This round added dialogs that no screen reader has met (below).
 
+## Speech models in the shared folder, %ProgramData%\Voice Models (2026-11-28; no format change)
+
+The editor now downloads its Whisper models into `%ProgramData%\Voice Models\speech`, which it makes locked to the person, SYSTEM and the Administrators (other accounts may read). Models in its own folder from before are still used. Covered by tests (the folder it makes is kept; one another account can add to is not used; the shared folder is looked in first). Not tried in the installed editor.
+
+- [ ] **Download in the installed editor.** With no `%ProgramData%\Voice Models` yet, download base.en. It should land in `%ProgramData%\Voice Models\speech`, and `icacls "%ProgramData%\Voice Models"` should list only you, SYSTEM and Administrators with full control and Users with read and execute, with no inherited lines. Captions should then work with it.
+- [ ] **Your old models still work.** small.en, downloaded before into `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, should still show as downloaded and make captions.
+- [ ] **A folder someone else made is not used.** As a second standard Windows account, make `%ProgramData%\Voice Models` by hand before the editor does, then sign in as yourself: the editor should still download into its own folder, and say that folder in the speech models box.
+
 ## Questions from a QTI file (2026-11-16; no format change)
 
 Built and covered by 12 tests (QTI 1.2, 2.1, 3.0, hostile files, the real checker on the slides) and a Rust test of the file reader. Not tried on a file written by a real system, or in the editor window.

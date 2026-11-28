@@ -77,7 +77,7 @@ Python on the PATH; that the recorder and the speech recogniser start; that a pr
   **None of the paid options removes the warning at once**: with any certificate, the warning fades as the program is downloaded and run by more people, and it helps to sign every release with the same identity. *Recommendation:* ship the first installers unsigned to colleagues who are told to expect the warning and how to continue; when the repository is public and has a release, apply to SignPath Foundation (free); if that is refused, Azure Artifact Signing at about $120 a year.
 * **Updates.** None to begin with: a newer installer replaces the older one. A project made by an older version is brought up to date by the program's own migration (that exists).
   A self-updating program is possible later and needs a signing key of its own.
-* **Where things live.** Settings (including service keys) are in the program's settings folder; speech models are in `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models` and can be
+* **Where things live.** Settings (including service keys) are in the program's settings folder; speech models are in `%ProgramData%\Voice Models\speech`, the folder the OpenStage and Prism apps share (or, when that folder cannot be used safely, `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, where they were kept before and are still found) and can be
   hundreds of MB; the author's projects are in folders of their choosing. *Uninstalling* removes the program and asks whether to remove settings and models. It never touches a project.
 * **A release gate.** `CLAUDE.md` says what has to pass before a release (the LMS tests, the screen reader pass). The installer is the last step, not an excuse to skip them.
 

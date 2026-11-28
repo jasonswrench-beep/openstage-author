@@ -10,7 +10,7 @@ Everything happens on your computer. Nothing is sent anywhere, and the program t
 2. **Download a speech model.** In the editor, select a video or audio clip, press **Write captions...**, and under *Write the captions by listening to the voice* choose a model and press **Download the speech model**. It asks first. Choose:
    - **small.en, 488 MB** (recommended): more careful. About a fifth of the length of the recording to listen to it.
    - **base.en, 148 MB**: faster (about a tenth) but makes more mistakes with names and in noise.
-   Both are English only, are made by OpenAI and are shared under the MIT licence. They are kept in `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, checked against the checksum Hugging Face publishes, and never put in a course.
+   Both are English only, are made by OpenAI and are shared under the MIT licence. They are kept in `%ProgramData%\Voice Models\speech`, the folder the OpenStage and Prism apps share (or, when that folder cannot be used safely, `%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`, where they were kept before and are still found), checked against the checksum Hugging Face publishes, and never put in a course.
 
 ## Using it
 

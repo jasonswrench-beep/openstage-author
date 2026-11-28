@@ -29,7 +29,8 @@ tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(windows)'.dependencies]
 # Windows Credential Manager, where the stock-library and AI keys are kept (src/secrets.rs). Already used by the program's other crates.
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+# Also %ProgramData%\Voice Models (src/voice_models.rs): the known folder, making it with its permissions, and reading whose a file is.
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Threading", "Win32_UI_Shell"] }
 
 [features]
 # The developer route for add-ons (src/presenter.rs). With it, OPENSTAGE_DEV_ADDONS=1 lets an add-on that is not signed run, and OPENSTAGE_ADDONS names another

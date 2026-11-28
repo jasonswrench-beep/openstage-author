@@ -80,7 +80,27 @@ pub fn installed(folder: &Path, spec: &ModelSpec) -> bool {
     fs::metadata(model_path(folder, spec)).map(|m| m.is_file() && m.len() == spec.bytes).unwrap_or(false)
 }
 
-pub fn status(program: Result<PathBuf, String>, folder: &Path) -> Status {
+/// Where the models are kept: the folder the suite's apps share (`%ProgramData%\Voice Models\speech`, when it can be used; voice_models.rs), and
+/// the editor's own folder, where they were kept before and still are when the shared folder cannot be used.
+pub struct Folders {
+    pub shared: Option<PathBuf>,
+    pub own: PathBuf,
+}
+
+impl Folders {
+    /// Where a model is: in the shared folder, when its file there is whole and kept as it must be, or else in the editor's own folder.
+    pub fn find(&self, spec: &ModelSpec) -> Option<PathBuf> {
+        let shared = self.shared.as_deref().filter(|s| installed(s, spec) && crate::voice_models::trusted_file(&model_path(s, spec)));
+        shared.or_else(|| Some(self.own.as_path()).filter(|o| installed(o, spec))).map(|f| model_path(f, spec))
+    }
+
+    /// Where a model is downloaded to: the shared folder when it can be used, so the other apps find it too.
+    pub fn download_to(&self) -> &Path {
+        self.shared.as_deref().unwrap_or(&self.own)
+    }
+}
+
+pub fn status(program: Result<PathBuf, String>, folders: &Folders) -> Status {
     let (ready, problem) = match program {
         Ok(_) => (true, String::new()),
         Err(message) => (false, message),
@@ -88,8 +108,8 @@ pub fn status(program: Result<PathBuf, String>, folder: &Path) -> Status {
     Status {
         ready,
         problem,
-        folder: folder.to_string_lossy().into_owned(),
-        models: MODELS.iter().map(|m| ModelStatus { id: m.id, label: m.label, note: m.note, bytes: m.bytes, installed: installed(folder, m) }).collect(),
+        folder: folders.download_to().to_string_lossy().into_owned(),
+        models: MODELS.iter().map(|m| ModelStatus { id: m.id, label: m.label, note: m.note, bytes: m.bytes, installed: folders.find(m).is_some() }).collect(),
     }
 }
 
@@ -413,16 +433,35 @@ mod tests {
     #[test]
     fn the_status_says_what_is_there_and_why_not_when_it_is_not() {
         let folder = temp("status");
-        let missing = serde_json::to_value(status(Err(NO_RECOGNISER.to_string()), &folder)).unwrap();
+        let folders = Folders { shared: None, own: folder.clone() };
+        let missing = serde_json::to_value(status(Err(NO_RECOGNISER.to_string()), &folders)).unwrap();
         assert_eq!(missing["ready"], false);
         assert!(missing["problem"].as_str().unwrap().contains("BUILD SPEECH RECOGNISER.bat"));
         assert_eq!(missing["models"].as_array().unwrap().len(), 2);
         assert_eq!(missing["models"][0]["installed"], false);
         // a file of the wrong size is not a model
         fs::write(folder.join("ggml-base.en.bin"), b"short").unwrap();
-        let ready = serde_json::to_value(status(Ok(PathBuf::from("whisper-cli.exe")), &folder)).unwrap();
+        let ready = serde_json::to_value(status(Ok(PathBuf::from("whisper-cli.exe")), &folders)).unwrap();
         assert_eq!(ready["ready"], true);
         assert_eq!(ready["models"][1]["installed"], false);
         let _ = fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn a_model_is_found_in_the_shared_folder_first_and_in_the_editors_own_folder_after() {
+        let shared = temp("shared");
+        let own = temp("own");
+        let body = b"a model".to_vec();
+        let spec = spec_for(&body);
+        let folders = Folders { shared: Some(shared.clone()), own: own.clone() };
+        assert_eq!(folders.find(&spec), None, "in neither");
+        fs::write(own.join(spec.file), &body).unwrap();
+        assert_eq!(folders.find(&spec), Some(own.join(spec.file)), "one downloaded before is still used");
+        fs::write(shared.join(spec.file), &body).unwrap();
+        assert_eq!(folders.find(&spec), Some(shared.join(spec.file)), "the shared one comes first");
+        assert_eq!(folders.download_to(), shared.as_path());
+        assert_eq!(Folders { shared: None, own: own.clone() }.download_to(), own.as_path(), "no usable shared folder: the editor's own");
+        let _ = fs::remove_dir_all(shared);
+        let _ = fs::remove_dir_all(own);
     }
 }

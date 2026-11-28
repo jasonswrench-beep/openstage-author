@@ -58,7 +58,7 @@ The OpenStage and Prism apps follow one rule for finding things on the computer:
 - **Apps are found where they are installed**: in Windows' installed apps list, or in the app's own per-user folder (`%LOCALAPPDATA%\<app name>`). Never on `PATH`.
 - **Runtimes ship inside the app's own installer** (Node.js, Python, a speech engine). Nothing has to be installed separately, and an installed app never falls back to a copy it finds on `PATH`.
 
-OpenStage Author uses voice models: the Kokoro narration voice and the Whisper speech models. Today it keeps them in its own data folder (`%LOCALAPPDATA%\com.openstageauthor.editor`); they move to `%ProgramData%\Voice Models` with the other apps' models, and until then it keeps reading its own folder so nothing downloaded is lost. Its Python and Node.js ship inside its installer.
+OpenStage Author downloads its Whisper speech models into `%ProgramData%\Voice Models\speech`, so the other apps can use them too. Models it downloaded before, into its own data folder (`%LOCALAPPDATA%\com.openstageauthor.editor\speech-models`), are still found there, and it keeps using that folder when the shared one cannot be used safely (made first by another account, or changeable by one). The narration engine (Kokoro) is not a shared piece: it is Python code and a PyTorch model, which runs code when it is loaded, so it stays in the editor's own folder for this person alone. Its Python and Node.js ship inside its installer.
 
 ## Licence
 
